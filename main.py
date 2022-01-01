@@ -3,15 +3,24 @@ Created on Dec. 31, 2021
 
 @author: cefect
 
-build functions from tables and plot
+explore impact esitaimtes from damage functions as a result of aggregation
     let's use hp.coms, but not Canflood
+    using damage function csvs from figurero2018 (which were pulled from a db)
+    
+trying a new system for intermediate results data sets
+    key each intermediate result with corresponding functions for retriving the data
+        build: calculate this data from scratch (and other intermediate data sets)
+        compiled: load straight from HD (faster)
+        
+    in this way, you only need to call the top-level 'build' function for the data set you want
+        it should trigger loads on lower results (build or compiled depending on what filepaths have been passed)
 '''
 
 
 #===============================================================================
 # imports-----------
 #===============================================================================
-import os, datetime, math
+import os, datetime, math, pickle
 import pandas as pd
 import numpy as np
 import qgis.core
@@ -24,7 +33,7 @@ print('start at %s' % start)
 from hp.oop import Basic, Error
 from hp.pd import view, get_bx_multiVal
  
-
+idx = pd.IndexSlice
  
     
     
@@ -75,8 +84,8 @@ def get_ax(
     return fig.add_subplot(111)
 
 class Vfunc(object):
-    rlcn = 'rl'
-    wdcn = 'wd'
+    ycn = 'rl'
+    xcn = 'wd'
     
     def __init__(self,
                  vid=0,
@@ -109,8 +118,8 @@ class Vfunc(object):
         if logger is None: logger=self.logger
         #log=logger.getChild('set_ddf')
         
-        rlcn = self.rlcn
-        wdcn = self.wdcn
+        ycn = self.ycn
+        xcn = self.xcn
         
         
         
@@ -118,11 +127,11 @@ class Vfunc(object):
         
         #precheck
         assert isinstance(df_raw, pd.DataFrame)
-        l = set(df_raw.columns).symmetric_difference([rlcn, wdcn])
+        l = set(df_raw.columns).symmetric_difference([ycn, xcn])
         assert len(l)==0, l
         
         
-        df1 = df_raw.copy().sort_values(wdcn).loc[:, [wdcn, rlcn]]
+        df1 = df_raw.copy().sort_values(xcn).loc[:, [xcn, ycn]]
         
         #check monotoniciy
         for coln, row in df1.items():
@@ -163,7 +172,7 @@ class Vfunc(object):
         #check with unique values really need to be calculated
         #=======================================================================
         # if from_cache:
-        #     bool_ar = np.invert(np.isin(xuq, self.ddf_big[self.wdcn].values))
+        #     bool_ar = np.invert(np.isin(xuq, self.ddf_big[self.xcn].values))
         # else:
         #     bool_ar = np.full(len(xuq), True)
         #=======================================================================
@@ -190,11 +199,11 @@ class Vfunc(object):
         #=======================================================================
         """may be slower.. but easier to use pandas for the left join here"""
         rdf = rdf.join(
-            pd.Series(res_ar, index=xuq1, name=self.rlcn), on='wd_round')
+            pd.Series(res_ar, index=xuq1, name=self.ycn), on='wd_round')
 
  
  
-        return rdf.sort_index()[self.rlcn].values
+        return rdf.sort_index()[self.ycn].values
     
     
     def plot(self,
@@ -233,6 +242,9 @@ class Session(Basic):
     
     data_d = dict()
     
+    ycn = 'rl'
+    xcn = 'wd'
+    
     def __init__(self, 
                   work_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg',
                   mod_name = 'main.py',
@@ -247,65 +259,56 @@ class Session(Basic):
         self.dfp_d=dfp_d
         
         self.data_hndls = { #function mappings for loading data types
-                           #compiled takes 1 kwarg (fp) build takes none
+                        #compiled takes 1 kwarg (fp)
+                        #build takes multi kwargs
+
                            
             'df_d':{ #no compiled version
-                #'compiled':lambda x:self.load_db(fp=x),
-                'build':lambda **kwargs:self.load_db(**kwargs),
+                #'compiled':lambda x:self.build_df_d(fp=x),
+                'build':lambda **kwargs:self.build_df_d(**kwargs),
                 },
             
-            'rlMeansAggs':{
-                'compiled':lambda x, **kwargs:self.load_aggRes(x),
-                'build':lambda **kwargs:self.run_rlMeans(**kwargs),
+            'rlMeans_dxcol':{
+                'compiled':lambda **kwargs:self.load_aggRes(**kwargs),
+                'build':lambda **kwargs:self.build_rlMeans_dxcol(**kwargs),
                 },
             
             'vid_df':{
-                'build':lambda **kwargs:self.select_dfuncs(**kwargs)
+                'build':lambda **kwargs:self.build_vid_df(**kwargs)
+                
+                },
+            'vf_d':{
+                'build':lambda **kwargs:self.build_vf_d(**kwargs)
                 
                 },
             
-            'vf_d':{
-                'build':lambda **kwargs: self.spawn_dfuncs(**kwargs)
-                
-                }
-
+ 
             }
         
         
         
-    def load_db(self,
-                fp=r'C:\LS\09_REPOS\02_JOBS\2112_Agg\figueiredo2018\cef\csv_dump.xls',
-                ):
-        log = self.logger.getChild('load_db')
-        df_d = pd.read_excel(fp, sheet_name=None)
-        
-        log.info('loaded %i pages from \n    %s\n    %s'%(
-            len(df_d), fp, list(df_d.keys())))
-        
-        
-        return df_d
-    
-    def load_aggRes(self,
-                    fp):
-        
-        df_raw = pd.read_csv(fp, index_col=None, header=None)
-        
-        raise Error('stopped here... need to manually convert this to a dxcol as the header key isnt working')
-        
-        
+
+    #===========================================================================
+    # COMPMILED-------------
+    #===========================================================================
 
     def get_data(self, #flexible intelligement data retrieval
                  dkey,
                  logger=None,
                  **kwargs
                  ):
+        
         if logger is None: logger=self.logger
         log = logger.getChild('get_data')
         
+        #get handles
         assert dkey in self.data_hndls, dkey
         
         hndl_d = self.data_hndls[dkey]
         
+        #=======================================================================
+        # alredy loaded
+        #=======================================================================
         if dkey in self.data_d:
             return self.data_d[dkey]
         
@@ -313,10 +316,10 @@ class Session(Basic):
         # load by type
         #=======================================================================
         if dkey in self.dfp_d and 'compiled' in hndl_d:
-            data = hndl_d['compiled'](self.dfp_d[dkey], **kwargs)
+            data = hndl_d['compiled'](fp=self.dfp_d[dkey])
  
         else:
-            data = hndl_d['build'](**kwargs)
+            data = hndl_d['build'](dkey=dkey, **kwargs)
             
         #=======================================================================
         # store
@@ -327,44 +330,304 @@ class Session(Basic):
         
         return data
         
-        
-            
-        
-        
-    def build_rloss(self, 
-                    vfunc,depths_ar, 
-                    ax=None,
-                    label='base',
-                    annotate=False,
-                    color='black',
-                    linekwargs = dict(s=10, marker='x', alpha=0.5)
-                    ):
-                    #vfunc, ax_d, res_d, xvar, ax, depths_ar):
-        
-        rl_ar = vfunc.get_rloss(depths_ar)
- 
-        #=======================================================================
-        # #plot these
-        #=======================================================================
-        if not ax is None:
-            """
-            plt.show()
-            """
-            ax.scatter(depths_ar, rl_ar,  color=color,label=label, **linekwargs)
-            
-            #label
-            if annotate:
-                #ax.legend()
-                ax.set_title(vfunc.name)
-                ax.set_ylabel(vfunc.rlcn)
-                ax.set_xlabel(vfunc.wdcn)
-        
- 
-        
-        return pd.DataFrame([depths_ar, rl_ar], index=[vfunc.wdcn, vfunc.rlcn]).T.sort_values(vfunc.wdcn).reset_index(drop=True) 
+
     
+    def load_aggRes(self,
+                    fp):
+        
+        assert os.path.exists(fp), fp
+        assert fp.endswith('.pickle')
+        with open(fp, 'rb') as f: 
+            dxcol = pickle.load(f)
+        
+ 
+        assert isinstance(dxcol, pd.DataFrame), type(dxcol)
+        
+        return dxcol
+    
+    #===========================================================================
+    # BUILDERS-------------
+    #===========================================================================
+    def build_df_d(self,
+                fp=r'C:\LS\09_REPOS\02_JOBS\2112_Agg\figueiredo2018\cef\csv_dump.xls',
+                dkey=None,
+                ):
+        
+        assert dkey=='df_d'
+        log = self.logger.getChild('build_df_d')
+        df_d = pd.read_excel(fp, sheet_name=None)
+        
+        log.info('loaded %i pages from \n    %s\n    %s'%(
+            len(df_d), fp, list(df_d.keys())))
+        
+        
+        return df_d
+        
+
+    
+
+            
+    def build_rlMeans_dxcol(self,  #get aggregation erros for a single vfunc
+                 vf_d=None,
+                 vid_l=[],
+                 dkey=None,
+                 
+                 #vid_df keys
+                 max_mod_cnt=None,
+                 
+                 **kwargs
+                 ):
+        
+        log = self.logger.getChild('r')
+        assert dkey== 'rlMeans_dxcol'
+ 
+        #=======================================================================
+        # #load dfuncs
+        #=======================================================================
+        if vf_d is None:
+            vf_d = self.get_data('vf_d', vid_l=vid_l)
+ 
+            
+ 
+             
+            
+ 
+         
+        #======================================================================
+        # calc for each
+        #======================================================================
+        res_lib = dict()
+        for i, vfunc in vf_d.items():
+            res_lib[vfunc.vid] = self.get_rl_mean_agg(vfunc, **kwargs)
+            
+            
+        #=======================================================================
+        # assemble
+        #=======================================================================
+        dxcol = pd.concat(res_lib, axis=1, 
+                          names=[self.vidnm] + list(res_lib[vfunc.vid].columns.names))
+        
+        
+        """
+        dxcol.columns
+        """
+        #=======================================================================
+        # write
+        #=======================================================================
+        """problems with csv, so also writing a pickel"""
+        
+        #picklle
+        out_fp = os.path.join(self.out_dir, '%s_%s.pickle'%(self.resname, dkey))
+        with open(out_fp,  'wb') as f:
+            pickle.dump(dxcol, f, pickle.HIGHEST_PROTOCOL)
+        log.info('wrote %s to \n    %s'%(str(dxcol.shape), out_fp))
+        
+        #csv
+        out_fp = os.path.join(self.out_dir, '%s_%s.csv'%(self.resname, dkey))
+        dxcol.to_csv(out_fp, 
+                     index=True, #keep the names
+                     )
+        log.info('wrote %s to \n    %s'%(str(dxcol.shape), out_fp))
+        
+        """
+        
+        """
+ 
+        
+        return res_lib
+    
+ 
+
+
+        
+
+    
+    def build_vid_df(self,
+                      df_d = None,
+                      vid_l = None,
+                     selection_d = { #selection criteria for models. {tabn:{coln:values}}
+                          'model_id':[1, 2, 3, 4, 6, 7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47],
+                          'function_formate_attribute':['discrete'], #discrete
+                          'damage_formate_attribute':['relative'],
+                          'coverage_attribute':['building'],
+                         
+                         },
+                     max_mod_cnt = 10, #maximum dfuncs to allow from a single model_id
+                     vidnm = None, #indexer for damage functions
+                     dkey='vid_df',
+                     ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_vf_d')
+        assert dkey == 'vid_df'
+ 
+        if vidnm is None: vidnm=self.vidnm
+        meta_lib=dict()
+        
+        
+        #=======================================================================
+        # loaders
+        #=======================================================================
+        if df_d is None:
+            df_d = self.get_data('df_d')
+        
+        #=======================================================================
+        # identify valid model_ids
+        #=======================================================================
+        #get metadata for selection
+        df1, meta_lib['join_summary'] = self.get_joins(df_d)
+        
+        log.info('joined %i tabs to get %s' % (len(meta_lib['join_summary']), str(df1.shape)))
+        
+        if not vid_l is None:
+            return df1.loc[vid_l, :]
+        
+        #id valid df_ids
+        bx = get_bx_multiVal(df1, selection_d, log=log)
+        
+        df2 = df1.loc[bx, :] #.drop(list(selection_d.keys()), axis=1)
+        
+        log.info('selected %i/%i damageFunctions'%(len(df2), len(df1)))
+        
+        
+        
+        #add membership info
+        #=======================================================================
+        # df3 = df2.copy()
+        # for tabName in ['wd', 'fv', 'd', 'relative_loss']:
+        #     lkp_df = df_d[tabName].copy()
+        #     
+        #     df3[tabName] = df3.index.isin(lkp_df[vidnm].unique())
+        #     
+        # log.debug(df3)
+        #=======================================================================
+        if not max_mod_cnt is None:
+            coln = 'model_id'
+            df3 = None
+            for k, gdf in df2.groupby(coln):
+                if len(gdf)>max_mod_cnt:
+                    log.warning('%s=%s got %i models... trimming to %i'%(
+                        coln, k, len(gdf), max_mod_cnt))
+                    
+                    gdf1= gdf.iloc[:max_mod_cnt, :]
+                else:
+                    gdf1 = gdf.copy()
+                    
+                if df3 is None:
+                    df3 = gdf1
+                else:
+                    df3 = df3.append(gdf1)
+                    
+            #wrap
+            log.info('cleaned out %i %s'%(len(df2.groupby(coln)), coln))
+
+                     
+                    
+        else:
+            df3 = df2.copy()
+        
+        """
+        view(df2)
+        view(df1.loc[bx, :])
+        """
+        log.info('finished on %s'%str(df3.shape))
+        return df3
+        
+
+    def build_vf_d(self,
+                     vid_df=None,
+                     df_d = None,
+                     vid_l = [],
+ 
+                     dkey='vf_d',
+                     vidnm = None, #indexer for damage functions
+                     ):
+        """
+        leaving this as a normal function
+            dont want to load class objects from pickles
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_vf_d')
+        assert dkey=='vf_d'
+        
+        if df_d is None: 
+            df_d = self.get_data('df_d')
+            
+        if vid_df is None: 
+            vid_df=self.get_data('vid_df', vid_l=vid_l)
+            
+        assert len(vid_l)==len(vid_df)
+            
+        if vidnm is None: vidnm=self.vidnm
+ 
+            
+        
+        #=======================================================================
+        # spawn each df_id
+        #=======================================================================
+        def get_wContainer(tabName):
+            df1 = df_d[tabName].copy()
+            jdf = df_d[tabName+'_container'].copy()
+            
+            jcoln = jdf.columns[0]
+            
+            return df1.join(jdf.set_index(jcoln), on=jcoln) 
+ 
+        lkp_d = {k:get_wContainer(k) for k in ['wd', 'relative_loss']}
+ 
+        
+        
+        def get_by_vid(vid, k):
+            df1 = lkp_d[k].groupby(vidnm).get_group(vid).drop(vidnm, axis=1).reset_index(drop=True)
+            #drop indexers
+            bxcol = df1.columns.str.contains('_id')
+            return df1.loc[:, ~bxcol]
+        
+ 
+        vf_d = dict()
+        log.info('spawning %i dfunvs'%len(vid_df))
+        for i, (vid, row) in enumerate(vid_df.iterrows()):
+            #log = self.logger.getChild('spawn_%i'%vid)
+            #log.info('%i/%i'%(i, len(df2)))
+            
+            #===================================================================
+            # #get dep-damage
+            #===================================================================
+            
+            wdi_df = get_by_vid(vid, 'wd')
+            rli_df = get_by_vid(vid, 'relative_loss')
+            
+            assert np.array_equal(wdi_df.index, rli_df.index)
+            
+            ddf =  wdi_df.join(rli_df).rename(columns={
+                'wd_value':'wd', 'relative_loss_value':'rl'})
+            #===================================================================
+            # spawn
+            #===================================================================
+            vf_d[vid] = Vfunc(
+                vid=vid,
+                name=row['abbreviation']+'_%03i'%vid,
+                logger=self.logger, session=self,
+                meta_d = row.dropna().to_dict(), 
+                ).set_ddf(ddf)
+                
+        log.info('spawned %i vfuncs'%len(vf_d))
+        
+        #self.vf_d = vf_d
+        
+        return vf_d
+            
+ 
+
+ 
+    #===========================================================================
+    # TOP RUNNERS---------
+    #===========================================================================
     def analyze_rl_means(self,
-                        dxcol=None,
+                        dxcol_raw=None,
                         vf_d = None,
                         vid_l=[],
  
@@ -374,15 +637,37 @@ class Session(Basic):
         # defaults
         #=======================================================================
         log = self.logger.getChild('analyz')
-        
+        vidnm = self.vidnm
         #=======================================================================
-        # load
+        # load rloss per-mean results
         #=======================================================================
-        if dxcol is None:
-            dxcol = self.get_data('rlMeansAggs', vid_l=vid_l, plot=False)
+        if dxcol_raw is None:
+            dxcol_raw = self.get_data('rlMeans_dxcol', vid_l=vid_l, plot=False)
             
+            
+        #check index
+        mdex = dxcol_raw.columns
+        assert np.array_equal(np.array(mdex.names), np.array([vidnm, 'xmean', 'xvar', 'aggLevel', 'vars']))
+        mdex_names_d = {lvlName:i for i, lvlName in enumerate(mdex.names)}
+            
+        #check lvl0:vid
+        res_vids_l = mdex.get_level_values(0).unique().tolist()
+        l = set(vid_l).difference(res_vids_l)
+        assert len(l) == 0, '%i requested vids not in the results: %s'%(len(l), l)
+        
+        #check lvl4:vars
+        mdex.get_level_values(4).unique()
+        
+
+        
+        #trim to selection
+        dxcol_raw.loc[:, idx[vid_l, :,:]]
+        
+ 
+            
+ 
         if vf_d is None: 
-            vf_d = self.get_data('vf_d')
+            vf_d =  self.get_data('vf_d', vid_l=vid_l)
             
         log.info('on %s'%str(dxcol.shape))
         
@@ -428,68 +713,89 @@ class Session(Basic):
                         #ax.scatter(
             
  
-            
-    def run_rlMeans(self,  #get aggregation erros for a single vfunc
+    def plot_all(self,
+                 phndl_d=None, #optional plot handles
                  vf_d=None,
-                 vid_l=[],
-                 **kwargs
+                 vidnm = None, #indexer for damage functions
+                 xlims = (0, 2),
+                 lineKwargs = { #global kwargs
+                     'linewidth':0.5
+                     }
                  ):
         
-        log = self.logger.getChild('r')
-        dkey = 'rlMeansAggs'
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_all')
  
-        #=======================================================================
-        # #load dfuncs
-        #=======================================================================
-        if vf_d is None:
-            
-            vid_df = self.get_data('vid_df', max_mod_cnt=None)
-            
- 
-            vf_d = self.spawn_dfuncs(vid_df.loc[vid_l, :])
-         
-        #======================================================================
-        # calc for each
-        #======================================================================
-        res_lib = dict()
-        for i, vfunc in vf_d.items():
-            res_lib[vfunc.vid] = self.get_rl_mean_agg(vfunc, **kwargs)
-            
-            
-        #=======================================================================
-        # write
-        #=======================================================================
-        dxcol = pd.concat(res_lib, axis=1, 
-                          names=[self.vidnm] + list(res_lib[vfunc.vid].columns.names))
+        if vidnm is None: vidnm=self.vidnm
+        if vf_d is None: vf_d=self.vf_d
         
+        log.info('on %i'%len(vf_d))
+        
+        if phndl_d is None:
+            phndl_d = {k:{} for k in vf_d.keys()}
+        #=======================================================================
+        # setup figure
+        #=======================================================================
+        plt.close()
+        fig = plt.figure(0,
+            figsize=(10,10),
+            tight_layout=False,
+            constrained_layout=True)
+        
+        ax = fig.add_subplot(111)
         
         """
-        dxcol.columns
+        plt.show()
         """
         
-        out_fp = os.path.join(self.out_dir, '%s_%s_dxcol.csv'%(self.resname, dkey))
-        dxcol.to_csv(out_fp, 
-                     index=True, #keep the names
-                     )
-        log.info('wrote %s to \n    %s'%(str(dxcol.shape), out_fp))
         
-        """
         
-        """
- 
-        
-        return res_lib
-    
-    def xxx(self):
-        pd.read_csv(out_fp, header=[0,1,2,3], index_col=0)
-             
-             
- 
-        
+        for vid, vfunc in vf_d.items():
+            log.info('on %s'%vfunc.name)
+            
+            vfunc.plot(ax=ax, lineKwargs = {**lineKwargs, **phndl_d[vid]}, logger=log)
 
+            
+        log.info('added %i lines'%len(vf_d))
+        
+        #=======================================================================
+        # style
+        #=======================================================================
+        xvar, yvar = vfunc.xcn, vfunc.ycn
+        
+        if not xlims is None:
+            ax.set_xlim(xlims)
+        ax.set_xlabel('\'%s\' water depth (m)'%xvar)
+        ax.set_ylabel('\'%s\' relative loss (pct)'%yvar)
+        ax.grid()
+ 
+        title = '\'%s\' vs \'%s\' on %i'%(xvar, yvar, len(vf_d))
+        ax.set_title(title)
+        
+        #legend
+        #fig.legend()
+        handles, labels = ax.get_legend_handles_labels()
+        # sort both labels and handles by labels
+        labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+        ax.legend(handles, labels)
+        
+        #=======================================================================
+        # write figure
+        #=======================================================================
+        return self.output_fig(fig, fname=title, logger=log)
+    
+    #===========================================================================
+    # HELPERS---------
+    #===========================================================================
 
     def get_rl_mean_agg(self, #calculate rloss at different levels of aggregation
                           vfunc,
+                          
+                          xdomain=(0,2), #min/max of the xdomain
+                          xdomain_res = 10, #number of increments for the xdomain
+                          
 
                           
                           #random depths pramaeters
@@ -500,22 +806,7 @@ class Session(Basic):
                         colorMap = 'cool',
                         plot=True,
                           ):
-        """
-        nice plots showing the average impact vs. depth of
-            aggregated levels (color sequence by agg level)
-            not aggregated (black)
-            
-        xmean will relate to the xaxis values
-        
-        separate axis for
-            xvar (depths variance)
-            
-        separate figure for
-            vfunc
-                
 
-        
-        """
         #=======================================================================
         # defaults
         #=======================================================================
@@ -538,7 +829,7 @@ class Session(Basic):
         #=======================================================================
         # loop mean deths 
         #=======================================================================
-        for xmean in np.linspace(0,2,num=20):
+        for xmean in np.linspace(xdomain[0],xdomain[1],num=xdomain_res):
             log.info('xmean=%.2f\n'%xmean)
             
             #===================================================================
@@ -575,7 +866,7 @@ class Session(Basic):
                 # #get average impact (w/o aggregation)
                 #===============================================================
                 ax = ax_d['rl_scatter'][xvar]
-                res_d[0] = self.build_rloss(vfunc,depths_ar,annotate=True,ax=ax) 
+                res_d[0] = self.get_rloss(vfunc,depths_ar,annotate=True,ax=ax) 
                 
                 #get average impacts for varios aggregation levels                
                 for aggLevel in aggLevels_l:
@@ -586,7 +877,7 @@ class Session(Basic):
                     depMean_ar = np.array([a.mean() for a in np.array_split(depths_ar, math.ceil(len(depths_ar)/aggLevel))])
                     
                     #get these losses
-                    res_d[aggLevel] = self.build_rloss(vfunc,depMean_ar, ax=ax, annotate=False, 
+                    res_d[aggLevel] = self.get_rloss(vfunc,depMean_ar, ax=ax, annotate=False, 
                                                        color=newColor_d[aggLevel], label=aggLevel)
  
  
@@ -604,7 +895,7 @@ class Session(Basic):
                 ax = ax_d['rl_box'][xvar]
                 
                 #merge all rl results and clean
-                rdf = pd.concat(res_d, keys=res_d.keys(), axis=1).drop(vfunc.wdcn, axis=1, level=1).droplevel(level=1, axis=1)
+                rdf = pd.concat(res_d, keys=res_d.keys(), axis=1).drop(vfunc.xcn, axis=1, level=1).droplevel(level=1, axis=1)
                 rd = {k:ser.dropna() for k,ser in rdf.items()}
                 ax.boxplot(rd.values(), labels=['Agg=%i'%k for k in rd.keys()])
                 #ax.legend()
@@ -656,10 +947,39 @@ class Session(Basic):
 
  
         return dxcol
+    
+    def get_rloss(self, 
+                    vfunc,depths_ar, 
+                    ax=None,
+                    label='base',
+                    annotate=False,
+                    color='black',
+                    linekwargs = dict(s=10, marker='x', alpha=0.5)
+                    ):
+                    #vfunc, ax_d, res_d, xvar, ax, depths_ar):
+        
+        rl_ar = vfunc.get_rloss(depths_ar)
+ 
+        #=======================================================================
+        # #plot these
+        #=======================================================================
+        if not ax is None:
+            """
+            plt.show()
+            """
+            ax.scatter(depths_ar, rl_ar,  color=color,label=label, **linekwargs)
             
-            
+            #label
+            if annotate:
+                #ax.legend()
+                ax.set_title(vfunc.name)
+                ax.set_ylabel(vfunc.ycn)
+                ax.set_xlabel(vfunc.xcn)
+        
  
         
+        return pd.DataFrame([depths_ar, rl_ar], index=[vfunc.xcn, vfunc.ycn]).T.sort_values(vfunc.xcn).reset_index(drop=True) 
+            
     def plot_rv(self, #get a plot of a scipy distribution
                 rv,
                 ax=None,
@@ -800,299 +1120,6 @@ class Session(Basic):
         return df2, pd.DataFrame.from_dict(meta_d).T
     
     
-    
-    def select_dfuncs(self,
-                      df_d = None,
-                      vid_l = None,
-                     selection_d = { #selection criteria for models. {tabn:{coln:values}}
-                          'model_id':[1, 2, 3, 4, 6, 7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47],
-                          'function_formate_attribute':['discrete'], #discrete
-                          'damage_formate_attribute':['relative'],
-                          'coverage_attribute':['building'],
-                         
-                         },
-                     max_mod_cnt = 10, #maximum dfuncs to allow from a single model_id
-                     vidnm = None, #indexer for damage functions
-                     ):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('spawn_dfuncs')
- 
-        if vidnm is None: vidnm=self.vidnm
-        meta_lib=dict()
-        
-        
-        #=======================================================================
-        # loaders
-        #=======================================================================
-        if df_d is None:
-            df_d = self.get_data('df_d')
-        
-        #=======================================================================
-        # identify valid model_ids
-        #=======================================================================
-        #get metadata for selection
-        df1, meta_lib['join_summary'] = self.get_joins(df_d)
-        
-        log.info('joined %i tabs to get %s' % (len(meta_lib['join_summary']), str(df1.shape)))
-        
-        if not vid_l is None:
-            return df1.loc[vid_l, :]
-        
-        #id valid df_ids
-        bx = get_bx_multiVal(df1, selection_d, log=log)
-        
-        df2 = df1.loc[bx, :] #.drop(list(selection_d.keys()), axis=1)
-        
-        log.info('selected %i/%i damageFunctions'%(len(df2), len(df1)))
-        
-        
-        
-        #add membership info
-        #=======================================================================
-        # df3 = df2.copy()
-        # for tabName in ['wd', 'fv', 'd', 'relative_loss']:
-        #     lkp_df = df_d[tabName].copy()
-        #     
-        #     df3[tabName] = df3.index.isin(lkp_df[vidnm].unique())
-        #     
-        # log.debug(df3)
-        #=======================================================================
-        if not max_mod_cnt is None:
-            coln = 'model_id'
-            df3 = None
-            for k, gdf in df2.groupby(coln):
-                if len(gdf)>max_mod_cnt:
-                    log.warning('%s=%s got %i models... trimming to %i'%(
-                        coln, k, len(gdf), max_mod_cnt))
-                    
-                    gdf1= gdf.iloc[:max_mod_cnt, :]
-                else:
-                    gdf1 = gdf.copy()
-                    
-                if df3 is None:
-                    df3 = gdf1
-                else:
-                    df3 = df3.append(gdf1)
-                    
-            #wrap
-            log.info('cleaned out %i %s'%(len(df2.groupby(coln)), coln))
-
-                     
-                    
-        else:
-            df3 = df2.copy()
-        
-        """
-        view(df2)
-        view(df1.loc[bx, :])
-        """
-        log.info('finished on %s'%str(df3.shape))
-        return df3
-        
-
-    def spawn_dfuncs(self,
-                     vid_df=None,
-                     df_d = None,
- 
-                     
-                     vidnm = None, #indexer for damage functions
-                     ):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('spawn_dfuncs')
-        if df_d is None: df_d = self.get_data('df_d')
-        if vid_df is None: vid_df=self.get_data('vid_df')
-        if vidnm is None: vidnm=self.vidnm
- 
-            
-        
-        #=======================================================================
-        # spawn each df_id
-        #=======================================================================
-        def get_wContainer(tabName):
-            df1 = df_d[tabName].copy()
-            jdf = df_d[tabName+'_container'].copy()
-            
-            jcoln = jdf.columns[0]
-            
-            return df1.join(jdf.set_index(jcoln), on=jcoln) 
- 
-        lkp_d = {k:get_wContainer(k) for k in ['wd', 'relative_loss']}
- 
-        
-        
-        def get_by_vid(vid, k):
-            df1 = lkp_d[k].groupby(vidnm).get_group(vid).drop(vidnm, axis=1).reset_index(drop=True)
-            #drop indexers
-            bxcol = df1.columns.str.contains('_id')
-            return df1.loc[:, ~bxcol]
-        
- 
-        vf_d = dict()
-        log.info('spawning %i dfunvs'%len(vid_df))
-        for i, (vid, row) in enumerate(vid_df.iterrows()):
-            #log = self.logger.getChild('spawn_%i'%vid)
-            #log.info('%i/%i'%(i, len(df2)))
-            
-            #===================================================================
-            # #get dep-damage
-            #===================================================================
-            
-            wdi_df = get_by_vid(vid, 'wd')
-            rli_df = get_by_vid(vid, 'relative_loss')
-            
-            assert np.array_equal(wdi_df.index, rli_df.index)
-            
-            ddf =  wdi_df.join(rli_df).rename(columns={
-                'wd_value':'wd', 'relative_loss_value':'rl'})
-            #===================================================================
-            # spawn
-            #===================================================================
-            vf_d[vid] = Vfunc(
-                vid=vid,
-                name=row['abbreviation']+'_%03i'%vid,
-                logger=self.logger, session=self,
-                meta_d = row.dropna().to_dict(), 
-                ).set_ddf(ddf)
-                
-        log.info('spawned %i vfuncs'%len(vf_d))
-        
-        #self.vf_d = vf_d
-        
-        return vf_d
-            
- 
-    def build_plot_hndls(self,
-                         df_raw,
-                         vidnm = None, #indexer for damage functions
-                         colorMap = 'gist_rainbow',
-                         ):
-        
-        if vidnm is None: vidnm=self.vidnm
-        
-        res_df = pd.DataFrame(index=df_raw.index)
-        from matplotlib.lines import Line2D
-        log = self.logger.getChild('plot_hndls')
-        #=======================================================================
-        # color by model_id
-        #=======================================================================
-        #res_d = {k:{} for k in df_raw.index} #start the container
-        
-        
-        
-        #retrieve the color map
-        coln = 'model_id'
-        groups = df_raw.groupby(coln)
-        
-        cmap = plt.cm.get_cmap(name=colorMap)
-        #get a dictionary of index:color values           
-        d = {i:cmap(ni) for i, ni in enumerate(np.linspace(0, 1, len(groups)))}
-        newColor_d = {i:matplotlib.colors.rgb2hex(tcolor) for i,tcolor in d.items()}
-        
-        #markers
-        #np.repeat(Line2D.filled_markers, 3) 
-        markers_d = Line2D.markers
-        
-        mlist = list(markers_d.keys())*3
-        
-        for i, (k, gdf) in enumerate(groups):
-            #single color per model type
-            res_df.loc[gdf.index.values, 'color'] = newColor_d[i]
-            
- 
-            # marker within model_id
-            if len(gdf)>len(markers_d):
-                log.warning('\'%s\' more lines (%i) than markers!'%(k, len(gdf)))
- 
- 
-            res_df.loc[gdf.index, 'marker'] = np.array(mlist[:len(gdf)])
-             
-            
- 
-        assert res_df.notna().all().all()
-        
-        
-        #dummy for now
-        return res_df.to_dict(orient='index')
- 
-        
-    def plot_all(self,
-                 phndl_d=None, #optional plot handles
-                 vf_d=None,
-                 vidnm = None, #indexer for damage functions
-                 xlims = (0, 2),
-                 lineKwargs = { #global kwargs
-                     'linewidth':0.5
-                     }
-                 ):
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('plot_all')
- 
-        if vidnm is None: vidnm=self.vidnm
-        if vf_d is None: vf_d=self.vf_d
-        
-        log.info('on %i'%len(vf_d))
-        
-        if phndl_d is None:
-            phndl_d = {k:{} for k in vf_d.keys()}
-        #=======================================================================
-        # setup figure
-        #=======================================================================
-        plt.close()
-        fig = plt.figure(0,
-            figsize=(10,10),
-            tight_layout=False,
-            constrained_layout=True)
-        
-        ax = fig.add_subplot(111)
-        
-        """
-        plt.show()
-        """
-        
-        
-        
-        for vid, vfunc in vf_d.items():
-            log.info('on %s'%vfunc.name)
-            
-            vfunc.plot(ax=ax, lineKwargs = {**lineKwargs, **phndl_d[vid]}, logger=log)
-
-            
-        log.info('added %i lines'%len(vf_d))
-        
-        #=======================================================================
-        # style
-        #=======================================================================
-        xvar, yvar = vfunc.wdcn, vfunc.rlcn
-        
-        if not xlims is None:
-            ax.set_xlim(xlims)
-        ax.set_xlabel('\'%s\' water depth (m)'%xvar)
-        ax.set_ylabel('\'%s\' relative loss (pct)'%yvar)
-        ax.grid()
- 
-        title = '\'%s\' vs \'%s\' on %i'%(xvar, yvar, len(vf_d))
-        ax.set_title(title)
-        
-        #legend
-        #fig.legend()
-        handles, labels = ax.get_legend_handles_labels()
-        # sort both labels and handles by labels
-        labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
-        ax.legend(handles, labels)
-        
-        #=======================================================================
-        # write figure
-        #=======================================================================
-        return self.output_fig(fig, fname=title, logger=log)
-    
-    
     def get_matrix_fig(self, #conveneince for getting a matrix plot with consistent object access
                        row_keys, #row labels for axis
                        col_keys, #column labels for axis
@@ -1158,6 +1185,59 @@ class Session(Basic):
  
             
         return fig, ax_d
+    
+    def get_plot_hndls(self,
+                         df_raw,
+                         vidnm = None, #indexer for damage functions
+                         colorMap = 'gist_rainbow',
+                         ):
+        
+        if vidnm is None: vidnm=self.vidnm
+        
+        res_df = pd.DataFrame(index=df_raw.index)
+        from matplotlib.lines import Line2D
+        log = self.logger.getChild('plot_hndls')
+        #=======================================================================
+        # color by model_id
+        #=======================================================================
+        #res_d = {k:{} for k in df_raw.index} #start the container
+        
+        
+        
+        #retrieve the color map
+        coln = 'model_id'
+        groups = df_raw.groupby(coln)
+        
+        cmap = plt.cm.get_cmap(name=colorMap)
+        #get a dictionary of index:color values           
+        d = {i:cmap(ni) for i, ni in enumerate(np.linspace(0, 1, len(groups)))}
+        newColor_d = {i:matplotlib.colors.rgb2hex(tcolor) for i,tcolor in d.items()}
+        
+        #markers
+        #np.repeat(Line2D.filled_markers, 3) 
+        markers_d = Line2D.markers
+        
+        mlist = list(markers_d.keys())*3
+        
+        for i, (k, gdf) in enumerate(groups):
+            #single color per model type
+            res_df.loc[gdf.index.values, 'color'] = newColor_d[i]
+            
+ 
+            # marker within model_id
+            if len(gdf)>len(markers_d):
+                log.warning('\'%s\' more lines (%i) than markers!'%(k, len(gdf)))
+ 
+ 
+            res_df.loc[gdf.index, 'marker'] = np.array(mlist[:len(gdf)])
+             
+            
+ 
+        assert res_df.notna().all().all()
+        
+        
+        #dummy for now
+        return res_df.to_dict(orient='index')
         
     def output_fig(self, 
                    fig,
@@ -1250,17 +1330,17 @@ def run_plotAll(
                  ) as ses:
         
  
-        ses.load_db()
+        ses.build_df_d()
         
  
-        vid_df = ses.select_dfuncs(vid_l=vid_l)
+        vid_df = ses.build_vid_df(vid_l=vid_l)
         
         if not debug_len is None:
             vid_df = vid_df.sample(debug_len)
         
  
-        ses.spawn_dfuncs(vid_df)
-        phndl_d = ses.build_plot_hndls(vid_df)
+        ses.build_vf_d(vid_df)
+        phndl_d = ses.get_plot_hndls(vid_df)
         
         ses.plot_all(phndl_d=phndl_d)
         
@@ -1275,7 +1355,7 @@ def run_aggErr1(#agg error per function
         vid_l=[796], #running on a single function
         
         dfp_d = {
-            'rlMeansAggs':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r0\20211231\aggErr1_r0_1231_rlMeansAggs_dxcol.csv',
+            'rlMeans_dxcol':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r0\20220101\aggErr1_r0_0101_rlMeans_dxcol.pickle',
             }
         #=======================================================================
         # #debugging controls
@@ -1294,6 +1374,22 @@ def run_aggErr1(#agg error per function
  
         
         ):
+    """
+    nice plots showing the average impact vs. depth of
+        aggregated levels (color sequence by agg level)
+        not aggregated (black)
+        
+    xmean will relate to the xaxis values
+    
+    separate axis for
+        xvar (depths variance)
+        
+    separate figure for
+        vfunc
+            
+
+    
+    """
  
     
  
