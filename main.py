@@ -90,7 +90,8 @@ class Vfunc(object):
     xcn = 'wd'
     
     def __init__(self,
-                 vid=0,
+                 vid=0, 
+                 model_id=None, model_name='model_name',
                  name='vfunc',
                  logger=None,
                  session=None,
@@ -101,6 +102,8 @@ class Vfunc(object):
         #=======================================================================
         # attachments
         #=======================================================================
+        self.model_id=model_id
+        self.model_name=model_name
         self.vid=vid
         self.name=name
         self.logger = logger.getChild(name)
@@ -262,17 +265,21 @@ class Vfunc(object):
 class Session(Basic):
     vidnm = 'df_id' #indexer for damage functions
     
-    data_d = dict()
+    data_d = dict() #datafiles loaded this session
+    
+    ofp_d = dict() #output filepaths generated this session
     
     ycn = 'rl'
     xcn = 'wd'
     colorMap = 'cool'
     
+    bar_colors_d = {'total':'black', 'positives':'orange', 'negatives':'blue'}
+    
     def __init__(self, 
                   work_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg',
                   mod_name = 'main.py',
                   dfp_d=dict(),
-                  
+                  bk_lib=dict(),
                  **kwargs):
         
         super().__init__(work_dir=work_dir, mod_name=mod_name, 
@@ -302,17 +309,24 @@ class Session(Basic):
                 
                 },
             
-            'rlMeans_dxcol':{
+            'rl_xmDisc_dxcol':{
                 'compiled':lambda **kwargs:self.load_aggRes(**kwargs),
-                'build':lambda **kwargs:self.build_rlMeans_dxcol(**kwargs),
+                'build':lambda **kwargs:self.build_rl_xmDisc_dxcol(**kwargs),
                 },
+            
             'rl_dxcol':{
                 'compiled':lambda **kwargs:self.load_aggRes(**kwargs),
                 'build':lambda **kwargs:self.build_rl_dxcol(**kwargs),
                 },
+            
+            'model_metrics':{
+                'compiled':lambda **kwargs:self.load_aggRes(**kwargs),
+                'build':lambda **kwargs:self.build_model_metrics(**kwargs),
+                },
  
             }
         
+        self.bk_lib=bk_lib
         
         
 
@@ -347,6 +361,17 @@ class Session(Basic):
             data = hndl_d['compiled'](fp=self.dfp_d[dkey])
  
         else:
+            if dkey in self.bk_lib:
+                bkwargs=self.bk_lib[dkey].copy()
+                bkwargs.update(kwargs) #function kwargs take precident
+                kwargs = bkwargs
+                """
+                clearer to the user
+                also gives us more control for calls within calls
+                """
+                
+            
+            
             data = hndl_d['build'](dkey=dkey, **kwargs)
             
         #=======================================================================
@@ -360,16 +385,71 @@ class Session(Basic):
         
 
     
-    def load_aggRes(self,
+    def load_aggRes(self, #loading dxcol from pickels for rl_xmDisc_dxcol and rl_dxcol
                     fp):
         
         assert os.path.exists(fp), fp
         assert fp.endswith('.pickle')
         with open(fp, 'rb') as f: 
-            dxcol = pickle.load(f)
+            dxcol_raw = pickle.load(f)
         
- 
-        assert isinstance(dxcol, pd.DataFrame), type(dxcol)
+        #basic checks
+        
+        assert isinstance(dxcol_raw, pd.DataFrame), type(dxcol_raw)
+        
+        #check index
+        mdex = dxcol_raw.columns
+        """I guess only the level0 value is consistent"""
+        for i, name in enumerate([self.vidnm]):
+            assert name == mdex.names[i], 'bad mdex %i, %s !=%s'%(i, name, mdex.names[i])
+        
+        #=======================================================================
+        # fix selection behavior
+        #=======================================================================
+        #swap default vid selection from random to explicit
+        """
+        while technically the user is making a bad request by random sampling while loading an intermediate result
+            the expected behaior is to only apply random sampling during build
+            
+        leaving vid_l as passed so the user could request specific bids WITHIN hte loaded dxcol
+        """
+        if 'vid_df' in self.bk_lib:
+            if 'vid_sample' in self.bk_lib['vid_df']:
+                if not self.bk_lib['vid_df']['vid_sample'] is None:
+                    self.logger.warning('replacing random with explicit smplaing on %s.%s'%('vid_df', 'vid_sample'))
+                    assert self.bk_lib['vid_df']['vid_l'] is None, 'passing vid_df.vid_sample and vid_df.vid_l not allowed'
+                    self.bk_lib['vid_df']['vid_l'] = dxcol_raw.columns.get_level_values(0).unique().tolist()
+                    self.bk_lib['vid_df']['vid_sample'] = None
+                
+        
+        
+        #=======================================================================
+        # check selection
+        #=======================================================================
+        #need to make sure the current selection matches whats loaded
+        vid_df = self.get_data('vid_df')
+        
+        
+        #check lvl0:vid
+        vid_l = vid_df.index
+        res_vids_l = mdex.get_level_values(0).unique().tolist()
+        l = set(vid_l).difference(res_vids_l)
+        assert len(l) == 0, '%i requested vids not in the results... are you random sampling?: \n%s'%(len(l), l)
+        
+        
+        #=======================================================================
+        # #trim to selection
+        #=======================================================================
+        dxcol = dxcol_raw.sort_index(axis=1)
+
+        """may need to fix this for rl_dxcol"""
+        dxcol = dxcol.loc[:, idx[vid_l, :,:]]
+        mdex = dxcol.columns
+        
+        
+        #check
+        l = set(mdex.get_level_values(0).unique().tolist()).symmetric_difference(vid_l)
+        assert len(l)==0
         
         return dxcol
     
@@ -401,7 +481,16 @@ class Session(Basic):
         
     def build_vid_df(self,
                       df_d = None,
+                      
+                      #run control
+                      write_model_summary=False,
+                      
+                      #simple vid selection
                       vid_l = None,
+                      vid_sample=None,
+                      
+                      #attribute selection control
+                      
                      selection_d = { #selection criteria for models. {tabn:{coln:values}}
                           'model_id':[1, 2, 3, 4, 6, 7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47],
                           'function_formate_attribute':['discrete'], #discrete
@@ -409,7 +498,12 @@ class Session(Basic):
                           'coverage_attribute':['building'],
                          
                          },
+                     
+                     
                      max_mod_cnt = 10, #maximum dfuncs to allow from a single model_id
+                     
+                     
+                     #keynames
                      vidnm = None, #indexer for damage functions
                      dkey='vid_df',
                      ):
@@ -430,76 +524,130 @@ class Session(Basic):
             df_d = self.get_data('df_d')
         
         #=======================================================================
-        # identify valid model_ids
+        # attach data
         #=======================================================================
         #get metadata for selection
         df1, meta_lib['join_summary'] = self.get_joins(df_d)
         
         log.info('joined %i tabs to get %s' % (len(meta_lib['join_summary']), str(df1.shape)))
         
-        if not vid_l is None:
-            return df1.loc[vid_l, :]
-        
-        #id valid df_ids
-        bx = get_bx_multiVal(df1, selection_d, log=log)
-        
-        df2 = df1.loc[bx, :] #.drop(list(selection_d.keys()), axis=1)
-        
-        log.info('selected %i/%i damageFunctions'%(len(df2), len(df1)))
-        
-        
-        
-        #add membership info
-        #=======================================================================
-        # df3 = df2.copy()
-        # for tabName in ['wd', 'fv', 'd', 'relative_loss']:
-        #     lkp_df = df_d[tabName].copy()
-        #     
-        #     df3[tabName] = df3.index.isin(lkp_df[vidnm].unique())
-        #     
-        # log.debug(df3)
-        #=======================================================================
-        if not max_mod_cnt is None:
-            coln = 'model_id'
-            df3 = None
-            for k, gdf in df2.groupby(coln):
-                if len(gdf)>max_mod_cnt:
-                    log.warning('%s=%s got %i models... trimming to %i'%(
-                        coln, k, len(gdf), max_mod_cnt))
-                    
-                    gdf1= gdf.iloc[:max_mod_cnt, :]
-                else:
-                    gdf1 = gdf.copy()
-                    
-                if df3 is None:
-                    df3 = gdf1
-                else:
-                    df3 = df3.append(gdf1)
-                    
-            #wrap
-            log.info('cleaned out %i %s'%(len(df2.groupby(coln)), coln))
 
-                     
-                    
+        
+        #=======================================================================
+        # basic selection-----------
+        #=======================================================================
+ 
+        #specivic fids
+        if not vid_l is None:
+            #check none o the other selectors are apssed
+            assert vid_sample is None
+            df3= df1.loc[vid_l, :]
+        
+ 
+        #=======================================================================
+        # attribute selection-------
+        #=======================================================================
         else:
-            df3 = df2.copy()
+            #id valid df_ids
+            bx = get_bx_multiVal(df1, selection_d, log=log)
+            
+            df2 = df1.loc[bx, :] #.drop(list(selection_d.keys()), axis=1)
+            
+            log.info('selected %i/%i damageFunctions'%(len(df2), len(df1)))
+            
+     
+            
+            #=======================================================================
+            # #by maximum model_id count
+            #=======================================================================
+            if not max_mod_cnt is None:
+                coln = 'model_id'
+                df3 = None
+                for k, gdf in df2.groupby(coln):
+                    if len(gdf)>max_mod_cnt:
+                        log.warning('%s=%s got %i models... trimming to %i'%(
+                            coln, k, len(gdf), max_mod_cnt))
+                        
+                        gdf1= gdf.iloc[:max_mod_cnt, :]
+                    else:
+                        gdf1 = gdf.copy()
+                        
+                    if df3 is None:
+                        df3 = gdf1
+                    else:
+                        df3 = df3.append(gdf1)
+                        
+                #wrap
+                log.info('cleaned out %i %s'%(len(df2.groupby(coln)), coln))
+    
+                         
+                        
+            else:
+                df3 = df2.copy()
+            
+ 
+            
+        #=======================================================================
+        # random sampling within
+        #=======================================================================
+                #random vids
+        if not vid_sample is None:
+            res_df= df3.sample(vid_sample)
+        else:
+            res_df = df3
+        #=======================================================================
+        # checks
+        #=======================================================================
+        
+        #check each of these have  ['wd', 'relative_loss']
+        for tabName in  ['wd', 'relative_loss']:
+            l = set(res_df.index).difference(df_d[tabName][vidnm])
+            
+            if len(l)>0:
+                raise Error('requesting %i/%i %s w/o requisite tables\n    %s'%(
+                    len(l), len(res_df), l))
+            
+        #=======================================================================
+        # get a model summary sheet
+        #=======================================================================
+        if write_model_summary:
+            coln = 'model_id'
+            mdf = df1.drop_duplicates(coln).set_index(coln)
+            
+            
+            mdf1 = mdf.join(df1[coln].value_counts().rename('vid_cnt')).dropna(how='all', axis=0)
+            
+            out_fp = os.path.join(self.out_dir, '%smodel_summary.csv'%self.resname)
+            mdf1.to_csv(out_fp, index=True)
+            
+            log.info('wrote model summary to file: %s'%out_fp)
+            
+        
+ 
+        
+        
         
         """
-        view(df2)
+        view(mdf1)
+        view(df1)
+        view(df3)
         view(df1.loc[bx, :])
         """
-        log.info('finished on %s'%str(df3.shape))
-        return df3
+        log.info('finished on %s \n    %s'%(str(res_df.shape), res_df['abbreviation'].value_counts().to_dict()))
+        return res_df
         
 
     def build_vf_d(self,
                      vid_df=None,
                      df_d = None,
-                     vid_l = None,
+                     
+                     #vfuncs selection
  
+ 
+                     #key names
                      dkey='vf_d',
                      vidnm = None, #indexer for damage functions
-                     max_mod_cnt=None,
+                     
                      ):
         """
         leaving this as a normal function
@@ -515,12 +663,9 @@ class Session(Basic):
             df_d = self.get_data('df_d')
             
         if vid_df is None: 
-            vid_df=self.get_data('vid_df', vid_l=vid_l, max_mod_cnt=max_mod_cnt)
+            vid_df=self.get_data('vid_df')
             
-        if vid_l is None: 
-            vid_l=vid_df.index.tolist()
-            
-        assert len(vid_l)==len(vid_df)
+ 
         
             
         if vidnm is None: vidnm=self.vidnm
@@ -533,6 +678,14 @@ class Session(Basic):
         #=======================================================================
         def get_wContainer(tabName):
             df1 = df_d[tabName].copy()
+            
+            l = set(vid_df.index).difference(df1[vidnm])
+            df1[vidnm].unique()
+            if not len(l)==0:
+                raise Error('missing %i keys in \'%s\''%(len(l), tabName))
+            
+ 
+            
             jdf = df_d[tabName+'_container'].copy()
             
             jcoln = jdf.columns[0]
@@ -541,10 +694,14 @@ class Session(Basic):
  
         lkp_d = {k:get_wContainer(k) for k in ['wd', 'relative_loss']}
  
+
         
         
         def get_by_vid(vid, k):
-            df1 = lkp_d[k].groupby(vidnm).get_group(vid).drop(vidnm, axis=1).reset_index(drop=True)
+            try:
+                df1 = lkp_d[k].groupby(vidnm).get_group(vid).drop(vidnm, axis=1).reset_index(drop=True)
+            except Exception as e:
+                raise Error(e)
             #drop indexers
             bxcol = df1.columns.str.contains('_id')
             return df1.loc[:, ~bxcol]
@@ -571,7 +728,7 @@ class Session(Basic):
             # spawn
             #===================================================================
             vf_d[vid] = Vfunc(
-                vid=vid,
+                vid=vid, model_id=row['model_id'],model_name=row['abbreviation'],
                 name=row['abbreviation']+'_%03i'%vid,
                 logger=self.logger, session=self,
                 meta_d = row.dropna().to_dict(), 
@@ -590,45 +747,51 @@ class Session(Basic):
         
         return vf_d
     
-    def build_rlMeans_dxcol(self,  #get aggregation erros for a single vfunc
+    def build_rl_xmDisc_dxcol(self,  #get aggregation erros mean-discretized for all vfuncs
                  vf_d=None,
-                 vid_l=[],
-                 dkey=None,
+                 
+                 #vfunc selection
+
+                 
                  
                  #vid_df keys
-                 max_mod_cnt=None,
+                 dkey=None,
+                 
                  chunk_size=1,
+                 
+                 #get_rl_xmDisc control
+                 plot=True,
                  **kwargs
                  ):
         
         log = self.logger.getChild('r')
-        assert dkey== 'rlMeans_dxcol'
+        assert dkey== 'rl_xmDisc_dxcol'
  
         #=======================================================================
         # #load dfuncs
         #=======================================================================
         if vf_d is None:
-            vf_d = self.get_data('vf_d', vid_l=vid_l, max_mod_cnt=max_mod_cnt)
+            vf_d = self.get_data('vf_d')
             
             
         #=======================================================================
         # setup
         #=======================================================================
-        out_dir = os.path.join(self.out_dir, dkey)
+        out_dir = os.path.join(self.out_dir, self.temp_dir, dkey)
         if not os.path.exists(out_dir): 
             os.makedirs(out_dir)
  
         #======================================================================
         # calc for each
         #======================================================================
-        plt.close('all')
+ 
         
         dump_fp_d, res_lib, master_vids, err_d = dict(), dict(), dict(), dict()
  
         for i, (vid, vfunc) in enumerate(vf_d.items()):
-            
+            log.info('%i/%i on %s'%(i+1, len(vf_d), vfunc.name))
             try:
-                res_lib[vfunc.vid] = self.get_rl_mean_agg(vfunc,logger=log.getChild(str(vid)), **kwargs)
+                res_lib[vfunc.vid] = self.get_rl_xmDisc(vfunc,logger=log.getChild(str(vid)),plot=plot, **kwargs)
                 master_vids[vid] = vfunc.vid
             except Exception as e:
                 msg = 'failed on %i w/ %s'%(vid, e)
@@ -690,25 +853,31 @@ class Session(Basic):
         dxcol = pd.concat(res_lib, axis=1, 
                               names=[self.vidnm] + list(res_lib[vfunc.vid].columns.names))
             
-        out_fp = self.write_dxcol(dxcol, dkey, logger=log)
+        self.ofp_d[dkey] = self.write_dxcol(dxcol, dkey, logger=log)
         
         #=======================================================================
-        # wrap
+        # error check
         #=======================================================================
         for k, msg in err_d.items():
             log.error(msg)
+            
+        if len(err_d)>0:
+            raise Error('got %i errors'%len(err_d))
         
  
-        raise Error('')
  
         return dxcol
     
  
     def build_rl_dxcol(self, #combine discretized xmean results onto single domain
-                        dxcol_raw=None,
+                        dxcol=None,
                         vf_d = None,
-                        vid_l=[],
-                        plot_meanCalcs=True, #plot calc loops of ger_rl_mean_agg
+                        vid_df=None,
+                        
+                        #vid selection
+ 
+                        
+                        #run control
                         dkey='rl_dxcol',
                         **kwargs
                         ):
@@ -724,22 +893,33 @@ class Session(Basic):
         #=======================================================================
         # retrieve
         #=======================================================================
-        if dxcol_raw is None:
-            dxcol_raw = self.get_data('rlMeans_dxcol', vid_l=vid_l, plot=plot_meanCalcs)
+        if dxcol is None:
+            dxcol = self.get_data('rl_xmDisc_dxcol')
+        
+
+        
+        #get vid_df for slicing
+        if vid_df is None:
+            vid_df = self.get_data('vid_df')
             
+            
+        
+        vid_l = vid_df.index.tolist()
         
         #=======================================================================
         # check
         #=======================================================================
         #check index
-        mdex = dxcol_raw.columns
+        mdex = dxcol.columns
+        names_d = {lvlName:i for i, lvlName in enumerate(mdex.names)}    
+        
         assert np.array_equal(np.array(mdex.names), np.array([vidnm, 'xmean', 'xvar', 'aggLevel', 'vars']))
         
             
         #check lvl0:vid
         res_vids_l = mdex.get_level_values(0).unique().tolist()
-        l = set(vid_l).difference(res_vids_l)
-        assert len(l) == 0, '%i requested vids not in the results: %s'%(len(l), l)
+        l = set(vid_df.index).symmetric_difference(res_vids_l)
+        assert len(l) == 0, '%i requested vids not in the results... are you random sampling?: \n%s'%(len(l), l)
         
         #check lvl4:vars
         l = set(mdex.get_level_values(4).unique()).symmetric_difference([xcn, ycn])
@@ -749,26 +929,21 @@ class Session(Basic):
         assert 'int' in mdex.get_level_values(3).unique().dtype.name
         
 
-        
+        """only relevant when loading from compiled... so do this there
         #=======================================================================
         # #trim to selection
         #=======================================================================
-        dxcol = dxcol_raw.sort_index(axis=1)
-        
-        dxcol = dxcol.loc[:, idx[vid_l, :,:, :]]
-        mdex = dxcol.columns
-        
-        #check
-        l = set(mdex.get_level_values(0).unique().tolist()).symmetric_difference(vid_l)
-        assert len(l)==0
+ 
+        """
         
         
-        log.info('loaded  rlMeans_dxcol w/ %s'%str(dxcol.shape))
+        log.info('loaded  rl_xmDisc_dxcol w/ %s'%str(dxcol.shape))
+        
         #=======================================================================
         # get vfuncs-----
         #=======================================================================
         if vf_d is None: 
-            vf_d =  self.get_data('vf_d', vid_l=vid_l)
+            vf_d =  self.get_data('vf_d', vid_df = vid_df)
             
         #check
         l = set(vf_d.keys()).symmetric_difference(vid_l)
@@ -790,13 +965,72 @@ class Session(Basic):
         #=======================================================================
         """this is a collapsed version of the rdxcol... wich only mean rloss values"""
         rdxcol = pd.concat(res_d, axis=1, names=[vidnm]+ list(res_d[vid].columns.names))
-        self.write_dxcol(rdxcol, dkey,  logger=log)
+        self.ofp_d[dkey] = self.write_dxcol(rdxcol, dkey,  logger=log)
         
         log.info('finished w/ %s'%str(rdxcol.shape))
         return rdxcol
 
 
+    def build_model_metrics(self, #integrate delta areas
+                        dxcol=None, #depth-damage at different AggLevel and xvars
+                        
+ 
+                        dkey=None,
+                        **kwargs
+                        ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild(dkey)
+        assert dkey == 'model_metrics'
+        vidnm = self.vidnm
+        xcn, ycn = self.xcn, self.ycn
+        #=======================================================================
+        # get rloss per-mean results---------
+        #=======================================================================
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if dxcol is None:
+            dxcol = self.get_data('rl_dxcol')
             
+        mdex = dxcol.columns
+        names_d = {lvlName:i for i, lvlName in enumerate(mdex.names)} 
+        vid_l = mdex.get_level_values(0).unique().tolist()
+        #=======================================================================
+        # check
+        #=======================================================================
+        #check index
+        
+        assert np.array_equal(np.array(mdex.names), np.array([vidnm, 'xvar', 'aggLevel']))
+        
+        
+        #log.info('loaded  rl_dxcol w/ %s'%str(dxcol.shape))
+        """
+        view(dxcol)
+        """
+        #=======================================================================
+        # loop on vid--------
+        #=======================================================================
+        plt.close('all')
+        log.info('on %i vfuncs: %s'%(len(vid_l), vid_l))
+        res_d = dict()
+        for vid, gdf0 in dxcol.groupby(level=0, axis=1):
+            
+            res_d[vid] = self.calc_areas(gdf0.droplevel(0, axis=1), logger=log.getChild('v%i'%vid), **kwargs)
+            
+            
+        log.info('got %i'%len(res_d))
+        rdxcol = pd.concat(res_d, axis=1, names=names_d.keys())
+
+        rdxcol.index.name='errArea_type'
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        self.ofp_d[dkey] = self.write_dxcol(rdxcol, dkey, write_csv=True)
+        
+        return rdxcol
  
 
  
@@ -804,13 +1038,15 @@ class Session(Basic):
     # TOP RUNNERS---------
     #===========================================================================
     
-    def run_dd_agg(self, #integrate delta areas
-                        dxcol_raw=None, #depth-damage at different AggLevel and xvars
- 
-                        vid_l=[],
+    def plot_eA_box(self, #integrate delta areas
+                        dxcol=None, #depth-damage at different AggLevel and xvars
+                        
+                        g0_coln=None, #coln for subfolder division
+                        g1_coln = 'errArea_type', #coln for dividing figures
+                        grp_colns = ['model_id', 'sector_attribute'], #coln for xaxis division (matrix rows)
  
                         #dkey='rl_dxcol',
-                        **kwargs
+ 
                         ):
         #=======================================================================
         # defaults
@@ -824,55 +1060,18 @@ class Session(Basic):
         #=======================================================================
         # retrieve
         #=======================================================================
-        if dxcol_raw is None:
-            dxcol_raw = self.get_data('rl_dxcol', vid_l=vid_l, **kwargs)
+        if dxcol is None:
+            dxcol = self.get_data('model_metrics')
             
-        
+            
         #=======================================================================
-        # check
+        # get macro stats
         #=======================================================================
-        #check index
-        mdex = dxcol_raw.columns
-        assert np.array_equal(np.array(mdex.names), np.array([vidnm, 'xvar', 'aggLevel']))
-        
-        
-        #=======================================================================
-        # #trim to selection
-        #=======================================================================
-        dxcol = dxcol_raw.sort_index(axis=1)
 
-        dxcol = dxcol.loc[:, idx[vid_l, :,:]]
-        mdex = dxcol.columns
-        names_d = {lvlName:i for i, lvlName in enumerate(mdex.names)}
-        
-        #check
-        l = set(mdex.get_level_values(0).unique().tolist()).symmetric_difference(vid_l)
-        assert len(l)==0
-        
-        
-        log.info('loaded  rl_dxcol w/ %s'%str(dxcol.shape))
-        """
-        view(dxcol)
-        """
-        #=======================================================================
-        # loop on vid--------
-        #=======================================================================
-        plt.close('all')
-        log.info('on %i vfuncs: %s'%(len(vid_l), vid_l))
-        res_d = dict()
-        for vid, gdf0 in dxcol.groupby(level=0, axis=1):
- 
-            
-            res_d[vid] = self.calc_areas(gdf0.droplevel(0, axis=1), logger=log.getChild('v%i'%vid))
-            
-        #=======================================================================
-        # get stats on set
-        #=======================================================================
-        log.info('got %i'%len(res_d))
-        rdxcol = pd.concat(res_d, axis=1, names=names_d.keys())
         
         #move the vid to the index
-        dx1 = rdxcol.T.unstack(level=vidnm).T.swaplevel(axis=0).sort_index(level=0)
+        dx1 = dxcol.T.unstack(level=vidnm).T.swaplevel(axis=0).sort_index(level=0)
+ 
         
         #calc each
         d = dict()
@@ -880,27 +1079,229 @@ class Session(Basic):
             d[stat] = getattr(dx1, stat)()
             
         #add back
-        dx2 = dx1.append(pd.concat([pd.concat(d, axis=1).T], keys=['stats']))
+        #dx2 = dx1.append(pd.concat([pd.concat(d, axis=1).T], keys=['stats']))
+        stats_df = pd.DataFrame.from_dict(d)
+        
+        
+        
+        #=======================================================================
+        # get grouped stats-----
+        #=======================================================================
+        
+        #move index to columns
+        dx2 = dx1.unstack(level='errArea_type')
+        names_d = {lvlName:i for i, lvlName in enumerate(dx2.columns.names)}
+        
+        #retrieve attribute info
+        vid_df = self.get_data('vid_df')
+        
+        l = set(grp_colns).difference(vid_df.columns)
+        assert len(l)==0, l
+        
+        
+        #add dummy indexer
+        if g0_coln is None:
+            g0_coln = 'group0'
+            vid_df[g0_coln] = True
+        
+        #=======================================================================
+        # #get figure for each attribute of interest
+        #=======================================================================
+        for i0, (g0val, vid_gdf) in enumerate(vid_df.groupby(g0_coln)):
             
+            #setup suubfolder
+            if len(vid_gdf)==len(vid_df):
+                out_dir = os.path.join(self.out_dir, 'plot_eA_box')
+            else:
+                out_dir = os.path.join(self.out_dir, 'plot_eA_box', str(g0val))
+ 
+ 
+                                              
+
         
+            for i, coln in enumerate(grp_colns + ['all']):
+                plt.close('all')
+    
+     
+                #get grouping info
+                if coln =='all':
+                    gser = pd.Series(True, name='all', index=vid_gdf.index)
+                else:
+                    gser = vid_gdf[coln]
+                
+                for gval, gdxcol in dx2.groupby(g1_coln, axis=1):
+                    """need this extra divisor"""
+     
+                    #build the matrix fig
+                    fig = self.get_eA_fig(gdxcol.droplevel(names_d[g1_coln], axis=1),
+                                         gser, fig_id=i, 
+                                        logger=log.getChild(coln))
+                    
+                    #post
+                    fig.suptitle(gval)
+                    
+                    
+                    self.output_fig(fig, out_dir=out_dir, fname='%s_%s_%s'%(self.resname, coln, gval))
+                
         #=======================================================================
-        # write
+        # wrap
         #=======================================================================
-        self.write_dxcol(dx2, 'agg_areas')
+        log.info('finished')
+                
+                
         
-        return dx2
+ 
+        
+        return  
         """
         view(rdxcol)
         """
         
-
-
+    def plot_eA_bars(self, #integrate delta areas
+                        dxcol=None, #depth-damage at different AggLevel and xvars
+                        
  
+                        
+                        grp_colns_fig = [ #pulling from vid_df
+                            'model_id', 'sector_attribute'
+                            ],
+ 
+                        #dkey='rl_dxcol',
+                        **kwargs
+                        ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('pBars')
+        vidnm = self.vidnm
+        xcn, ycn = self.xcn, self.ycn
+        #=======================================================================
+        # get rloss per-mean results---------
+        #=======================================================================
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if dxcol is None:
+            dxcol = self.get_data('model_metrics')
+            
+        vid_df = self.get_data('vid_df')
+        
+        """
+        view(vid_df)
+        """
+            
+        #=======================================================================
+        # data prep
+        #=======================================================================
+
+        
+        #move the vid to the index
+        dx1 = dxcol.T.unstack(level=vidnm).T.swaplevel(axis=0).sort_index(level=0)
+        
+        
+        #move index to columns
+        dx2 = dx1.unstack(level='errArea_type')
+        
+        
+        #check
+        l = set(grp_colns_fig).difference(vid_df.columns)
+        assert len(l)==0, l
+        
+        #=======================================================================
+        # join in grouping values
+        #=======================================================================
+        dx3 = dx2.copy()
+        
+        #build new index
+        dfi = pd.Series(dx3.index).to_frame().join(vid_df.loc[:, grp_colns_fig], on=vidnm)
+        dx3.index = pd.MultiIndex.from_frame(dfi)
+        
+        inames_d= {lvlName:i for i, lvlName in enumerate(dx3.index.names)}
+        
+        #=======================================================================
+        # loop each fig group
+        #=======================================================================
+        for i, (gvals, gdx) in enumerate(dx3.groupby(level=[inames_d[k] for k in grp_colns_fig])):
+            gk_d = dict(zip(grp_colns_fig, gvals))
+            gv_str = '_'.join([str(e) for e in gvals])
+        
+            
+            #drop extra levels
+            dxcol_i = gdx.droplevel([inames_d[k] for k in grp_colns_fig])
+            
+            #plot
+            plt.close('all')
+            fig = self.get_eA_bars_fig(dxcol_i, fig_id=i, logger=log.getChild(gv_str), **kwargs)
+            
+            #post
+            fig.suptitle(gv_str)
+            
+            
+            self.output_fig(fig, out_dir=os.path.join(self.out_dir, 'plot_eA_bars'), 
+                            fname='%s_%s'%(self.resname,gv_str))
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished')
+        
+        
+    def plot_xmDisc(self,
+                    dxcol=None,
+                    vf_d = None,
+ 
+                        
+                        #vid selection
+ 
+                        
+                        #run control
+ 
+                        **kwargs
+                        ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_xmDisc')
+        vidnm = self.vidnm
+        xcn, ycn = self.xcn, self.ycn
+        #=======================================================================
+        # get rloss per-mean results---------
+        #=======================================================================
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if dxcol is None:
+            dxcol = self.get_data('rl_xmDisc_dxcol')
+            
+        if vf_d is None:
+            vf_d = self.get_data('vf_d')
+        
+
+        log.info('on %s'%str(dxcol.shape))
+ 
+        #=======================================================================
+        #  loop each dataset
+        #=======================================================================
+        names_d = {lvlName:i for i, lvlName in enumerate(dxcol.columns.names)}
+        
+        
+        for i, ((vid, xmean), gdf) in enumerate(
+            dxcol.groupby(level=[names_d[e] for e in ['df_id', 'xmean']], axis=1)):
             
  
-    def plot_all(self,
+            plt.close('all')
+            fig = self.get_agg_imp_fig(gdf.droplevel([names_d[e] for e in ['df_id', 'xmean']], axis=1),
+                                       vfunc=vf_d[vid],
+                                       fig_id=0)
+            
+            
+
+        
+        
+ 
+    def plot_all_vfuncs(self,
                  #data selection
-                 vid_l=None,
+
                  
                  vf_d=None,
                  vid_df=None,
@@ -923,12 +1324,12 @@ class Session(Basic):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('plot_all')
+        log = self.logger.getChild('plot_all_vfuncs')
  
         vidnm=self.vidnm
         
         if vf_d is None: 
-            vf_d=self.get_data('vf_d', vid_l=vid_l, vid_df=vid_df)
+            vf_d=self.get_data('vf_d', vid_df=vid_df)
         
         log.info('on %i'%len(vf_d))
         
@@ -999,6 +1400,255 @@ class Session(Basic):
     #===========================================================================
     # HELPERS---------
     #===========================================================================
+    def get_eA_bars_fig(self,
+                        dxcol,
+                        col_coln='xvar', #matrix plot rows
+                        row_coln='aggLevel',#matrix plot columns
+ 
+                        #plot style
+                        colorMap=None,
+                        bar_colors_d=None,
+                        
+                        fig_id=None,
+                        ylims = (-30,30),
+                        
+                        #run control
+                        logger=None,
+                        ):
+            
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = logger.getChild('get_eA_bars_fig')
+        vidnm = self.vidnm
+        xcn, ycn = self.xcn, self.ycn
+        if colorMap is None: colorMap=self.colorMap
+        if bar_colors_d is None: bar_colors_d=self.bar_colors_d
+        #=======================================================================
+        # retrieve meta
+        #=======================================================================
+        mdex = dxcol.columns
+        cnames_d= {lvlName:i for i, lvlName in enumerate(mdex.names)}
+        
+        xvar_l =  mdex.get_level_values(cnames_d[col_coln]).unique().tolist()
+        rows_l = mdex.get_level_values(cnames_d[row_coln]).unique().tolist()
+        
+        
+        #=======================================================================
+        # #setup figure
+        #=======================================================================
+        
+        fig, ax_d = self.get_matrix_fig(rows_l,xvar_l, 
+                                        figsize=( len(xvar_l)*4, len(rows_l)*4),
+                                        constrained_layout=True,
+                                        fig_id=fig_id)
+        
+        #fig.suptitle(ser.name)
+        """
+        fig.show()
+        """
+        
+        #get color map for aggLevels
+        cmap = plt.cm.get_cmap(name=colorMap) 
+        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(rows_l, np.linspace(0, 1, len(rows_l)))).items()}
+             
+        
+        #=======================================================================
+        # populate each axis
+        #=======================================================================       
+        for gvals, gdf in dxcol.groupby(level=[cnames_d[row_coln],cnames_d[col_coln]],  axis=1):
+            #===================================================================
+            # setup this group
+            #===================================================================
+            gk_d = dict(zip([row_coln,col_coln], gvals))
+            gv_str = '_'.join([str(e) for e in gvals])
+            
+            """transforming to match other funcs"""
+            df = gdf.droplevel([cnames_d[row_coln],cnames_d[col_coln]], axis=1).T
+            
+ 
+            #===================================================================
+            # setup axis
+            #===================================================================
+            ax = ax_d[gvals[0]][gvals[1]]
+            ax.set_title(', '.join(['%s=%s'%(k,v) for k,v in gk_d.items()]))
+            
+            
+ 
+            #===================================================================
+            # add bars per xgroupn
+            #===================================================================
+            locs = np.linspace(.1,.9,len(df.columns))
+            width = 0.1/len(locs)
+            
+            """
+            ax.clear()
+            """
+            
+            for i, (label, row) in enumerate(df.iterrows()):
+                ax.bar(locs+i*width, row.values, label=label, width=width, alpha=0.5,
+                       color=bar_colors_d[label],
+                       tick_label=row.index)
+                
+        
+        #=======================================================================
+        # post axisforamtting
+        #=======================================================================
+        firstRow = True
+        for rowVal, d in ax_d.items():
+            
+            firstCol =True
+            for colVal, ax in d.items():
+ 
+                
+                
+                
+                if firstRow:
+                    ax.set_xlabel(df.columns.name)
+                    
+                    
+                    
+                    if firstCol: ax.legend()
+                        
+ 
+                    
+                if firstCol:
+                    ax.set_ylabel('area under rl difference curve')
+                    ax.set_ylim(ylims)
+                    
+                    firstCol = False
+            
+            #wrap row
+            if firstRow: 
+                firstRow=False
+            
+        log.info('finished')
+        return fig
+                
+            
+  
+    
+    def get_eA_fig(self, #get grouped (gser) bar plots per aggLevel + xvar 
+            dxcol, ser,
+            row_coln = 'aggLevel', #how to divide matrix plot rows
+            logger=None,
+            
+            #plot control
+            ylims = (-30,30),
+            fig_id=None,
+ 
+            colorMap=None,
+            ):
+        """
+        highlight
+            aggLevel
+            gropuVal
+        
+        matrix plot of boxplots
+            columns: xvar
+            rows:eatypes_l
+                axis groups: gvals
+            
+        plt.close('all')
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = logger.getChild('get_eA_fig')
+        vidnm = self.vidnm
+        xcn, ycn = self.xcn, self.ycn
+        if colorMap is None: colorMap=self.colorMap
+        #=======================================================================
+        # retrieve meta
+        #=======================================================================
+        mdex = dxcol.columns
+        cnames_d= {lvlName:i for i, lvlName in enumerate(mdex.names)}
+        
+        xvar_l = mdex.get_level_values(0).unique().tolist()
+        rows_l = mdex.get_level_values(cnames_d[row_coln]).unique().tolist()
+        
+        
+        #=======================================================================
+        # #setup figure
+        #=======================================================================
+        
+        fig, ax_d = self.get_matrix_fig(rows_l,xvar_l, 
+                                        figsize=( len(xvar_l)*4, len(rows_l)*4),
+                                        constrained_layout=True,
+                                        fig_id=fig_id)
+        
+        #fig.suptitle(ser.name)
+        
+        #get color map for aggLevels
+        cmap = plt.cm.get_cmap(name=colorMap) 
+        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(rows_l, np.linspace(0, 1, len(rows_l)))).items()}
+        
+
+            
+        #=======================================================================
+        # join in grouping values
+        #=======================================================================
+        dxcol1 = dxcol.copy()
+        
+        
+        dxcol1.index = pd.MultiIndex.from_frame(pd.Series(dxcol.index).to_frame().join(ser.rename('group'), on=vidnm))
+        inames_d= {lvlName:i for i, lvlName in enumerate(dxcol1.index.names)}
+        
+        """
+        view(dxcol1)
+        ax.clear()
+        fig.show()
+        """
+        
+ 
+        for i,  (rowVal, gdx0) in enumerate(dxcol1.groupby(level=cnames_d[row_coln], axis=1)):
+ 
+            
+            #xvar loop
+            for xvar, gdx1  in  gdx0.groupby(level=0, axis=1):
+                
+                #===============================================================
+                # data prep
+                #===============================================================
+                #===============================================================
+                # #get just this series
+                # dser = gdx1.droplevel(level=0).droplevel(level=0, axis=1).iloc[:, 0].rename('vals')
+                # 
+                # #pivot out into frame (one column per group)
+                # pdf = dser.to_frame().reset_index().pivot(columns='group')
+ 
+                #===============================================================
+                
+                gd = {k:v.values.reshape(-1) for k,v in gdx1.groupby(level=inames_d['group'], axis=0)}
+                #===============================================================
+                # plotting prep
+                #===============================================================
+                ax = ax_d[rowVal][xvar]
+                ax.set_title('%s=%s, xvar=%.2f'%(row_coln, rowVal, xvar))
+                ax.set_xlabel(ser.name)
+                ax.set_ylabel(ycn)
+
+                #===============================================================
+                # add the boxplot
+                #===============================================================
+                ax.boxplot(gd.values(), labels=gd.keys(),meanline=True,
+                           boxprops={'color':newColor_d[rowVal]}, whiskerprops={'color':newColor_d[rowVal]})
+                
+                
+                ax.set_ylim(ylims)
+                
+                #add the xaxis line
+                
+                ax.hlines(0, ax.get_xlim()[0], ax.get_xlim()[1], color='black', linewidth=0.5, linestyle='dashed')
+                
+ 
+                
+        #=======================================================================
+        # wrap
+        #=======================================================================
+ 
+                
+        return fig
     
     def calc_areas(self, #calc areas for a single vfunc
             dxcol,
@@ -1105,7 +1755,7 @@ class Session(Basic):
                      quantiles = (0.05, 0.95), #rloss qantiles to plot
                      
                      ylims_d = {
-                         'dd':(0,60), 'delta':(-15,15), 'bars':(-15,15)
+                         'dd':(0,80), 'delta':(-15,15), 'bars':(-15,15)
                          },
                      
                      xlims = (0,2),
@@ -1116,6 +1766,9 @@ class Session(Basic):
                      prec=4, #rounding table values
                      title=None,
                      
+                     #run control
+                     out_dir=None,
+                     
                      ):
         
         #=======================================================================
@@ -1125,8 +1778,13 @@ class Session(Basic):
         vidnm = self.vidnm
         xcn, ycn = self.xcn, self.ycn
         if colorMap is None: colorMap=self.colorMap
- 
-        plt.close('all')
+        
+        #output dir
+        if out_dir is None: 
+            out_dir=os.path.join(self.out_dir, 'models',str(vfunc.model_id), str(vfunc.vid))
+        
+        if not os.path.exists(out_dir): os.makedirs(out_dir)
+        
  
         #=======================================================================
         # check mdex
@@ -1157,7 +1815,7 @@ class Session(Basic):
         
         
 
-        
+        plt.close('all')
         fig, ax_d = self.get_matrix_fig(list(ylims_d.keys()), lVals_d['xvar'].tolist(), 
                                         figsize=(len(lVals_d['xvar'])*4,3*4),
                                         constrained_layout=True)
@@ -1166,14 +1824,7 @@ class Session(Basic):
         if title is None:
             title = vfunc.name
         fig.suptitle(title)
-        """
-        fig.show()
-        """
-
-        """
-        fig.show()
  
-        """
         #===================================================================
         # loop by xvar--------
         #===================================================================
@@ -1265,8 +1916,6 @@ class Session(Basic):
                 """negatives often balance positives
                 fig.show()
                 """
-
-                
                 #integrate
                 area_d['total'] = scipy.integrate.trapezoid(diff_ar, xar)
                 
@@ -1277,7 +1926,7 @@ class Session(Basic):
                 diff1_ar = diff_ar.copy()
                 diff1_ar[diff_ar<=0] = 0
                 
-                area_d['positive'] = scipy.integrate.trapezoid(diff1_ar, xar)
+                area_d['positives'] = scipy.integrate.trapezoid(diff1_ar, xar)
                 
                 #===============================================================
                 # negative  areas
@@ -1286,7 +1935,7 @@ class Session(Basic):
                 diff2_ar = diff_ar.copy()
                 diff2_ar[diff_ar>=0] = 0
                 
-                area_d['negative'] = scipy.integrate.trapezoid(diff2_ar, xar)
+                area_d['negatives'] = scipy.integrate.trapezoid(diff2_ar, xar)
                 
                 #ax.legend()
                 
@@ -1307,10 +1956,10 @@ class Session(Basic):
             adf.columns = ['aL=%i'%k for k in adf.columns]
             assert adf.notna().all().all()
             
-            locs = np.linspace(.1,.9,len(adf))
+            locs = np.linspace(.1,.9,len(adf.columns))
             for i, (label, row) in enumerate(adf.iterrows()):
                 ax.bar(locs+i*0.1, row.values, label=label, width=0.1, alpha=0.5,
-                       color={'total':'black', 'positive':'orange', 'negative':'blue'}[label],
+                       color=self.bar_colors_d[label],
                        tick_label=row.index)
                 
             
@@ -1320,19 +1969,7 @@ class Session(Basic):
                 ax.set_ylabel('area under rl difference curve')
                 ax.legend()
             
-            #ax.set_xticklabels(ax.get_xticklabels(), rotation = 45)
-            
-            """
-            fig.show()
-            ax.clear()
-            """
-            #===================================================================
-            # #set a tittle above the table
-            # ax.set_title('difference areas', y=0.8)
-            # ax.set_axis_off()
-            # 
-            # ax.table(rowLabels=adf.index, colLabels=adf.columns, cellText=adf.values.tolist(), loc='center', colLoc='center')
-            #===================================================================
+ 
             #===================================================================
             # #wrap xvar
             #===================================================================
@@ -1407,59 +2044,124 @@ class Session(Basic):
         
         res_dxcol = pd.concat(res_lib, axis=1, names=newNames_l)
         
-        self.output_fig(fig, fname='%s_%s_rlMeans'%(self.resname, vfunc.vid))
+        self.output_fig(fig, fname='%s_%s_rlMeans'%(self.resname, vfunc.vid), out_dir=out_dir)
         
         return res_dxcol
                 
  
 
-    def get_rl_mean_agg(self, #calculate rloss at different levels of aggregation
-                          vfunc,
-                          
+
+    def calc_agg_imp(self, vfunc, 
+                        
+                        xmean, 
+                        
                           #aggrevation levels to consider
                           aggLevels_l= [2, 
-                                        5, 100,
+                                        #5, 
+                                        100,
                                         ],
-                          
-                          
-                          #xvalues to iterate (xmean)
-                          xdomain=(0,2), #min/max of the xdomain
-                          xdomain_res = 30, #number of increments for the xdomain
-                          
-
-                          
+                        
                           #random depths pramaeters
-                          xvars_ar = np.linspace(.1,1,num=4), #varice values to iterate over
-                          statsFunc = scipy.stats.norm, #function to use for the depths distribution
-                          depths_resolution=2000,  #number of depths to draw from the depths distritupion
-                          
-                          #plotting parameters
-                        colorMap = None,
-                        plot=False,
+                          xvars_ar = np.linspace(.1,1,num=2), #varice values to iterate over
+                        statsFunc = scipy.stats.norm, #function to use for the depths distribution
+                         depths_resolution=2000,  #number of depths to draw from the depths distritupion
+                        
+ 
                         logger=None,
-                          ):
-
+ 
+                        ):
+        
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
-        log=logger.getChild('get_rl_mean')
+        log=logger.getChild('calc_agg_imp')
+        log.info('on %s'%vfunc.name)
+        
+ 
+        #===================================================================
+        # #depth variances (for generating depth values)-------
+        #===================================================================
+        res_lib = dict()
+        for xvar in xvars_ar:
+            res_d = dict()
+            title = 'xmean=%.2f xvar=%.2f' % (xmean, xvar)
+            log.debug(title)
+            #===============================================================
+            # get depths
+            #===============================================================
+            #build depths distribution
+ 
+            rv = statsFunc(loc=xmean, scale=xvar)
+            #self.plot_rv(rv, ax=ax, xlab='depth (m)', title=title)
+            #get depths set
+            depths_ar = rv.rvs(size=depths_resolution)
+ 
+            #===============================================================
+            # #get average impact (w/o aggregation)
+            #===============================================================
+ 
+            res_d[0] = self.get_rloss(vfunc, depths_ar, annotate=True, ax=None)
+            #===============================================================
+            # #get average impacts for varios aggregation levels
+            #===============================================================
+            for aggLevel in aggLevels_l:
+                log.debug('%s aggLevel=%s' % (title, aggLevel))
+                #get aggregated depths
+                depMean_ar = np.array([a.mean() for a in np.array_split(depths_ar, math.ceil(len(depths_ar) / aggLevel))])
+                
+                #get these losses
+                res_d[aggLevel] = self.get_rloss(vfunc, depMean_ar, ax=None)
+            
+ 
+ 
+            
+            #===================================================================
+            # wrap
+            #===================================================================
+            res_lib[xvar] = res_d
+        
+        return res_lib 
+    
+    def get_agg_imp_fig(self, 
+                        dxcol,
+                        vfunc=None,
+                        colorMap=None,
+                        logger=None,
+                        fig_id=0,
+                        
+                         statsFunc = scipy.stats.norm, #function to use for the depths distribution
+                        ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_agg_imp_fig')
         log.info('on %s'%vfunc.name)
         
         if colorMap is None: colorMap=self.colorMap
         xcn, ycn = self.xcn, self.ycn
         
+        names_d = {lvlName:i for i, lvlName in enumerate(dxcol.columns.names)}
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        aggLevels_l = dxcol.columns.get_level_values(names_d['aggLevel']).unique().tolist()
+        xvars_ar = dxcol.columns.get_level_values(names_d['xvar']).unique()
         
         
-        fig_lib, meta_lib, res_lib, ax_lib = dict(), dict(), dict(), dict()
+        
         
         #get color map for aggLevels
         cmap = plt.cm.get_cmap(name=colorMap)        
         newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(aggLevels_l, np.linspace(0, 1, len(aggLevels_l)))).items()}
         
- 
-        #xaxis control
-        self.master_xlim = (0,0) #set for controlling bounds
+        #=================================================================== 
+        # setup working fig 
+        #===================================================================
+        fig, ax_d = self.get_matrix_fig(['depths_dist', 'rl_scatter', 'rl_box'], xvars_ar.tolist(), 
+            figsize=(4 * len(xvars_ar), 8), fig_id=fig_id)
         
         def upd_xlim(ax):
             new = ax.get_xlim()
@@ -1469,102 +2171,128 @@ class Session(Basic):
                                 round(min(old[0], new[0]), 2),
                                round(max(old[1], new[1]), 2)
                                )
+ 
+        #===================================================================
+        # #depth variances (for generating depth values)-------
+        #===================================================================
+        res_lib = dict()
+        for xvar in xvars_ar:
+            res_d = dict()
+            title = 'xmean=%.2f xvar=%.2f' % (xmean, xvar)
+            log.debug(title)
+            #===============================================================
+            # get depths
+            #===============================================================
+            raise Error('need to store the depths_ar during get_rl_xmDisc so we can plot it here')
+            #build depths distribution
+            ax = ax_d['depths_dist'][xvar]
+            rv = statsFunc(loc=xmean, scale=xvar)
+            self.plot_rv(rv, ax=ax, xlab='depth (m)', title=title)
+            #get depths set
+            depths_ar = rv.rvs(size=depths_resolution)
+            ax.hist(depths_ar, color='blue', alpha=0.5, label='sample %i' % depths_resolution, density=True, bins=20)
+            ax.text(0.5, 0.9, '%i samples' % depths_resolution, transform=ax.transAxes, va='center', fontsize=8, color='blue')
+            upd_xlim(ax)
+            #===============================================================
+            # #get average impact (w/o aggregation)
+            #===============================================================
+            ax = ax_d['rl_scatter'][xvar]
+            res_d[0] = self.get_rloss(vfunc, depths_ar, annotate=True, ax=ax)
+            #===============================================================
+            # #get average impacts for varios aggregation levels
+            #===============================================================
+            for aggLevel in aggLevels_l:
+                log.debug('%s aggLevel=%s' % (title, aggLevel))
+            #get aggregated depths
+                depMean_ar = np.array([a.mean() for a in np.array_split(depths_ar, math.ceil(len(depths_ar) / aggLevel))])
+            #get these losses
+                res_d[aggLevel] = self.get_rloss(vfunc, depMean_ar, ax=ax, annotate=False, 
+                    color=newColor_d[aggLevel], label=aggLevel)
+            
+            ax.legend() #add legend to scatter
+            upd_xlim(ax)
+            #===============================================================
+            # box plot plotting
+            #===============================================================
+            ax = ax_d['rl_box'][xvar]
+            #merge all rl results and clean
+            rdf = pd.concat(res_d, keys=res_d.keys(), axis=1).drop(vfunc.xcn, axis=1, level=1).droplevel(level=1, axis=1)
+            rd = {k:ser.dropna() for (k, ser) in rdf.items()}
+            ax.boxplot(rd.values(), labels=['Agg=%i' % k for k in rd.keys()])
+            ax.set_ylabel(ycn)
+            
+            #===================================================================
+            # wrap
+            #===================================================================
+            res_lib[xvar] = res_d
+        
+        return res_lib, fig
+
+    def get_rl_xmDisc(self, #calculate rloss at different levels of aggregation
+                          vfunc,
+                          
+ 
+                          #xvalues to iterate (xmean)
+                          xdomain=(0,2), #min/max of the xdomain
+                          xdomain_res = 5, #number of increments for the xdomain
+ 
+                          
+                          #plotting parameters
+ 
+                        plot=False,
+                        out_dir=None,
+                        logger=None,
+                          ):
+
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_rl_xmDisc')
+        log.info('on %s'%vfunc.name)
+        
+ 
+        xcn, ycn = self.xcn, self.ycn
+        
+        if out_dir is None: out_dir = os.path.join(self.out_dir, vfunc.name, 'xmean_disc')
+        
+        fig_lib, meta_lib, res_lib, ax_lib = dict(), dict(), dict(), dict()
+        
+
+        
+ 
+        #=======================================================================
+        # #xaxis control
+        #=======================================================================
+        self.master_xlim = (0,0) #set for controlling bounds
+        
+
             
         
         #=======================================================================
         # loop mean deths 
         #=======================================================================
+ 
         xmean_ar = np.linspace(xdomain[0],xdomain[1],num=xdomain_res)
         for i, xmean in enumerate(xmean_ar):
-            log.info('%i/%i xmean=%.2f\n'%(i, len(xmean_ar), xmean))
+            log.info('%i/%i xmean=%.2f'%(i, len(xmean_ar), xmean))
             
-            #===================================================================
-            # setup working fig
-            #===================================================================
-            
-            fig, ax_d = self.get_matrix_fig(['depths_dist', 'rl_scatter','rl_box'], xvars_ar.tolist(), 
-                                            figsize=(4*len(xvars_ar),8),fig_id=i)
-        
-            ax_lib[xmean] = ax_d
-            
-            """
-            plt.show()
-            """
-            
-            #===================================================================
-            # #depth variances (for generating depth values)-------
-            #===================================================================
-            meta_lib[xmean], res_lib[xmean] = dict(), dict() #add pages
-            for xvar in xvars_ar:
-                res_d = dict()
-                title = 'xmean=%.2f xvar=%.2f'%(xmean, xvar)
-                log.info(title)
-                
-                #===============================================================
-                # get depths
-                #===============================================================
-                #build depths distribution
-                ax = ax_d['depths_dist'][xvar]
-                rv = statsFunc(loc = xmean, scale = xvar)
-                self.plot_rv(rv, ax=ax, xlab='depth (m)', title=title)
-                
-                #get depths set
-                depths_ar = rv.rvs(size=depths_resolution)
-                ax.hist(depths_ar, color='blue', alpha=0.5, label='sample %i'%depths_resolution, density=True, bins=20)
-                ax.text(0.5, 0.9, '%i samples'%depths_resolution, transform=ax.transAxes, va='center',fontsize=8, color='blue')
-                upd_xlim(ax)
  
-                #===============================================================
-                # #get average impact (w/o aggregation)
-                #===============================================================
-                ax = ax_d['rl_scatter'][xvar]
-                res_d[0] = self.get_rloss(vfunc,depths_ar,annotate=True,ax=ax) 
-                
-                #===============================================================
-                # #get average impacts for varios aggregation levels                
-                #===============================================================
-                for aggLevel in aggLevels_l:
-                    log.info('%s aggLevel=%s'%(title, aggLevel))
-
-                    #get aggregated depths
-                    depMean_ar = np.array([a.mean() for a in np.array_split(depths_ar, math.ceil(len(depths_ar)/aggLevel))])
-                    
-                    #get these losses
-                    res_d[aggLevel] = self.get_rloss(vfunc,depMean_ar, ax=ax, annotate=False, 
-                                                       color=newColor_d[aggLevel], label=aggLevel)
+            
+            res_lib[xmean]= self.calc_agg_imp(vfunc,xmean, 
+                                                    logger=log.getChild(str(i)))
  
- 
-                ax.legend() #add legend to scatter
-                upd_xlim(ax)
-                #===============================================================
-                # box plot plotting
-                #===============================================================
-                ax = ax_d['rl_box'][xvar]
-                
-                #merge all rl results and clean
-                rdf = pd.concat(res_d, keys=res_d.keys(), axis=1).drop(vfunc.xcn, axis=1, level=1).droplevel(level=1, axis=1)
-                rd = {k:ser.dropna() for k,ser in rdf.items()}
-                ax.boxplot(rd.values(), labels=['Agg=%i'%k for k in rd.keys()])
-                ax.set_ylabel(ycn)
-                #ax.legend()
-                
-                #===============================================================
-                # wrap
-                #===============================================================
-                #change aggLevel keys
-                #{'ag%i'%k:v for k,v in res_d.items()}
-                res_lib[xmean][xvar] = res_d
                 
             #===============================================================
             # wrap mean
             #===============================================================
-            fig_lib[xmean] = fig
-            log.info('finished xmean = %.2f'%xmean)
+ 
+            log.debug('finished xmean = %.2f'%xmean)
         
         #=======================================================================
         # wrap
         #=======================================================================
-        log.info('finsihed on %i'%len(res_lib))
+        log.debug('finsihed on %i'%len(res_lib))
         
         #=======================================================================
         # #write the xmean plots---------
@@ -1581,7 +2309,8 @@ class Session(Basic):
                 
                 #print(xmean)
                 self.output_fig(fig, fname='%s_xmean%.2f'%(self.resname, xmean),
-                                out_dir=os.path.join(self.out_dir, 'rl_mean_agg'))
+                                fmt='png',
+                                out_dir=out_dir)
             
             
         #=======================================================================
@@ -1961,7 +2690,7 @@ class Session(Basic):
         return res_df.to_dict(orient='index')
     
     def write_dxcol(self, dxcol, dkey,
-                    write_csv=True,
+                    write_csv=False,
                     out_fp = None, 
                     logger=None):
         
@@ -1982,7 +2711,7 @@ class Session(Basic):
             
         with open(out_fp, 'wb') as f:
             pickle.dump(dxcol, f, pickle.HIGHEST_PROTOCOL)
-        log.info('wrote %s to \n    %s' % (str(dxcol.shape), out_fp))
+        log.info('wrote \'%s\' (%s) to \n    %s' % (dkey, str(dxcol.shape), out_fp))
         
         
         #=======================================================================
@@ -2054,27 +2783,46 @@ class Session(Basic):
             raise Error('failed to write figure to file w/ \n    %s'%e)
         
         return out_fp
+    
+    def __exit__(self, #destructor
+                 *args, **kwargs):
+        
+        print('Session.__exit__ on \'%s\''%self.__class__.__name__)
+        
+        #=======================================================================
+        # log major containers
+        #=======================================================================
+        print('__exit__ w/ data_d.keys(): %s'%(list(self.data_d.keys())))
+        
+        if len(self.ofp_d)>0:
+            print('__exit__ with %i ofp_d:'%len(self.ofp_d))
+            for k,v in self.ofp_d.items():print('    \'%s\':r\'%s\','%(k,v))
+              
+              
+        
+        
+        super().__exit__(*args, **kwargs)
         
         
         
         
 def run_plotVfunc( 
-        tag='r0',
+        tag='r1',
         
  
         #data selection
         #vid_l=[796],
         vid_l=None,
-        gcoln = 'sector_attribute', #how to spilt figures
-        style_gcoln = 'precaution_attribute',
-        max_mod_cnt=None,
-        
+        gcoln = 'model_id', #how to spilt figures
+        style_gcoln = 'sector_attribute',
+        max_mod_cnt=10,
+        vid_sample=10,
         
          selection_d = { #selection criteria for models. {tabn:{coln:values}}
                           'model_id':[
-                              #1, 2, 
+                              1, 2, 
                               3, #flemo 
-                              #4, 6, 7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47
+                              4, 6, 7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47
                               ],
                           'function_formate_attribute':['discrete'], #discrete
                           'damage_formate_attribute':['relative'],
@@ -2094,7 +2842,7 @@ def run_plotVfunc(
         # 
         #by record count
         #debug_len=20,
-        debug_len=None,
+
         # 
         # #use some preloaded data (saves lots of time during loading)
         # debug_fp=r'C:\LS\09_REPOS\02_JOBS\2107_obwb\outs\9vtag\r0\20211230\raw_9vtag_r0_1230.csv',
@@ -2106,18 +2854,18 @@ def run_plotVfunc(
     
  
     with Session(tag=tag,  overwrite=True,  name='plotAll',
-                 # figsize=figsize,
+                 bk_lib = {
+                     'vid_df':dict(
+                      vid_l=vid_l, max_mod_cnt=max_mod_cnt, selection_d=selection_d, vid_sample=vid_sample
+                                    ),
+                     }
                  ) as ses:
         
  
         
  
-        vid_df = ses.get_data('vid_df',
-                      vid_l=vid_l, max_mod_cnt=max_mod_cnt, selection_d=selection_d)
-        
-        if not debug_len is None:
-            vid_df = vid_df.sample(debug_len)
-        
+        vid_df = ses.get_data('vid_df')
+ 
  
         """
         view(vid_df)
@@ -2133,7 +2881,7 @@ def run_plotVfunc(
  
             phndl_d = ses.get_plot_hndls(gdf, coln=style_gcoln)
             
-            fig = ses.plot_all(vid_l=phndl_d.keys(), phndl_d=phndl_d, vid_df=gdf,
+            fig = ses.plot_all_vfuncs(phndl_d=phndl_d, vid_df=gdf,
                          figsize=figsize, xlims=xlims,ylims=ylims,
                          title='%s (%s) w/ %i'%(gdf.iloc[0,:]['abbreviation'], k, len(phndl_d)))
             
@@ -2149,26 +2897,44 @@ def run_plotVfunc(
 
 
 def run_aggErr1(#agg error per function
-        tag='r1',
+        tag='r2',
         
         #selection
-        vid_l=[
-                796, #Budiyono (2015) 
-               402, #MURL linear
-               852, #Dutta (2003) nice and parabolic
-               33, #FLEMO resi...
-               332, #FLEMO commericial
-               ], #running on a single function
+        #=======================================================================
+        # vid_l=[
+        #         796, #Budiyono (2015) 
+        #        #402, #MURL linear
+        #        #852, #Dutta (2003) nice and parabolic
+        #        #33, #FLEMO resi...
+        #        #332, #FLEMO commericial
+        #        ], #running on a single function
+        #=======================================================================
+        vid_l=None,
         
+        vid_sample=None,
+        max_mod_cnt=3,
+        
+         selection_d = { #selection criteria for models. {tabn:{coln:values}}
+                          'model_id':[
+                              #1, 2, #continous 
+                              3, #flemo 
+                              4, 6, 
+                              #7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47
+                              ],
+                          'function_formate_attribute':['discrete'], #discrete
+                          'damage_formate_attribute':['relative'],
+                          'coverage_attribute':['building'],
+                         
+                         },
+ 
         #run control
         dfp_d = {
-            #'rlMeans_dxcol':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r0\20220101\aggErr1_r0_0101_rlMeans_dxcol.pickle',
-            #'rl_dxcol':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r0\20220101\aggErr1_r0_0101_rl_dxcol.pickle',
+            'rl_xmDisc_dxcol':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220103\aggErr1_r2_0103_rl_xmDisc_dxcol.pickle',
+         
             },
         
         #plot control
  
-        plot_meanCalcs=False,
  
  
         
@@ -2193,13 +2959,31 @@ def run_aggErr1(#agg error per function
     
  
     with Session(tag=tag,  overwrite=True,  name='aggErr1',dfp_d=dfp_d,
+                 bk_lib = {
+                     'vid_df':dict(
+                            selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
+                                    ),
+                     'rl_xmDisc_dxcol':dict(plot=False),
+                            }
                  # figsize=figsize,
                  ) as ses:
         
+        vid_df=ses.get_data('vid_df')
+        
+        #discretization calcs
+        ses.plot_xmDisc()
+        
+        #combined box plots
+        ses.plot_eA_box(grp_colns = ['model_id', 'sector_attribute'])
+        
+        #per-model bar plots
+        ses.plot_eA_bars()
+        
+        
  
-        ses.run_dd_agg(vid_l=vid_l, plot_meanCalcs=plot_meanCalcs,
- 
-                       )
+         
+        
+        
 
  
         
