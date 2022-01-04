@@ -59,6 +59,8 @@ matplotlib_font = {
 
 matplotlib.rc('font', **matplotlib_font)
 matplotlib.rcParams['axes.titlesize'] = 10 #set the figure title size
+matplotlib.rcParams['figure.titlesize']=12
+matplotlib.rcParams['figure.titleweight']='bold'
 
 #spacing parameters
 matplotlib.rcParams['figure.autolayout'] = False #use tight layout
@@ -281,6 +283,8 @@ class Session(Basic):
     
     bar_colors_d = {'total':'black', 'positives':'orange', 'negatives':'blue'}
     
+    color_lib=dict() #container of loaded color librarires
+    
     def __init__(self, 
                   work_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg',
                   mod_name = 'main.py',
@@ -365,6 +369,7 @@ class Session(Basic):
         if dkey in self.data_d:
             return self.data_d[dkey]
         
+        log.info('loading %s'%dkey)
         #=======================================================================
         # load by type
         #=======================================================================
@@ -974,7 +979,8 @@ class Session(Basic):
         
         log.info('on %i vfuncs: %s'%(len(vid_l), vid_l))
         res_d = dict()
-        for vid, gdf0 in dxcol.groupby(level=0, axis=1):
+        for i, (vid, gdf0) in enumerate(dxcol.groupby(level=0, axis=1)):
+            log.info('%i/%i on %s'%(i+1, len(vf_d), vf_d[vid].name))
             
             res_d[vid] = self.calc_rlMeans(gdf0.droplevel(0, axis=1), vf_d[vid], **kwargs)
             
@@ -1060,17 +1066,20 @@ class Session(Basic):
     def plot_eA_box(self, #integrate delta areas
                         dxcol=None, #depth-damage at different AggLevel and xvars
                         
+                        #value grouping
                         g0_coln=None, #coln for subfolder division
                         g1_coln = 'errArea_type', #coln for dividing figures
                         grp_colns = ['model_id', 'sector_attribute'], #coln for xaxis division (matrix rows)
- 
-                        #dkey='rl_dxcol',
- 
+                        
+                        #style control
+                        
+
+                        **kwargs
                         ):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('rdd')
+        log = self.logger.getChild('plot_eA_box')
         vidnm = self.vidnm
         xcn, ycn = self.xcn, self.ycn
         #=======================================================================
@@ -1152,15 +1161,17 @@ class Session(Basic):
                     """need this extra divisor"""
      
                     #build the matrix fig
-                    fig = self.get_eA_fig(gdxcol.droplevel(names_d[g1_coln], axis=1),
+                    fig = self.get_eA_box_fig(gdxcol.droplevel(names_d[g1_coln], axis=1),
                                          gser, fig_id=i, 
-                                        logger=log.getChild(coln))
+                                        logger=log.getChild(coln), **kwargs)
                     
                     #post
                     fig.suptitle(gval)
                     
                     
-                    self.output_fig(fig, out_dir=out_dir, fname='%s_%s_%s'%(self.resname, coln, gval))
+                    self.output_fig(fig, out_dir=out_dir, fname='%s_%s_%s'%(self.resname, coln, gval),
+                                    overwrite=True,
+                                    transparent=False)
                 
         #=======================================================================
         # wrap
@@ -1337,7 +1348,7 @@ class Session(Basic):
             ofp_d[i] = self.output_fig(fig,
                     out_dir=os.path.join(od0,str(vfunc.model_id), str(vfunc.vid)), #matching calc_rlMeans
                     fname='_'.join([self.resname, 'v%i'%vid, 'm%.1f'%xmean, 'xmDisc']),
-                    fmt='png', dpi=400,
+                    fmt='svg', dpi=400,transparent=False
                     )
         
         #=======================================================================
@@ -1453,8 +1464,133 @@ class Session(Basic):
         #=======================================================================
         return fig
     
+    def run_err_stats(self,
+                      dxcol=None,
+                      grp_colns =  ['model_id', 'sector_attribute'],
+                      ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('rdd')
+        vidnm = self.vidnm
+        xcn, ycn = self.xcn, self.ycn
+ 
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if dxcol is None:
+            dxcol = self.get_data('model_metrics')
+            
+        #retrieve attribute info
+        
+        #=======================================================================
+        # setup
+        #=======================================================================
+        res_lib = dict()
+
+        
+        #move the vid to the index
+        dx1 = dxcol.T.unstack(level=vidnm).T.swaplevel(axis=0).sort_index(level=0)
+ 
+ 
+        
+        
+        #move index to columns
+        dx2 = dx1.unstack(level='errArea_type')
+        names_d = {lvlName:i for i, lvlName in enumerate(dx2.columns.names)}
+        
+
+        #=======================================================================
+        # combined stats
+        #=======================================================================
+        res_d = dict()
+        res_d2 = dict()
+        for eatype, gdf in dx2.groupby(level=names_d['errArea_type'], axis=1):
+            df = gdf.droplevel(names_d['errArea_type'], axis=1)
+            
+            #thresholds
+            d = {'df<0':(df<0).sum(),
+                 'df>0':(df>0).sum(),
+                 'total':df.notna().sum()}
+            
+            res_d[eatype] = pd.concat(d, axis=1).T
+            
+            #stats
+            d=dict()
+            for stat in ['mean', 'min', 'max']:
+                d[stat] = getattr(df, stat)()
+                
+            res_d2[eatype] = pd.concat(d, axis=1).T
+ 
+ 
+        res_lib['combined_thresh'] = pd.concat(res_d)
+        
+        res_lib['combined_stats'] =pd.concat(res_d2)
+        
+        
+        #=======================================================================
+        # all models
+        #=======================================================================
+        vid_df = self.get_data('vid_df')
+        gcoln = 'model_id'
+        dx3 = dx2.copy()
+        #add model id for easy lookup
+        meta_ser = vid_df[gcoln] 
+ 
+        dx3.index=pd.MultiIndex.from_frame(pd.Series(dx2.index).to_frame().join(meta_ser, on=meta_ser.index.name))
+        
+        res_lib['all'] = dx3
+ 
+ 
+        
+        #=======================================================================
+        # get grouped stats-----
+        #=======================================================================
+        
+
+        
+        
+
+        
+        
+        for gcoln in  grp_colns:
+            res_d = dict()
+            for i, (gval, vid_gdf) in enumerate(vid_df.groupby(gcoln)):
+                #get these errors
+                res_d[gval] = dx2.loc[vid_gdf.index, :].sum().rename(gval).to_frame().T
+            
+            #reassemble
+            rdxcol = pd.concat(res_d).droplevel(level=0, axis=0)
+            rdxcol.index.name=gcoln
+            
+            #add some meta columns
+            meta_ser = vid_df[gcoln].groupby(vid_df[gcoln]).count().rename('%s_cnt'%self.vidnm)
+            mdex = pd.MultiIndex.from_frame(pd.Series(rdxcol.index).to_frame().join(meta_ser, on=gcoln))
+            rdxcol.index=mdex
+            
+            
+            res_lib[gcoln] = rdxcol
+            
+        #=======================================================================
+        # write
+        #=======================================================================
+        out_fp=os.path.join(self.out_dir, '%s_err_stats.xls'%self.resname)
+        with pd.ExcelWriter(out_fp) as writer:
+            for tabnm, df in res_lib.items():
+                df.to_excel(writer, sheet_name=tabnm, index=True, header=True)
+                
+        log.info('wrote %i tabs: %s \n    %s'%(len(res_lib), list(res_lib.keys()), out_fp))
+        
+        return out_fp
+        
+                
+ 
+        
+ 
+    
     #===========================================================================
-    # HELPERS---------
+    # PLOTING--------
     #===========================================================================
     def get_eA_bars_fig(self,
                         dxcol,
@@ -1578,18 +1714,19 @@ class Session(Basic):
             if firstRow: 
                 firstRow=False
             
-        log.info('finished')
+        log.debug('finished')
         return fig
                 
             
   
     
-    def get_eA_fig(self, #get grouped (gser) bar plots per aggLevel + xvar 
+    def get_eA_box_fig(self, #get grouped (gser) bar plots per aggLevel + xvar 
             dxcol, ser,
             row_coln = 'aggLevel', #how to divide matrix plot rows
             logger=None,
             
             #plot control
+            add_text=True,
             ylims = (-30,30),
             fig_id=None,
  
@@ -1610,7 +1747,7 @@ class Session(Basic):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = logger.getChild('get_eA_fig')
+        log = logger.getChild('get_eA_box_fig')
         vidnm = self.vidnm
         xcn, ycn = self.xcn, self.ycn
         if colorMap is None: colorMap=self.colorMap
@@ -1666,14 +1803,7 @@ class Session(Basic):
                 #===============================================================
                 # data prep
                 #===============================================================
-                #===============================================================
-                # #get just this series
-                # dser = gdx1.droplevel(level=0).droplevel(level=0, axis=1).iloc[:, 0].rename('vals')
-                # 
-                # #pivot out into frame (one column per group)
-                # pdf = dser.to_frame().reset_index().pivot(columns='group')
  
-                #===============================================================
                 
                 gd = {k:v.values.reshape(-1) for k,v in gdx1.groupby(level=inames_d['group'], axis=0)}
                 #===============================================================
@@ -1687,8 +1817,28 @@ class Session(Basic):
                 #===============================================================
                 # add the boxplot
                 #===============================================================
-                ax.boxplot(gd.values(), labels=gd.keys(),meanline=True,
-                           boxprops={'color':newColor_d[rowVal]}, whiskerprops={'color':newColor_d[rowVal]})
+                boxres_d = ax.boxplot(gd.values(), labels=gd.keys(),meanline=True,
+                           boxprops={'color':newColor_d[rowVal]}, 
+                           whiskerprops={'color':newColor_d[rowVal]},
+                           flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
+                            )
+                
+                #===============================================================
+                # add extra text
+                #===============================================================
+                
+                #counts on median bar
+                for gval, line in dict(zip(gd.keys(), boxres_d['medians'])).items():
+                    x_ar, y_ar = line.get_data()
+                    ax.text(x_ar.mean(), y_ar.mean(), 'n%i'%len(gd[gval]), 
+                            #transform=ax.transAxes, 
+                            va='bottom',ha='center',fontsize=8)
+                    
+                    if add_text:
+                        ax.text(x_ar.mean(), ylims[0]+1, 'mean=%.2f'%gd[gval].mean(), 
+                            #transform=ax.transAxes, 
+                            va='bottom',ha='center',fontsize=8, rotation=90)
+                    
                 
                 
                 ax.set_ylim(ylims)
@@ -1706,6 +1856,267 @@ class Session(Basic):
                 
         return fig
     
+    def get_matrix_fig(self, #conveneince for getting a matrix plot with consistent object access
+                       row_keys, #row labels for axis
+                       col_keys, #column labels for axis
+                       
+                       fig_id=0,
+                       figsize=None,
+                        tight_layout=False,
+                        constrained_layout=True,
+                        
+                        sharex=False, 
+                         sharey='row',
+                        
+                       ):
+        
+        
+        #=======================================================================
+        # defautls
+        #=======================================================================
+        if figsize is None: figsize=self.figsize
+        
+        
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        assert isinstance(row_keys, list)
+        assert isinstance(col_keys, list)
+        
+        if fig_id in plt.get_fignums():
+            plt.close()
+        
+        #=======================================================================
+        # build figure
+        #=======================================================================
+        
+        fig = plt.figure(fig_id,
+            figsize=figsize,
+            tight_layout=tight_layout,
+            constrained_layout=constrained_layout)
+        
+        # populate with subplots
+        ax_ar = fig.subplots(nrows=len(row_keys), ncols=len(col_keys),
+                             sharex=sharex, sharey=sharey,
+                             )
+        
+        #convert to array
+        if not isinstance(ax_ar, np.ndarray):
+            assert len(row_keys)==len(col_keys)
+            assert len(row_keys)==1
+            
+            ax_ar = np.array([ax_ar])
+            
+        
+        #=======================================================================
+        # convert to dictionary
+        #=======================================================================
+        ax_d = dict()
+        for i, row_ar in enumerate(ax_ar.reshape(len(row_keys), len(col_keys))):
+            ax_d[row_keys[i]]=dict()
+            for j, ax in enumerate(row_ar.T):
+                ax_d[row_keys[i]][col_keys[j]]=ax
+                
+            
+ 
+            
+        return fig, ax_d
+    
+    def plot_rv(self, #get a plot of a scipy distribution
+                rv,
+                ax=None,
+                figNumber = 1,
+                color='red',
+                xlab=None,
+                title=None,
+                lineKwargs = {
+                    #'color':'red'
+                    }
+                ):
+        
+        #=======================================================================
+        # setup data
+        #=======================================================================
+        #get x domain
+        xar = np.linspace(rv.ppf(0.01),rv.ppf(0.99), 100)
+        
+        
+        #=======================================================================
+        # setup figure
+        #=======================================================================
+        if ax is None:
+            ax = get_ax(figNumber=figNumber)
+
+            
+        #=======================================================================
+        # #plot
+        #=======================================================================
+        #pdf
+        ax.plot(xar, rv.pdf(xar), label='%s pdf'%rv.dist.name, color=color,
+                 **lineKwargs)
+        
+        
+        
+        #=======================================================================
+        # style
+        #=======================================================================
+        ax.grid()
+        
+        if not title is None: ax.set_title(title)
+        if not xlab is None: ax.set_xlabel(xlab)
+        ax.set_ylabel('frequency')
+        
+        d = {k: getattr(rv, k)() for k in ['mean', 'std', 'var']}
+        
+        text = '\n'.join(['%s:%.2f'%(k,v) for k,v in d.items()])
+        anno_obj = ax.text(0.1, 0.9, text, transform=ax.transAxes, va='center',
+                           fontsize=8, color=color)
+        
+ 
+        return ax
+        """
+        plt.show()
+        """
+
+ 
+ 
+    def get_plot_hndls(self,
+                         df_raw,
+                         coln = 'model_id', #style group
+                         vidnm = None, #indexer for damage functions
+                         colorMap = 'gist_rainbow',
+                         ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if vidnm is None: vidnm=self.vidnm
+        
+       
+        from matplotlib.lines import Line2D
+        log = self.logger.getChild('plot_hndls')
+        
+        #=======================================================================
+        # checks
+        #=======================================================================
+        assert len(df_raw)<=20, 'passed too many plots... this is over plotting'
+        #=======================================================================
+        # color by model_id
+        #=======================================================================
+        if df_raw[coln].isna().any():
+            log.warning('got %i/%i nulls on \'%s\'... filling with mode'%(
+                df_raw[coln].isna().sum(), len(df_raw), coln))
+            
+            df1 = df_raw.fillna(df_raw[coln].mode()[0])
+        else:
+            df1 = df_raw.copy()
+            
+            
+        """
+        view(df1)
+        """
+        res_df = pd.DataFrame(index=df1.index)
+        #=======================================================================
+        # #retrieve the color map
+        #=======================================================================
+        
+        groups = df1.groupby(coln)
+        
+        cmap = plt.cm.get_cmap(name=colorMap)
+        #get a dictionary of index:color values           
+        d = {i:cmap(ni) for i, ni in enumerate(np.linspace(0, 1, len(groups)))}
+        newColor_d = {i:matplotlib.colors.rgb2hex(tcolor) for i,tcolor in d.items()}
+        
+        #markers
+        #np.repeat(Line2D.filled_markers, 3) 
+        markers_d = Line2D.markers
+        
+        mlist = list(markers_d.keys())*3
+        
+        for i, (k, gdf) in enumerate(groups):
+            
+            #single color per model type
+            res_df.loc[gdf.index.values, 'color'] = newColor_d[i]
+            
+ 
+            # marker within model_id
+            if len(gdf)>len(markers_d):
+                log.warning('\'%s\' more lines (%i) than markers!'%(k, len(gdf)))
+ 
+ 
+            res_df.loc[gdf.index, 'marker'] = np.array(mlist[:len(gdf)])
+             
+            
+ 
+        if not res_df.notna().all().all():
+            log.warning('got %i nulls'%res_df.isna().sum().sum())
+        
+        
+        #dummy for now
+        return res_df.to_dict(orient='index')
+    
+    def output_fig(self, 
+                   fig,
+                   
+                   #file controls
+                   out_dir = None, overwrite=True, 
+                   out_fp=None, #defaults to figure name w/ a date stamp
+                   fname = None, #filename
+                   
+                   #figure write controls
+                 fmt='svg', 
+                  transparent=True, 
+                  dpi = 150,
+                  logger=None,
+                  ):
+        #======================================================================
+        # defaults
+        #======================================================================
+        if out_dir is None: out_dir = self.out_dir
+        if overwrite is None: overwrite = self.overwrite
+        if logger is None: logger=self.logger
+        log = logger.getChild('output_fig')
+        
+        if not os.path.exists(out_dir):os.makedirs(out_dir)
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        
+        assert isinstance(fig, matplotlib.figure.Figure)
+        log.debug('on %s'%fig)
+        #======================================================================
+        # output
+        #======================================================================
+        if out_fp is None:
+            #file setup
+            if fname is None:
+                try:
+                    fname = fig._suptitle.get_text()
+                except:
+                    fname = self.name
+                    
+                fname =str('%s_%s'%(fname, self.resname)).replace(' ','')
+                
+            out_fp = os.path.join(out_dir, '%s.%s'%(fname, fmt))
+            
+        if os.path.exists(out_fp): 
+            assert overwrite
+            os.remove(out_fp)
+
+            
+        #write the file
+        try: 
+            fig.savefig(out_fp, dpi = dpi, format = fmt, transparent=transparent)
+            log.info('saved figure to file:   %s'%out_fp)
+        except Exception as e:
+            raise Error('failed to write figure to file w/ \n    %s'%e)
+        
+        return out_fp
+    
+    
+    #===========================================================================
+    # CALCs---------------
+    #===========================================================================
     def calc_areas(self, #calc areas for a single vfunc
             dxcol,
             logger=None,
@@ -1795,7 +2206,7 @@ class Session(Basic):
         #=======================================================================
         # wrap
         #=======================================================================
-        log.info('finished on %i'%len(res_lib))
+        log.debug('finished on %i'%len(res_lib))
         
         rdxcol = pd.concat(res_lib, axis=1)
         
@@ -1811,18 +2222,20 @@ class Session(Basic):
                      quantiles = (0.05, 0.95), #rloss qantiles to plot
                      
                      ylims_d = {
-                         'dd':(0,80), 'delta':(-15,15), 'bars':(-15,15)
+                         'dd':(0,100), 'delta':(-30,15), 'bars':(-30,15)
                          },
                      
                      xlims = (0,2),
  
                      
                      #plot style
+                     plot=True,
                      colorMap=None,
                      prec=4, #rounding table values
                      title=None,
                      
                      #run control
+                     plot_xmean_scatter=None, #index for plotting the scatter on aggLevel=0
                      out_dir=None,
                      
                      ):
@@ -1837,7 +2250,7 @@ class Session(Basic):
         
         #output dir
         if out_dir is None: 
-            out_dir=os.path.join(self.out_dir, 'models',str(vfunc.model_id))
+            out_dir=os.path.join(self.out_dir, 'models',str(vfunc.model_id), '%i'%vfunc.vid)
         
         if not os.path.exists(out_dir): os.makedirs(out_dir)
         
@@ -1858,7 +2271,7 @@ class Session(Basic):
         for lvlName, lvl in names_d.items():
             lVals_d[lvlName] = np.array(dxcol.columns.get_level_values(lvl).unique())
  
-        log.info('for ' + ', '.join(['%i %sz'%(len(v), k) for k,v in lVals_d.items()]))
+        log.debug('for ' + ', '.join(['%i %sz'%(len(v), k) for k,v in lVals_d.items()]))
         #===================================================================
         # setup figure
         #===================================================================
@@ -1914,6 +2327,15 @@ class Session(Basic):
                 
                 #drop waterDepth info
                 rXmean_df = rdXmean_dxcol.loc[:,idx[:,ycn]].droplevel(1, axis=1)
+ 
+                
+                """
+                vfunc.ddf
+                view(gdf1)
+                view(rXmean_df)
+                fig.show()
+                ax.clear()
+                """
                 
                 #===============================================================
                 # mean impacts per depth 
@@ -1922,6 +2344,8 @@ class Session(Basic):
                 #calc
                 rser1 = rXmean_df.mean(axis=0)
                 res_d[aggLevel] = rser1.copy()
+                res_lib[xvar] = pd.concat(res_d, axis=1)
+                if not plot: continue
                 
                 #plot
                 ax = ax_d['dd'][xvar]
@@ -1941,6 +2365,19 @@ class Session(Basic):
                     
                 #wrap impacts-depth
                 ax.legend()
+                
+                #===============================================================
+                # special scatter
+                #===============================================================
+                if aggLevel==0 and not plot_xmean_scatter is None:
+                    #get this xmean
+                    xmean = rXmean_df.columns[plot_xmean_scatter]
+                    
+                    dd_df = rdXmean_dxcol.loc[:, idx[xmean, :]].droplevel(0, axis=1).sample(50)
+                    
+                    ax.scatter(x=dd_df[xcn], y=dd_df[ycn], color=color, s=20, marker='$%.1f$'%xmean, alpha=0.1,
+                               label='raws xmean=%.2f'%xmean)
+                    
                 
                 #===============================================================
                 # deltas----------
@@ -2002,91 +2439,98 @@ class Session(Basic):
                 
                 log.debug('finished aggLevel=%i'%aggLevel)
             
-            ax.legend() #turn on the diff legend
-            #===================================================================
-            # add area bar charts
-            #===================================================================
-            ax = ax_d['bars'][xvar]
-            
-            adf = pd.DataFrame.from_dict(area_lib).round(prec)
-            adf.columns = ['aL=%i'%k for k in adf.columns]
-            assert adf.notna().all().all()
-            
-            locs = np.linspace(.1,.9,len(adf.columns))
-            for i, (label, row) in enumerate(adf.iterrows()):
-                ax.bar(locs+i*0.1, row.values, label=label, width=0.1, alpha=0.5,
-                       color=self.bar_colors_d[label],
-                       tick_label=row.index)
+            if plot:
+                ax.legend() #turn on the diff legend
+                #===================================================================
+                # add area bar charts
+                #===================================================================
+     
+                ax = ax_d['bars'][xvar]
                 
-            
-            
-            #first row
-            if xvar == min(lVals_d['xvar']):
-                ax.set_ylabel('area under rl difference curve')
-                ax.legend()
+                adf = pd.DataFrame.from_dict(area_lib).round(prec)
+                adf.columns = ['aL=%i'%k for k in adf.columns]
+                assert adf.notna().all().all()
+                
+                locs = np.linspace(.1,.9,len(adf.columns))
+                for i, (label, row) in enumerate(adf.iterrows()):
+                    ax.bar(locs+i*0.1, row.values, label=label, width=0.1, alpha=0.5,
+                           color=self.bar_colors_d[label],
+                           tick_label=row.index)
+                    
+                
+                
+                #first row
+                if xvar == min(lVals_d['xvar']):
+                    ax.set_ylabel('area under rl difference curve')
+                    ax.legend()
             
  
             #===================================================================
             # #wrap xvar
             #===================================================================
-            res_lib[xvar] = pd.concat(res_d, axis=1)
-            log.info('finished xvar=%.2f'%xvar)
+            
+            log.debug('finished xvar=%.2f'%xvar)
             
         #=======================================================================
         # post plot --------
         #=======================================================================
-        #===================================================================
-        # draw the vfunc  and setup the axis
-        #===================================================================
- 
-            
-        lineKwargs = {'color':'black', 'linewidth':1.0, 'linestyle':'dashed'}
- 
-        #=======================================================================
-        # #depth-damage
-        #=======================================================================
-        first=True
-        for xvar, ax in ax_d['dd'].items():
-        
-            vfunc.plot(ax=ax, label=vfunc.name, lineKwargs=lineKwargs)
-            ax.set_title('xvar = %.2f'%xvar)
-            ax.set_xlabel(xcn)
-            ax.grid()
-            
-            if first:
-                ax.set_ylabel(ycn)
-                first=False
-            
-
-        #=======================================================================
-        # #delta
-        #=======================================================================
-        first=True
-        for xvar, ax in ax_d['delta'].items():
-            ax.set_xlabel(xcn)
-            ax.grid()
-            
-            ax.hlines(0, -5, 5, label='true', **lineKwargs)
- 
-            
-            if first:
-                ax.set_ylabel('%s (true - mean)'%ycn)
-                first=False
- 
-                        
-            #ax.legend() #need to turn on at the end
-            
-        #set limits
-        for rowName in ax_d.keys():
-            for colName, ax in ax_d[rowName].items():
+        if plot:
+            #===================================================================
+            # draw the vfunc  and setup the axis
+            #===================================================================
+     
                 
-                #xlims
-                if not rowName == 'bars' and not xlims is None:
-                    ax.set_xlim(xlims)
+            lineKwargs = {'color':'black', 'linewidth':1.0, 'linestyle':'dashed'}
+     
+            #=======================================================================
+            # #depth-damage
+            #=======================================================================
+            first=True
+            for xvar, ax in ax_d['dd'].items():
+            
+                vfunc.plot(ax=ax, label=vfunc.name, lineKwargs={**{'marker':'o', 'markersize':3, 'fillstyle':'none'},**lineKwargs})
+                ax.set_title('xvar = %.2f'%xvar)
+                ax.set_xlabel(xcn)
+                ax.grid()
+                
+                if first:
+                    ax.set_ylabel(ycn)
+                    first=False
+                
+    
+            #=======================================================================
+            # #delta
+            #=======================================================================
+            
+            first=True
+            for xvar, ax in ax_d['delta'].items():
+                ax.set_xlabel(xcn)
+                ax.grid()
+                
+                ax.hlines(0, -5, 5, label='true', **lineKwargs)
+     
+                
+                if first:
+                    ax.set_ylabel('%s (true - mean)'%ycn)
+                    first=False
+     
+                            
+                #ax.legend() #need to turn on at the end
+                
+            #set limits
+            for rowName in ax_d.keys():
+                for colName, ax in ax_d[rowName].items():
                     
-                #ylims
-                if not ylims_d[rowName] is None:
-                    ax.set_ylim( ylims_d[rowName])
+                    #xlims
+                    if not rowName == 'bars' and not xlims is None:
+                        ax.set_xlim(xlims)
+                        
+                    #ylims
+                    if not ylims_d[rowName] is None:
+                        ax.set_ylim( ylims_d[rowName])
+                        
+            self.output_fig(fig, fname='%s_%s_rlMeans'%(self.resname, vfunc.vid), out_dir=out_dir,
+                            transparent=False, overwrite=True)
                 
  
                 
@@ -2099,8 +2543,7 @@ class Session(Basic):
         
         
         res_dxcol = pd.concat(res_lib, axis=1, names=newNames_l)
-        
-        self.output_fig(fig, fname='%s_%s_rlMeans'%(self.resname, vfunc.vid), out_dir=out_dir)
+ 
         
         return res_dxcol
                 
@@ -2132,7 +2575,7 @@ class Session(Basic):
         #=======================================================================
         if logger is None: logger=self.logger
         log=logger.getChild('calc_agg_imp')
-        log.info('on %s'%vfunc.name)
+        log.debug('on %s'%vfunc.name)
         
  
         #===================================================================
@@ -2203,7 +2646,7 @@ class Session(Basic):
                         fig_id=0,
                         
                          ylims_d = {
-                                  'dep-dmg':(0,50), 'rl_box':(0,50)
+                                  'dep-dmg':(0,30), 'rl_box':(0,50)
                                  },
                          xlims = (-1, 3),
                         
@@ -2369,7 +2812,7 @@ class Session(Basic):
                           #plotting parameters
  
                         logger=None,
-                          ):
+                          **kwargs):
 
         #=======================================================================
         # defaults
@@ -2395,7 +2838,7 @@ class Session(Basic):
  
             
             res_lib[xmean], xvals_lib[xmean]= self.calc_agg_imp(vfunc,xmean, 
-                                                    logger=log.getChild(str(i)))
+                                                    logger=log.getChild(str(i)), **kwargs)
  
                 
             #===============================================================
@@ -2522,63 +2965,7 @@ class Session(Basic):
         
         return pd.DataFrame([depths_ar, rl_ar], index=[vfunc.xcn, vfunc.ycn]).T.sort_values(vfunc.xcn).reset_index(drop=True) 
             
-    def plot_rv(self, #get a plot of a scipy distribution
-                rv,
-                ax=None,
-                figNumber = 1,
-                color='red',
-                xlab=None,
-                title=None,
-                lineKwargs = {
-                    #'color':'red'
-                    }
-                ):
-        
-        #=======================================================================
-        # setup data
-        #=======================================================================
-        #get x domain
-        xar = np.linspace(rv.ppf(0.01),rv.ppf(0.99), 100)
-        
-        
-        #=======================================================================
-        # setup figure
-        #=======================================================================
-        if ax is None:
-            ax = get_ax(figNumber=figNumber)
 
-            
-        #=======================================================================
-        # #plot
-        #=======================================================================
-        #pdf
-        ax.plot(xar, rv.pdf(xar), label='%s pdf'%rv.dist.name, color=color,
-                 **lineKwargs)
-        
-        
-        
-        #=======================================================================
-        # style
-        #=======================================================================
-        ax.grid()
-        
-        if not title is None: ax.set_title(title)
-        if not xlab is None: ax.set_xlabel(xlab)
-        ax.set_ylabel('frequency')
-        
-        d = {k: getattr(rv, k)() for k in ['mean', 'std', 'var']}
-        
-        text = '\n'.join(['%s:%.2f'%(k,v) for k,v in d.items()])
-        anno_obj = ax.text(0.1, 0.9, text, transform=ax.transAxes, va='center',
-                           fontsize=8, color=color)
-        
- 
-        return ax
-        """
-        plt.show()
-        """
-
- 
 
     def get_joins(self, df_d, 
                   vidnm=None):
@@ -2662,156 +3049,19 @@ class Session(Basic):
         return df2, pd.DataFrame.from_dict(meta_d).T
     
     
-    def get_matrix_fig(self, #conveneince for getting a matrix plot with consistent object access
-                       row_keys, #row labels for axis
-                       col_keys, #column labels for axis
-                       
-                       fig_id=0,
-                       figsize=None,
-                        tight_layout=False,
-                        constrained_layout=True,
-                        
-                        sharex=False, 
-                         sharey='row',
-                        
-                       ):
-        
-        
-        #=======================================================================
-        # defautls
-        #=======================================================================
-        if figsize is None: figsize=self.figsize
-        
-        
-        #=======================================================================
-        # precheck
-        #=======================================================================
-        assert isinstance(row_keys, list)
-        assert isinstance(col_keys, list)
-        
-        if fig_id in plt.get_fignums():
-            plt.close()
-        
-        #=======================================================================
-        # build figure
-        #=======================================================================
-        
-        fig = plt.figure(fig_id,
-            figsize=figsize,
-            tight_layout=tight_layout,
-            constrained_layout=constrained_layout)
-        
-        # populate with subplots
-        ax_ar = fig.subplots(nrows=len(row_keys), ncols=len(col_keys),
-                             sharex=sharex, sharey=sharey,
-                             )
-        
-        #convert to array
-        if not isinstance(ax_ar, np.ndarray):
-            assert len(row_keys)==len(col_keys)
-            assert len(row_keys)==1
-            
-            ax_ar = np.array([ax_ar])
-            
-        
-        #=======================================================================
-        # convert to dictionary
-        #=======================================================================
-        ax_d = dict()
-        for i, row_ar in enumerate(ax_ar.reshape(len(row_keys), len(col_keys))):
-            ax_d[row_keys[i]]=dict()
-            for j, ax in enumerate(row_ar.T):
-                ax_d[row_keys[i]][col_keys[j]]=ax
-                
-            
- 
-            
-        return fig, ax_d
-    
-    def get_plot_hndls(self,
-                         df_raw,
-                         coln = 'model_id', #style group
-                         vidnm = None, #indexer for damage functions
-                         colorMap = 'gist_rainbow',
-                         ):
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if vidnm is None: vidnm=self.vidnm
-        
-       
-        from matplotlib.lines import Line2D
-        log = self.logger.getChild('plot_hndls')
-        
-        #=======================================================================
-        # checks
-        #=======================================================================
-        assert len(df_raw)<=20, 'passed too many plots... this is over plotting'
-        #=======================================================================
-        # color by model_id
-        #=======================================================================
-        if df_raw[coln].isna().any():
-            log.warning('got %i/%i nulls on \'%s\'... filling with mode'%(
-                df_raw[coln].isna().sum(), len(df_raw), coln))
-            
-            df1 = df_raw.fillna(df_raw[coln].mode()[0])
-        else:
-            df1 = df_raw.copy()
-            
-            
-        """
-        view(df1)
-        """
-        res_df = pd.DataFrame(index=df1.index)
-        #=======================================================================
-        # #retrieve the color map
-        #=======================================================================
-        
-        groups = df1.groupby(coln)
-        
-        cmap = plt.cm.get_cmap(name=colorMap)
-        #get a dictionary of index:color values           
-        d = {i:cmap(ni) for i, ni in enumerate(np.linspace(0, 1, len(groups)))}
-        newColor_d = {i:matplotlib.colors.rgb2hex(tcolor) for i,tcolor in d.items()}
-        
-        #markers
-        #np.repeat(Line2D.filled_markers, 3) 
-        markers_d = Line2D.markers
-        
-        mlist = list(markers_d.keys())*3
-        
-        for i, (k, gdf) in enumerate(groups):
-            
-            #single color per model type
-            res_df.loc[gdf.index.values, 'color'] = newColor_d[i]
-            
- 
-            # marker within model_id
-            if len(gdf)>len(markers_d):
-                log.warning('\'%s\' more lines (%i) than markers!'%(k, len(gdf)))
- 
- 
-            res_df.loc[gdf.index, 'marker'] = np.array(mlist[:len(gdf)])
-             
-            
- 
-        if not res_df.notna().all().all():
-            log.warning('got %i nulls'%res_df.isna().sum().sum())
-        
-        
-        #dummy for now
-        return res_df.to_dict(orient='index')
-    
+
     def write_dxcol(self, dxcol, dkey,
                     write_csv=False,
                     out_fp = None, 
-                    logger=None):
+                    logger=None,
+                    overwrite=None,
+                    ):
         
         #=======================================================================
         # defautls
         #=======================================================================
         if logger is None: logger=self.logger
+        if overwrite is None: overwrite=self.overwrite
         log=logger.getChild('write_dxcol')
         assert isinstance(dxcol, pd.DataFrame)
         
@@ -2828,6 +3078,9 @@ class Session(Basic):
             
         else:
             write_csv=False
+            
+        if os.path.exists(out_fp):
+            assert overwrite, 'file exists and overwrite=False\n    %s'%out_fp
             
         with open(out_fp, 'wb') as f:
             pickle.dump(dxcol, f, pickle.HIGHEST_PROTOCOL)
@@ -2846,64 +3099,7 @@ class Session(Basic):
         
         return out_fp
     
-    def output_fig(self, 
-                   fig,
-                   
-                   #file controls
-                   out_dir = None, overwrite=None, 
-                   out_fp=None, #defaults to figure name w/ a date stamp
-                   fname = None, #filename
-                   
-                   #figure write controls
-                 fmt='svg', 
-                  transparent=True, 
-                  dpi = 150,
-                  logger=None,
-                  ):
-        #======================================================================
-        # defaults
-        #======================================================================
-        if out_dir is None: out_dir = self.out_dir
-        if overwrite is None: overwrite = self.overwrite
-        if logger is None: logger=self.logger
-        log = logger.getChild('output_fig')
-        
-        if not os.path.exists(out_dir):os.makedirs(out_dir)
-        #=======================================================================
-        # precheck
-        #=======================================================================
-        
-        assert isinstance(fig, matplotlib.figure.Figure)
-        log.debug('on %s'%fig)
-        #======================================================================
-        # output
-        #======================================================================
-        if out_fp is None:
-            #file setup
-            if fname is None:
-                try:
-                    fname = fig._suptitle.get_text()
-                except:
-                    fname = self.name
-                    
-                fname =str('%s_%s'%(fname, self.resname)).replace(' ','')
-                
-            out_fp = os.path.join(out_dir, '%s.%s'%(fname, fmt))
-            
-        if os.path.exists(out_fp): 
-            assert overwrite
-            os.remove(out_fp)
-
-            
-        #write the file
-        try: 
-            fig.savefig(out_fp, dpi = dpi, format = fmt, transparent=transparent)
-            log.info('saved figure to file:   %s'%out_fp)
-        except Exception as e:
-            raise Error('failed to write figure to file w/ \n    %s'%e)
-        
-        return out_fp
-    
+ 
     def __exit__(self, #destructor
                  *args, **kwargs):
         
@@ -3018,7 +3214,7 @@ def run_plotVfunc(
 
 
 def run_aggErr1(#agg error per function
-        tag='r2',
+        tag='r3',
         
         #selection
         #=======================================================================
@@ -3047,11 +3243,32 @@ def run_aggErr1(#agg error per function
                           'coverage_attribute':['building'],
                          
                          },
+         
+         #run control
+         rl_xmDisc_dxcol_d = dict(
+                xdomain=(0,2), #min/max of the xdomain
+                xdomain_res = 10, #number of increments for the xdomain
+                
+                aggLevels_l= [2, 
+                             #5, 
+                             10,
+                             ],
+                
+                #random depths pramaeters
+                xvars_ar = np.linspace(.5,1,num=2), #varice values to iterate over
+                statsFunc = scipy.stats.norm, #function to use for the depths distribution
+                depths_resolution=500,  #number of depths to draw from the depths distritupion
+                          ),
+         rl_dxcol_d = dict(plot=True),
+         overwrite=True,
  
-        #run control
+        #cahcehd results
         dfp_d = {
-            #'rl_xmDisc_dxcol':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220103\aggErr1_r2_0103_rl_xmDisc_dxcol.pickle',
-            #'rl_xmDisc_xvals':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r2_0104_rl_xmDisc_xvals.pickle',
+    #===========================================================================
+    # 'rl_xmDisc_dxcol':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r3\20220104\aggErr1_r3_0104_rl_xmDisc_dxcol.pickle',
+    # 'rl_xmDisc_xvals':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r3\20220104\aggErr1_r3_0104_rl_xmDisc_xvals.pickle',
+    # 'rl_dxcol':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r3\20220104\aggErr1_r3_0104_rl_dxcol.pickle',
+    #===========================================================================
             },
         
         #plot control
@@ -3079,12 +3296,13 @@ def run_aggErr1(#agg error per function
  
     
  
-    with Session(tag=tag,  overwrite=True,  name='aggErr1',dfp_d=dfp_d,
+    with Session(tag=tag,  overwrite=overwrite,  name='aggErr1',dfp_d=dfp_d,
                  bk_lib = {
                      'vid_df':dict(
                             selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
                                     ),
-                     'rl_xmDisc_dxcol':dict(),
+                     'rl_xmDisc_dxcol':rl_xmDisc_dxcol_d,
+                     'rl_dxcol':rl_dxcol_d,
                             }
                  # figsize=figsize,
                  ) as ses:
@@ -3092,13 +3310,18 @@ def run_aggErr1(#agg error per function
         vid_df=ses.get_data('vid_df')
         
         #discretization calcs
-        ses.plot_xmDisc()
+        #ses.plot_xmDisc()
+        
+        #combine
+        #ses.build_rl_dxcol()
         
         #combined box plots
         #ses.plot_eA_box(grp_colns = ['model_id', 'sector_attribute'])
         
         #per-model bar plots
-        #ses.plot_eA_bars()
+        ses.plot_eA_bars()
+        
+        #ses.run_err_stats()
         
         
  
@@ -3112,11 +3335,63 @@ def run_aggErr1(#agg error per function
         
     return out_dir
 
+def all_r2(
+        
+        ):
+    
+    return run_aggErr1(
+        
+            #model selection
+            tag='r2',
+            #vid_l=[811,798, 410] ,
+            selection_d = { #selection criteria for models. {tabn:{coln:values}}
+                          'model_id':[
+                              #1, 2, #continous 
+                              3, #flemo 
+                              4, 6, 
+                              7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47
+                              ],
+                          'function_formate_attribute':['discrete'], #discrete
+                          'damage_formate_attribute':['relative'],
+                          'coverage_attribute':['building'],
+                         
+                         },
+                     
+            #run control
+            overwrite=False,
+            rl_xmDisc_dxcol_d = dict(
+                xdomain=(0,2), #min/max of the xdomain
+                xdomain_res = 30, #number of increments for the xdomain
+                
+                aggLevels_l= [2, 
+                             5, 
+                             100,
+                             ],
+                
+                #random depths pramaeters
+                xvars_ar = np.linspace(.1,1,num=3), #varice values to iterate over
+                statsFunc = scipy.stats.norm, #function to use for the depths distribution
+                depths_resolution=2000,  #number of depths to draw from the depths distritupion
+                          ),
+            
+            rl_dxcol_d = dict(plot=False),
+                 
+                 
+            dfp_d = {
+                'rl_xmDisc_dxcol':  r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r2_0104_rl_xmDisc_dxcol.pickle',
+                'rl_xmDisc_xvals':  r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r2_0104_rl_xmDisc_xvals.pickle',
+                'rl_dxcol':         r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r3_0104_rl_dxcol.pickle',
+                'model_metrics':    r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r3_0104_model_metrics.pickle'
+                        },
+        
+        )
+
 
 
 if __name__ == "__main__": 
     
-    output = run_aggErr1()
+    #output = run_aggErr1()
+    output=all_r2()
     #output = run_plotVfunc()
     # reader()
     
