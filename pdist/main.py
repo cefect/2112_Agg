@@ -3,7 +3,7 @@ Created on Dec. 31, 2021
 
 @author: cefect
 
-explore impact esitaimtes from damage functions as a result of aggregation
+explore errors in impact estimates as a result of aggregation using pdist generated depths
     let's use hp.coms, but not Canflood
     using damage function csvs from figurero2018 (which were pulled from a db)
     
