@@ -288,15 +288,15 @@ class Session(Basic):
     def __init__(self, 
                   work_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg',
                   mod_name = 'main.py',
-                  dfp_d=dict(),
-                  bk_lib=dict(),
+                  dfp_d=dict(), #container for compiled (intermediate) results {dkey:filepath}
+                  bk_lib=dict(), #kwargs for builder calls
                  **kwargs):
         
         super().__init__(work_dir=work_dir, mod_name=mod_name, 
                          
                          **kwargs)
         
-        self.dfp_d=dfp_d
+        
         
         self.data_hndls = { #function mappings for loading data types
                         #compiled takes 1 kwarg (fp)
@@ -342,6 +342,7 @@ class Session(Basic):
             }
         
         self.bk_lib=bk_lib
+        self.dfp_d=dfp_d
         
         
 
