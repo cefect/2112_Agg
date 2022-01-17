@@ -286,7 +286,7 @@ class Session(Basic):
     color_lib=dict() #container of loaded color librarires
     
     def __init__(self, 
-                  work_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg',
+                  work_dir = r'C:\LS\10_OUT\2112_Agg',
                   mod_name = 'main.py',
                   dfp_d=dict(), #container for compiled (intermediate) results {dkey:filepath}
                   bk_lib=dict(), #kwargs for builder calls
