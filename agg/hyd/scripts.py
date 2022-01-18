@@ -98,10 +98,19 @@ class Session(agSession, Session, Qproj):
                     ax = ax_d[grid_size][rlayName]
                     
                     #plot
-                    ax.hist(ser.dropna().values, color='blue', alpha=0.3, label=rlayName, density=True, bins=20)
+                    ar = ser.dropna().values
+                    ax.hist(ar, color='blue', alpha=0.3, label=rlayName, density=True, bins=20)
                     
-                    #style
+                    #label
+                    meta_d = {'grid_size':grid_size,'wet':len(ar), 'dry':ser.isna().sum(), 'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
+                    txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
+                    ax.text(0.5, 0.9, txt, transform=ax.transAxes, va='top', fontsize=8, color='blue')
                     
+                    """
+                    plt.show()
+                    """
+                    
+                    #style                    
                     ax.set_xlim(xlims)
                     
                     #first columns
@@ -235,7 +244,10 @@ class Session(agSession, Session, Qproj):
  
         return self.sa_get(proj_lib=d, meth='get_rsamps', logger=log, dkey=dkey, write=True)
     
-    def get_finvg(self):
+    #===========================================================================
+    # HELPERS--------
+    #===========================================================================
+    def get_finvg(self): #get and check the finvg data
         
         #=======================================================================
         # load
@@ -257,7 +269,11 @@ class Session(agSession, Session, Qproj):
             
         return fgm_ofp_d, fgdir_dxind
         
+    
         
+    #===========================================================================
+    # GENERICS---------------
+    #===========================================================================
     def sa_get(self, #spatial tasks on each study area
                        proj_lib=None,
                        meth='get_rsamps', #method to run
@@ -286,7 +302,7 @@ class Session(agSession, Session, Qproj):
             log.info('%i/%i on %s'%(i+1, len(proj_lib), name))
             
             with StudyArea(session=self, name=name, tag=self.tag, prec=self.prec,
-                           trim=self.trim,
+                           trim=self.trim, out_dir=self.out_dir,
                            **pars_d) as wrkr:
                 
                 #raw raster samples
@@ -395,7 +411,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('get_finvs')
+        log = self.logger.getChild('get_finvsg')
         
         if finv_vlay is None: finv_vlay=self.finv_vlay
         if idfn is None: idfn=self.idfn
@@ -406,40 +422,50 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         fpts_d = dict() #container for resulting finv points layers
         groups_d = dict()
         meta_d = dict()
-        log.info('on %i: %s'%(len(grid_sizes), grid_sizes))
+        log.info('on \'%s\' w/ %i: %s'%(finv_vlay.name(), len(grid_sizes), grid_sizes))
         
         for i, grid_size in enumerate(grid_sizes):
-            log.info('%i/%i w/ %.1f'%(i+1, len(grid_sizes), grid_size))
+            log.info('%i/%i grid w/ %.1f'%(i+1, len(grid_sizes), grid_size))
             
             #===================================================================
             # #build the grid
             #===================================================================
+            
             gvlay1 = self.creategrid(finv_vlay, spacing=grid_size, logger=log)
             self.mstore.addMapLayer(gvlay1)
+            log.info('    built grid w/ %i'%gvlay1.dataProvider().featureCount())
             
             #clear all the fields
-            gvlay1a = self.deletecolumn(gvlay1, [f.name() for f in gvlay1.fields()], logger=log)
+            #gvlay1a = self.deletecolumn(gvlay1, [f.name() for f in gvlay1.fields()], logger=log)
             
             #index the grid
-            gvlay2 = self.addautoincrement(gvlay1a, fieldName='gid', logger=log)
+            #gvlay2 = self.addautoincrement(gvlay1a, fieldName='gid', logger=log)
+            gvlay2 = self.renameField(gvlay1, 'id', 'gid', logger=log)
             self.mstore.addMapLayer(gvlay2)
             
             #select those w/ some assets
             gvlay2.removeSelection()
+            self.createspatialindex(gvlay2)
+            log.info('    selecting from grid based on intersect w/ \'%s\''%(finv_vlay.name()))
             self.selectbylocation(gvlay2, finv_vlay, logger=log)
             
+            
+            gvlay2b = self.saveselectedfeatures(gvlay2, logger=log)
+            self.mstore.addMapLayer(gvlay2b)
+            
+            
             #drop these to centroids
-            gvlay3 = self.centroids(gvlay2, selected_only=True, logger=log)
+            gvlay3 = self.centroids(gvlay2b, logger=log)
             self.mstore.addMapLayer(gvlay3)
             
             #add groupsize field
             
             fpts_d[grid_size] = self.fieldcalculator(gvlay3, grid_size, fieldName='grid_size', fieldType='Integer', logger=log)
-            
+            log.info('    got %i pts from grid'%gvlay3.dataProvider().featureCount())
             #===================================================================
             # #copy/join over the keys
             #===================================================================
-            jd = self.joinattributesbylocation(finv_vlay, gvlay2, jvlay_fnl=gcn, method=1, logger=log)
+            jd = self.joinattributesbylocation(finv_vlay, gvlay2b, jvlay_fnl=gcn, method=1, logger=log)
             
             assert jd['JOINED_COUNT']==finv_vlay.dataProvider().featureCount(), 'failed to join some assets'
             jvlay = jd['OUTPUT']
@@ -467,6 +493,8 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                 }
             
             groups_d[grid_size] = df.set_index(idfn)
+            
+            log.info('    joined w/ %s'%meta_d[grid_size])
             
         #=======================================================================
         # combine results----

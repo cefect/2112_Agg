@@ -87,11 +87,14 @@ def get_pars_from_xls(
 
 
 def run(
+        #generic
         tag='r0',
+        
+        #data
         proj_lib =     {
             'obwb':{
                   'EPSG': 2955, 
-                 'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\inventory\\obwb_2sheds_r1_0106_notShed_cent.gpkg', 
+                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_cent_aoi06.gpkg', 
                  'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
                  'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\wsl\\depth_sB_1218',
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
@@ -124,12 +127,15 @@ def run(
                 },
             },
         
+        #parameters
+        grid_sizes = [50, 200, 500],
+        
         **kwargs):
     
     with Session(tag=tag,proj_lib=proj_lib,
                  
                  bk_lib = {
- 
+                     'finvg':dict(grid_sizes=grid_sizes),
                      },
                  **kwargs) as ses:
         
@@ -139,6 +145,7 @@ def run(
  
 def dev():
     return run(
+        tag='dev',
         compiled_fp_d = {
     'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r0\20220118\working\finvg_hyd_r0_0118.pickle',
     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r0\20220118\working\rsamps_hyd_r0_0118.pickle',
@@ -148,13 +155,23 @@ def dev():
         overwrite=True,
         )
         
-    
+def r1():
+    return run(
+        tag='r1',
+        compiled_fp_d = {
+                'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r01\20220118\working\finvg_hyd_r01_0118.pickle',
+                'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r01\20220118\working\rsamps_hyd_r01_0118.pickle',
+            },
+        
+        trim=False,
+        overwrite=True,
+        )
     
     
 if __name__ == "__main__": 
     
- 
-    output=dev()
+    output=r1()
+    #output=dev()
  
     
     tdelta = datetime.datetime.now() - start
