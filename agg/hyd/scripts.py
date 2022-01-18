@@ -16,19 +16,24 @@ from hp.oop import Basic, Session, Error
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf
 
+import matplotlib.pyplot as plt
+
+from agg.scripts import Session as agSession
 
 
-class Session(Session, Qproj):
+class Session(agSession, Session, Qproj):
     
     
     def __init__(self, 
                  name='hyd',
+                 proj_lib={},
+                 trim=True, #whether to apply aois
                  **kwargs):
         
         #configure handles
         data_retrieve_hndls = {
             'rsamps':{
-                #'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.rsamps_sa(**kwargs),
                 },
             
@@ -43,7 +48,96 @@ class Session(Session, Qproj):
                          data_retrieve_hndls=data_retrieve_hndls,name=name,
                          **kwargs)
         
+        #=======================================================================
+        # simple attach
+        #=======================================================================
+        self.proj_lib=proj_lib
+        self.trim=trim
         
+    
+    #===========================================================================
+    # ANALYSIS-------------
+    #===========================================================================
+    
+    def plot_depths(self,
+                    xlims = (0,2),
+                    
+                    ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_depths')
+        
+        #fgm_ofp_d, fgdir_dxind = self.get_finvg()
+        
+        rsdf_d = self.retrieve('rsamps')
+        
+        log.info('on %i'%len(rsdf_d))
+        plt.close('all')
+        #=======================================================================
+        # loop on studyAreas
+        #=======================================================================
+        
+ 
+        for i, (sName, rsamp_dxind) in enumerate(rsdf_d.items()):
+
+            grid_sizes = rsamp_dxind.index.get_level_values(0).unique().tolist()
+            
+            
+            fig, ax_d = self.get_matrix_fig(grid_sizes,list(rsamp_dxind.columns), 
+                                        figsize=( len(rsamp_dxind.columns)*3, len(grid_sizes)*3),
+                                        constrained_layout=True,
+                                        sharey='all', sharex='all', #everything should b euniform
+                                        fig_id=i)
+            
+ 
+            for grid_size, gdf in rsamp_dxind.groupby(level=0, axis=0): #axis grid rows
+                 
+                firstCol=True
+                for rlayName, ser in gdf.droplevel(0, axis=0).items(): #axis grid columns
+                    ax = ax_d[grid_size][rlayName]
+                    
+                    #plot
+                    ax.hist(ser.dropna().values, color='blue', alpha=0.3, label=rlayName, density=True, bins=20)
+                    
+                    #style
+                    
+                    ax.set_xlim(xlims)
+                    
+                    #first columns
+                    if rlayName == gdf.columns[0]:
+                        ax.set_ylabel('grid_size=%i'%grid_size)
+ 
+                        
+ 
+                        
+                    
+                    #first row
+                    if grid_size == grid_sizes[0]:
+                        ax.set_title('event \'%s\''%(rlayName))
+                        
+                    #last row
+                    if grid_size == grid_sizes[-1]:
+                        ax.set_xlabel('depth (m)')
+                        
+            #===================================================================
+            # wrap figure
+            #===================================================================
+            fig.suptitle('depths for studyArea \'%s\''%sName)
+            
+            self.output_fig(fig, fname='depths_%s_%s'%(sName, self.longname))
+                    
+            log.info('finished')
+            
+            
+            """
+            plt.show()
+            """
+            
+    
+    #===========================================================================
+    # DATA CONSTRUCTION-------------
+    #===========================================================================
     def finvg_sa(self, #build the finv groups on each studyArea
                  dkey=None,
                  
@@ -108,25 +202,20 @@ class Session(Session, Qproj):
         
         return finvg
         
-        
-        
-        
  
-        
- 
-        
-        
     def rsamps_sa(self, #get raster samples for all finvs
                      dkey=None,
-                     proj_lib={},
+                     proj_lib=None,
                      ):
-        
+        """
+        keeping these as a dict because each studyArea/event is unique
+        """
         #=======================================================================
         # defaults
         #=======================================================================
         assert dkey=='rsamps', dkey
         log = self.logger.getChild('rsamps_sa')
-        
+        if proj_lib is None: proj_lib=self.proj_lib
         #=======================================================================
         # child data
         #=======================================================================
@@ -135,12 +224,16 @@ class Session(Session, Qproj):
         log.debug('on %i'%len(fgm_ofp_d))
         
         #=======================================================================
-        # sample on each
+        # update the finv
         #=======================================================================
-        self.sa_get(proj_lib=proj_lib, meth='get_rsamps', logger=log)
+        d = dict()
+        for name, pars_d in proj_lib.items():
+            d[name] = copy.deepcopy(pars_d)
+            d[name]['finv_fp'] = fgm_ofp_d[name]
+            d[name]['idfn'] = 'gid' #these finvs are keyed by gid
         
-        
-        return {}
+ 
+        return self.sa_get(proj_lib=d, meth='get_rsamps', logger=log, dkey=dkey, write=True)
     
     def get_finvg(self):
         
@@ -166,7 +259,7 @@ class Session(Session, Qproj):
         
         
     def sa_get(self, #spatial tasks on each study area
-                       proj_lib={},
+                       proj_lib=None,
                        meth='get_rsamps', #method to run
                        dkey=None,
                        write=True,
@@ -177,7 +270,11 @@ class Session(Session, Qproj):
         #=======================================================================
         if logger is None: logger=self.logger
         log = logger.getChild('run_studyAreas')
+        
+        if proj_lib is None: proj_lib=self.proj_lib
+        
         log.info('on %i \n    %s'%(len(proj_lib), list(proj_lib.keys())))
+        
         
         assert dkey in ['rsamps', 'finvg'], 'bad dkey %s'%dkey
         
@@ -189,6 +286,7 @@ class Session(Session, Qproj):
             log.info('%i/%i on %s'%(i+1, len(proj_lib), name))
             
             with StudyArea(session=self, name=name, tag=self.tag, prec=self.prec,
+                           trim=self.trim,
                            **pars_d) as wrkr:
                 
                 #raw raster samples
@@ -201,7 +299,7 @@ class Session(Session, Qproj):
         if write:
             """frames between study areas dont have any relation to each other... keeping as dict"""
 
-            self.write_pick(res_d, os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)), logger=log)
+            self.ofp_d[dkey] = self.write_pick(res_d, os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)), logger=log)
  
         
         return res_d
@@ -209,7 +307,7 @@ class Session(Session, Qproj):
 
         
 class StudyArea(Session, Qproj): #spatial work on study areas
-    idfn = 'id' #unique key for assets
+    
     
     def __init__(self, 
                  
@@ -220,6 +318,9 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                  wd_dir=None,
                  aoi=None,
                  
+                 #control
+                 trim=True,
+                 idfn = 'id', #unique key for assets
                  **kwargs):
         
         super().__init__(**kwargs)
@@ -232,11 +333,14 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             
         self.qproj.setCrs(crs)
         
- 
+        #=======================================================================
+        # simple attach
+        #=======================================================================
+        self.idfn=idfn
         #=======================================================================
         # load aoi
         #=======================================================================
-        if not aoi is None:
+        if not aoi is None and trim:
             self.load_aoi(aoi)
             
         #=======================================================================
@@ -313,8 +417,11 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             gvlay1 = self.creategrid(finv_vlay, spacing=grid_size, logger=log)
             self.mstore.addMapLayer(gvlay1)
             
+            #clear all the fields
+            gvlay1a = self.deletecolumn(gvlay1, [f.name() for f in gvlay1.fields()], logger=log)
+            
             #index the grid
-            gvlay2 = self.addautoincrement(gvlay1, fieldName='gid', logger=log)
+            gvlay2 = self.addautoincrement(gvlay1a, fieldName='gid', logger=log)
             self.mstore.addMapLayer(gvlay2)
             
             #select those w/ some assets
@@ -341,6 +448,13 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             df = vlay_get_fdf(jvlay, logger=log).drop('fid', axis=1)
             
             mcnt_ser = df[gcn].groupby(df[gcn]).count()
+            
+            """
+            view(gvlay1)
+            view(fpts_d[grid_size])
+            view(gvlay2)
+            view(gvlay1a)
+            """
  
             
             #===================================================================
@@ -359,7 +473,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         log.info('finished on %i'%len(groups_d))
         """
-        view(fgm_vlay2)
+        view(finvR_vlay2)
         """
         #assemble the grid id per raw asset
         finv_gkey_df = pd.concat(groups_d, axis=1).droplevel(axis=1, level=1)
@@ -367,9 +481,12 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         # #merge vector layers
         #=======================================================================
+        #prep the raw
+        finvR_vlay1 = self.fieldcalculator(finv_vlay, 0, fieldName='grid_size', fieldType='Integer', logger=log)
+        finvR_vlay2 = self.renameField(finvR_vlay1, idfn, gcn, logger=log) #promote old keys to new keys
+        
         #add the raw finv (to the head)
-        fpts_d = {**{0:self.fieldcalculator(finv_vlay, 0, fieldName='grid_size', fieldType='Integer', logger=log)},
-                  **fpts_d}
+        fpts_d = {**{0:finvR_vlay2},**fpts_d}
         
         #merge
         fgm_vlay1 = self.mergevectorlayers(list(fpts_d.values()), logger=log)
@@ -377,7 +494,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         
         #drop some fields
         fnl = [f.name() for f in fgm_vlay1.fields()]
-        fgm_vlay2 = self.deletecolumn(fgm_vlay1, list(set(fnl).difference([idfn, gcn, 'grid_size'])), logger=log)
+        fgm_vlay2 = self.deletecolumn(fgm_vlay1, list(set(fnl).difference([gcn, 'grid_size'])), logger=log)
         
         log.info('merged %i gridded inventories into %i pts'%(
             len(fpts_d), fgm_vlay2.dataProvider().featureCount()))
@@ -392,6 +509,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                    wd_dir = None,
                    finv_vlay=None,
                    idfn=None,
+
                    ):
         #=======================================================================
         # defaults
@@ -417,20 +535,24 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             vlay_samps = self.rastersampling(finv_vlay, os.path.join(wd_dir, fn), logger=log, pfx='samp_')
             self.mstore.addMapLayer(vlay_samps)
             
-            ser = vlay_get_fdf(vlay_samps, logger=log).drop('fid', axis=1
-                                    ).set_index(idfn).iloc[:,0].rename(rname)
+            #retrive and clean
+            df = vlay_get_fdf(vlay_samps, logger=log).drop('fid', axis=1).rename(columns={'samp_1':rname})
             
-            res_d[rname] = ser
+            #promote columns to multindex
+            df.index = pd.MultiIndex.from_frame(df.loc[:, [idfn, 'grid_size']])
+ 
+            res_d[rname] = df.drop([idfn, 'grid_size'], axis=1)
             
             """
+            view(finv_vlay)
             view(vlay_samps)
             """
             
         #=======================================================================
         # wrap
         #=======================================================================
-        res_df = pd.concat(res_d, axis=1)
-        return res_df
+        dxind = pd.concat(res_d, axis=1, keys=None).droplevel(0, axis=1).swaplevel(axis=0)
+        return dxind
     
  
         

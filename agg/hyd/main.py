@@ -126,23 +126,25 @@ def run(
         
         **kwargs):
     
-    with Session(tag=tag,
+    with Session(tag=tag,proj_lib=proj_lib,
                  
                  bk_lib = {
-                      
-                     'finvg':{'proj_lib':proj_lib},
+ 
                      },
                  **kwargs) as ses:
         
-        ses.retrieve('rsamps')
+ 
+        ses.plot_depths()
  
  
 def dev():
     return run(
         compiled_fp_d = {
-            'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r0\20220118\working\finvg_hyd_r0_0118.pickle',
+    'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r0\20220118\working\finvg_hyd_r0_0118.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r0\20220118\working\rsamps_hyd_r0_0118.pickle',
             },
         
+        trim=True,
         overwrite=True,
         )
         

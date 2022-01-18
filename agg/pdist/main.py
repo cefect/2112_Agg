@@ -79,6 +79,7 @@ from hp.oop import Basic, Error
 from hp.pd import view, get_bx_multiVal
 
 from agg.scripts import Vfunc, get_ax
+from agg.scripts import Session as agSession
 
 
 
@@ -89,7 +90,7 @@ from agg.scripts import Vfunc, get_ax
          
  
 
-class Session(Basic):
+class Session(agSession):
     vidnm = 'df_id' #indexer for damage functions
     
     data_d = dict() #datafiles loaded this session
@@ -1676,71 +1677,7 @@ class Session(Basic):
                 
         return fig
     
-    def get_matrix_fig(self, #conveneince for getting a matrix plot with consistent object access
-                       row_keys, #row labels for axis
-                       col_keys, #column labels for axis
-                       
-                       fig_id=0,
-                       figsize=None,
-                        tight_layout=False,
-                        constrained_layout=True,
-                        
-                        sharex=False, 
-                         sharey='row',
-                        
-                       ):
-        
-        
-        #=======================================================================
-        # defautls
-        #=======================================================================
-        if figsize is None: figsize=self.figsize
-        
-        
-        #=======================================================================
-        # precheck
-        #=======================================================================
-        assert isinstance(row_keys, list)
-        assert isinstance(col_keys, list)
-        
-        if fig_id in plt.get_fignums():
-            plt.close()
-        
-        #=======================================================================
-        # build figure
-        #=======================================================================
-        
-        fig = plt.figure(fig_id,
-            figsize=figsize,
-            tight_layout=tight_layout,
-            constrained_layout=constrained_layout)
-        
-        # populate with subplots
-        ax_ar = fig.subplots(nrows=len(row_keys), ncols=len(col_keys),
-                             sharex=sharex, sharey=sharey,
-                             )
-        
-        #convert to array
-        if not isinstance(ax_ar, np.ndarray):
-            assert len(row_keys)==len(col_keys)
-            assert len(row_keys)==1
-            
-            ax_ar = np.array([ax_ar])
-            
-        
-        #=======================================================================
-        # convert to dictionary
-        #=======================================================================
-        ax_d = dict()
-        for i, row_ar in enumerate(ax_ar.reshape(len(row_keys), len(col_keys))):
-            ax_d[row_keys[i]]=dict()
-            for j, ax in enumerate(row_ar.T):
-                ax_d[row_keys[i]][col_keys[j]]=ax
-                
-            
- 
-            
-        return fig, ax_d
+
     
     def plot_rv(self, #get a plot of a scipy distribution
                 rv,
@@ -1875,63 +1812,7 @@ class Session(Basic):
         #dummy for now
         return res_df.to_dict(orient='index')
     
-    def output_fig(self, 
-                   fig,
-                   
-                   #file controls
-                   out_dir = None, overwrite=True, 
-                   out_fp=None, #defaults to figure name w/ a date stamp
-                   fname = None, #filename
-                   
-                   #figure write controls
-                 fmt='svg', 
-                  transparent=True, 
-                  dpi = 150,
-                  logger=None,
-                  ):
-        #======================================================================
-        # defaults
-        #======================================================================
-        if out_dir is None: out_dir = self.out_dir
-        if overwrite is None: overwrite = self.overwrite
-        if logger is None: logger=self.logger
-        log = logger.getChild('output_fig')
-        
-        if not os.path.exists(out_dir):os.makedirs(out_dir)
-        #=======================================================================
-        # precheck
-        #=======================================================================
-        
-        assert isinstance(fig, matplotlib.figure.Figure)
-        log.debug('on %s'%fig)
-        #======================================================================
-        # output
-        #======================================================================
-        if out_fp is None:
-            #file setup
-            if fname is None:
-                try:
-                    fname = fig._suptitle.get_text()
-                except:
-                    fname = self.name
-                    
-                fname =str('%s_%s'%(fname, self.resname)).replace(' ','')
-                
-            out_fp = os.path.join(out_dir, '%s.%s'%(fname, fmt))
-            
-        if os.path.exists(out_fp): 
-            assert overwrite
-            os.remove(out_fp)
 
-            
-        #write the file
-        try: 
-            fig.savefig(out_fp, dpi = dpi, format = fmt, transparent=transparent)
-            log.info('saved figure to file:   %s'%out_fp)
-        except Exception as e:
-            raise Error('failed to write figure to file w/ \n    %s'%e)
-        
-        return out_fp
     
     
     #===========================================================================
