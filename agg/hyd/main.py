@@ -87,10 +87,14 @@ def get_pars_from_xls(
 
 
 def run(
-        #generic
+        #=======================================================================
+        # #generic
+        #=======================================================================
         tag='r0',
         
-        #data
+        #=======================================================================
+        # #data
+        #=======================================================================
         proj_lib =     {
             'obwb':{
                   'EPSG': 2955, 
@@ -127,8 +131,29 @@ def run(
                 },
             },
         
-        #parameters
+        #=======================================================================
+        # #parameters
+        #=======================================================================
         grid_sizes = [50, 200, 500],
+        
+        #parameters.vfunc selection
+        selection_d = { #selection criteria for models. {tabn:{coln:values}}
+                          'model_id':[
+                              #1, 2, #continous 
+                              3, #flemo 
+                              4, 6, 
+                              7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47
+                              ],
+                          'function_formate_attribute':['discrete'], #discrete
+                          'damage_formate_attribute':['relative'],
+                          'coverage_attribute':['building'],
+                         
+                         },
+        
+        #parameters.vfunc selection.dev
+        vid_l=None,
+        vid_sample=None,
+        max_mod_cnt=None,
         
         **kwargs):
     
@@ -136,20 +161,31 @@ def run(
                  
                  bk_lib = {
                      'finvg':dict(grid_sizes=grid_sizes),
+                     
+                     'vid_df':dict(
+                            selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
+                                    ),
+                                          
                      },
                  **kwargs) as ses:
         
  
-        ses.plot_depths()
+        #ses.plot_depths()
+        ses.plot_tloss()
  
  
 def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-    'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r0\20220118\working\finvg_hyd_r0_0118.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r0\20220118\working\rsamps_hyd_r0_0118.pickle',
+            'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220118\working\finvg_hyd_dev_0118.pickle',
+            'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220118\working\rsamps_hyd_dev_0118.pickle',
+            'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220118\working\rloss_hyd_dev_0118.pickle',
             },
+        
+        grid_sizes = [20, 100, 200],
+        
+        vid_sample=3,
         
         trim=True,
         overwrite=True,
@@ -159,8 +195,7 @@ def r1():
     return run(
         tag='r1',
         compiled_fp_d = {
-                'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r01\20220118\working\finvg_hyd_r01_0118.pickle',
-                'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r01\20220118\working\rsamps_hyd_r01_0118.pickle',
+ 
             },
         
         trim=False,
@@ -170,8 +205,8 @@ def r1():
     
 if __name__ == "__main__": 
     
-    output=r1()
-    #output=dev()
+    #output=r1()
+    output=dev()
  
     
     tdelta = datetime.datetime.now() - start

@@ -12,17 +12,28 @@ import numpy as np
 idx = pd.IndexSlice
 
 
-from hp.oop import Basic, Session, Error
+
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
-    vlay_get_fdata, vlay_get_fdf
+    vlay_get_fdata, vlay_get_fdf, Error
+
+from hp.basic import set_info
 
 import matplotlib.pyplot as plt
 
 from agg.scripts import Session as agSession
 
 
-class Session(agSession, Session, Qproj):
+class Session(agSession):
     
+    gcn = 'gid'
+    
+    mindex_dtypes={
+                 'studyArea':np.dtype('object'),
+                 'id':np.dtype('int64'),
+                 'gid':np.dtype('int64'), #both ids are valid
+                 'grid_size':np.dtype('int64'), 
+                 'event':np.dtype('O'),           
+                         }
     
     def __init__(self, 
                  name='hyd',
@@ -30,6 +41,9 @@ class Session(agSession, Session, Qproj):
                  trim=True, #whether to apply aois
                  **kwargs):
         
+    #===========================================================================
+    # HANDLES-----------
+    #===========================================================================
         #configure handles
         data_retrieve_hndls = {
             'rsamps':{
@@ -41,10 +55,17 @@ class Session(agSession, Session, Qproj):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.finvg_sa(**kwargs),
                 },
+            'rloss':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs:self.rloss_build(**kwargs),
+                },
+            'tloss':{
+                'build':lambda **kwargs:self.tloss_build(**kwargs),
+                },
             
             }
         
-        super().__init__(work_dir = r'C:\LS\10_OUT\2112_Agg',
+        super().__init__( 
                          data_retrieve_hndls=data_retrieve_hndls,name=name,
                          **kwargs)
         
@@ -68,8 +89,8 @@ class Session(agSession, Session, Qproj):
         #=======================================================================
         log = self.logger.getChild('plot_depths')
         
+        #retrieve child data
         #fgm_ofp_d, fgdir_dxind = self.get_finvg()
-        
         rsdf_d = self.retrieve('rsamps')
         
         log.info('on %i'%len(rsdf_d))
@@ -77,8 +98,7 @@ class Session(agSession, Session, Qproj):
         #=======================================================================
         # loop on studyAreas
         #=======================================================================
-        
- 
+         
         for i, (sName, rsamp_dxind) in enumerate(rsdf_d.items()):
 
             grid_sizes = rsamp_dxind.index.get_level_values(0).unique().tolist()
@@ -99,7 +119,7 @@ class Session(agSession, Session, Qproj):
                     
                     #plot
                     ar = ser.dropna().values
-                    ax.hist(ar, color='blue', alpha=0.3, label=rlayName, density=True, bins=20)
+                    ax.hist(ar, color='blue', alpha=0.3, label=rlayName, density=True, bins=20, range=xlims)
                     
                     #label
                     meta_d = {'grid_size':grid_size,'wet':len(ar), 'dry':ser.isna().sum(), 'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
@@ -143,10 +163,206 @@ class Session(agSession, Session, Qproj):
             plt.show()
             """
             
+            
+    def plot_tloss(self, #barchart of total losses
+                   ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_tloss')
+        
+        #retrieve child data
+        #
+        rl_dxind = self.retrieve('tloss')
+        
+        log.info('on %i'%len(rl_dxind))
+        plt.close('all')
+        
+        #=======================================================================
+        # calc total loss
+        #=======================================================================
+ 
+        rlT_dxind = rl_dxind.swaplevel(i=0,j=1,axis=0).groupby(level=[0,1,2],axis=0).sum()
     
     #===========================================================================
     # DATA CONSTRUCTION-------------
     #===========================================================================
+    def tloss_build(self, #get the total loss
+                    dkey=None,
+                    **kwargs):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('tloss_build')
+        assert dkey=='tloss'
+        gcn = self.gcn
+        scale_cn = 'id_cnt'
+        #=======================================================================
+        # retriever
+        #=======================================================================
+        rl_dxind = self.retrieve('rloss')
+        
+        rlnames_d= {lvlName:i for i, lvlName in enumerate(rl_dxind.index.names)}
+        
+        _, fgdir_dxind = self.get_finvg()
+        
+        """
+        view(rl_dxind)
+        view(fgdir_dxind)
+        view(ser1)
+        """
+        #=======================================================================
+        # calculate the asset scalers
+        #=======================================================================
+        grid_d =dict()
+        for grid_size, gdf in rl_dxind.groupby(level=rlnames_d['grid_size']):
+            #get teh scaler series
+            if grid_size==0:
+                cnt_serix = pd.Series(1, index=gdf.index).droplevel(level=[rlnames_d['grid_size'], rlnames_d['event']],axis=0)
+            else:
+                #retrieve the lookup fro these
+                ser1 = fgdir_dxind.loc[:, grid_size].rename(gcn)
+                assert ser1.notna().all(), grid_size
+                
+                #get counts
+                d = dict()
+                for sName, ser2 in ser1.groupby(level=0):                
+                    d[sName] = ser2.groupby(ser2).count()
+                
+                #per-area (for this group size)
+                cnt_serix = pd.concat(d)
+                
+            #wrap
+            assert cnt_serix.notna().all(), grid_size
+            grid_d[grid_size] = cnt_serix.rename(scale_cn)
+
+        #=======================================================================
+        # join
+        #=======================================================================
+        #shape into a dxind with matching names
+        jdxind1 = pd.concat(grid_d, names= rl_dxind.droplevel(rlnames_d['event']).index.names)
+        self.check_mindex(jdxind1.index)
+        
+        jnames_d = {lvlName:i for i, lvlName in enumerate(jdxind1.index.names)}
+        assert jdxind1.notna().all()
+        
+        #check index
+        """we expect more in the scaleing lookup (jdxind1) as these have not been filtered for zero impacts"""
+        for name in jnames_d.keys():
+            
+            left_vals = rl_dxind.index.get_level_values(rlnames_d[name]).unique()
+            right_vals = jdxind1.index.get_level_values(jnames_d[name]).unique()
+            
+            el_d = set_info(left_vals, right_vals)
+            
+            
+            
+            for k,v in el_d.items():
+                log.debug('%s    %s'%(k,v))
+                
+            assert len(el_d['diff_left'])==0, '%s missing some lookup values'%name
+        
+        #join to the rloss data
+        dxind1 = rl_dxind.join(jdxind1, on=jdxind1.index.names)
+        
+        assert dxind1[scale_cn].notna().all()
+        """
+        view(dxind1)
+        """
+        
+        #re-org columns
+        rl_cols = rl_dxind.drop('depth',axis=1).columns.tolist()
+        
+        new_rl_cols= ['%i_rl'%e for e in rl_cols]
+        dxind2 = dxind1.rename(columns=dict(zip(rl_cols, new_rl_cols)))
+        
+        #=======================================================================
+        # calc total loss
+        #=======================================================================
+        tval_colns = ['%i_tl'%e for e in rl_cols]
+        rdx= dxind2.loc[:, new_rl_cols].multiply(dxind2[scale_cn], axis=0).rename(
+            columns=dict(zip(new_rl_cols, tval_colns)))
+        
+        dxind3 = dxind2.join(rdx, on=rdx.index.names)
+        
+        raise Error('stopped here... check that gid.grid_size.studyArea is unique')
+ 
+        
+        """
+        view(res)
+        view(jdxind1)
+        view(dxind2)
+        """
+        
+        
+        
+        
+        raise Error('dome')
+
+    
+    def rloss_build(self,
+                    dkey=None,
+                    **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('rloss_build')
+        assert dkey=='rloss'
+        
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+        #depths
+        #fgm_ofp_d, fgdir_dxind = self.get_finvg()
+        dxser = self.retrieve('rsamps')
+        
+        #collapse data
+        """should probably make this the rsamp format by default"""
+
+        
+        log.debug('loaded %i rsamps'%len(dxser))
+        
+        #vfuncs
+        vf_d = self.retrieve('vf_d')
+        
+        #=======================================================================
+        # loop and calc
+        #=======================================================================
+        log.info('getting impacts from %i vfuncs and %i depths'%(
+            len(vf_d), len(dxser)))
+            
+        res_d = dict()
+        for i, (vid, vfunc) in enumerate(vf_d.items()):
+            log.info('%i/%i on %s'%(i+1, len(vf_d), vfunc.name))
+            
+            res_d[vid] = vfunc.get_rloss(dxser.values)
+        
+        
+        #=======================================================================
+        # combine
+        #=======================================================================
+        rdf = pd.DataFrame.from_dict(res_d)
+        
+        rdf.index = dxser.index
+        
+        res_dxind = dxser.to_frame().join(rdf)
+        
+        log.info('finished on %s'%str(rdf.shape))
+        
+        self.check_mindex(res_dxind.index)
+        #=======================================================================
+        # write
+        #=======================================================================
+        self.ofp_d[dkey] = self.write_pick(res_dxind,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
+                                   logger=log)
+        
+        return res_dxind
+ 
+                    
+    
     def finvg_sa(self, #build the finv groups on each studyArea
                  dkey=None,
                  
@@ -197,6 +413,11 @@ class Session(agSession, Session, Qproj):
         # write the dxcol and the fp_d
         #=======================================================================
         dxind = pd.concat(finv_gkey_df_d)
+        
+        #check index
+        dxind.index.set_names('studyArea', level=0, inplace=True)
+        self.check_mindex(dxind.index)
+
  
         
         log.info('writing \'fgdir_dxind\' (%s) and \'fgm_ofp_d\' (%i) as \'%s\''%(
@@ -225,6 +446,7 @@ class Session(agSession, Session, Qproj):
         assert dkey=='rsamps', dkey
         log = self.logger.getChild('rsamps_sa')
         if proj_lib is None: proj_lib=self.proj_lib
+        gcn=self.gcn
         #=======================================================================
         # child data
         #=======================================================================
@@ -239,10 +461,35 @@ class Session(agSession, Session, Qproj):
         for name, pars_d in proj_lib.items():
             d[name] = copy.deepcopy(pars_d)
             d[name]['finv_fp'] = fgm_ofp_d[name]
-            d[name]['idfn'] = 'gid' #these finvs are keyed by gid
+            d[name]['idfn'] = gcn #these finvs are keyed by gid
         
  
-        return self.sa_get(proj_lib=d, meth='get_rsamps', logger=log, dkey=dkey, write=True)
+        res_d = self.sa_get(proj_lib=d, meth='get_rsamps', logger=log, dkey=dkey, write=False)
+        
+        #=======================================================================
+        # shape into dxind
+        #=======================================================================
+        dxind1 = pd.concat(res_d, names=['studyArea', 'grid_size', gcn])
+        
+ 
+        
+        dxser = dxind1.stack().rename('depth') #promote depths to index
+        dxser.index.set_names('event', level=3, inplace=True) 
+ 
+        
+        dxser = dxser.swaplevel().swaplevel(i=1,j=0).sort_index(axis=0, level=0, sort_remaining=True)
+        
+        self.check_mindex(dxser.index)
+        
+        log.debug('on %i'%len(res_d))
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        self.write_pick(dxser, os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
+                        logger=log)
+        
+        return dxser
     
     #===========================================================================
     # HELPERS--------
@@ -319,6 +566,34 @@ class Session(agSession, Session, Qproj):
  
         
         return res_d
+    
+    def check_mindex(self, #check names and types
+                     mindex,
+                     chk_d = None,
+                     logger=None):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        #if logger is None: logger=self.logger
+        #log=logger.getChild('check_mindex')
+        if chk_d is None: chk_d=self.mindex_dtypes
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        names_d= {lvlName:i for i, lvlName in enumerate(mindex.names)}
+        
+        for name, lvl in names_d.items():
+ 
+            assert name in chk_d, 'name \'%s\' not recognized'%name
+            assert mindex.get_level_values(lvl).dtype == chk_d[name], \
+                'got bad type on \'%s\': %s'%(name, mindex.get_level_values(lvl).dtype.name)
+                
+        
+        return
+            
+        
+ 
                 
 
         
@@ -395,7 +670,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                   finv_vlay=None,
                   grid_sizes = [5, 20, 100], #resolution in meters
                   idfn=None,
-                  gcn = 'gid'
+                  
                   ):
         """
         
@@ -412,7 +687,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         # defaults
         #=======================================================================
         log = self.logger.getChild('get_finvsg')
-        
+        gcn = self.gcn
         if finv_vlay is None: finv_vlay=self.finv_vlay
         if idfn is None: idfn=self.idfn
         
@@ -440,7 +715,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             
             #index the grid
             #gvlay2 = self.addautoincrement(gvlay1a, fieldName='gid', logger=log)
-            gvlay2 = self.renameField(gvlay1, 'id', 'gid', logger=log)
+            gvlay2 = self.renameField(gvlay1, 'id', gcn, logger=log)
             self.mstore.addMapLayer(gvlay2)
             
             #select those w/ some assets
@@ -566,6 +841,9 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             #retrive and clean
             df = vlay_get_fdf(vlay_samps, logger=log).drop('fid', axis=1).rename(columns={'samp_1':rname})
             
+            #force type
+            df.loc[:, idfn] = df[idfn].astype(np.int64)
+            
             #promote columns to multindex
             df.index = pd.MultiIndex.from_frame(df.loc[:, [idfn, 'grid_size']])
  
@@ -580,6 +858,13 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         # wrap
         #=======================================================================
         dxind = pd.concat(res_d, axis=1, keys=None).droplevel(0, axis=1).swaplevel(axis=0)
+        
+        try:
+            self.session.check_mindex(dxind.index)
+        except Exception as e:
+            raise Error('%s failed index check \n    %s'%(self.name, e))
+            
+        
         return dxind
     
  
