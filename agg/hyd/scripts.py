@@ -14,7 +14,7 @@ idx = pd.IndexSlice
 
 
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
-    vlay_get_fdata, vlay_get_fdf, Error
+    vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes
 
  
 from hp.basic import set_info
@@ -345,6 +345,10 @@ class Session(agSession):
     #===========================================================================
     # DATA CONSTRUCTION-------------
     #===========================================================================
+    
+    
+    
+    
     def tloss_build(self, #get the total loss
                     dkey=None,
                     prec=2,
@@ -398,37 +402,51 @@ class Session(agSession):
  
                 cnt_serix = pd.concat(d, names=mindex.names)
                 
-            #checks
+            #===================================================================
+            # #checks
+            #===================================================================
             assert cnt_serix.notna().all(), grid_size
             try:
                 self.check_mindex(cnt_serix.index)
             except Exception as e:
                 raise Error('index on grid_size=%i failed w/ \n    %s'%(grid_size, e))
             
+            #all the keys needed by the right are in the left
+            miss_l = set(gdf.index.unique(gcn)).difference(cnt_serix.index.unique(gcn))
+            if not len(miss_l)==0:
+                bx = rl_dxind.index.to_frame().loc[:,gcn].isin(miss_l)
+ 
+                
+                with pd.option_context('display.max_rows', None,'display.max_columns', None,'display.width',1000):
+                    log.debug('\n%s'%rl_dxind.loc[bx,:].index.to_frame().reset_index(drop=True))
+        
+ 
+                raise Error('missing %i lookup \'%s\' values... see logger'%(len(miss_l), gcn))
+            
             #wrap
             grid_d[grid_size] = cnt_serix.rename(scale_cn)
 
         
         #shape into a dxind with matching names
-        jdxind1 = pd.concat(grid_d, names= rl_dxind.droplevel(rlnames_d['event']).index.names)
+        jserx1 = pd.concat(grid_d, names= rl_dxind.droplevel(rlnames_d['event']).index.names)
 
         
         
         #=======================================================================
         # check
         #=======================================================================
-        self.check_mindex(jdxind1.index)
+        self.check_mindex(jserx1.index)
  
         
-        jnames_d = {lvlName:i for i, lvlName in enumerate(jdxind1.index.names)}
-        assert jdxind1.notna().all()
+        jnames_d = {lvlName:i for i, lvlName in enumerate(jserx1.index.names)}
+        assert jserx1.notna().all()
         
         #check index
-        """we expect more in the scaleing lookup (jdxind1) as these have not been filtered for zero impacts"""
+        """we expect more in the scaleing lookup (jserx1) as these have not been filtered for zero impacts"""
         for name in jnames_d.keys():
             
             left_vals = rl_dxind.index.get_level_values(rlnames_d[name]).unique()
-            right_vals = jdxind1.index.get_level_values(jnames_d[name]).unique()
+            right_vals = jserx1.index.get_level_values(jnames_d[name]).unique()
             
             el_d = set_info(left_vals, right_vals)
             
@@ -438,21 +456,17 @@ class Session(agSession):
                 log.debug('%s    %s'%(k,v))
                 
             if not len(el_d['diff_left'])==0:
-                raise Error('%s missing some lookup values'%name)
+                
+                bx = rl_dxind.index.to_frame().loc[:,name].isin(el_d['diff_left'])
+                assert bx.sum() == len(el_d['diff_left'])
+                
+                with pd.option_context('display.max_rows', None,'display.max_columns', None,'display.width',1000):
+                    log.debug(rl_dxind.loc[bx,:].index.to_frame().reset_index(drop=True))
         
-        #do some reporting
-        #=======================================================================
-        # mdf = pd.concat({
-        #     'max(id_cnt)':jdxind1.groupby(level='grid_size').max(),
-        #     'count(id_cnt)':jdxind1.groupby(level='grid_size').count(),
-        #     }, axis=1)
-        #=======================================================================
+ 
+                raise Error('%s missing %i some lookup values'%(name, len(el_d['diff_left'])))
         
-        
-        #=======================================================================
-        # log.info('got asset_cnts for each grid_size w/ \n    %s'%(
-        #     mdf))
-        #=======================================================================
+ 
         """
         I think we get very few on grid_size=0 because this as been null filtered
         view(jdxind1)
@@ -461,7 +475,7 @@ class Session(agSession):
         #=======================================================================
         # #join to the rloss data
         #=======================================================================
-        dxind1 = rl_dxind.join(jdxind1, on=jdxind1.index.names)
+        dxind1 = rl_dxind.join(jserx1, on=jserx1.index.names)
         
         assert dxind1[scale_cn].notna().all()
         """
@@ -912,6 +926,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                   grid_sizes = [5, 20, 100], #resolution in meters
                   idfn=None,
                   write_grids=True, #whether to also write the grids to file
+                  overwrite=None,
                   ):
         """
         
@@ -929,6 +944,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         log = self.logger.getChild('get_finvsg')
         gcn = self.gcn
+        if overwrite is None: overwrite=self.overwrite
         if finv_vlay is None: finv_vlay=self.finv_vlay
         if idfn is None: idfn=self.idfn
         
@@ -938,7 +954,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         fpts_d = dict() #container for resulting finv points layers
         groups_d = dict()
         meta_d = dict()
-        fgrid_vlay_d = dict()
+ 
         log.info('on \'%s\' w/ %i: %s'%(finv_vlay.name(), len(grid_sizes), grid_sizes))
         
         for i, grid_size in enumerate(grid_sizes):
@@ -957,8 +973,21 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             
             #index the grid
             #gvlay2 = self.addautoincrement(gvlay1a, fieldName='gid', logger=log)
+            
             gvlay2 = self.renameField(gvlay1, 'id', gcn, logger=log)
             self.mstore.addMapLayer(gvlay2)
+            log.info('    renamed field \'id\':\'%s\''%gcn)
+            
+            #handel writing
+            if write_grids:
+                od = os.path.join(self.out_dir, 'grids', self.name)
+                if not os.path.exists(od):os.makedirs(od)
+                output = os.path.join(od, 'fgrid_%i_%s.gpkg'%(grid_size, self.longname))
+                if os.path.exists(output):
+                    assert overwrite
+                    os.remove(output)
+            else:
+                output='TEMPORARY_OUTPUT'
             
             #select those w/ some assets
             gvlay2.removeSelection()
@@ -966,50 +995,101 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             log.info('    selecting from grid based on intersect w/ \'%s\''%(finv_vlay.name()))
             self.selectbylocation(gvlay2, finv_vlay, logger=log)
             
-            
-            gvlay2b = self.saveselectedfeatures(gvlay2, logger=log)
-            self.mstore.addMapLayer(gvlay2b)
-            fgrid_vlay_d[grid_size] = gvlay2b
+ 
+            gvlay2b = self.saveselectedfeatures(gvlay2, logger=log, output=output)
+            if not write_grids: 
+                self.mstore.addMapLayer(gvlay2b)
+            else:
+                log.info('    wrote grid layer to %s'%output)
+ 
             
             #drop these to centroids
             gvlay3 = self.centroids(gvlay2b, logger=log)
             self.mstore.addMapLayer(gvlay3)
             
-            #add groupsize field
+
+ 
             
-            fpts_d[grid_size] = self.fieldcalculator(gvlay3, grid_size, fieldName='grid_size', fieldType='Integer', logger=log)
+            #add groupsize field            
+            gvlay_pts = self.fieldcalculator(gvlay3, grid_size, fieldName='grid_size', 
+                                           fieldType='Integer', logger=log)
+            
+ 
+            
             log.info('    got %i pts from grid'%gvlay3.dataProvider().featureCount())
             #===================================================================
             # #copy/join over the keys
             #===================================================================
-            jd = self.joinattributesbylocation(finv_vlay, gvlay2b, jvlay_fnl=gcn, method=1, logger=log)
+            jd = self.joinattributesbylocation(finv_vlay, gvlay2b, jvlay_fnl=gcn, 
+                                               method=1, 
+                                               #predicate='touches',
+                                               logger=log,
+                                             output_nom=os.path.join(self.temp_dir, 'finv_grid_noMatch_%i_%s.gpkg'%(
+                                                 grid_size, self.longname)))
             
-            assert jd['JOINED_COUNT']==finv_vlay.dataProvider().featureCount(), 'failed to join some assets'
+            #check match
+            noMatch_cnt = finv_vlay.dataProvider().featureCount() - jd['JOINED_COUNT']
+            if not noMatch_cnt==0:
+                """gid lookup wont work"""
+                raise Error('for \'%s\' grid_size=%i failed to join  %i/%i assets... wrote non matcherse to \n    %s'%(
+                    self.name, grid_size, noMatch_cnt, finv_vlay.dataProvider().featureCount(), jd['NON_MATCHING']))
+                    
             jvlay = jd['OUTPUT']
             self.mstore.addMapLayer(jvlay)
             
-            df = vlay_get_fdf(jvlay, logger=log).drop('fid', axis=1)
+            df = vlay_get_fdf(jvlay, logger=log).drop('fid', axis=1).set_index(idfn)
             
-            mcnt_ser = df[gcn].groupby(df[gcn]).count()
+            #===================================================================
+            # check against grid points
+            #===================================================================
+            """
+            this is an artifact of doing selectbylocation then joinattributesbylocation
+                sometimes 1 or 2 grid cells are erroneously joined
+                here we just delete them
+            """
+            gpts_ser = vlay_get_fdf(gvlay_pts)[gcn]
             
-            """
-            view(gvlay1)
-            view(fpts_d[grid_size])
-            view(gvlay2)
-            view(gvlay1a)
-            """
+            set_d = set_info(gpts_ser.values, df[gcn].values)
+
+            
+            if not len(set_d['symmetric_difference'])==0:
+                del set_d['union']
+                del set_d['intersection']
+                log.warning('%s.%i got %i mismatched values... deleteing these grid cells\n   %s'%(
+                    self.name, grid_size, len(set_d['symmetric_difference']), set_d))
+                
+                assert len(set_d['diff_right'])==0
+                
+                #get matching ids
+                fid_l = gpts_ser.index[gpts_ser.isin(set_d['diff_left'])].tolist()
+                gvlay_pts.removeSelection()
+                gvlay_pts.selectByIds(fid_l)
+                assert gvlay_pts.selectedFeatureCount()==len(set_d['diff_left'])
+                
+                #delete these
+                gvlay_pts.invertSelection()
+                gvlay_pts = self.saveselectedfeatures(gvlay_pts, logger=log)
+            
+            
+            
+            
+            #===================================================================
+            # wrap
+            #===================================================================
+            fpts_d[grid_size]=gvlay_pts
+            groups_d[grid_size] = df.copy()
  
-            
             #===================================================================
             # #meta
             #===================================================================
+            mcnt_ser = df[gcn].groupby(df[gcn]).count()
             meta_d[grid_size] = {
                 'total_cells':gvlay1.dataProvider().featureCount(), 
                 'active_cells':gvlay2.selectedFeatureCount(),
                 'max_member_cnt':mcnt_ser.max()
                 }
             
-            groups_d[grid_size] = df.set_index(idfn)
+            
             
             log.info('    joined w/ %s'%meta_d[grid_size])
             
@@ -1028,7 +1108,11 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         #prep the raw
         finvR_vlay1 = self.fieldcalculator(finv_vlay, 0, fieldName='grid_size', fieldType='Integer', logger=log)
-        finvR_vlay2 = self.renameField(finvR_vlay1, idfn, gcn, logger=log) #promote old keys to new keys
+        finvR_vlay2 = self.fieldcalculator(finvR_vlay1,'\"{}\"'.format(idfn), fieldName=gcn, fieldType='Integer', logger=log)
+        
+        #finvR_vlay2 = self.renameField(finvR_vlay1, idfn, gcn, logger=log) #promote old keys to new keys
+        
+ 
         
         #add the raw finv (to the head)
         fpts_d = {**{0:finvR_vlay2},**fpts_d}
@@ -1037,31 +1121,47 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         fgm_vlay1 = self.mergevectorlayers(list(fpts_d.values()), logger=log)
         self.mstore.addMapLayer(fgm_vlay1)
         
+
+        
         #drop some fields
         fnl = [f.name() for f in fgm_vlay1.fields()]
         fgm_vlay2 = self.deletecolumn(fgm_vlay1, list(set(fnl).difference([gcn, 'grid_size'])), logger=log)
         
-        #=======================================================================
-        # write grids
-        #=======================================================================
-        if write_grids:
-            log.info('writing %i grids to file'%len(fgrid_vlay_d))
-            od = os.path.join(self.out_dir, 'grids', self.name)
-            if not os.path.exists(od):os.makedirs(od)
-            for grid_size, vlay in fgrid_vlay_d.items():
-                self.vlay_write(vlay,
-                                os.path.join(od, 'fgrid_%i_%s.gpkg'%(grid_size, self.longname)),
-                                logger=log)
         
+        #force types
+        fgm_vlay3 = self.vlay_field_astype(fgm_vlay2, gcn, fieldType='Integer')
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        for coln, typeName in vlay_dtypes(fgm_vlay3).items():
+            assert typeName=='integer', 'got bad type on \'%s\':%s'%(coln, typeName)
+            
+        fgm_df = vlay_get_fdf(fgm_vlay3)
+        
+        for coln, dtype in fgm_df.dtypes.to_dict().items():
+            assert dtype==np.dtype('int64'), 'bad type on %s: %s'%(coln, dtype)
+        
+        
+        for grid_size, fgm_gdf in fgm_df.groupby('grid_size', axis=0):
+            if grid_size==0: continue
+            miss_l = set(fgm_gdf[gcn].values).difference(finv_gkey_df[grid_size].values)  #those in left no tin right
+            assert len(miss_l)==0, 'missing %i/%i keys on %s grid_size=%i'%(
+                len(miss_l), len(fgm_gdf), self.name, grid_size)
+        """
+        fgm_gdf.sort_values('gid').dtypes
+        view(fgm_gdf.sort_values('gid'))
+        view(fgm_vlay3)
+        """
  
         
         #=======================================================================
         # wrap
         #=======================================================================
         log.info('merged %i gridded inventories into %i pts'%(
-            len(fpts_d), fgm_vlay2.dataProvider().featureCount()))
+            len(fpts_d), fgm_vlay3.dataProvider().featureCount()))
         
-        return finv_gkey_df, fgm_vlay2
+        return finv_gkey_df, fgm_vlay3
         
  
             
