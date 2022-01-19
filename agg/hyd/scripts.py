@@ -16,11 +16,14 @@ idx = pd.IndexSlice
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error
 
+ 
 from hp.basic import set_info
 
 import matplotlib.pyplot as plt
 
 from agg.scripts import Session as agSession
+
+import matplotlib
 
 
 class Session(agSession):
@@ -34,6 +37,8 @@ class Session(agSession):
                  'grid_size':np.dtype('int64'), 
                  'event':np.dtype('O'),           
                          }
+    
+    colorMap = 'cool'
     
     def __init__(self, 
                  name='hyd',
@@ -81,6 +86,12 @@ class Session(agSession):
     #===========================================================================
     
     def plot_depths(self,
+                    plot_fign = 'studyArea',
+                    plot_rown = 'grid_size', 
+                    plot_coln = 'event',
+ 
+                    
+                    
                     xlims = (0,2),
                     
                     ):
@@ -91,105 +102,252 @@ class Session(agSession):
         
         #retrieve child data
         #fgm_ofp_d, fgdir_dxind = self.get_finvg()
-        rsdf_d = self.retrieve('rsamps')
-        
-        log.info('on %i'%len(rsdf_d))
+        serx = self.retrieve('rsamps')
+        mdex = serx.index
+ 
         plt.close('all')
         #=======================================================================
         # loop on studyAreas
         #=======================================================================
-         
-        for i, (sName, rsamp_dxind) in enumerate(rsdf_d.items()):
-
-            grid_sizes = rsamp_dxind.index.get_level_values(0).unique().tolist()
+        res_d = dict()
+        for i, (sName, gsx1r) in enumerate(serx.groupby(level=plot_fign)):
+            gsx1 = gsx1r.droplevel(plot_fign)
+     
             
-            
-            fig, ax_d = self.get_matrix_fig(grid_sizes,list(rsamp_dxind.columns), 
-                                        figsize=( len(rsamp_dxind.columns)*3, len(grid_sizes)*3),
-                                        constrained_layout=True,
-                                        sharey='all', sharex='all', #everything should b euniform
-                                        fig_id=i)
+            fig, ax_d = self.get_matrix_fig(
+                                    gsx1.index.unique(plot_rown).tolist(), #row keys
+                                    gsx1.index.unique(plot_coln).tolist(), #col keys
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey='all', sharex='all', #everything should b euniform
+                                    fig_id=i,
+                                    set_ax_title=True,
+                                    )
             
  
-            for grid_size, gdf in rsamp_dxind.groupby(level=0, axis=0): #axis grid rows
-                 
-                firstCol=True
-                for rlayName, ser in gdf.droplevel(0, axis=0).items(): #axis grid columns
-                    ax = ax_d[grid_size][rlayName]
-                    
-                    #plot
-                    ar = ser.dropna().values
-                    ax.hist(ar, color='blue', alpha=0.3, label=rlayName, density=True, bins=20, range=xlims)
-                    
-                    #label
-                    meta_d = {'grid_size':grid_size,'wet':len(ar), 'dry':ser.isna().sum(), 'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
-                    txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
-                    ax.text(0.5, 0.9, txt, transform=ax.transAxes, va='top', fontsize=8, color='blue')
-                    
-                    """
-                    plt.show()
-                    """
-                    
-                    #style                    
-                    ax.set_xlim(xlims)
-                    
-                    #first columns
-                    if rlayName == gdf.columns[0]:
-                        ax.set_ylabel('grid_size=%i'%grid_size)
+            
+            
+            for (row_key, col_key), gsx2r in gsx1r.groupby(level=[plot_rown, plot_coln]):
+                #prep
+                gsx2 = gsx2r.droplevel([plot_rown, plot_coln, plot_fign])
+                ax = ax_d[row_key][col_key]
+                
+                #plot
+                ar = gsx2.dropna().values
+                ax.hist(ar, color='blue', alpha=0.3, label=row_key, density=True, bins=30, range=xlims)
+                
+                #label
+                meta_d = {
+                    plot_rown:row_key,
+                    'wet':len(ar), 'dry':gsx2.isna().sum(), 'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
+                
+                txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
+                ax.text(0.5, 0.9, txt, transform=ax.transAxes, va='top', fontsize=8, color='blue')
+                
+                """
+                plt.show()
+                """
+                
+                #style                    
+                ax.set_xlim(xlims)
+                
+                #first columns
+                if col_key == mdex.unique(plot_coln)[0]:
+                    ax.set_ylabel('%s=%s'%(plot_rown, row_key))
+                
  
-                        
- 
-                        
+                #first row
+                if row_key == mdex.unique(plot_rown)[0]:
+                    pass
+                    #ax.set_title('event \'%s\''%(rlayName))
                     
-                    #first row
-                    if grid_size == grid_sizes[0]:
-                        ax.set_title('event \'%s\''%(rlayName))
-                        
-                    #last row
-                    if grid_size == grid_sizes[-1]:
-                        ax.set_xlabel('depth (m)')
+                #last row
+                if row_key == mdex.unique(plot_rown)[-1]:
+                    ax.set_xlabel('depth (m)')
                         
             #===================================================================
             # wrap figure
             #===================================================================
             fig.suptitle('depths for studyArea \'%s\''%sName)
             
-            self.output_fig(fig, fname='depths_%s_%s'%(sName, self.longname))
-                    
-            log.info('finished')
+            res_d[sName]= self.output_fig(fig, fname='depths_%s_%s'%(sName, self.longname))
             
-            
-            """
-            plt.show()
-            """
-            
-            
-    def plot_tloss(self, #barchart of total losses
-                   ):
+        #=======================================================================
+        # warp
+        #=======================================================================
+        log.info('finished writing %i figures'%len(res_d))
         
+        return res_d
+                    
+ 
+            
+            
+    def plot_tloss_bars(self, #barchart of total losses
+                    #plot_fign = 'studyArea',
+                    plot_rown = 'studyArea', 
+                    plot_coln = 'vid',
+                    plot_colr = 'grid_size',
+                    plot_bgrp = 'event',
+                    
+                    #plot style
+                    colorMap=None,
+                   ):
+        """
+        matrix figure
+            figure: studyAreas
+                rows: grid_size
+                columns: events
+                values: total loss sum
+                colors: grid_size
+        
+        """
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('plot_tloss')
+        if colorMap is None: colorMap=self.colorMap
         
-        #retrieve child data
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
         #
-        rl_dxind = self.retrieve('tloss')
+        dxind_raw = self.retrieve('tloss')
         
-        log.info('on %i'%len(rl_dxind))
+        
+        log.info('on %i'%len(dxind_raw))
+        
+        #=======================================================================
+        # setup data
+        #=======================================================================
+        """
+        moving everything into an index for easier manipulation
+        """
+        names_d= {lvlName:i for i, lvlName in enumerate(dxind_raw.index.names)}
+        
+        #clip to total loss columns
+        tloss_colns = [e for e in dxind_raw.columns if e.endswith('_tl')]
+        
+        dxind1 = dxind_raw.loc[:, tloss_colns]
+        
+        #clean names
+        dxind1 = dxind1.rename(columns={e:e.replace('_tl','') for e in tloss_colns})
+        
+        #promote column values to index
+        dxser = dxind1.stack().rename('tl')
+        
+        dxser.index.set_names(list(dxind1.index.names)+['vid'], inplace=True)
+        mdex = dxser.index
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
         plt.close('all')
-        
-        #=======================================================================
-        # calc total loss
-        #=======================================================================
+        """
+        plt.show()
+        """
  
-        rlT_dxind = rl_dxind.swaplevel(i=0,j=1,axis=0).groupby(level=[0,1,2],axis=0).sum()
+        fig, ax_d = self.get_matrix_fig(
+                                    mdex.unique(plot_rown).tolist(), #row keys
+                                    mdex.unique(plot_coln).tolist(), #col keys
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey='row', sharex='row', #everything should b euniform
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+        fig.suptitle('total loss sumed')
+        
+        #get colors
+        cvals = dxser.index.unique(plot_colr)
+        cmap = plt.cm.get_cmap(name=colorMap) 
+        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+        
+        #===================================================================
+        # loop and plot
+        #===================================================================
+        for (row_key, col_key), gser1r in dxser.groupby(level=[plot_rown, plot_coln]):
+            
+            #data setup
+            gser1 = gser1r.droplevel([plot_rown, plot_coln])
+ 
+            #subplot setup 
+            ax = ax_d[row_key][col_key]
+            
+            
+            #===================================================================
+            # loop on colors
+            #===================================================================
+            for i, (ckey, gser2r) in enumerate(gser1.groupby(level=plot_colr)):
+                
+                #get data
+                gser2 = gser2r.droplevel(plot_colr)
+ 
+                tlsum_ser = gser2.groupby(plot_bgrp).sum()
+                
+                #===============================================================
+                # #formatters.
+                #===============================================================
+                #labels
+                if row_key == mdex.unique(plot_rown)[-1]: #last row
+                    tick_label = ['e%i'%i for i in range(0,len(tlsum_ser))]
+ 
+                else:
+                    tick_label=None
+                    
+                #widths
+                bar_cnt = len(mdex.unique(plot_colr))*len(tlsum_ser)
+                width = 0.9/float(bar_cnt)
+                
+                #===============================================================
+                # #add bars
+                #===============================================================
+                ax.bar(
+                    np.linspace(0,1,num=len(tlsum_ser)) + width*i, #xlocation of bars
+                    tlsum_ser.values, #heights
+                    width=width,
+                    align='center',
+                    color=newColor_d[ckey],
+                    label='%s=%s'%(plot_colr, ckey),
+                    alpha=0.5,
+                    tick_label=tick_label, #just adding at the end
+                    )
+                
+            #===============================================================
+            # #wrap format subplot
+            #===============================================================
+            
+            
+            #first row
+            if row_key==mdex.unique(plot_rown)[0]:
+                
+                #last col
+                if col_key == mdex.unique(plot_coln)[-1]:
+                    ax.legend()
+                    
+            #first col
+            if col_key == mdex.unique(plot_coln)[0]:
+                ax.set_ylabel('sum(rl*cnt)')
+                    
+
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        self.output_fig(fig, fname='tloss_bars_%s'%(self.longname))
+        
+                    
+            
+            
+ 
+            
+
+ 
     
     #===========================================================================
     # DATA CONSTRUCTION-------------
     #===========================================================================
     def tloss_build(self, #get the total loss
                     dkey=None,
+                    prec=2,
                     **kwargs):
         
         #=======================================================================
@@ -197,6 +355,7 @@ class Session(agSession):
         #=======================================================================
         log = self.logger.getChild('tloss_build')
         assert dkey=='tloss'
+        if prec is None: prec=self.prec
         gcn = self.gcn
         scale_cn = 'id_cnt'
         #=======================================================================
@@ -220,30 +379,46 @@ class Session(agSession):
         for grid_size, gdf in rl_dxind.groupby(level=rlnames_d['grid_size']):
             #get teh scaler series
             if grid_size==0:
-                cnt_serix = pd.Series(1, index=gdf.index).droplevel(level=[rlnames_d['grid_size'], rlnames_d['event']],axis=0)
+                #unique studyArea:gid
+                mindex = gdf.index.droplevel(['grid_size', 'event']).drop_duplicates()
+                cnt_serix = pd.Series(1, index=mindex)
+                                      
+ 
             else:
-                #retrieve the lookup fro these
+                #retrieve the lookup studyArea+id:gid
                 ser1 = fgdir_dxind.loc[:, grid_size].rename(gcn)
+                
                 assert ser1.notna().all(), grid_size
                 
-                #get counts
+                
+                #get counts per-area (for this group size)
                 d = dict()
                 for sName, ser2 in ser1.groupby(level=0):                
                     d[sName] = ser2.groupby(ser2).count()
+ 
+                cnt_serix = pd.concat(d, names=mindex.names)
                 
-                #per-area (for this group size)
-                cnt_serix = pd.concat(d)
-                
-            #wrap
+            #checks
             assert cnt_serix.notna().all(), grid_size
+            try:
+                self.check_mindex(cnt_serix.index)
+            except Exception as e:
+                raise Error('index on grid_size=%i failed w/ \n    %s'%(grid_size, e))
+            
+            #wrap
             grid_d[grid_size] = cnt_serix.rename(scale_cn)
 
-        #=======================================================================
-        # join
-        #=======================================================================
+        
         #shape into a dxind with matching names
         jdxind1 = pd.concat(grid_d, names= rl_dxind.droplevel(rlnames_d['event']).index.names)
+
+        
+        
+        #=======================================================================
+        # check
+        #=======================================================================
         self.check_mindex(jdxind1.index)
+ 
         
         jnames_d = {lvlName:i for i, lvlName in enumerate(jdxind1.index.names)}
         assert jdxind1.notna().all()
@@ -262,9 +437,30 @@ class Session(agSession):
             for k,v in el_d.items():
                 log.debug('%s    %s'%(k,v))
                 
-            assert len(el_d['diff_left'])==0, '%s missing some lookup values'%name
+            if not len(el_d['diff_left'])==0:
+                raise Error('%s missing some lookup values'%name)
         
-        #join to the rloss data
+        #do some reporting
+        #=======================================================================
+        # mdf = pd.concat({
+        #     'max(id_cnt)':jdxind1.groupby(level='grid_size').max(),
+        #     'count(id_cnt)':jdxind1.groupby(level='grid_size').count(),
+        #     }, axis=1)
+        #=======================================================================
+        
+        
+        #=======================================================================
+        # log.info('got asset_cnts for each grid_size w/ \n    %s'%(
+        #     mdf))
+        #=======================================================================
+        """
+        I think we get very few on grid_size=0 because this as been null filtered
+        view(jdxind1)
+        """
+        
+        #=======================================================================
+        # #join to the rloss data
+        #=======================================================================
         dxind1 = rl_dxind.join(jdxind1, on=jdxind1.index.names)
         
         assert dxind1[scale_cn].notna().all()
@@ -283,33 +479,54 @@ class Session(agSession):
         #=======================================================================
         tval_colns = ['%i_tl'%e for e in rl_cols]
         rdx= dxind2.loc[:, new_rl_cols].multiply(dxind2[scale_cn], axis=0).rename(
-            columns=dict(zip(new_rl_cols, tval_colns)))
+            columns=dict(zip(new_rl_cols, tval_colns))).round(prec)
         
         dxind3 = dxind2.join(rdx, on=rdx.index.names)
         
-        raise Error('stopped here... check that gid.grid_size.studyArea is unique')
- 
-        
         """
-        view(res)
-        view(jdxind1)
-        view(dxind2)
+        view(dxind3)
+        view(rdx)
         """
         
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        #reporting
+        rdxind = dxind3.drop(new_rl_cols+['depth'], axis=1)
+        mdf = pd.concat({
+            'max':rdxind.drop(tval_colns, axis=1).groupby(level='grid_size').max(),
+            'count':rdxind.drop(tval_colns, axis=1).groupby(level='grid_size').count(),
+            'sum':rdxind.groupby(level='grid_size').sum(),
+            }, axis=1)
         
         
+        log.info('finished w/ %s and totalLoss: \n%s'%(
+            str(dxind3.shape), 
+            #dxind3.loc[:,tval_colns].sum().astype(np.float32).round(1).to_dict(),
+            mdf
+            ))
         
-        raise Error('dome')
+
+                
+                
+        
+        self.ofp_d[dkey] = self.write_pick(dxind3,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
+                                   logger=log)
+
+        return dxind3
 
     
     def rloss_build(self,
                     dkey=None,
+                    prec=None, #precision for RL
                     **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('rloss_build')
         assert dkey=='rloss'
+        if prec is None: prec=self.prec
         
         #=======================================================================
         # #retrieve child data
@@ -343,7 +560,8 @@ class Session(agSession):
         #=======================================================================
         # combine
         #=======================================================================
-        rdf = pd.DataFrame.from_dict(res_d)
+        
+        rdf = pd.DataFrame.from_dict(res_d).round(prec)
         
         rdf.index = dxser.index
         
@@ -352,6 +570,8 @@ class Session(agSession):
         log.info('finished on %s'%str(rdf.shape))
         
         self.check_mindex(res_dxind.index)
+        
+ 
         #=======================================================================
         # write
         #=======================================================================
@@ -383,14 +603,14 @@ class Session(agSession):
         res_d = self.sa_get(meth='get_finvsg', write=False, dkey=dkey, **kwargs)
         
         #unzip results
-        finv_gkey_df_d, fgm_vlay_d = dict(), dict()
+        finv_gkey_df_d, fgm_vlay_d = dict(), dict() 
         for k,v in res_d.items():
-            finv_gkey_df_d[k], fgm_vlay_d[k] = v
+            finv_gkey_df_d[k], fgm_vlay_d[k]  = v
             
         
         
         #=======================================================================
-        # write vector layers
+        # write finv points vector layers
         #=======================================================================
  
         #setup directory
@@ -407,7 +627,8 @@ class Session(agSession):
             
         log.debug('wrote %i'%len(ofp_d))
         
-
+ 
+        
         
         #=======================================================================
         # write the dxcol and the fp_d
@@ -430,6 +651,9 @@ class Session(agSession):
         self.ofp_d[dkey] = self.write_pick(finvg, 
                            os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),logger=log)
         
+        """
+        finvg.keys()
+        """
         return finvg
         
  
@@ -480,13 +704,15 @@ class Session(agSession):
         dxser = dxser.swaplevel().swaplevel(i=1,j=0).sort_index(axis=0, level=0, sort_remaining=True)
         
         self.check_mindex(dxser.index)
+ 
+        
         
         log.debug('on %i'%len(res_d))
         
         #=======================================================================
         # write
         #=======================================================================
-        self.write_pick(dxser, os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
+        self.ofp_d[dkey] = self.write_pick(dxser, os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
                         logger=log)
         
         return dxser
@@ -501,8 +727,10 @@ class Session(agSession):
         #=======================================================================
         d = self.retrieve('finvg')
         
+        if not 'fgm_ofp_d' in d and 'fgdir_dxind' in d:
+            raise Error('got bad keys on finvg')
  
-        fgm_ofp_d, fgdir_dxind = d.pop('fgm_ofp_d'), d.pop('fgdir_dxind')
+        fgm_ofp_d, fgdir_dxind = d['fgm_ofp_d'], d['fgdir_dxind']
         
         #=======================================================================
         # check
@@ -549,7 +777,7 @@ class Session(agSession):
             log.info('%i/%i on %s'%(i+1, len(proj_lib), name))
             
             with StudyArea(session=self, name=name, tag=self.tag, prec=self.prec,
-                           trim=self.trim, out_dir=self.out_dir,
+                           trim=self.trim, out_dir=self.out_dir, overwrite=self.overwrite,
                            **pars_d) as wrkr:
                 
                 #raw raster samples
@@ -579,15 +807,28 @@ class Session(agSession):
         if chk_d is None: chk_d=self.mindex_dtypes
         
         #=======================================================================
-        # check
+        # check types and names
         #=======================================================================
         names_d= {lvlName:i for i, lvlName in enumerate(mindex.names)}
+        
+        assert not None in names_d, 'got unlabled name'
         
         for name, lvl in names_d.items():
  
             assert name in chk_d, 'name \'%s\' not recognized'%name
             assert mindex.get_level_values(lvl).dtype == chk_d[name], \
                 'got bad type on \'%s\': %s'%(name, mindex.get_level_values(lvl).dtype.name)
+                
+        #=======================================================================
+        # check index values
+        #=======================================================================
+        #totality is unique
+        bx = mindex.to_frame().duplicated()
+        assert not bx.any(), 'got %i/%i dumplicated index entries on %i levels \n    %s'%(
+            bx.sum(), len(bx), len(names_d), names_d)
+        
+ 
+        
                 
         
         return
@@ -670,7 +911,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                   finv_vlay=None,
                   grid_sizes = [5, 20, 100], #resolution in meters
                   idfn=None,
-                  
+                  write_grids=True, #whether to also write the grids to file
                   ):
         """
         
@@ -697,6 +938,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         fpts_d = dict() #container for resulting finv points layers
         groups_d = dict()
         meta_d = dict()
+        fgrid_vlay_d = dict()
         log.info('on \'%s\' w/ %i: %s'%(finv_vlay.name(), len(grid_sizes), grid_sizes))
         
         for i, grid_size in enumerate(grid_sizes):
@@ -727,7 +969,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             
             gvlay2b = self.saveselectedfeatures(gvlay2, logger=log)
             self.mstore.addMapLayer(gvlay2b)
-            
+            fgrid_vlay_d[grid_size] = gvlay2b
             
             #drop these to centroids
             gvlay3 = self.centroids(gvlay2b, logger=log)
@@ -782,7 +1024,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         finv_gkey_df = pd.concat(groups_d, axis=1).droplevel(axis=1, level=1)
         
         #=======================================================================
-        # #merge vector layers
+        # #merge points vector layers
         #=======================================================================
         #prep the raw
         finvR_vlay1 = self.fieldcalculator(finv_vlay, 0, fieldName='grid_size', fieldType='Integer', logger=log)
@@ -799,6 +1041,23 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         fnl = [f.name() for f in fgm_vlay1.fields()]
         fgm_vlay2 = self.deletecolumn(fgm_vlay1, list(set(fnl).difference([gcn, 'grid_size'])), logger=log)
         
+        #=======================================================================
+        # write grids
+        #=======================================================================
+        if write_grids:
+            log.info('writing %i grids to file'%len(fgrid_vlay_d))
+            od = os.path.join(self.out_dir, 'grids', self.name)
+            if not os.path.exists(od):os.makedirs(od)
+            for grid_size, vlay in fgrid_vlay_d.items():
+                self.vlay_write(vlay,
+                                os.path.join(od, 'fgrid_%i_%s.gpkg'%(grid_size, self.longname)),
+                                logger=log)
+        
+ 
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
         log.info('merged %i gridded inventories into %i pts'%(
             len(fpts_d), fgm_vlay2.dataProvider().featureCount()))
         

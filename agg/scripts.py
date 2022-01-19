@@ -16,6 +16,7 @@ import matplotlib
 from hp.oop import Basic, Session, Error
 from hp.Q import Qproj
 from hp.pd import view, get_bx_multiVal
+from hp.plot import Plotr
 
 
 def get_ax(
@@ -34,7 +35,7 @@ def get_ax(
             
     return fig.add_subplot(111)
 
-class Session(Session, Qproj):
+class Session(Session, Qproj, Plotr):
     
     vidnm = 'df_id' #indexer for damage functions
     ycn = 'rl'
@@ -42,6 +43,7 @@ class Session(Session, Qproj):
     
     def __init__(self, 
                  data_retrieve_hndls={},
+                 prec=2,
                  **kwargs):
     
         #add generic handles
@@ -65,7 +67,8 @@ class Session(Session, Qproj):
             })
         
         super().__init__(work_dir = r'C:\LS\10_OUT\2112_Agg',
-                         data_retrieve_hndls=data_retrieve_hndls,
+                         data_retrieve_hndls=data_retrieve_hndls,prec=prec,
+                         init_plt_d=None, #dont initilize the plot child
                          **kwargs)
                 
     #===========================================================================
@@ -354,72 +357,7 @@ class Session(Session, Qproj):
     #===========================================================================
     # PLOTTING-----------
     #===========================================================================
-    def get_matrix_fig(self, #conveneince for getting a matrix plot with consistent object access
-                       row_keys, #row labels for axis
-                       col_keys, #column labels for axis
-                       
-                       fig_id=0,
-                       figsize=None,
-                        tight_layout=False,
-                        constrained_layout=True,
-                        
-                        sharex=False, 
-                         sharey='row',
-                        
-                       ):
-        
-        
-        #=======================================================================
-        # defautls
-        #=======================================================================
-        if figsize is None: figsize=self.figsize
-        
-        
-        #=======================================================================
-        # precheck
-        #=======================================================================
-        assert isinstance(row_keys, list)
-        assert isinstance(col_keys, list)
-        
-        if fig_id in plt.get_fignums():
-            plt.close()
-        
-        #=======================================================================
-        # build figure
-        #=======================================================================
-        
-        fig = plt.figure(fig_id,
-            figsize=figsize,
-            tight_layout=tight_layout,
-            constrained_layout=constrained_layout)
-        
-        # populate with subplots
-        ax_ar = fig.subplots(nrows=len(row_keys), ncols=len(col_keys),
-                             sharex=sharex, sharey=sharey,
-                             )
-        
-        #convert to array
-        if not isinstance(ax_ar, np.ndarray):
-            assert len(row_keys)==len(col_keys)
-            assert len(row_keys)==1
-            
-            ax_ar = np.array([ax_ar])
-            
-        
-        #=======================================================================
-        # convert to dictionary
-        #=======================================================================
-        ax_d = dict()
-        for i, row_ar in enumerate(ax_ar.reshape(len(row_keys), len(col_keys))):
-            ax_d[row_keys[i]]=dict()
-            for j, ax in enumerate(row_ar.T):
-                ax_d[row_keys[i]][col_keys[j]]=ax
-                
-            
- 
-            
-        return fig, ax_d
-    
+
     def output_fig(self, 
                    fig,
                    
@@ -635,9 +573,13 @@ class Vfunc(object):
     
     def get_rloss(self,
                   xar,
-                  prec=2,
+                  prec=None, #precision for water depths
                   #from_cache=True,
                   ):
+        """
+        some functions like to return zero rloss
+        
+        """
         if prec is None: prec=self.prec
         assert isinstance(xar, np.ndarray)
         dd_ar = self.dd_ar

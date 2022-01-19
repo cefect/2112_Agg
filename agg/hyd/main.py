@@ -100,7 +100,7 @@ def run(
                   'EPSG': 2955, 
                  'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_cent_aoi06.gpkg', 
                  'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
-                 'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\wsl\\depth_sB_1218',
+                 'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\DEVdepth_sB_1218',
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                     }, 
             #===================================================================
@@ -110,18 +110,21 @@ def run(
             #     'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\dem\\LMFRA_NHC2019_dtm_5x5_aoi08.tif', 
             #     'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\wd\\0116\\'
             #         }, 
+            #===================================================================
             # 'SaintJohn': {
             #     'EPSG': 3979, 
             #     'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\finv\\microsoft_0517_aoi13_0116.gpkg',
             #      'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\dem\\HRDEM_0513_r5_filnd_aoi12b.tif',
             #       'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\wd\\'
             #                 }, 
-            # 'Calgary': {
-            #     'EPSG': 3776, 
-            #     'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\finv\\calgary_IBI2016_binvRes_170729_aoi02_0116.gpkg', 
-            #     'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\dem\\CoC_WR_DEM_170815_5x5_0126.tif', 
-            #     'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\wd\\0116\\'
-            #             }, 
+            #===================================================================
+            'Calgary': {
+                'EPSG': 3776, 
+                'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\finv\\calgary_IBI2016_binvRes_170729_aoi02_0116.gpkg', 
+                'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\dem\\CoC_WR_DEM_170815_5x5_0126.tif', 
+                'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\DEV0116',
+                'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
+                        }, 
             'dP': {
                 'EPSG': 2950, 
                 'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\finv\\microsoft_20210506_aoi03_0116.gpkg', 
@@ -169,23 +172,41 @@ def run(
                      },
                  **kwargs) as ses:
         
- 
-        #ses.plot_depths()
-        ses.plot_tloss()
+        #attach local matplotlib init
+        ses.plt = plt 
+        
+        ses.plot_depths()
+        ses.plot_tloss_bars()
+        
+        out_dir = ses.out_dir
+        
+    print('finished %s'%tag)
+    
+    return out_dir
+        
+    
  
  
 def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-            'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220118\working\finvg_hyd_dev_0118.pickle',
-            'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220118\working\rsamps_hyd_dev_0118.pickle',
-            'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220118\working\rloss_hyd_dev_0118.pickle',
+    #===========================================================================
+    # 'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220119\working\finvg_hyd_dev_0119.pickle',
+    # 'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220119\working\rsamps_hyd_dev_0119.pickle',
+    # 'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220119\working\rloss_hyd_dev_0119.pickle',
+    #===========================================================================
             },
         
         grid_sizes = [20, 100, 200],
         
-        vid_sample=3,
+        vid_l = [
+            402, #MURL. straight line. smallest agg error
+            798, #Budiyono from super meet 4
+            811, #Budiyono from super meet 4
+            794, #budyi.. largest postiive error
+            ],
+
         
         trim=True,
         overwrite=True,
@@ -195,9 +216,21 @@ def r1():
     return run(
         tag='r1',
         compiled_fp_d = {
- 
+     'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220119\working\finvg_hyd_r1_0119.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220119\working\rsamps_hyd_r1_0119.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220119\working\rloss_hyd_r1_0119.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220119\working\tloss_hyd_r1_0119.pickle',
             },
         
+        #vid_sample=5,
+        vid_l = [
+            402, #MURL. straight line. smallest agg error
+            798, #Budiyono from super meet 4
+            811, #Budiyono from super meet 4
+            794, #budyi.. largest postiive error
+            ],
+                
+                
         trim=False,
         overwrite=True,
         )
@@ -205,8 +238,8 @@ def r1():
     
 if __name__ == "__main__": 
     
-    #output=r1()
-    output=dev()
+    output=r1()
+    #output=dev()
  
     
     tdelta = datetime.datetime.now() - start
