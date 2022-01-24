@@ -176,8 +176,9 @@ def run(
         
         #ses.plot_depths()
         #ses.plot_totals_bars()
-        ses.plot_totals_bars(dkey='errs')
-        ses.plot_terrs_box(dkey='errs', ylabel='tloss error (gridded - true)')
+        #ses.plot_totals_bars(dkey='errs')
+        #ses.plot_terrs_box(dkey='errs', ylabel='tloss error (gridded - true)')
+        ses.plot_errs_scatter()
         
         out_dir = ses.out_dir
         
@@ -208,34 +209,36 @@ def dev():
                   'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\DEVdepth_sB_1218',
                   'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                      }, 
-            'LMFRA': {
-                'EPSG': 3005, 
-                'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\finv\\LMFRA_tagComb0612_0116.gpkg', 
-                'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\dem\\LMFRA_NHC2019_dtm_5x5_aoi08.tif', 
-                'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
-                'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
-                    }, 
-             'SaintJohn': {
-                 'EPSG': 3979, 
-                 'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\finv\\microsoft_0517_aoi13_0116.gpkg',
-                  'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\dem\\HRDEM_0513_r5_filnd_aoi12b.tif',
-                   'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\wd\\',
-                   'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\SJ_aoiT01_0119.gpkg',
-                             }, 
-             'Calgary': {
-                 'EPSG': 3776, 
-                 'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\finv\\calgary_IBI2016_binvRes_170729_aoi02_0116.gpkg', 
-                 'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\dem\\CoC_WR_DEM_170815_5x5_0126.tif', 
-                 'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\DEV0116',
-                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
-                         }, 
-            'dP': {
-                'EPSG': 2950, 
-                'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\finv\\microsoft_20210506_aoi03_0116.gpkg', 
-                'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\dem\\HRDEM_CMM2_0722_fild_aoi03_0116.tif', 
-                'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\wd\\',
-                'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\dP\aoiT01_202220118.gpkg',
-                },
+            #===================================================================
+            # 'LMFRA': {
+            #     'EPSG': 3005, 
+            #     'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\finv\\LMFRA_tagComb0612_0116.gpkg', 
+            #     'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\dem\\LMFRA_NHC2019_dtm_5x5_aoi08.tif', 
+            #     'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
+            #     'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
+            #         }, 
+            #  'SaintJohn': {
+            #      'EPSG': 3979, 
+            #      'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\finv\\microsoft_0517_aoi13_0116.gpkg',
+            #       'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\dem\\HRDEM_0513_r5_filnd_aoi12b.tif',
+            #        'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\wd\\',
+            #        'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\SJ_aoiT01_0119.gpkg',
+            #                  }, 
+            #  'Calgary': {
+            #      'EPSG': 3776, 
+            #      'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\finv\\calgary_IBI2016_binvRes_170729_aoi02_0116.gpkg', 
+            #      'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\dem\\CoC_WR_DEM_170815_5x5_0126.tif', 
+            #      'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\DEV0116',
+            #      'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
+            #              }, 
+            # 'dP': {
+            #     'EPSG': 2950, 
+            #     'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\finv\\microsoft_20210506_aoi03_0116.gpkg', 
+            #     'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\dem\\HRDEM_CMM2_0722_fild_aoi03_0116.tif', 
+            #     'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\wd\\',
+            #     'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\dP\aoiT01_202220118.gpkg',
+            #     },
+            #===================================================================
             },
                 
         grid_sizes = [20, 100, 200],
@@ -256,7 +259,11 @@ def r1():
     return run(
         tag='r1',
         compiled_fp_d = {
- 
+             'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\finvg_hyd_r1_0124.pickle',
+            'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\rsamps_hyd_r1_0124.pickle',
+            'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\rloss_hyd_r1_0124.pickle',
+            'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\tloss_hyd_r1_0124.pickle',
+            'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\errs_hyd_r1_0124.pickle',
             },
         
         #vid_sample=5,

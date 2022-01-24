@@ -109,7 +109,8 @@ class Session(agSession):
         #fgm_ofp_d, fgdir_dxind = self.get_finvg()
         serx = self.retrieve('rsamps')
         mdex = serx.index
- 
+        
+        log.info('on %i'%len(serx))
         plt.close('all')
         #=======================================================================
         # loop on studyAreas
@@ -220,7 +221,7 @@ class Session(agSession):
         dxind_raw = self.retrieve(dkey)
         
         
-        log.info('on %i'%len(dxind_raw))
+        log.info('on \'%s\' w/ %i'%(dkey, len(dxind_raw)))
         
         #=======================================================================
         # setup data
@@ -373,11 +374,9 @@ class Session(agSession):
         #=======================================================================
         # #retrieve child data
         #=======================================================================
-        #
         dxind_raw = self.retrieve(dkey)
+        log.info('on \'%s\' w/ %i'%(dkey, len(dxind_raw)))
  
-        
-        log.info('on %i'%len(dxind_raw))
         
         #=======================================================================
         # setup data
@@ -515,7 +514,187 @@ class Session(agSession):
         log.info('finsihed')
         return
  
+    def plot_errs_scatter(self, #boxplot of total errors
+                    #data control   
+                    dkey='errs',
+                    ycoln = 'depth',
+                       
+                    #figure config
+                    plot_fign = 'studyArea',
+                    plot_rown = 'event', 
+                    plot_coln = 'vid',
+                    plot_colr = 'grid_size',
+                    #plot_bgrp = 'event',
+                    
+                    #plot style
+                    ylabel=None,
+                    colorMap=None,
+                    add_text=True,
+                   ):
+        """
+        matrix figure
+            figure: studyAreas
+                rows: grid_size
+                columns: events
+                values: total loss sum
+                colors: grid_size
         
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_errs_scatter')
+        if colorMap is None: colorMap=self.colorMap
+        if ylabel is None: ylabel = dkey
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+        dxind_raw = self.retrieve(dkey)
+        #vf_d = self.retrieve('vf_d')
+        log.info('on \'%s\' w/ %i'%(dkey, len(dxind_raw)))
+        
+        #=======================================================================
+        # setup data
+        #=======================================================================
+        """
+        moving everything into an index for easier manipulation
+        """
+ 
+        #clip to total loss columns
+        tlcoln_d = {c:int(c.replace(dkey,'')) for c in dxind_raw.columns if c.endswith(dkey)}
+         
+        
+        dxind1 = dxind_raw.loc[:, tlcoln_d.keys()].rename(columns=tlcoln_d)
+        dxind1.columns = dxind1.columns.astype(int)
+
+        #promote column values to index
+        dxser = dxind1.stack().rename(dkey)
+        
+        dxser.index.set_names('vid', level = len(dxser.index.names)-1, inplace=True)
+        
+        #get yvalues (depths)
+        
+        ydxser = dxind_raw[ycoln]
+        #=======================================================================
+        # plotting setup
+        #=======================================================================
+        #get colors
+        cvals = dxser.index.unique(plot_colr)
+        cmap = plt.cm.get_cmap(name=colorMap) 
+        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+        
+        plt.close('all')
+        """
+        plt.show()
+        """
+        #=======================================================================
+        # loop on figures
+        #=======================================================================
+        for i, (fig_key, gser0r) in enumerate(dxser.groupby(level=plot_fign)):
+            mdex = gser0r.index
+            
+            fig, ax_d = self.get_matrix_fig(
+                                        mdex.unique(plot_rown).tolist(), #row keys
+                                        mdex.unique(plot_coln).tolist(), #col keys
+                                        figsize_scaler=4,
+                                        constrained_layout=True,
+                                        sharey='all', 
+                                        sharex='all', #events should all be uniform
+                                        fig_id=i,
+                                        set_ax_title=True,
+                                        )
+            fig.suptitle('%s for %s \'%s\''%(dkey, plot_fign, fig_key))
+        
+            """
+            fig.show()
+            """
+        
+            #===================================================================
+            # loop on axis row/column (and colors)
+            #===================================================================
+            for (row_key, col_key, ckey), gser1r in gser0r.groupby(level=[plot_rown, plot_coln, plot_colr]):
+                
+                #skip trues
+                if ckey == 0:
+                    continue 
+                #subplot setup 
+                ax = ax_d[row_key][col_key]
+                
+ 
+                #===============================================================
+                # #get data
+                #===============================================================
+                #cross section of depth values
+                yser = ydxser.xs((fig_key, row_key, ckey), level=[plot_fign, plot_rown, plot_colr])
+                
+                #join to xvalues
+                dxind = gser1r.to_frame().join(yser, on=yser.index.name)
+                
+                assert dxind.notna().all().all()
+                
+                #===============================================================
+                # zero line
+                #===============================================================
+                ax.axhline(0, color='black', alpha=0.8, linewidth=0.5)
+                
+                #===============================================================
+                # plot function
+                #===============================================================
+                """no... we're plotting total errors
+                vf_d[col_key].plot(ax=ax,logger=log, lineKwargs=dict(
+                    color='black', linestyle='dashed', linewidth=0.5, alpha=0.8))"""
+ 
+
+                
+                #===============================================================
+                # #add scatter plot
+                #===============================================================
+                ax.scatter(x=dxind.iloc[:,1].values, y=dxind.iloc[:,0].values, 
+                           color=newColor_d[ckey], s=10, marker='.', alpha=0.8,
+                               label='%s=%s'%(plot_colr, ckey))
+ 
+ 
+                #===============================================================
+                # #wrap format subplot
+                #===============================================================
+                
+                #first row
+                if row_key==mdex.unique(plot_rown)[0]:
+                     
+                    #last col
+                    if col_key == mdex.unique(plot_coln)[-1]:
+                        ax.legend()
+                        pass
+                         
+                #first col
+                if col_key == mdex.unique(plot_coln)[0]:
+                    ax.set_ylabel(ylabel)
+                    
+                #last row
+                if row_key==mdex.unique(plot_rown)[-1]:
+                    ax.set_xlabel(yser.name)
+                    
+            #===================================================================
+            # post format
+            #===================================================================
+            for row_key, ax0_d in ax_d.items():
+                for col_key, ax in ax0_d.items():
+                    ax.grid()
+            #===================================================================
+            # wrap fig
+            #===================================================================
+            log.debug('finsihed %s'%fig_key)
+            self.output_fig(fig, fname='%s_scatter_%s_%s'%(dkey, fig_key, self.longname))
+            """
+            fig.show()
+            """
+                    
+
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        return
                     
             
             
