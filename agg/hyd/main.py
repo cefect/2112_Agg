@@ -175,7 +175,9 @@ def run(
         ses.plt = plt 
         
         #ses.plot_depths()
-        ses.plot_tloss_bars()
+        #ses.plot_totals_bars()
+        ses.plot_totals_bars(dkey='errs')
+        ses.plot_terrs_box(dkey='errs', ylabel='tloss error (gridded - true)')
         
         out_dir = ses.out_dir
         
@@ -190,14 +192,15 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-    #===========================================================================
-    # 'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220119\working\finvg_hyd_dev_0119.pickle',
-    # 'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220119\working\rsamps_hyd_dev_0119.pickle',
-    # 'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220119\working\rloss_hyd_dev_0119.pickle',
-    #===========================================================================
+    'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\finvg_hyd_dev_0124.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\rsamps_hyd_dev_0124.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\rloss_hyd_dev_0124.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\tloss_hyd_dev_0124.pickle',
+     'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\errs_hyd_dev_0124.pickle',
+ 
             },
         
-                proj_lib =     {
+    proj_lib =     {
              'obwb':{
                    'EPSG': 2955, 
                   'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_cent_aoi06.gpkg', 
@@ -292,8 +295,8 @@ def r2():
     
 if __name__ == "__main__": 
     
-    #output=r2()
-    output=dev()
+    output=r1()
+    #output=dev()
  
     
     tdelta = datetime.datetime.now() - start

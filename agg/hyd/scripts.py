@@ -65,8 +65,13 @@ class Session(agSession):
                 'build':lambda **kwargs:self.rloss_build(**kwargs),
                 },
             'tloss':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs:self.tloss_build(**kwargs),
                 },
+            'errs':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs:self.errs_build(**kwargs),
+                }
             
             }
         
@@ -182,7 +187,8 @@ class Session(agSession):
  
             
             
-    def plot_tloss_bars(self, #barchart of total losses
+    def plot_totals_bars(self, #barchart of total losses
+                    dkey = 'tloss', #dxind to plot
                     #plot_fign = 'studyArea',
                     plot_rown = 'studyArea', 
                     plot_coln = 'vid',
@@ -211,7 +217,7 @@ class Session(agSession):
         # #retrieve child data
         #=======================================================================
         #
-        dxind_raw = self.retrieve('tloss')
+        dxind_raw = self.retrieve(dkey)
         
         
         log.info('on %i'%len(dxind_raw))
@@ -225,15 +231,16 @@ class Session(agSession):
         names_d= {lvlName:i for i, lvlName in enumerate(dxind_raw.index.names)}
         
         #clip to total loss columns
-        tloss_colns = [e for e in dxind_raw.columns if e.endswith('_tl')]
+        tloss_colns = [e for e in dxind_raw.columns if e.endswith(dkey)]
+        assert len(tloss_colns)>0
         
         dxind1 = dxind_raw.loc[:, tloss_colns]
         
         #clean names
-        dxind1 = dxind1.rename(columns={e:e.replace('_tl','') for e in tloss_colns})
+        dxind1 = dxind1.rename(columns={e:e.replace(dkey,'') for e in tloss_colns})
         
         #promote column values to index
-        dxser = dxind1.stack().rename('tl')
+        dxser = dxind1.stack().rename(dkey)
         
         dxser.index.set_names(list(dxind1.index.names)+['vid'], inplace=True)
         mdex = dxser.index
@@ -254,7 +261,7 @@ class Session(agSession):
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
-        fig.suptitle('total loss sumed')
+        fig.suptitle('%s summed'%dkey)
         
         #get colors
         cvals = dxser.index.unique(plot_colr)
@@ -325,14 +332,189 @@ class Session(agSession):
                     
             #first col
             if col_key == mdex.unique(plot_coln)[0]:
-                ax.set_ylabel('sum(rl*cnt)')
+                ax.set_ylabel(dkey)
                     
 
         #=======================================================================
         # wrap
         #=======================================================================
         log.info('finsihed')
-        self.output_fig(fig, fname='tloss_bars_%s'%(self.longname))
+        self.output_fig(fig, fname='%s_bars_%s'%(dkey, self.longname))
+        return
+    
+    def plot_terrs_box(self, #boxplot of total errors
+                       dkey='errs',
+                    plot_fign = 'studyArea',
+                    plot_rown = 'event', 
+                    plot_coln = 'vid',
+                    plot_colr = 'grid_size',
+                    #plot_bgrp = 'event',
+                    
+                    #plot style
+                    ylabel=None,
+                    colorMap=None,
+                    add_text=True,
+                   ):
+        """
+        matrix figure
+            figure: studyAreas
+                rows: grid_size
+                columns: events
+                values: total loss sum
+                colors: grid_size
+        
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_terr_box')
+        if colorMap is None: colorMap=self.colorMap
+        if ylabel is None: ylabel = dkey
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+        #
+        dxind_raw = self.retrieve(dkey)
+ 
+        
+        log.info('on %i'%len(dxind_raw))
+        
+        #=======================================================================
+        # setup data
+        #=======================================================================
+        """
+        moving everything into an index for easier manipulation
+        """
+        #names_d= {lvlName:i for i, lvlName in enumerate(dxind_raw.index.names)}
+        
+        #clip to total loss columns
+        tlcoln_d = {c:int(c.replace(dkey,'')) for c in dxind_raw.columns if c.endswith(dkey)}
+         
+        
+        dxind1 = dxind_raw.loc[:, tlcoln_d.keys()].rename(columns=tlcoln_d)
+        dxind1.columns = dxind1.columns.astype(int)
+
+        #promote column values to index
+        dxser = dxind1.stack().rename(dkey)
+        
+        dxser.index.set_names('vid', level = len(dxser.index.names)-1, inplace=True)
+        
+        
+        
+        #=======================================================================
+        # plotting setup
+        #=======================================================================
+        #get colors
+        #=======================================================================
+        # cvals = dxser.index.unique(plot_colr)
+        # cmap = plt.cm.get_cmap(name=colorMap) 
+        # newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+        #=======================================================================
+        
+        plt.close('all')
+        """
+        plt.show()
+        """
+        #=======================================================================
+        # loop on figures
+        #=======================================================================
+        for i, (fig_key, gser0r) in enumerate(dxser.groupby(level=plot_fign)):
+            mdex = gser0r.index
+            
+            fig, ax_d = self.get_matrix_fig(
+                                        mdex.unique(plot_rown).tolist(), #row keys
+                                        mdex.unique(plot_coln).tolist(), #col keys
+                                        figsize_scaler=4,
+                                        constrained_layout=True,
+                                        sharey='all', 
+                                        sharex='none', #events should all be uniform
+                                        fig_id=i,
+                                        set_ax_title=True,
+                                        )
+            fig.suptitle('%s for %s \'%s\''%(dkey, plot_fign, fig_key))
+        
+
+        
+            #===================================================================
+            # loop and plot
+            #===================================================================
+            for (row_key, col_key), gser1r in gser0r.droplevel(plot_fign).groupby(level=[plot_rown, plot_coln]):
+                
+                #data setup
+                gser1 = gser1r.droplevel([plot_rown, plot_coln])
+     
+                #subplot setup 
+                ax = ax_d[row_key][col_key]
+                
+                #group values
+                gd = {k:g.values for k,g in gser1.groupby(level=plot_colr)}
+                
+                #===============================================================
+                # zero line
+                #===============================================================
+                ax.axhline(0, color='red')
+ 
+                #===============================================================
+                # #add bars
+                #===============================================================
+                boxres_d = ax.boxplot(gd.values(), labels=gd.keys(),meanline=True,
+                           #boxprops={'color':newColor_d[rowVal]}, 
+                           #whiskerprops={'color':newColor_d[rowVal]},
+                           #flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
+                            )
+                
+                #===============================================================
+                # add extra text
+                #===============================================================
+                
+                #counts on median bar
+                for gval, line in dict(zip(gd.keys(), boxres_d['medians'])).items():
+                    x_ar, y_ar = line.get_data()
+                    ax.text(x_ar.mean(), y_ar.mean(), 'n%i'%len(gd[gval]), 
+                            #transform=ax.transAxes, 
+                            va='bottom',ha='center',fontsize=8)
+                    
+                    #===========================================================
+                    # if add_text:
+                    #     ax.text(x_ar.mean(), ylims[0]+1, 'mean=%.2f'%gd[gval].mean(), 
+                    #         #transform=ax.transAxes, 
+                    #         va='bottom',ha='center',fontsize=8, rotation=90)
+                    #===========================================================
+                                    
+
+                    
+                #===============================================================
+                # #wrap format subplot
+                #===============================================================
+                ax.grid()
+                #first row
+                if row_key==mdex.unique(plot_rown)[0]:
+                     
+                    #last col
+                    if col_key == mdex.unique(plot_coln)[-1]:
+                        #ax.legend()
+                        pass
+                         
+                #first col
+                if col_key == mdex.unique(plot_coln)[0]:
+                    ax.set_ylabel(ylabel)
+                    
+                #last row
+                if row_key==mdex.unique(plot_rown)[-1]:
+                    ax.set_xlabel(plot_colr)
+            #===================================================================
+            # wrap fig
+            #===================================================================
+            log.debug('finsihed %s'%fig_key)
+            self.output_fig(fig, fname='%s_box_%s_%s'%(dkey, fig_key, self.longname))
+                    
+
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        return
+ 
         
                     
             
@@ -345,14 +527,136 @@ class Session(agSession):
     #===========================================================================
     # DATA CONSTRUCTION-------------
     #===========================================================================
-    
-    
+
+    def errs_build(self, #get the total loss
+                    dkey=None,
+                     prec=None,
+                    ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('errs_build')
+        assert dkey=='errs'
+        if prec is None: prec=self.prec
+        gcn = self.gcn
+ 
+        #=======================================================================
+        # retriever
+        #=======================================================================
+        tl_dxind = self.retrieve('tloss')
+        
+        tlnames_d= {lvlName:i for i, lvlName in enumerate(tl_dxind.index.names)}
+        
+        #identify totalLoss columns (and their vid)
+        tlcoln_d = {c:int(c.replace('tloss','')) for c in tl_dxind.columns if c.endswith('tloss')}
+
+        _, fgdir_dxind = self.get_finvg()
+        #=======================================================================
+        # #loop on each grid_size, studyArea, event
+        #=======================================================================
+        res_dxind = None
+        lvls = [0,1,2]
+        tl_dxind1 = tl_dxind.loc[:, tlcoln_d.keys()]
+        for keys, gdxind in tl_dxind1.groupby(level=lvls):
+            keys_d = dict(zip([tl_dxind.index.names[i] for i in lvls], keys))
+            
+            #===================================================================
+            # trues
+            #===================================================================
+            if keys_d['grid_size']==0:
+                err_dxind = pd.DataFrame(0, index=gdxind.index, columns=gdxind.columns)
+
+                
+            #===================================================================
+            # gridded
+            #===================================================================
+            else:
+                
+                #clean the gridded values
+                gdf = gdxind.droplevel(lvls).sort_index()
+                assert gdf.index.is_unique, keys_d
+                #===================================================================
+                # #get trues
+                #===================================================================
+                true_dxind0 = tl_dxind1.loc[idx[0, keys[1], keys[2], :],:]
+ 
+                
+                true_dxind0.index.set_names('id', level=tlnames_d['gid'], inplace=True)
+                
+                #get true ids (many ids to 1 gid))
+                id_gid_ser = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']].rename(gcn).droplevel(0)
+                
+                
+                if not id_gid_ser.index.is_unique:
+                    #id_gid_ser.to_frame().loc[id_gid_ser.index.duplicated(keep=False), :]
+                    raise Error('bad index on %s'%keys_d)
+                
+                #join gids
+                true_dxind1 = true_dxind0.join(id_gid_ser).set_index(gcn, append=True).droplevel(lvls).sort_index()
+                
+                #get totals per gid
+                true_df0 = true_dxind1.groupby(gcn).sum()
+
+                assert true_df0.index.is_unique
+ 
+                #reshape like the gridded and add zeros
+                """any missing trues were dry"""
+                true_df1 = true_df0.reindex(gdf.index).fillna(0)
+                #===================================================================
+                # subtract trues
+                #===================================================================
+                err_dxind = gdxind.subtract(true_df1)
+            
+            #===================================================================
+            # wrap
+            #===================================================================
+            log.debug("got %s"%str(err_dxind.shape))
+            
+            err_dxind = err_dxind.rename(
+                    columns = {c:'%i%s'%(tlcoln_d[c], dkey) for c in gdxind.columns})
+            
+            assert err_dxind.notna().all().all()
+            
+            if res_dxind is None:
+                res_dxind=err_dxind
+            else:
+                res_dxind = res_dxind.append(err_dxind, verify_integrity=True)
+                
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        #reporting
+ 
+        mdf = pd.concat({
+            'max':res_dxind.groupby(level='grid_size').max(),
+            'count':res_dxind.groupby(level='grid_size').count(),
+            'sum':res_dxind.groupby(level='grid_size').sum(),
+            }, axis=1)
+        
+        
+        log.info('finished w/ %s and totalErrors: \n%s'%(
+            str(res_dxind.shape), mdf))
+        
+
+                
+        #=======================================================================
+        # write
+        #=======================================================================
+        rdxind = tl_dxind.join(res_dxind)
+        self.ofp_d[dkey] = self.write_pick(rdxind,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
+                                   logger=log)
+
+        return rdxind
+ 
+ 
     
     
     def tloss_build(self, #get the total loss
                     dkey=None,
                     prec=2,
-                    **kwargs):
+                    ):
         
         #=======================================================================
         # defaults
@@ -491,7 +795,7 @@ class Session(agSession):
         #=======================================================================
         # calc total loss
         #=======================================================================
-        tval_colns = ['%i_tl'%e for e in rl_cols]
+        tval_colns = ['%i%s'%(e, dkey) for e in rl_cols]
         rdx= dxind2.loc[:, new_rl_cols].multiply(dxind2[scale_cn], axis=0).rename(
             columns=dict(zip(new_rl_cols, tval_colns))).round(prec)
         
