@@ -531,15 +531,8 @@ class Session(agSession):
                     colorMap=None,
                     add_text=True,
                    ):
-        """
-        matrix figure
-            figure: studyAreas
-                rows: grid_size
-                columns: events
-                values: total loss sum
-                colors: grid_size
         
-        """
+        raise Error('need to find a more meaningful yaxis (pct error)')
         #=======================================================================
         # defaults
         #=======================================================================
