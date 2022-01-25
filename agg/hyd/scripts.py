@@ -514,10 +514,11 @@ class Session(agSession):
         log.info('finsihed')
         return
  
-    def plot_errs_scatter(self, #boxplot of total errors
+    def plot_errs_scatter(self, #scatter plot of error-like data
                     #data control   
                     dkey='errs',
-                    ycoln = 'depth',
+                    ycoln = 'errRel',
+                    xcoln = 'depth',
                        
                     #figure config
                     plot_fign = 'studyArea',
@@ -526,25 +527,34 @@ class Session(agSession):
                     plot_colr = 'grid_size',
                     #plot_bgrp = 'event',
                     
+                    #axconfig
+                    ylims = (-2,2),
+                    xlims = (0,3),
+                    
                     #plot style
                     ylabel=None,
                     colorMap=None,
                     add_text=True,
                    ):
         
-        raise Error('need to find a more meaningful yaxis (pct error)')
+        raise Error('need to find a more meaningful yaxis (rl per asset?)')
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('plot_errs_scatter')
         if colorMap is None: colorMap=self.colorMap
-        if ylabel is None: ylabel = dkey
+        if ylabel is None: ylabel = ycoln
         #=======================================================================
         # #retrieve child data
         #=======================================================================
-        dxind_raw = self.retrieve(dkey)
+        dx_raw = self.retrieve(dkey)
+        """
+        dx_raw.columns
+        view(dxind_raw)
+        view(dxind1)
+        """
         #vf_d = self.retrieve('vf_d')
-        log.info('on \'%s\' w/ %i'%(dkey, len(dxind_raw)))
+        log.info('on \'%s\' w/ %i'%(dkey, len(dx_raw)))
         
         #=======================================================================
         # setup data
@@ -554,20 +564,24 @@ class Session(agSession):
         """
  
         #clip to total loss columns
-        tlcoln_d = {c:int(c.replace(dkey,'')) for c in dxind_raw.columns if c.endswith(dkey)}
-         
+        #=======================================================================
+        # tlcoln_d = {c:int(c.replace(dkey,'')) for c in dxind_raw.columns if c.endswith(dkey)}
+        #  
+        # 
+        # dxind1 = dxind_raw.loc[:, tlcoln_d.keys()].rename(columns=tlcoln_d)
+        # dxind1.columns = dxind1.columns.astype(int)
+        #=======================================================================
         
-        dxind1 = dxind_raw.loc[:, tlcoln_d.keys()].rename(columns=tlcoln_d)
-        dxind1.columns = dxind1.columns.astype(int)
+        dxind1 = dx_raw.loc[:, idx[ycoln, :]].droplevel(0, axis=1)
 
         #promote column values to index
-        dxser = dxind1.stack().rename(dkey)
-        
-        dxser.index.set_names('vid', level = len(dxser.index.names)-1, inplace=True)
+        dxser = dxind1.stack().rename(ycoln).sort_index(sort_remaining=True)
+ 
         
         #get yvalues (depths)
         
-        ydxser = dxind_raw[ycoln]
+        xval_dxser = self.retrieve('rsamps').copy().sort_index(sort_remaining=True)
+        assert xval_dxser.name == xcoln
         #=======================================================================
         # plotting setup
         #=======================================================================
@@ -596,7 +610,7 @@ class Session(agSession):
                                         fig_id=i,
                                         set_ax_title=True,
                                         )
-            fig.suptitle('%s for %s \'%s\''%(dkey, plot_fign, fig_key))
+            fig.suptitle('%s for %s \'%s\''%(ycoln, plot_fign, fig_key))
         
             """
             fig.show()
@@ -618,10 +632,10 @@ class Session(agSession):
                 # #get data
                 #===============================================================
                 #cross section of depth values
-                yser = ydxser.xs((fig_key, row_key, ckey), level=[plot_fign, plot_rown, plot_colr])
+                xser = xval_dxser.xs((fig_key, row_key, ckey), level=[plot_fign, plot_rown, plot_colr])
                 
                 #join to xvalues
-                dxind = gser1r.to_frame().join(yser, on=yser.index.name)
+                dxind = gser1r.to_frame().join(xser, on=xser.index.name)
                 
                 assert dxind.notna().all().all()
                 
@@ -642,7 +656,7 @@ class Session(agSession):
                 #===============================================================
                 # #add scatter plot
                 #===============================================================
-                ax.scatter(x=dxind.iloc[:,1].values, y=dxind.iloc[:,0].values, 
+                ax.scatter(x=dxind[xcoln].values, y=dxind[ycoln].values, 
                            color=newColor_d[ckey], s=10, marker='.', alpha=0.8,
                                label='%s=%s'%(plot_colr, ckey))
  
@@ -665,7 +679,7 @@ class Session(agSession):
                     
                 #last row
                 if row_key==mdex.unique(plot_rown)[-1]:
-                    ax.set_xlabel(yser.name)
+                    ax.set_xlabel(xcoln)
                     
             #===================================================================
             # post format
@@ -673,6 +687,12 @@ class Session(agSession):
             for row_key, ax0_d in ax_d.items():
                 for col_key, ax in ax0_d.items():
                     ax.grid()
+                    
+                    if not ylims is None:
+                        ax.set_ylim(ylims)
+                    
+                    if not xlims is None:
+                        ax.set_xlim(xlims)
             #===================================================================
             # wrap fig
             #===================================================================
@@ -700,7 +720,7 @@ class Session(agSession):
     # DATA CONSTRUCTION-------------
     #===========================================================================
 
-    def errs_build(self, #get the total loss
+    def errs_build(self, #get the errors (gridded - true)
                     dkey=None,
                      prec=None,
                     ):
@@ -724,12 +744,25 @@ class Session(agSession):
         tlcoln_d = {c:int(c.replace('tloss','')) for c in tl_dxind.columns if c.endswith('tloss')}
 
         _, fgdir_dxind = self.get_finvg()
+
+        #=======================================================================
+        # clean data
+        #=======================================================================
+        tl_dxind1 = tl_dxind.loc[:, tlcoln_d.keys()]
+        tl_dxind1 = tl_dxind1.rename(columns = {c:tlcoln_d[c] for c in tl_dxind1.columns})
+        """
+        view(tl_dxind1)
+        """
+        
         #=======================================================================
         # #loop on each grid_size, studyArea, event
         #=======================================================================
-        res_dxind = None
+        res_dx = None
         lvls = [0,1,2]
-        tl_dxind1 = tl_dxind.loc[:, tlcoln_d.keys()]
+        
+        colx =  pd.MultiIndex.from_product([['delta', 'errRel', 'grid', 'true'], tl_dxind1.columns],
+                             names=['tlType', 'vid']).sortlevel(0, sort_remaining=True)[0]
+        
         for keys, gdxind in tl_dxind1.groupby(level=lvls):
             keys_d = dict(zip([tl_dxind.index.names[i] for i in lvls], keys))
             
@@ -737,7 +770,21 @@ class Session(agSession):
             # trues
             #===================================================================
             if keys_d['grid_size']==0:
-                err_dxind = pd.DataFrame(0, index=gdxind.index, columns=gdxind.columns)
+                
+                err_dx = pd.concat([gdxind], keys=['true'], names=['tlType'], axis=1)
+ 
+                #start with all zeros
+                err_dx = pd.DataFrame(0, index=gdxind.index,columns=colx)
+                
+                #set trues
+                err_dx.loc[:, idx['true', :]] = gdxind.values
+                
+                #set grids
+                err_dx.loc[:, idx['grid', :]] = np.nan
+                """
+                view(err_dx)
+                """
+                
 
                 
             #===================================================================
@@ -775,25 +822,65 @@ class Session(agSession):
                 #reshape like the gridded and add zeros
                 """any missing trues were dry"""
                 true_df1 = true_df0.reindex(gdf.index).fillna(0)
+                
+                #join
+                dxcol1 = pd.concat([gdf, true_df1], keys=['grid', 'true'], names=['tlType'], axis=1)
+                dxcol1.columns.set_names('vid', level=1, inplace=True)
                 #===================================================================
                 # subtract trues
                 #===================================================================
-                err_dxind = gdxind.subtract(true_df1)
+                """
+                view(gdxind)
+                view(dx1)
+                view(err_dxind)
+                view(true_df1)
+                view(errRel_dxind)
+                """
+                dlta_dx = dxcol1.loc[:, idx['grid', :]].subtract(dxcol1.loc[:, idx['true', :]].values)
+                dlta_dx.columns.set_levels(['delta'], level=0, inplace=True)
+  
+                dxcol2 = dxcol1.join(dlta_dx)
+                                                    
+ 
+                
+ 
+                #===============================================================
+                # relative errors
+                #===============================================================
+                rel_dx = dxcol2.loc[:, idx['delta', :]].divide(dxcol2.loc[:, idx['true', :]].values).fillna(0)
+                rel_dx.columns.set_levels(['errRel'], level=0, inplace=True)
+                
+                #===============================================================
+                # join back index
+                #===============================================================
+                dxcol3 = dxcol2.join(rel_dx).sort_index()
+                
+                dxcol3.index = gdxind.sort_index(level=3).index
+                
+                err_dx = dxcol3.sort_index(level=0, sort_remaining=True, axis=1)
+                
+                assert err_dx.notna().all().all()
+                
+                """
+                view(err_dx)
+                """
+ 
             
             #===================================================================
             # wrap
             #===================================================================
-            log.debug("got %s"%str(err_dxind.shape))
+            log.debug("got %s"%str(err_dx.shape))
             
-            err_dxind = err_dxind.rename(
-                    columns = {c:'%i%s'%(tlcoln_d[c], dkey) for c in gdxind.columns})
             
-            assert err_dxind.notna().all().all()
             
-            if res_dxind is None:
-                res_dxind=err_dxind
+            
+            if not np.array_equal(err_dx.columns, colx):
+                raise Error('column mismatch on %s'%keys_d)
+            
+            if res_dx is None:
+                res_dx=err_dx
             else:
-                res_dxind = res_dxind.append(err_dxind, verify_integrity=True)
+                res_dx = res_dx.append(err_dx, verify_integrity=True)
                 
         #=======================================================================
         # wrap
@@ -801,21 +888,45 @@ class Session(agSession):
         #reporting
  
         mdf = pd.concat({
-            'max':res_dxind.groupby(level='grid_size').max(),
-            'count':res_dxind.groupby(level='grid_size').count(),
-            'sum':res_dxind.groupby(level='grid_size').sum(),
+            'max':res_dx.groupby(level='grid_size').max(),
+            'count':res_dx.groupby(level='grid_size').count(),
+            'sum':res_dx.groupby(level='grid_size').sum(),
             }, axis=1)
         
         
         log.info('finished w/ %s and totalErrors: \n%s'%(
-            str(res_dxind.shape), mdf))
+            str(res_dx.shape), mdf))
         
 
                 
         #=======================================================================
         # write
         #=======================================================================
-        rdxind = tl_dxind.join(res_dxind)
+        """
+        view(mdf)
+        view(rdxind)
+        res_dx.dtypes
+        rdxind.dtypes
+        tl_dxind2.dtypes
+        """
+        #clean original data some more
+        tl_dxind2 = tl_dxind.drop(tlcoln_d.keys(), axis=1)
+        rl_colns_d = {c:int(c.replace('_rl', '')) for c in tl_dxind2.columns if c.endswith('_rl')}
+        
+        #promote to dxcol
+        """keeping the meta columns out.. mroe consistent type.. can just retrieve these separttely 
+        tl_dx = pd.concat(
+            [
+                tl_dxind2.drop(rl_colns_d.keys(), axis=1),
+                tl_dxind2.loc[:, rl_colns_d].rename(columns=rl_colns_d),
+                ], keys=['meta', 'rl'], names=['tlType'], axis=1)"""
+        
+        tl_dx = pd.concat([tl_dxind2.loc[:, rl_colns_d].rename(columns=rl_colns_d)],
+                           keys=['rl'], names=colx.names, axis=1)
+        
+        #join with enw results
+        rdxind = tl_dx.join(res_dx)
+        
         self.ofp_d[dkey] = self.write_pick(rdxind,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
                                    logger=log)

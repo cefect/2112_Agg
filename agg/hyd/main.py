@@ -197,7 +197,7 @@ def dev():
     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\rsamps_hyd_dev_0124.pickle',
     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\rloss_hyd_dev_0124.pickle',
     'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\tloss_hyd_dev_0124.pickle',
-     'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220124\working\errs_hyd_dev_0124.pickle',
+     'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220125\working\errs_hyd_dev_0125.pickle',
  
             },
         
@@ -263,7 +263,7 @@ def r1():
             'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\rsamps_hyd_r1_0124.pickle',
             'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\rloss_hyd_r1_0124.pickle',
             'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\tloss_hyd_r1_0124.pickle',
-            'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\errs_hyd_r1_0124.pickle',
+            #'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\errs_hyd_r1_0124.pickle',
             },
         
         #vid_sample=5,
@@ -283,8 +283,7 @@ def r2():
     return run(
         tag='r2',
         compiled_fp_d = {
- 
-            },
+           },
         
         #vid_sample=5,
         vid_l = [
