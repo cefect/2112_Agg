@@ -336,9 +336,12 @@ class Session(Session, Qproj, Plotr):
             # spawn
             #===================================================================
             vf_d[vid] = Vfunc(
-                vid=vid, model_id=row['model_id'],model_name=row['abbreviation'],
+                vid=vid, 
+                model_id=row['model_id'],
+                model_name=row['abbreviation'],
                 name=row['abbreviation']+'_%03i'%vid,
-                logger=self.logger, session=self,
+                logger=self.logger, 
+                session=self,
                 meta_d = row.dropna().to_dict(), 
                 ).set_ddf(ddf)
                 
@@ -511,12 +514,14 @@ class Vfunc(object):
     
     def __init__(self,
                  vid=0, 
-                 model_id=None, model_name='model_name',
+                 model_id=None, 
+                 model_name='model_name',
                  name='vfunc',
                  logger=None,
                  session=None,
                  meta_d = {}, #optional attributes to attach
                  prec=4, #precsion for general rounding
+                 relative=True, #whether this vfunc returns relative loss values (pct)
                  ):
         
         #=======================================================================
@@ -530,34 +535,54 @@ class Vfunc(object):
         self.session=session
         self.meta_d=meta_d
         self.prec=prec
+        self.relative=relative
         
         
     def set_ddf(self,
                 df_raw,
                 logger=None,
+                allow_rel_exceed=True, #for relative loss funtions, allow them to exceed 100
                 ):
         
         #=======================================================================
         # defai;ts
         #=======================================================================
         if logger is None: logger=self.logger
-        #log=logger.getChild('set_ddf')
+        log=logger.getChild('set_ddf')
         
         ycn = self.ycn
         xcn = self.xcn
         
-        
-        
-        
-        
-        #precheck
+ 
+        #=======================================================================
+        # #precheck
+        #=======================================================================
         assert isinstance(df_raw, pd.DataFrame)
         l = set(df_raw.columns).symmetric_difference([ycn, xcn])
         assert len(l)==0, l
         
+        #=======================================================================
+        # clean
+        #=======================================================================
         
         df1 = df_raw.copy().sort_values(xcn).loc[:, [xcn, ycn]]
         
+        #=======================================================================
+        # post check
+        #=======================================================================
+        #check relative loss constraint
+        if self.relative:
+            """
+            quite a few functions violate this
+            """
+            bx =  df1[ycn] > 100
+            if bx.any():
+                msg = 'got %i/%i RL values exceeding 100 (%s)'%(bx.sum(), len(bx), self.name)
+                if not allow_rel_exceed:
+                    raise Error(msg)
+                else:
+                    log.warning(msg)
+            
         #check monotoniciy
         for coln, row in df1.items():
             assert np.all(np.diff(row.values)>=0), '%s got non mono-tonic %s vals \n %s'%(
@@ -657,6 +682,7 @@ class Vfunc(object):
              label=None,
              lineKwargs={},
              add_zeros=True,
+             set_title=True,
              logger=None,
              ):
         
@@ -680,6 +706,9 @@ class Vfunc(object):
         plt.show()
         """
         ax.plot(xar, yar, label=label, **lineKwargs)
+        
+        if set_title:
+            ax.set_title(self.name)
         
         return ax
             

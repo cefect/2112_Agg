@@ -14,7 +14,7 @@ idx = pd.IndexSlice
 
 
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
-    vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes
+    vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo
 
  
 from hp.basic import set_info
@@ -190,6 +190,7 @@ class Session(agSession):
             
     def plot_totals_bars(self, #barchart of total losses
                     dkey = 'tloss', #dxind to plot
+                    lossType = 'tl', 
                     #plot_fign = 'studyArea',
                     plot_rown = 'studyArea', 
                     plot_coln = 'vid',
@@ -217,11 +218,13 @@ class Session(agSession):
         #=======================================================================
         # #retrieve child data
         #=======================================================================
-        #
-        dxind_raw = self.retrieve(dkey)
+
+        dx_raw = self.retrieve(dkey)
         
         
-        log.info('on \'%s\' w/ %i'%(dkey, len(dxind_raw)))
+        
+        
+        log.info('on \'%s\' w/ %i'%(dkey, len(dx_raw)))
         
         #=======================================================================
         # setup data
@@ -229,21 +232,16 @@ class Session(agSession):
         """
         moving everything into an index for easier manipulation
         """
-        names_d= {lvlName:i for i, lvlName in enumerate(dxind_raw.index.names)}
+ 
         
         #clip to total loss columns
-        tloss_colns = [e for e in dxind_raw.columns if e.endswith(dkey)]
-        assert len(tloss_colns)>0
+        dxind1 = dx_raw.loc[:, idx[lossType, :]].droplevel(0, axis=1)
+        dxind1.columns.name = 'vid'
         
-        dxind1 = dxind_raw.loc[:, tloss_colns]
-        
-        #clean names
-        dxind1 = dxind1.rename(columns={e:e.replace(dkey,'') for e in tloss_colns})
-        
+
         #promote column values to index
-        dxser = dxind1.stack().rename(dkey)
-        
-        dxser.index.set_names(list(dxind1.index.names)+['vid'], inplace=True)
+        dxser = dxind1.stack().rename(lossType)
+ 
         mdex = dxser.index
         #=======================================================================
         # setup the figure
@@ -262,7 +260,7 @@ class Session(agSession):
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
-        fig.suptitle('%s summed'%dkey)
+        fig.suptitle('%s summed'%lossType)
         
         #get colors
         cvals = dxser.index.unique(plot_colr)
@@ -340,11 +338,16 @@ class Session(agSession):
         # wrap
         #=======================================================================
         log.info('finsihed')
-        self.output_fig(fig, fname='%s_bars_%s'%(dkey, self.longname))
+        self.output_fig(fig, fname='bars_%s_%s'%(lossType.upper(), self.longname))
         return
     
     def plot_terrs_box(self, #boxplot of total errors
-                       dkey='errs',
+                       
+                    
+                    #data control
+                    dkey='errs',
+                    lossType = 'tl', 
+                    ycoln = 'delta', #variable of the box plots
                     plot_fign = 'studyArea',
                     plot_rown = 'event', 
                     plot_coln = 'vid',
@@ -374,8 +377,8 @@ class Session(agSession):
         #=======================================================================
         # #retrieve child data
         #=======================================================================
-        dxind_raw = self.retrieve(dkey)
-        log.info('on \'%s\' w/ %i'%(dkey, len(dxind_raw)))
+        dx_raw = self.retrieve(dkey)
+        log.info('on \'%s\' w/ %i'%(dkey, len(dx_raw)))
  
         
         #=======================================================================
@@ -383,22 +386,20 @@ class Session(agSession):
         #=======================================================================
         """
         moving everything into an index for easier manipulation
+        
+        view(dx_raw)
+        
         """
-        #names_d= {lvlName:i for i, lvlName in enumerate(dxind_raw.index.names)}
-        
-        #clip to total loss columns
-        tlcoln_d = {c:int(c.replace(dkey,'')) for c in dxind_raw.columns if c.endswith(dkey)}
+ 
          
-        
-        dxind1 = dxind_raw.loc[:, tlcoln_d.keys()].rename(columns=tlcoln_d)
+        #get the yvariable to includein the box plot
+        dxind1 = dx_raw.loc[:, idx[lossType, ycoln, :]].droplevel(level=[0, 1], axis=1)
+ 
         dxind1.columns = dxind1.columns.astype(int)
 
         #promote column values to index
-        dxser = dxind1.stack().rename(dkey)
-        
-        dxser.index.set_names('vid', level = len(dxser.index.names)-1, inplace=True)
-        
-        
+        dxser = dxind1.stack().rename(ycoln)
+ 
         
         #=======================================================================
         # plotting setup
@@ -430,7 +431,8 @@ class Session(agSession):
                                         fig_id=i,
                                         set_ax_title=True,
                                         )
-            fig.suptitle('%s for %s \'%s\''%(dkey, plot_fign, fig_key))
+            
+            fig.suptitle('%s of %s for %s \'%s\''%(ycoln, lossType, plot_fign, fig_key))
         
 
         
@@ -505,7 +507,7 @@ class Session(agSession):
             # wrap fig
             #===================================================================
             log.debug('finsihed %s'%fig_key)
-            self.output_fig(fig, fname='%s_box_%s_%s'%(dkey, fig_key, self.longname))
+            self.output_fig(fig, fname='box_%s_%s_%s_%s'%(lossType, ycoln, fig_key, self.longname))
                     
 
         #=======================================================================
@@ -517,15 +519,19 @@ class Session(agSession):
     def plot_errs_scatter(self, #scatter plot of error-like data
                     #data control   
                     dkey='errs',
+                    
+                    lossType='rl',
                     ycoln = 'errRel',
                     xcoln = 'depth',
                        
                     #figure config
                     plot_fign = 'studyArea',
-                    plot_rown = 'event', 
+                    plot_rown = 'grid_size', 
                     plot_coln = 'vid',
-                    plot_colr = 'grid_size',
+                    plot_colr = 'event',
                     #plot_bgrp = 'event',
+                    
+                    plot_vf=False, #plot the vf
                     
                     #axconfig
                     ylims = (-2,2),
@@ -534,26 +540,26 @@ class Session(agSession):
                     #plot style
                     ylabel=None,
                     colorMap=None,
-                    add_text=True,
+                    #add_text=True,
                    ):
         
-        raise Error('need to find a more meaningful yaxis (rl per asset?)')
+        raise Error('lets fit a regression to these results')
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('plot_errs_scatter')
         if colorMap is None: colorMap=self.colorMap
-        if ylabel is None: ylabel = ycoln
+        if ylabel is None: ylabel = '%s of %s'%(ycoln, lossType)
+        
+        if plot_vf:
+            assert lossType=='rl'
         #=======================================================================
         # #retrieve child data
         #=======================================================================
         dx_raw = self.retrieve(dkey)
-        """
-        dx_raw.columns
-        view(dxind_raw)
-        view(dxind1)
-        """
-        #vf_d = self.retrieve('vf_d')
+ 
+        if plot_vf:
+            vf_d = self.retrieve('vf_d')
         log.info('on \'%s\' w/ %i'%(dkey, len(dx_raw)))
         
         #=======================================================================
@@ -563,16 +569,8 @@ class Session(agSession):
         moving everything into an index for easier manipulation
         """
  
-        #clip to total loss columns
-        #=======================================================================
-        # tlcoln_d = {c:int(c.replace(dkey,'')) for c in dxind_raw.columns if c.endswith(dkey)}
-        #  
-        # 
-        # dxind1 = dxind_raw.loc[:, tlcoln_d.keys()].rename(columns=tlcoln_d)
-        # dxind1.columns = dxind1.columns.astype(int)
-        #=======================================================================
         
-        dxind1 = dx_raw.loc[:, idx[ycoln, :]].droplevel(0, axis=1)
+        dxind1 = dx_raw.loc[:, idx[lossType, ycoln, :]].droplevel([0, 1], axis=1)
 
         #promote column values to index
         dxser = dxind1.stack().rename(ycoln).sort_index(sort_remaining=True)
@@ -608,9 +606,9 @@ class Session(agSession):
                                         sharey='all', 
                                         sharex='all', #events should all be uniform
                                         fig_id=i,
-                                        set_ax_title=True,
+                                        set_ax_title=False,
                                         )
-            fig.suptitle('%s for %s \'%s\''%(ycoln, plot_fign, fig_key))
+            fig.suptitle('%s of %s for %s \'%s\''%(ycoln, lossType.upper(), plot_fign, fig_key))
         
             """
             fig.show()
@@ -647,9 +645,10 @@ class Session(agSession):
                 #===============================================================
                 # plot function
                 #===============================================================
-                """no... we're plotting total errors
-                vf_d[col_key].plot(ax=ax,logger=log, lineKwargs=dict(
-                    color='black', linestyle='dashed', linewidth=0.5, alpha=0.8))"""
+                if plot_vf:
+                    vf_d[col_key].plot(ax=ax,logger=log, set_title=False,
+                                       lineKwargs=dict(
+                        color='black', linestyle='dashed', linewidth=1.0, alpha=0.9)) 
  
 
                 
@@ -664,6 +663,8 @@ class Session(agSession):
                 #===============================================================
                 # #wrap format subplot
                 #===============================================================
+                ax.set_title('%s=%s and %s=%s'%(
+                     plot_rown, row_key,plot_coln, col_key))
                 
                 #first row
                 if row_key==mdex.unique(plot_rown)[0]:
@@ -697,7 +698,8 @@ class Session(agSession):
             # wrap fig
             #===================================================================
             log.debug('finsihed %s'%fig_key)
-            self.output_fig(fig, fname='%s_scatter_%s_%s'%(dkey, fig_key, self.longname))
+            self.output_fig(fig, fname='scatter_%s_%s_%s_%s'%(lossType.upper(),ycoln, fig_key, self.longname),
+                            fmt='png')
             """
             fig.show()
             """
@@ -708,7 +710,167 @@ class Session(agSession):
         #=======================================================================
         log.info('finsihed')
         return
+    
+    def write_errs(self, #write a points layer with the errors
+                                       #data control   
+                    dkey='errs',
                     
+                    lossType='rl', #loss types to generate layers for
+                    
+                    #output config
+                    folder1_key = 'studyArea',
+                    folder2_key = 'event',
+                    file_key = 'grid_size',
+                    out_dir=None,
+                    ):
+        """
+        folder: tloss_spatial
+            sub-folder: studyArea
+                sub-sub-folder: event
+                    file: one per grid size 
+        """
+            
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('write_errs')
+        assert dkey=='errs'
+        if out_dir is None:
+            out_dir = os.path.join(self.out_dir, 'errs')
+            
+        
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+        #errors
+        dx_raw = self.retrieve(dkey)
+        mindex = dx_raw.index
+        names_d= {lvlName:i for i, lvlName in enumerate(dx_raw.index.names)}
+        
+        #get type
+        dx1 = dx_raw.loc[:, idx[lossType, :,:,:]].droplevel(0, axis=1)
+        
+        """
+        dx_raw.index
+        dx_raw.columns
+        view(dxind_raw)
+        view(dx_raw)
+        """
+        #depths and id_cnt
+        tl_dxind = self.retrieve('tloss')
+        
+        #geometry
+        fgm_vlay_d, fgdir_dxind = self.get_finvg(load_vlays=True)
+        
+        #=======================================================================
+        # prep data
+        #=======================================================================
+        
+ 
+        
+        #=======================================================================
+        # loop and write
+        #=======================================================================
+        meta_d = dict()
+        #vf_d = self.retrieve('vf_d')
+        log.info('on \'%s\' w/ %i'%(dkey, len(dx1)))
+        
+        lvls = [names_d[k] for k in [folder1_key, folder2_key, file_key]]
+        for i, (keys, gdx) in enumerate(dx1.groupby(level=lvls)):
+            keys_d = dict(zip([mindex.names[i] for i in lvls], keys))
+            log.debug(keys_d)
+            
+
+                
+            #===================================================================
+            # retrieve spatial data
+            #===================================================================
+            #get vlay
+            fgm_vlay = fgm_vlay_d[keys_d['studyArea']]
+            
+            #get key dictionary off layer
+            fgm_df = vlay_get_fdf(fgm_vlay, logger=log)
+            
+            fgm_ser1 = fgm_df.loc[fgm_df['grid_size']==keys_d['grid_size'], ['fid', 'gid']].set_index('fid').iloc[:,0]
+            
+            #check key match
+            miss_l = set(gdx.index.unique('gid')).difference(fgm_ser1.values)
+            assert len(miss_l)==0, 'missing %i entries found in dxcol but not in fgm_vlay: \n    %s'%(len(miss_l), miss_l)
+            
+            #get fid match
+            gf_all_d = {v:k for k,v in fgm_ser1.to_dict().items()} #all the keys
+            gf_d = {gid:gf_all_d[gid] for gid in gdx.index.unique('gid')} #just those in the index
+            
+
+            #get geometries
+            request = QgsFeatureRequest().setFilterFids(list(gf_d.values()))
+            geo_d = vlay_get_geo(fgm_vlay, request=request)
+            
+            #===================================================================
+            # prepare data
+            #===================================================================
+            #compress columns
+            cdf = gdx.columns.to_frame().reset_index(drop=True)
+            
+            gdxind = gdx.copy()
+            gdxind.columns = cdf.iloc[:,0].str.cat(cdf.iloc[:,1].astype(str), sep='_')
+            
+            #get depths and i_cnt
+            mdxind = tl_dxind.loc[gdx.index, idx['meta', :]].droplevel(0, axis=1)
+            gdxind = gdxind.join(mdxind, on=gdx.index.names)
+            
+            #get flat frame
+            gdf1 = pd.DataFrame(gdxind.values,
+                index=gdx.index.droplevel(lvls),
+                columns=gdxind.columns).reset_index()
+            
+ 
+            #reset index
+            gdf2 = gdf1.join(pd.Series(gf_d, name='fid'), on='gid').set_index('fid')
+            
+            """
+            view(gdf2)
+            """
+            #===================================================================
+            # build layer
+            #===================================================================
+            layname = '_'.join([str(e).replace('_','') for e in keys_d.values()])
+            vlay = self.vlay_new_df(gdf2, geo_d=geo_d, layname=layname, logger=log, 
+                                    crs=fgm_vlay.crs(), #session crs does not match studyAreas
+                                    )
+            
+            #===================================================================
+            # write layer
+            #===================================================================
+            #get output directory
+            od = os.path.join(out_dir, keys_d[folder1_key], keys_d[folder2_key])
+            if not os.path.exists(od):
+                os.makedirs(od)
+                
+            ofp = os.path.join(od, self.longname + '_' + lossType + '_' + layname  + '.gpkg')
+            ofp = self.vlay_write(vlay, ofp, logger=log)
+            
+            #===================================================================
+            # wrap
+            #===================================================================
+            meta_d[i] = {**keys_d,
+                **{ 'len':len(gdf2), 'width':len(gdf2.columns), 'ofp':ofp}
+                }
+            
+        #=======================================================================
+        # write meta
+        #=======================================================================
+        log.info('finished on %i'%len(meta_d))
+        
+        #write meta
+        mdf = pd.DataFrame.from_dict(meta_d, orient='index')
+        
+        ofp = os.path.join(out_dir, '%s_writeErrs_smry.xls'%self.longname)
+        with pd.ExcelWriter(ofp) as writer:       
+            mdf.to_excel(writer, sheet_name='smry', index=True, header=True)
+            
+        return mdf
+            
             
             
  
@@ -724,6 +886,11 @@ class Session(agSession):
                     dkey=None,
                      prec=None,
                     ):
+        """
+        delta: grid - true
+        errRel: delta/true
+        
+        """
         
         #=======================================================================
         # defaults
@@ -736,202 +903,190 @@ class Session(agSession):
         #=======================================================================
         # retriever
         #=======================================================================
-        tl_dxind = self.retrieve('tloss')
+        tl_dx = self.retrieve('tloss')
         
-        tlnames_d= {lvlName:i for i, lvlName in enumerate(tl_dxind.index.names)}
+        tlnames_d= {lvlName:i for i, lvlName in enumerate(tl_dx.index.names)}
         
         #identify totalLoss columns (and their vid)
-        tlcoln_d = {c:int(c.replace('tloss','')) for c in tl_dxind.columns if c.endswith('tloss')}
+        #tlcoln_d = {c:int(c.replace('tloss','')) for c in tl_dxind.columns if c.endswith('tloss')}
 
         _, fgdir_dxind = self.get_finvg()
 
         #=======================================================================
         # clean data
         #=======================================================================
-        tl_dxind1 = tl_dxind.loc[:, tlcoln_d.keys()]
-        tl_dxind1 = tl_dxind1.rename(columns = {c:tlcoln_d[c] for c in tl_dxind1.columns})
+        #tl_dxind1 = tl_dxind.loc[:, tlcoln_d.keys()]
+        #tl_dxind1 = tl_dxind1.rename(columns = {c:tlcoln_d[c] for c in tl_dxind1.columns})
         """
+        view(tl_dxind)
         view(tl_dxind1)
         """
-        
+        vid_l = tl_dx.drop('meta', axis=1, level=0).columns.unique(1).to_list()
         #=======================================================================
         # #loop on each grid_size, studyArea, event
         #=======================================================================
-        res_dx = None
+        res_d, meta_d = dict(), dict()
         lvls = [0,1,2]
         
-        colx =  pd.MultiIndex.from_product([['delta', 'errRel', 'grid', 'true'], tl_dxind1.columns],
-                             names=['tlType', 'vid']).sortlevel(0, sort_remaining=True)[0]
+        colx =  pd.MultiIndex.from_product([['delta', 'errRel', 'grid', 'true'], vid_l],
+                             names=['compare', 'vid']).sortlevel(0, sort_remaining=True)[0]
+                             
         
-        for keys, gdxind in tl_dxind1.groupby(level=lvls):
-            keys_d = dict(zip([tl_dxind.index.names[i] for i in lvls], keys))
+        for lossType in tl_dx.drop('meta', axis=1, level=0).columns.unique(0).to_list():
             
-            #===================================================================
-            # trues
-            #===================================================================
-            if keys_d['grid_size']==0:
+            res_dx = None
+            for keys, gdxind in tl_dx.groupby(level=lvls, axis=0):
+                keys_d = dict(zip([tl_dx.index.names[i] for i in lvls], keys))
                 
-                err_dx = pd.concat([gdxind], keys=['true'], names=['tlType'], axis=1)
- 
-                #start with all zeros
-                err_dx = pd.DataFrame(0, index=gdxind.index,columns=colx)
-                
-                #set trues
-                err_dx.loc[:, idx['true', :]] = gdxind.values
-                
-                #set grids
-                err_dx.loc[:, idx['grid', :]] = np.nan
-                """
-                view(err_dx)
-                """
-                
-
-                
-            #===================================================================
-            # gridded
-            #===================================================================
-            else:
-                
-                #clean the gridded values
-                gdf = gdxind.droplevel(lvls).sort_index()
-                assert gdf.index.is_unique, keys_d
                 #===================================================================
-                # #get trues
+                # trues
                 #===================================================================
-                true_dxind0 = tl_dxind1.loc[idx[0, keys[1], keys[2], :],:]
+                if keys_d['grid_size']==0:
+                    
+                    #err_dx = pd.concat([gdxind], keys=['true'], names=['tlType'], axis=1)
+     
+                    #start with all zeros
+                    err_dx = pd.DataFrame(0, index=gdxind.index,columns=colx)
+                    
+                    #set trues
+                    err_dx.loc[:, idx['true', :]] = gdxind.loc[:, idx[lossType, :]].values
+                    
+                    #set grids
+                    err_dx.loc[:, idx['grid', :]] = np.nan
  
-                
-                true_dxind0.index.set_names('id', level=tlnames_d['gid'], inplace=True)
-                
-                #get true ids (many ids to 1 gid))
-                id_gid_ser = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']].rename(gcn).droplevel(0)
-                
-                
-                if not id_gid_ser.index.is_unique:
-                    #id_gid_ser.to_frame().loc[id_gid_ser.index.duplicated(keep=False), :]
-                    raise Error('bad index on %s'%keys_d)
-                
-                #join gids
-                true_dxind1 = true_dxind0.join(id_gid_ser).set_index(gcn, append=True).droplevel(lvls).sort_index()
-                
-                #get totals per gid
-                true_df0 = true_dxind1.groupby(gcn).sum()
-
-                assert true_df0.index.is_unique
- 
-                #reshape like the gridded and add zeros
-                """any missing trues were dry"""
-                true_df1 = true_df0.reindex(gdf.index).fillna(0)
-                
-                #join
-                dxcol1 = pd.concat([gdf, true_df1], keys=['grid', 'true'], names=['tlType'], axis=1)
-                dxcol1.columns.set_names('vid', level=1, inplace=True)
+                    
                 #===================================================================
-                # subtract trues
+                # gridded
                 #===================================================================
-                """
-                view(gdxind)
-                view(dx1)
-                view(err_dxind)
-                view(true_df1)
-                view(errRel_dxind)
-                """
-                dlta_dx = dxcol1.loc[:, idx['grid', :]].subtract(dxcol1.loc[:, idx['true', :]].values)
-                dlta_dx.columns.set_levels(['delta'], level=0, inplace=True)
-  
-                dxcol2 = dxcol1.join(dlta_dx)
-                                                    
+                else:
+                    
+                    #clean the gridded values (gid:vid:totalLoss)
+                    gdf = gdxind.droplevel(lvls).loc[:, idx[lossType,:]].droplevel(0, axis=1).sort_index()
+                    assert gdf.index.is_unique, keys_d
+                    
+                    #===================================================================
+                    # #get trues
+                    #===================================================================
+                    true_dxind0 = tl_dx.loc[idx[0, keys[1], keys[2], :],idx[lossType,:]].droplevel(0, axis=1)
+     
+                    
+                    true_dxind0.index.set_names('id', level=tlnames_d['gid'], inplace=True)
+                    
+                    #get true ids (many ids to 1 gid))
+                    id_gid_ser = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']].rename(gcn).droplevel(0)
+                    
+                    
+                    if not id_gid_ser.index.is_unique:
+                        #id_gid_ser.to_frame().loc[id_gid_ser.index.duplicated(keep=False), :]
+                        raise Error('bad index on %s'%keys_d)
+                    
+                    #join gids
+                    true_dxind1 = true_dxind0.join(id_gid_ser).set_index(gcn, append=True).droplevel(lvls).sort_index()
+                    
+                    #get totals per gid
+                    if lossType == 'tl': #true values are sum of each child
+                        true_df0 = true_dxind1.groupby(gcn).sum()
+                    elif lossType=='rl': #true values are the average of family
+                        true_df0 = true_dxind1.groupby(gcn).mean()
+                    else:
+                        raise Error('bad lossType')
+    
+                    assert true_df0.index.is_unique
+     
+                    #reshape like the gridded and add zeros
+                    """any missing trues were dry"""
+                    true_df1 = true_df0.reindex(gdf.index).fillna(0)
+                    
+                    #join
+                    dxcol1 = pd.concat([gdf, true_df1], keys=['grid', 'true'], names=colx.names, axis=1)
  
+                    #===================================================================
+                    # deltas (gridded - true)
+                    #===================================================================
+ 
+                    dlta_dx = dxcol1.loc[:, idx['grid', :]].subtract(dxcol1.loc[:, idx['true', :]].values)
+                    dlta_dx.columns.set_levels(['delta'], level=0, inplace=True)
+      
+                    dxcol2 = dxcol1.join(dlta_dx)
+                    """
+                    view(dxcol2)
+                    """
+                                                        
+                    #===============================================================
+                    # relative errors (delta/true)
+                    #===============================================================
+                    rel_dx = dxcol2.loc[:, idx['delta', :]].divide(dxcol2.loc[:, idx['true', :]].values).fillna(0)
+                    rel_dx.columns.set_levels(['errRel'], level=0, inplace=True)
+                    
+                    # join back index
+                    dxcol3 = dxcol2.join(rel_dx).sort_index()
+                    
+ 
+                    #===============================================================
+                    #clean
+                    #===============================================================
+                    #revert to mindex
+                    err_dx = dxcol3.copy()
+                    err_dx.index = gdxind.index
+                    
+                    err_dx = err_dx.sort_index(level=3)
+                    err_dx = err_dx.sort_index(level=0, sort_remaining=True, axis=1)
+                    
+                    assert err_dx.notna().all().all()
+                    
+ 
+                #===================================================================
+                # wrap groupby loop
+                #===================================================================
+                log.debug("got %s"%str(err_dx.shape))
                 
  
-                #===============================================================
-                # relative errors
-                #===============================================================
-                rel_dx = dxcol2.loc[:, idx['delta', :]].divide(dxcol2.loc[:, idx['true', :]].values).fillna(0)
-                rel_dx.columns.set_levels(['errRel'], level=0, inplace=True)
+                if not np.array_equal(err_dx.columns, colx):
+                    raise Error('column mismatch on %s'%keys_d)
                 
-                #===============================================================
-                # join back index
-                #===============================================================
-                dxcol3 = dxcol2.join(rel_dx).sort_index()
-                
-                dxcol3.index = gdxind.sort_index(level=3).index
-                
-                err_dx = dxcol3.sort_index(level=0, sort_remaining=True, axis=1)
-                
-                assert err_dx.notna().all().all()
-                
-                """
-                view(err_dx)
-                """
- 
+                if res_dx is None:
+                    res_dx=err_dx
+                else:
+                    res_dx = res_dx.append(err_dx, verify_integrity=True)
             
             #===================================================================
-            # wrap
+            # wrap lossType loop
             #===================================================================
-            log.debug("got %s"%str(err_dx.shape))
+            res_d[lossType] = res_dx
             
-            
-            
-            
-            if not np.array_equal(err_dx.columns, colx):
-                raise Error('column mismatch on %s'%keys_d)
-            
-            if res_dx is None:
-                res_dx=err_dx
-            else:
-                res_dx = res_dx.append(err_dx, verify_integrity=True)
+            meta_d[lossType] = pd.concat({
+                        'max':res_dx.groupby(level='grid_size').max(),
+                        'count':res_dx.groupby(level='grid_size').count(),
+                        'sum':res_dx.groupby(level='grid_size').sum(),
+                        }, axis=1)
                 
         #=======================================================================
         # wrap
         #=======================================================================
+        res_dx = pd.concat(res_d, axis=1)
+        res_dx.columns = res_dx.columns.remove_unused_levels().set_names('lossType', level=0)
+        
         #reporting
- 
-        mdf = pd.concat({
-            'max':res_dx.groupby(level='grid_size').max(),
-            'count':res_dx.groupby(level='grid_size').count(),
-            'sum':res_dx.groupby(level='grid_size').sum(),
-            }, axis=1)
+        
+        mdf = pd.concat(meta_d)
         
         
         log.info('finished w/ %s and totalErrors: \n%s'%(
             str(res_dx.shape), mdf))
+        
         
 
                 
         #=======================================================================
         # write
         #=======================================================================
-        """
-        view(mdf)
-        view(rdxind)
-        res_dx.dtypes
-        rdxind.dtypes
-        tl_dxind2.dtypes
-        """
-        #clean original data some more
-        tl_dxind2 = tl_dxind.drop(tlcoln_d.keys(), axis=1)
-        rl_colns_d = {c:int(c.replace('_rl', '')) for c in tl_dxind2.columns if c.endswith('_rl')}
+ 
         
-        #promote to dxcol
-        """keeping the meta columns out.. mroe consistent type.. can just retrieve these separttely 
-        tl_dx = pd.concat(
-            [
-                tl_dxind2.drop(rl_colns_d.keys(), axis=1),
-                tl_dxind2.loc[:, rl_colns_d].rename(columns=rl_colns_d),
-                ], keys=['meta', 'rl'], names=['tlType'], axis=1)"""
-        
-        tl_dx = pd.concat([tl_dxind2.loc[:, rl_colns_d].rename(columns=rl_colns_d)],
-                           keys=['rl'], names=colx.names, axis=1)
-        
-        #join with enw results
-        rdxind = tl_dx.join(res_dx)
-        
-        self.ofp_d[dkey] = self.write_pick(rdxind,
+        self.ofp_d[dkey] = self.write_pick(res_dx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
                                    logger=log)
 
-        return rdxind
+        return res_dx
  
  
     
@@ -1070,22 +1225,39 @@ class Session(agSession):
         """
         
         #re-org columns
-        rl_cols = rl_dxind.drop('depth',axis=1).columns.tolist()
         
-        new_rl_cols= ['%i_rl'%e for e in rl_cols]
-        dxind2 = dxind1.rename(columns=dict(zip(rl_cols, new_rl_cols)))
+        dx1 = pd.concat({
+            'meta':dxind1.loc[:, ['depth', scale_cn]],
+            'rl':dxind1.loc[:, rl_dxind.drop('depth', axis=1).columns]},
+            axis=1)
+        
+        
+        
+        #=======================================================================
+        # rl_cols = rl_dxind.drop('depth',axis=1).columns.tolist()
+        # 
+        # new_rl_cols= ['%i_rl'%e for e in rl_cols]
+        # dxind2 = dxind1.rename(columns=dict(zip(rl_cols, new_rl_cols)))
+        #=======================================================================
         
         #=======================================================================
         # calc total loss
         #=======================================================================
-        tval_colns = ['%i%s'%(e, dkey) for e in rl_cols]
-        rdx= dxind2.loc[:, new_rl_cols].multiply(dxind2[scale_cn], axis=0).rename(
-            columns=dict(zip(new_rl_cols, tval_colns))).round(prec)
+ 
+            
+        tl_dx = dx1.loc[:, idx['rl', :]].multiply(
+            dx1.loc[:, idx['meta', scale_cn]], axis=0
+            ).round(prec)
+            
+        #rename the only level0 value        
+        tl_dx.columns = tl_dx.columns.remove_unused_levels().set_levels(levels=['tl'], level=0)
         
-        dxind3 = dxind2.join(rdx, on=rdx.index.names)
+        #join these in 
+        dx2 = dx1.join(tl_dx)
+ 
         
         """
-        view(dxind3)
+        view(dx2)
         view(rdx)
         """
         
@@ -1093,29 +1265,26 @@ class Session(agSession):
         # wrap
         #=======================================================================
         #reporting
-        rdxind = dxind3.drop(new_rl_cols+['depth'], axis=1)
+        rdxind = dx2.loc[:, idx['tl', :]].droplevel(0, axis=1)
         mdf = pd.concat({
-            'max':rdxind.drop(tval_colns, axis=1).groupby(level='grid_size').max(),
-            'count':rdxind.drop(tval_colns, axis=1).groupby(level='grid_size').count(),
+            'max':rdxind.groupby(level='grid_size').max(),
+            'count':rdxind.groupby(level='grid_size').count(),
             'sum':rdxind.groupby(level='grid_size').sum(),
             }, axis=1)
         
         
         log.info('finished w/ %s and totalLoss: \n%s'%(
-            str(dxind3.shape), 
+            str(dx2.shape), 
             #dxind3.loc[:,tval_colns].sum().astype(np.float32).round(1).to_dict(),
             mdf
             ))
         
 
-                
-                
-        
-        self.ofp_d[dkey] = self.write_pick(dxind3,
+        self.ofp_d[dkey] = self.write_pick(dx2,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
                                    logger=log)
 
-        return dxind3
+        return dx2
 
     
     def rloss_build(self,
@@ -1155,7 +1324,11 @@ class Session(agSession):
         for i, (vid, vfunc) in enumerate(vf_d.items()):
             log.info('%i/%i on %s'%(i+1, len(vf_d), vfunc.name))
             
-            res_d[vid] = vfunc.get_rloss(dxser.values)
+            ar = vfunc.get_rloss(dxser.values)
+            
+            assert ar.max() <=100, '%s returned some RLs above 100'%vfunc.name
+            
+            res_d[vid] = ar 
         
         
         #=======================================================================
@@ -1321,8 +1494,16 @@ class Session(agSession):
     #===========================================================================
     # HELPERS--------
     #===========================================================================
-    def get_finvg(self): #get and check the finvg data
+    def get_finvg(self,
+                  load_vlays=False, #whether to load the vlays found in fgm_ofp_d
+                  logger=None,
+                  ): #get and check the finvg data
         
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_finvg')
         #=======================================================================
         # load
         #=======================================================================
@@ -1342,6 +1523,18 @@ class Session(agSession):
         for k,fp in fgm_ofp_d.items():
             assert os.path.exists(fp), k
             assert fp.endswith('.gpkg'), k
+            
+        #=======================================================================
+        # load the layers
+        #=======================================================================
+        
+        if load_vlays:
+            vlay_d = dict()
+            for k,fp in fgm_ofp_d.items(): 
+                """not sure how this will work with changing slicing"""
+                vlay_d[k] = self.vlay_load(fp, logger=log)
+            fgm_ofp_d = vlay_d
+            
             
         return fgm_ofp_d, fgdir_dxind
         
