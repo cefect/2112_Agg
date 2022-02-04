@@ -180,21 +180,25 @@ def run(
         ses.plt = plt  #attach local matplotlib init
         
         #ses.plot_depths()
+        
 
         #gives a nice 'total model output' chart
         #shows how sensitive the top-line results are to aggregation
         #ses.plot_totals_bars()
         
+        #layers (for making MAPS)
+        #ses.write_errs()
+        #ses.get_confusion_matrix()
+        
         #shows the spread on total loss values
         #ses.plot_terrs_box(lossType = 'tl', ycoln='delta', ylabel='TL error (gridded - true)')
         #ses.plot_terrs_box(lossType = 'rl', ycoln='delta', ylabel='RL error (gridded - true)')
         
-        #
+        #shows how errors vary with depth
         #ses.plot_errs_scatter(lossType='rl', ycoln='delta', ylims=None, plot_vf=True)
-        #ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
+        ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
 
-        #layers (for making MAPS)
-        ses.write_errs()
+
         #
         
         out_dir = ses.out_dir
@@ -210,11 +214,11 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-    'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220203\working\finvg_hyd_dev_0203.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220203\working\rsamps_hyd_dev_0203.pickle',
-    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220203\working\rloss_hyd_dev_0203.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220203\working\tloss_hyd_dev_0203.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220203\working\errs_hyd_dev_0203.pickle',
+     'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\finvg_hyd_dev_0204.pickle',
+     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\rsamps_hyd_dev_0204.pickle',
+     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\rloss_hyd_dev_0204.pickle',
+     'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\tloss_hyd_dev_0204.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\errs_hyd_dev_0204.pickle',
             },
         
     proj_lib =     {
@@ -233,6 +237,7 @@ def dev():
             #     'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
             #     'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
             #         }, 
+            #===================================================================
             #  'SaintJohn': {
             #      'EPSG': 3979, 
             #      'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\finv\\microsoft_0517_aoi13_0116.gpkg',
@@ -257,17 +262,21 @@ def dev():
             #===================================================================
             },
                 
-        grid_sizes = [50, 200, 500],
+        grid_sizes = [
+            50, 
+            200, 
+            #500,
+            ],
         
         vid_l = [
             #402, #MURL. straight line. smallest agg error
             798, #Budiyono from super meet 4
-            #811, #Budiyono from super meet 4
+            811, #Budiyono from super meet 4
             #794, #budyi.. largest postiive error
             ],
 
         
-        trim=False,
+        trim=True,
         overwrite=True,
         )
         
@@ -278,8 +287,8 @@ def r1():
              'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\finvg_hyd_r1_0124.pickle',
             'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\rsamps_hyd_r1_0124.pickle',
             'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220124\working\rloss_hyd_r1_0124.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220203\working\tloss_hyd_r1_0203.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220203\working\errs_hyd_r1_0203.pickle',
+            'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220203\working\tloss_hyd_r1_0203.pickle',
+            'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220204\working\errs_hyd_r1_0204.pickle',
             },
         
         #vid_sample=5,

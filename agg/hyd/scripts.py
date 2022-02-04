@@ -20,6 +20,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
 from hp.basic import set_info
 
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 from agg.scripts import Session as agSession
 
@@ -521,15 +522,17 @@ class Session(agSession):
                     dkey='errs',
                     
                     lossType='rl',
-                    ycoln = 'errRel',
+                    ycoln = 'delta',
                     xcoln = 'depth',
                        
                     #figure config
-                    plot_fign = 'studyArea',
+                    folder_varn = 'studyArea',
+                    plot_fign = 'event',
                     plot_rown = 'grid_size', 
                     plot_coln = 'vid',
-                    plot_colr = 'event',
+                    plot_colr = None,
                     #plot_bgrp = 'event',
+                    out_dir = None,
                     
                     plot_vf=False, #plot the vf
                     
@@ -540,19 +543,22 @@ class Session(agSession):
                     #plot style
                     ylabel=None,
                     colorMap=None,
-                    #add_text=True,
+                    add_text=True,
                    ):
         
-        raise Error('lets fit a regression to these results')
+        #raise Error('lets fit a regression to these results')
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('plot_errs_scatter')
         if colorMap is None: colorMap=self.colorMap
-        if ylabel is None: ylabel = '%s of %s'%(ycoln, lossType)
+        if ylabel is None: ylabel = '%s of %s'%(ycoln, lossType.upper())
         
         if plot_vf:
             assert lossType=='rl'
+            
+        if plot_colr is None: plot_colr=plot_rown
+        if out_dir is None: out_dir = os.path.join(self.out_dir, 'errs_scatter')
         #=======================================================================
         # #retrieve child data
         #=======================================================================
@@ -588,118 +594,153 @@ class Session(agSession):
         cmap = plt.cm.get_cmap(name=colorMap) 
         newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
         
-        plt.close('all')
+        
         """
         plt.show()
         """
         #=======================================================================
-        # loop on figures
+        # loop an study area/folders
         #=======================================================================
-        for i, (fig_key, gser0r) in enumerate(dxser.groupby(level=plot_fign)):
-            mdex = gser0r.index
+        
+        for folder_key, gser00r in dxser.groupby(level=folder_varn):
             
-            fig, ax_d = self.get_matrix_fig(
-                                        mdex.unique(plot_rown).tolist(), #row keys
-                                        mdex.unique(plot_coln).tolist(), #col keys
-                                        figsize_scaler=4,
-                                        constrained_layout=True,
-                                        sharey='all', 
-                                        sharex='all', #events should all be uniform
-                                        fig_id=i,
-                                        set_ax_title=False,
-                                        )
-            fig.suptitle('%s of %s for %s \'%s\''%(ycoln, lossType.upper(), plot_fign, fig_key))
+            #=======================================================================
+            # loop on figures
+            #=======================================================================
+            od = os.path.join(out_dir, folder_key)
+            plt.close('all')
         
-            """
-            fig.show()
-            """
-        
-            #===================================================================
-            # loop on axis row/column (and colors)
-            #===================================================================
-            for (row_key, col_key, ckey), gser1r in gser0r.groupby(level=[plot_rown, plot_coln, plot_colr]):
+            for i, (fig_key, gser0r) in enumerate(gser00r.groupby(level=plot_fign)):
+                mdex = gser0r.index
                 
-                #skip trues
-                if ckey == 0:
-                    continue 
-                #subplot setup 
-                ax = ax_d[row_key][col_key]
-                
- 
-                #===============================================================
-                # #get data
-                #===============================================================
-                #cross section of depth values
-                xser = xval_dxser.xs((fig_key, row_key, ckey), level=[plot_fign, plot_rown, plot_colr])
-                
-                #join to xvalues
-                dxind = gser1r.to_frame().join(xser, on=xser.index.name)
-                
-                assert dxind.notna().all().all()
-                
-                #===============================================================
-                # zero line
-                #===============================================================
-                ax.axhline(0, color='black', alpha=0.8, linewidth=0.5)
-                
-                #===============================================================
-                # plot function
-                #===============================================================
-                if plot_vf:
-                    vf_d[col_key].plot(ax=ax,logger=log, set_title=False,
-                                       lineKwargs=dict(
-                        color='black', linestyle='dashed', linewidth=1.0, alpha=0.9)) 
- 
+                fig, ax_d = self.get_matrix_fig(
+                                            mdex.unique(plot_rown).tolist(), #row keys
+                                            mdex.unique(plot_coln).tolist(), #col keys
+                                            figsize_scaler=4,
+                                            constrained_layout=True,
+                                            sharey='all', 
+                                            sharex='all', #events should all be uniform
+                                            fig_id=i,
+                                            set_ax_title=False,
+                                            )
+                fig.suptitle('%s of %s for %s \'%s\' in \'%s\''%(ycoln, lossType.upper(), plot_fign, fig_key, folder_key))
+            
+                """
+                fig.show()
+                """
+            
+                #===================================================================
+                # loop on axis row/column (and colors)
+                #===================================================================
+                for (row_key, col_key, ckey), gser1r in gser0r.groupby(level=[plot_rown, plot_coln, plot_colr]):
+                    
+                    #skip trues
+                    #===========================================================
+                    # if ckey == 0:
+                    #     continue 
+                    #===========================================================
+                    #subplot setup 
+                    ax = ax_d[row_key][col_key]
+                    
+     
+                    #===============================================================
+                    # #get data
+                    #===============================================================
+                    assert gser1r.notna().all().all()
+                    
+                    #cross section of depth values
+                    xser = xval_dxser.xs((fig_key, row_key, ckey), level=[plot_fign, plot_rown, plot_colr])
+                    
+                    #join to xvalues
+                    """nulls are dry"""
+                    dxind = gser1r.to_frame().join(xser, on=xser.index.name)
+                    
+                    
+                    
+                    #===============================================================
+                    # zero line
+                    #===============================================================
+                    ax.axhline(0, color='black', alpha=0.8, linewidth=0.5)
+                    
+                    #===============================================================
+                    # plot function
+                    #===============================================================
+                    if plot_vf:
+                        vf_d[col_key].plot(ax=ax,logger=log, set_title=False,
+                                           lineKwargs=dict(
+                            color='black', linestyle='dashed', linewidth=1.0, alpha=0.9)) 
+     
+    
+                    
+                    #===============================================================
+                    # #add scatter plot
+                    #===============================================================
+                    ax.scatter(x=dxind[xcoln].values, y=dxind[ycoln].values, 
+                               color=newColor_d[ckey], s=10, marker='.', alpha=0.8,
+                                   label='%s=%s'%(plot_colr, ckey))
+                    
+                    #===========================================================
+                    # add text
+                    #===========================================================
 
-                
-                #===============================================================
-                # #add scatter plot
-                #===============================================================
-                ax.scatter(x=dxind[xcoln].values, y=dxind[ycoln].values, 
-                           color=newColor_d[ckey], s=10, marker='.', alpha=0.8,
-                               label='%s=%s'%(plot_colr, ckey))
- 
- 
-                #===============================================================
-                # #wrap format subplot
-                #===============================================================
-                ax.set_title('%s=%s and %s=%s'%(
-                     plot_rown, row_key,plot_coln, col_key))
-                
-                #first row
-                if row_key==mdex.unique(plot_rown)[0]:
-                     
-                    #last col
-                    if col_key == mdex.unique(plot_coln)[-1]:
-                        ax.legend()
+                    if add_text:
+                        meta_d = {'cnt':len(dxind), 'dry_cnt':dxind['depth'].isna().sum(),
+                              'mean':gser1r.mean(), 'min':gser1r.min(), 'max':gser1r.max(),
+                              }
+                        
+                        if ycoln == 'delta':
+                            meta_d['rmse'] = ((gser1r.values**2).mean())**0.5
+                                            
+                        txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
+                        ax.text(0.1, 0.8, txt, transform=ax.transAxes, va='top', fontsize=8, color='black')
+     
+     
+                    #===============================================================
+                    # #wrap format subplot
+                    #===============================================================
+                    ax.set_title('%s=%s and %s=%s'%(
+                         plot_rown, row_key,plot_coln, col_key))
+                    
+                    #first row
+                    if row_key==mdex.unique(plot_rown)[0]:
+                        
+                        
+                        #last col
+                        if col_key == mdex.unique(plot_coln)[-1]:
+                            pass
+                             
+                    #first col
+                    if col_key == mdex.unique(plot_coln)[0]:
+                        ax.set_ylabel(ylabel)
+                        
+                    #last row
+                    if row_key==mdex.unique(plot_rown)[-1]:
+                        ax.set_xlabel(xcoln)
+                        
+                    #loast col
+                    if col_key ==mdex.unique(plot_coln)[-1]:
                         pass
-                         
-                #first col
-                if col_key == mdex.unique(plot_coln)[0]:
-                    ax.set_ylabel(ylabel)
-                    
-                #last row
-                if row_key==mdex.unique(plot_rown)[-1]:
-                    ax.set_xlabel(xcoln)
-                    
-            #===================================================================
-            # post format
-            #===================================================================
-            for row_key, ax0_d in ax_d.items():
-                for col_key, ax in ax0_d.items():
-                    ax.grid()
-                    
-                    if not ylims is None:
-                        ax.set_ylim(ylims)
-                    
-                    if not xlims is None:
-                        ax.set_xlim(xlims)
-            #===================================================================
-            # wrap fig
-            #===================================================================
-            log.debug('finsihed %s'%fig_key)
-            self.output_fig(fig, fname='scatter_%s_%s_%s_%s'%(lossType.upper(),ycoln, fig_key, self.longname),
-                            fmt='png')
+                        #ax.legend()
+                        
+                #===================================================================
+                # post format
+                #===================================================================
+                for row_key, ax0_d in ax_d.items():
+                    for col_key, ax in ax0_d.items():
+                        ax.grid()
+                        
+                        if not ylims is None:
+                            ax.set_ylim(ylims)
+                        
+                        if not xlims is None:
+                            ax.set_xlim(xlims)
+                #===================================================================
+                # wrap fig
+                #===================================================================
+                log.debug('finsihed %s'%fig_key)
+                self.output_fig(fig, out_dir=od, 
+                                fname='scatter_%s_%s_%s_%s'%(lossType.upper(),ycoln, fig_key, self.longname),
+                                fmt='png', logger=log)
             """
             fig.show()
             """
@@ -755,6 +796,7 @@ class Session(agSession):
         dx_raw.columns
         view(dxind_raw)
         view(dx_raw)
+        view(tl_dxind)
         """
         #depths and id_cnt
         tl_dxind = self.retrieve('tloss')
@@ -816,7 +858,8 @@ class Session(agSession):
             gdxind.columns = cdf.iloc[:,0].str.cat(cdf.iloc[:,1].astype(str), sep='_')
             
             #get depths and i_cnt
-            mdxind = tl_dxind.loc[gdx.index, idx['meta', :]].droplevel(0, axis=1)
+            bx = tl_dxind.index.isin(gdx.index)
+            mdxind = tl_dxind.loc[bx, idx['meta', :]].droplevel(0, axis=1)
             gdxind = gdxind.join(mdxind, on=gdx.index.names)
             
             #get flat frame
@@ -875,7 +918,110 @@ class Session(agSession):
             
  
             
-
+    def get_confusion_matrix(self, #wet/dry confusion
+                             dkey = 'errs',
+                             group_keys = ['studyArea', 'event'],
+                             pcn = 'grid_size', #label for prediction grouping
+                             out_dir=None,
+                             ):
+        
+ 
+        """
+        predicteds will always be dry (we've dropped these)
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('get_confusion_matrix')
+        if out_dir is None: out_dir = os.path.join(self.out_dir, 'confusion_mat')
+        if not os.path.exists(out_dir): os.makedirs(out_dir)
+        labs_d = {1:'wet', 0:'dry'}
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+        dx_raw = self.retrieve(dkey)
+        
+        #=======================================================================
+        # prep data
+        #=======================================================================
+        vid = dx_raw.columns.unique('vid')[0] #just taking one function
+        dx1 = dx_raw.loc[:, idx['rl', ['grid', 'true'],vid]].droplevel([0, 2], axis=1)
+        
+        #replace all 'grided' on grid_size zero
+        dx1.loc[idx[0, :,:], 'grid'] = dx1.loc[idx[0, :,:], 'true']
+        assert dx1.notna().all().all()
+ 
+        """
+        view(dx_raw)
+        view(dx1)
+        view(dx2)
+        """
+ 
+        # convert to binary
+        bx = dx1>0 #id wets
+        
+        dx2 = dx1.where(~bx, other=labs_d[1]).where(bx, other=labs_d[0]) #replace where false
+        
+        #=======================================================================
+        # loop on each raster
+        #=======================================================================
+        mat_lib = dict()
+        for keys, gdx0 in dx2.groupby(level=group_keys):
+            keys_d = dict(zip(group_keys, keys))
+            
+            if not keys[0] in mat_lib:
+                mat_lib[keys[0]] = dict()
+            
+            cm_d = dict()
+            #===================================================================
+            # collect confusion on each grid_size
+            #===================================================================
+            for pkey, gdx1 in gdx0.groupby(level=pcn, axis=0):
+                
+                keys_d[pcn] = pkey
+            
+                gdf = gdx1.droplevel(level=list(keys_d.keys()), axis=0)
+                #if keys_d['grid_size']==0: continue
+                cm = confusion_matrix(gdf['true'].values, gdf['grid'].values, labels=list(labs_d.values()))
+                
+                cm_d[pkey] = pd.DataFrame(cm,index = labs_d.values(), columns=labs_d.values())
+                
+            #===================================================================
+            # combine
+            #===================================================================
+            dxcol1 = pd.concat(cm_d, axis=1)
+            
+            #add predicted/true labels
+            dx1 = pd.concat([dxcol1], names=['type', 'grid_size', 'exposure'], axis=1, keys=['predicted'])
+            dx2 = pd.concat([dx1], keys=['true'])
+            
+            #store
+            mat_lib[keys[0]][keys[1]] = dx2
+            #===================================================================
+            # disp = ConfusionMatrixDisplay(confusion_matrix=dx2.values)
+            # 
+            # disp.plot()
+            # 
+            # ax = disp.ax_
+            # 
+            # ax.set_title(keys_d)
+            #===================================================================
+            
+        #===========================================================================
+        # write
+        #===========================================================================
+        for studyArea, df_d in mat_lib.items():
+            ofp = os.path.join(out_dir, '%s_confMat_%s.xls'%(studyArea, self.longname))
+            
+            with pd.ExcelWriter(ofp) as writer:
+                for tabnm, df in df_d.items():
+                    df.to_excel(writer, sheet_name=tabnm, index=True, header=True)
+                    
+            log.info('wrote %i sheets to %s'%(len(df_d), ofp))
+            
+        return mat_lib
+            
+    
  
     
     #===========================================================================
@@ -960,16 +1106,14 @@ class Session(agSession):
                 #===================================================================
                 else:
                     
-                    #clean the gridded values (gid:vid:totalLoss)
-                    gdf = gdxind.droplevel(lvls).loc[:, idx[lossType,:]].droplevel(0, axis=1).sort_index()
-                    assert gdf.index.is_unique, keys_d
+
                     
                     #===================================================================
                     # #get trues
                     #===================================================================
                     true_dxind0 = tl_dx.loc[idx[0, keys[1], keys[2], :],idx[lossType,:]].droplevel(0, axis=1)
      
-                    
+                    #relabel to true ids
                     true_dxind0.index.set_names('id', level=tlnames_d['gid'], inplace=True)
                     
                     #get true ids (many ids to 1 gid))
@@ -992,13 +1136,31 @@ class Session(agSession):
                         raise Error('bad lossType')
     
                     assert true_df0.index.is_unique
-     
-                    #reshape like the gridded and add zeros
-                    """any missing trues were dry"""
-                    true_df1 = true_df0.reindex(gdf.index).fillna(0)
                     
-                    #join
-                    dxcol1 = pd.concat([gdf, true_df1], keys=['grid', 'true'], names=colx.names, axis=1)
+                    #===========================================================
+                    # get gridded
+                    #===========================================================
+                    #clean the gridded values (gid:vid:totalLoss)
+                    gdf = gdxind.droplevel(lvls).loc[:, idx[lossType,:]].droplevel(0, axis=1).sort_index()
+                    assert gdf.index.is_unique, keys_d
+                    
+                    #replace any empties in gridded
+                    miss_l = set(true_df0.index).difference(gdf.index) #those gids with trues but no gridded
+ 
+ 
+ 
+                    
+                    
+                    #reshape like the gridded and add zeros
+                    """
+                    those missing in either were dry (missees)
+                    
+                    set_info(gdf.index, true_df0.index)
+                    """
+                    #true_df1 = true_df0.reindex(gdf.index).fillna(0)
+                    
+                    #outer join (
+                    dxcol1 = pd.concat([gdf, true_df0], keys=['grid', 'true'], names=colx.names, axis=1).fillna(0)
  
                     #===================================================================
                     # deltas (gridded - true)
@@ -1027,7 +1189,15 @@ class Session(agSession):
                     #===============================================================
                     #revert to mindex
                     err_dx = dxcol3.copy()
-                    err_dx.index = gdxind.index
+                    """new index has more gids as we've done an outer join w/ the trues
+                    err_dx.index = gdxind.index"""
+                    
+                    
+                    #create a new mindex for the expanded data
+                    err_dx.index = pd.MultiIndex.from_product(
+                                [[keys[0]], [keys[1]],[keys[2]], err_dx.index],
+                                names=gdxind.index.names,
+                                )
                     
                     err_dx = err_dx.sort_index(level=3)
                     err_dx = err_dx.sort_index(level=0, sort_remaining=True, axis=1)
