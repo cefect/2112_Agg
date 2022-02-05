@@ -53,15 +53,38 @@ class Session(agSession):
     #===========================================================================
         #configure handles
         data_retrieve_hndls = {
+
+            
+            'finv_agg':{ #lib of aggrtevated finv vlays
+                'compiled':lambda **kwargs:self.load_finv_lib(**kwargs), #vlays need additional loading
+                'build':lambda **kwargs: self.build_finv_agg(**kwargs),
+                },
+            
+            'fgdir_dxind':{ #map of aggregated keys to true keys
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_finv_agg(**kwargs),
+                },
+            
+            #gridded aggregation
+            'finv_gPoly':{ #finv gridded polygons
+                'compiled':lambda **kwargs:self.load_finv_lib(**kwargs),
+                'build':lambda **kwargs: self.build_finv_gridPoly(**kwargs),
+                },
+            'finv_gPoly_id_dxind':{ #map of aggregated keys to true keys
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_finv_gridPoly(**kwargs),
+                },
+            
+            'finv_sg_agg':{ #sampling geometry
+                'compiled':lambda **kwargs:self.load_finv_lib(**kwargs), #vlays need additional loading
+                'build':lambda **kwargs: self.build_sampGeo(**kwargs),
+                },
+            
             'rsamps':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_rsamps(**kwargs),
                 },
             
-            'finv_gPoly':{
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.build_finv_gridPoly(**kwargs),
-                },
             'rloss':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs:self.build_rloss(**kwargs),
@@ -1525,24 +1548,212 @@ class Session(agSession):
                                    logger=log)
         
         return res_dxind
+    
+    def build_finv_agg(self, #build aggregated finvs
+                       dkey=None,
+                       
+                       #control aggregated finv type 
+                       aggType='gridded',
+
+                       **kwargs):
+        """
+        wrapper for calling more specific aggregated finvs (and their indexer)
+            filepaths_dict and indexer are copied
+            layer container is not
+            
+        only the compiled pickles for this top level are required
+            (lower levels are still written though)
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_finv_agg')
+        assert dkey in ['finv_agg', 'fgdir_dxind']
+        
+        log.info('building \'%s\' '%(aggType))
+        
+        #=======================================================================
+        # retrive aggregated finvs------
+        #=======================================================================
+        """these should always be polygons"""
+        
+        #=======================================================================
+        # select approriate dkeys
+        #=======================================================================
+        if aggType == 'gridded':
+            finv_poly_dkey = 'finv_gPoly'
+            finv_id_dxind = 'finv_gPoly_id_dxind'
+            
+ 
+        else:
+            raise Error('not implemented')
+        
+        
+        #=======================================================================
+        # retrieve data        
+        #=======================================================================
+        finv_agg_lib = self.retrieve(finv_poly_dkey)
+        fgdir_dxind = self.retrieve(finv_id_dxind)
+        
+        
+        #=======================================================================
+        # #get ofp_d
+        #=======================================================================
+        """special retrival to carry forward the data storage"""
+        if finv_poly_dkey in self.ofp_d:
+            pick_fp = self.ofp_d[finv_poly_dkey]
+        else:
+            pick_fp = self.compiled_fp_d[finv_poly_dkey]
+            
+        ofp_d = self.load_pick(fp=pick_fp)
+
+        
+        #=======================================================================
+        # store results-------
+        #=======================================================================
+        #=======================================================================
+        # finvs
+        #=======================================================================
+        dkey1 = 'finv_agg'
+        self.ofp_d[dkey1] = self.write_pick(ofp_d, 
+                           os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey1, self.longname)),logger=log)
+        
+        #save to data
+        self.data_d[dkey1] = finv_agg_lib
+        
+        #=======================================================================
+        # lookoup
+        #=======================================================================
+        dkey1 = 'fgdir_dxind'
+        self.ofp_d[dkey1] = self.write_pick(fgdir_dxind, 
+                           os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey1, self.longname)),logger=log)
+        
+        #save to data
+        self.data_d[dkey1] = copy.deepcopy(fgdir_dxind)
+        
+        
+        #=======================================================================
+        # select result
+        #=======================================================================
+        if dkey == 'finv_agg':
+            result = finv_agg_lib
+        elif dkey == 'fgdir_dxind':
+            result = fgdir_dxind
+
+        
+        return result
+    """
+    self.data_d.keys()
+    """
+    
+    
+    def load_finv_lib(self, #generic retrival for finv type intermediaries
+                  fp=None, dkey=None,
+                  **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('load_finv_lib.%s'%dkey)
+        assert dkey in ['finv_agg',  'finv_gPoly']
+        
+        
+        vlay_fp_lib = self.load_pick(fp=fp) #{study area: aggLevel : vlay filepath}}
+        
+        #load layers
+        finv_agg_lib = dict()
+        
+        for studyArea, vlay_fp_d in vlay_fp_lib.items():
+            finv_agg_lib[studyArea] = dict()
+            for aggLevel, fp in vlay_fp_d.items():
+                log.info('loading %s.%s from %s'%(studyArea, aggLevel, fp))
+                
+                """will throw crs warning"""
+                finv_agg_lib[studyArea][aggLevel] = self.vlay_load(fp, logger=log, **kwargs)
+        
+        return finv_agg_lib
+ 
  
                     
     
+
+    def store_finv_lib(self, #consistent storage of finv containers 
+                       finv_grid_lib, 
+                       dkey,
+                       out_dir = None,
+                       logger=None):
+        
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('store_finv')
+        if out_dir is None: out_dir=os.path.join(self.out_dir, dkey)
+        
+        log.info('writing \'%s\' layers to %s' % (dkey, out_dir))
+        
+        #=======================================================================
+        # write layers
+        #=======================================================================
+        ofp_d = dict()
+        cnt = 0
+        for studyArea, finv_grid_d in finv_grid_lib.items():
+            #setup directory
+            od = os.path.join(out_dir, studyArea)
+            if not os.path.exists(od):
+                os.makedirs(od)
+            #write each sstudy area
+            ofp_d[studyArea] = dict()
+            for grid_size, poly_vlay in finv_grid_d.items():
+                ofp_d[studyArea][grid_size] = self.vlay_write(poly_vlay, 
+                    os.path.join(od, poly_vlay.name() + '.gpkg'), 
+                    logger=log)
+                cnt += 1
+        
+        log.debug('wrote %i layers' % cnt)
+        #=======================================================================
+        # filepahts container
+        #=======================================================================
+        
+        #save the pickle
+        """cant pickle vlays... so pickling the filepath"""
+        self.ofp_d[dkey] = self.write_pick(ofp_d, 
+            os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+        #save to data
+        self.data_d[dkey] = finv_grid_lib
+        return ofp_d
+
     def build_finv_gridPoly(self, #build polygon grids for each study area (and each grid_size)
-                 dkey=None,
+                 dkey='finv_gPoly',
                  out_dir=None,
                  **kwargs):
         
-        """here we store the following in one pickle 'finv_gPoly'
-            fgm_fps_d: filepaths to merged grouped finvs {name:fp}
+        """this function constructs/stores two results:
+            finv_gPoly: filepaths to merged grouped finvs {name:fp}
             fgdir_dxind: directory of finv keys from raw to grouped for each studyArea
+            
+        calling build on either will build both.. but only the result requsted will be returned
+            (the other can be retrieved from data_d)
             """
         #=======================================================================
         # defaults
         #=======================================================================
+        dkeys_l = ['finv_gPoly', 'finv_gPoly_id_dxind']
         log = self.logger.getChild('build_finv_gridPoly')
-        assert dkey=='finv_gPoly'
+        
         if out_dir is None: out_dir=os.path.join(self.wrk_dir, dkey)
+        
+        #=======================================================================
+        # prechecks
+        #=======================================================================
+        assert dkey in dkeys_l
+        for dkey_chk in dkeys_l:
+            if dkey_chk in self.data_d:
+                log.warning('triggred reload on \'%s\''%dkey_chk)
+                assert not dkey_chk == dkey, 'shouldnt reload any secondaries'
+            
+        
         #=======================================================================
         # #run the method on all the studyAreas
         #=======================================================================
@@ -1556,32 +1767,17 @@ class Session(agSession):
             
  
         #=======================================================================
-        # write layers
+        # handle layers----
         #=======================================================================
-
-        log.info('writing layers to %s'%(out_dir))
+        dkey1 = 'finv_gPoly'
+        self.store_finv_lib(finv_grid_lib, dkey1, out_dir = out_dir, logger=log)
         
-        ofp_d = dict()
-        cnt = 0
-        for studyArea, finv_grid_d in finv_grid_lib.items():
-            #setup directory
-            od = os.path.join(out_dir, studyArea)
-            if not os.path.exists(od): os.makedirs(od)
-            
-            #write each sstudy area
-            ofp_d[studyArea] = dict()
-            for grid_size, poly_vlay in finv_grid_d.items():
-                ofp_d[studyArea][grid_size] = self.vlay_write(poly_vlay,
-                                         os.path.join(od, poly_vlay.name() + '.gpkg'),
-                                         logger=log)
-                cnt+=1
-            
-        log.debug('wrote %i layers'%cnt)
+        if dkey1 == dkey: result = finv_grid_lib
         
-
         #=======================================================================
-        # write the dxcol and the fp_d
+        # handle dxcol-------
         #=======================================================================
+        dkey1 = 'finv_gPoly_id_dxind'
         dxind = pd.concat(finv_gkey_df_d)
         
         #check index
@@ -1589,72 +1785,73 @@ class Session(agSession):
         dxind.columns.name = 'grid_size'
         self.check_mindex(dxind.index)
 
- 
+        #save the pickle
+        self.ofp_d[dkey1] = self.write_pick(dxind, 
+                           os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey1, self.longname)),logger=log)
         
-        log.info('writing \'fgdir_dxind\' (%s) and \'fgm_ofp_d\' (%i) as \'%s\''%(
-            str(dxind.shape), len(ofp_d), dkey))
+        #save to data
+        self.data_d[dkey1] = copy.deepcopy(dxind)
+        
+        if dkey1 == dkey: result = copy.deepcopy(dxind)
+        #=======================================================================
+        # return requested data
+        #=======================================================================
+        """while we build two results here... we need to return the one specified by the user
+        the other can still be retrieved from the data_d"""
         
         
-        #save the directory file
-        finvg = {'fgm_ofp_d':ofp_d,'fgdir_dxind':dxind}
         
-        self.ofp_d[dkey] = self.write_pick(finvg, 
-                           os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),logger=log)
-        
-        """
-        finvg.keys()
-        """
-        return finvg
+        return result
     
-    def build_finv_gridPts(self, #build polygon grids for each study area (and each grid_size)
-                 dkey=None,
-                 out_dir=None,
-                 **kwargs):
-        
-        """here we store the following in one pickle 'finv_gPoly'
-            fgm_fps_d: filepaths to merged grouped finvs {name:fp}
-            fgdir_dxind: directory of finv keys from raw to grouped for each studyArea
-            """
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('build_finv_gridPoly')
-        assert dkey=='finv_gPoly'
-        if out_dir is None: out_dir=os.path.join(self.wrk_dir, dkey)
-        #=======================================================================
-        # #run the method on all the studyAreas
-        #=======================================================================
-        res_d = self.sa_get(meth='get_finvs_gridPoly', write=False, dkey=dkey, **kwargs)
-        
-        #unzip results
-        #finv_gkey_df, finv_grid_d
-        finv_gkey_df_d, finv_grid_lib = dict(), dict() 
-        for k,v in res_d.items():
-            finv_gkey_df_d[k], finv_grid_lib[k]  = v
-            
- 
-        #=======================================================================
-        # write layers
-        #=======================================================================
 
-        log.info('writing layers to %s'%(out_dir))
         
-        ofp_d = dict()
-        cnt = 0
-        for studyArea, finv_grid_d in finv_grid_lib.items():
-            #setup directory
-            od = os.path.join(out_dir, studyArea)
-            if not os.path.exists(od): os.makedirs(od)
-            
-            #write each sstudy area
-            ofp_d[studyArea] = dict()
-            for grid_size, poly_vlay in finv_grid_d.items():
-                ofp_d[studyArea][grid_size] = self.vlay_write(poly_vlay,
-                                         os.path.join(od, poly_vlay.name() + '.gpkg'),
-                                         logger=log)
-                cnt+=1
-            
-        log.debug('wrote %i layers'%cnt)
+
+    def build_sampGeo(self, #get raster samples for all finvs
+                     dkey='finv_sg_agg',
+                     sgType = 'centroids',
+ 
+                     **kwargs):
+        
+        #=======================================================================
+        # defauts
+        #=======================================================================
+        assert dkey == 'finv_sg_agg'
+        log = self.logger.getChild('build_sampGeo')
+ 
+        
+        finv_agg_lib = self.retrieve('finv_agg')
+        
+        #=======================================================================
+        # loop each polygon layer and build sampling geometry
+        #=======================================================================
+        log.info('on %i w/ %s'%(len(finv_agg_lib), sgType))
+        res_vlay_lib = dict()
+        for studyArea, vlay_d in finv_agg_lib.items():
+            res_vlay_lib[studyArea] = dict()
+            for aggLevel, poly_vlay in vlay_d.items():
+                log.info('on %s.%s w/ %i feats'%(studyArea, aggLevel, poly_vlay.dataProvider().featureCount()))
+                
+                if sgType == 'centroids':
+                    sg_vlay = self.centroids(poly_vlay, logger=log)
+                else:
+                    raise Error('not implemented')
+                
+                #===============================================================
+                # wrap
+                #===============================================================
+                sg_vlay.setName('%s_%s'%(poly_vlay.name(), sgType))
+                
+                
+                res_vlay_lib[studyArea][aggLevel] = sg_vlay
+                
+        
+        #=======================================================================
+        # store layers
+        #=======================================================================
+        ofp_d = self.store_finv_lib(res_vlay_lib, dkey,logger=log)
+        
+        return res_vlay_lib
+                
         
  
     def build_rsamps(self, #get raster samples for all finvs
@@ -1674,9 +1871,13 @@ class Session(agSession):
         #=======================================================================
         # child data
         #=======================================================================
-        fgm_ofp_d, fgdir_dxind = self.get_finvg()
         
-        log.debug('on %i'%len(fgm_ofp_d))
+        finv_grid_lib, dxind = self.retrieve('finv_agg')
+        #=======================================================================
+        # fgm_ofp_d, fgdir_dxind = self.get_finvg()
+        # 
+        # log.debug('on %i'%len(fgm_ofp_d))
+        #=======================================================================
         
         #=======================================================================
         # update the finv
@@ -1724,7 +1925,7 @@ class Session(agSession):
     #===========================================================================
     # HELPERS--------
     #===========================================================================
-    def get_finvg(self,
+    def xxxget_finvg(self, #special retrival for finvg as 
                   load_vlays=False, #whether to load the vlays found in fgm_ofp_d
                   logger=None,
                   ): #get and check the finvg data
@@ -1787,7 +1988,7 @@ class Session(agSession):
         log.info('on %i \n    %s'%(len(proj_lib), list(proj_lib.keys())))
         
         
-        assert dkey in ['rsamps', 'finv_gPoly'], 'bad dkey %s'%dkey
+        #assert dkey in ['rsamps', 'finv_gPoly'], 'bad dkey %s'%dkey
         
         #=======================================================================
         # loop and load
@@ -2104,84 +2305,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         return finv_gkey_df, finv_grid_d
         
  
-    def get_finvs_gridPts(self, #drop grid_polys to grid_points
-                  finv_vlay=None,
-                  grid_sizes = [5, 20, 100], #resolution in meters
-                  idfn=None,
-                  write_grids=True, #whether to also write the grids to file
-                  overwrite=None,
-                  ):
-        """
-        
-        how do we store an intermitten here?
-            study area generates a single layer on local EPSG
-            
-            Session writes these to a directory
 
-        need a meta table
-        """
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('get_finvs_gridPoly')
-        gcn = self.gcn
-        if overwrite is None: overwrite=self.overwrite
-        if finv_vlay is None: finv_vlay=self.finv_vlay
-        if idfn is None: idfn=self.idfn
-        
-        
-        
-        #=======================================================================
-        # combine results----
-        #=======================================================================
-
-        
-        #=======================================================================
-        # #merge points vector layers
-        #=======================================================================
-        #prep the raw
-        finvR_vlay1 = self.fieldcalculator(finv_vlay, 0, fieldName='grid_size', fieldType='Integer', logger=log)
-        finvR_vlay2 = self.fieldcalculator(finvR_vlay1,'\"{}\"'.format(idfn), fieldName=gcn, fieldType='Integer', logger=log)
-        
-        #finvR_vlay2 = self.renameField(finvR_vlay1, idfn, gcn, logger=log) #promote old keys to new keys
-        
- 
-        
-        #add the raw finv (to the head)
-        finv_grid_d = {**{0:finvR_vlay2},**finv_grid_d}
-        
-        #merge
-        fgm_vlay1 = self.mergevectorlayers(list(finv_grid_d.values()), logger=log)
-        self.mstore.addMapLayer(fgm_vlay1)
-        
-
-        
-        #drop some fields
-        fnl = [f.name() for f in fgm_vlay1.fields()]
-        fgm_vlay2 = self.deletecolumn(fgm_vlay1, list(set(fnl).difference([gcn, 'grid_size'])), logger=log)
-        
-        
-        #force types
-        fgm_vlay3 = self.vlay_field_astype(fgm_vlay2, gcn, fieldType='Integer')
-        
-        #=======================================================================
-        # check
-        #=======================================================================
-        for coln, typeName in vlay_dtypes(fgm_vlay3).items():
-            assert typeName=='integer', 'got bad type on \'%s\':%s'%(coln, typeName)
-            
-        fgm_df = vlay_get_fdf(fgm_vlay3)
-        
-        for coln, dtype in fgm_df.dtypes.to_dict().items():
-            assert dtype==np.dtype('int64'), 'bad type on %s: %s'%(coln, dtype)
-        
-        
-        for grid_size, fgm_gdf in fgm_df.groupby('grid_size', axis=0):
-            if grid_size==0: continue
-            miss_l = set(fgm_gdf[gcn].values).difference(finv_gkey_df[grid_size].values)  #those in left no tin right
-            assert len(miss_l)==0, 'missing %i/%i keys on %s grid_size=%i'%(
-                len(miss_l), len(fgm_gdf), self.name, grid_size)
-                
         
     def get_rsamps(self,
                    wd_dir = None,

@@ -167,6 +167,7 @@ def run(
     with Session(tag=tag,proj_lib=proj_lib,
                  
                  bk_lib = {
+                     #'finv_agg':dict(geomType='Polygon'),
                      'finv_gPoly':dict(grid_sizes=grid_sizes),
                      
                      'vid_df':dict(
@@ -178,6 +179,9 @@ def run(
         
         
         ses.plt = plt  #attach local matplotlib init
+        
+        #ses.build_finv_gridPoly()
+        ses.retrieve('finv_sg_agg')
         
         #ses.plot_depths()
         
@@ -196,7 +200,7 @@ def run(
         
         #shows how errors vary with depth
         #ses.plot_errs_scatter(lossType='rl', ycoln='delta', ylims=None, plot_vf=True)
-        ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
+        #ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
 
 
         #
