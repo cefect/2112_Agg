@@ -237,49 +237,7 @@ class Session(agSession):
                 log.error(msg)
                 err_d[i] = msg
             
-            
-            #===================================================================
-            # #write cunks
-            # if i%chunk_size==0 and i>0: 
-            #     if i +1 == len(vf_d): continue #skip the last
-            #     j = int(i/chunk_size) #chunk count
-            #     dump_fp_d[j] = os.path.join(out_dir, 'dump_%04i.pickle'%i)
-            #     
-            #     with open(dump_fp_d[j], 'wb') as f:
-            #         pickle.dump(res_lib, f, pickle.HIGHEST_PROTOCOL)
-            #         
-            #     log.info('i=%i j=%i and %i entries wrote dump '%(i, j,len(res_lib))) 
-            #         
-            #     del res_lib
-            #     #reset
-            #     res_lib = dict()
-            #===================================================================
- 
-        #=======================================================================
-        # re-assemble
-        #=======================================================================
-        #=======================================================================
-        # if len(dump_fp_d)>0:
-        #     #load each
-        #     log.info('loading %i dumps'%len(dump_fp_d))
-        #     for k, fp in dump_fp_d.items():
-        #         
-        #         #load the dump
-        #         with open(fp, 'rb') as f: 
-        #             rdi = pickle.load(f)
-        #             
-        #         #add back in
-        #         l = set(res_lib.keys()).intersection(rdi.keys())
-        #         assert len(l) == 0, l
-        #         
-        #         res_lib.update(rdi)
-        #=======================================================================
- 
-        #=======================================================================
-        # #check
-        # l = set(master_vids.values()).symmetric_difference(res_lib.keys())
-        # assert len(l)==0, l
-        #=======================================================================
+
             
         assert len(res_lib)>0
         #=======================================================================
@@ -1529,6 +1487,13 @@ class Session(agSession):
                      out_dir=None,
                      
                      ):
+        """
+        called by build_rl_dxcol (dkey='rl_dxcol')
+        
+        this is a combined calc and plot function
+        
+        TODO: separate out plotting and calcing
+        """
         
         #=======================================================================
         # defaults
@@ -1541,7 +1506,7 @@ class Session(agSession):
         
         #output dir
         if out_dir is None: 
-            out_dir=os.path.join(self.out_dir, 'models',str(vfunc.model_id), '%i'%vfunc.vid)
+            out_dir=os.path.join(self.out_dir, 'models',str(vfunc.model_id))
         
         if not os.path.exists(out_dir): os.makedirs(out_dir)
         
@@ -1820,7 +1785,7 @@ class Session(agSession):
                     if not ylims_d[rowName] is None:
                         ax.set_ylim( ylims_d[rowName])
                         
-            self.output_fig(fig, fname='%s_%s_rlMeans'%(self.longname, vfunc.vid), out_dir=out_dir,
+            self.output_fig(fig, fname='rlMeans_%s_%s'%(vfunc.vid, self.longname), out_dir=out_dir,
                             transparent=False, overwrite=True)
                 
  
@@ -2283,7 +2248,7 @@ class Session(agSession):
         # #picklle
         #=======================================================================
         if out_fp is None:
-            out_fp = os.path.join(self.out_dir, '%s_%s.pickle' % (self.longname, dkey))
+            out_fp = os.path.join(self.wrk_dir, '%s_%s.pickle' % (self.longname, dkey))
             
         else:
             write_csv=False

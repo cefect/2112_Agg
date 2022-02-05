@@ -117,7 +117,7 @@ def run_plotVfunc(
 
         # 
         # #use some preloaded data (saves lots of time during loading)
-        # debug_fp=r'C:\LS\09_REPOS\02_JOBS\2107_obwb\outs\9vtag\r0\20211230\raw_9vtag_r0_1230.csv',
+        # debug_fp=r'C:\LS\10_OUT\2107_obwb\outs\9vtag\r0\20211230\raw_9vtag_r0_1230.csv',
         # #debug_fp=None,
         #=======================================================================
 
@@ -206,7 +206,7 @@ def run_aggErr1(#agg error per function
                 statsFunc = scipy.stats.norm, #function to use for the depths distribution
                 depths_resolution=500,  #number of depths to draw from the depths distritupion
                           ),
-         rl_dxcol_d = dict(plot=True),
+         plot_rlMeans = True,
          overwrite=True,
  
  
@@ -221,16 +221,20 @@ def run_aggErr1(#agg error per function
                             selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
                                     ),
                      'rl_xmDisc_dxcol':rl_xmDisc_dxcol_d,
-                     'rl_dxcol':rl_dxcol_d,
+                     'rl_dxcol':dict(plot=plot_rlMeans),
                             },
                  # figsize=figsize,
                  **kwargs) as ses:
         ses.plt = plt
  
         
-        #discretization calcs
-        ses.plot_xmDisc()
+        #plot discretization figures (very slow)
+        #ses.plot_xmDisc()
         
+        #nice plot per-func of means at different ag levels
+        """workaround as this is a combined calc+plotting func"""
+        if plot_rlMeans:
+            ses.build_rl_dxcol(plot=plot_rlMeans)
  
         
         #combined box plots
@@ -254,14 +258,17 @@ def run_aggErr1(#agg error per function
         
     return out_dir
 
-def all_r2(
-        
+def all_r0(#results presented at supervisor meeting on Jan 4th
+           #focused on vid 027, 811, and 798
+           #but included some stats for every curve in the library
+           #the majority of these are FLEMO curves
+           #takes ~1hr to run
         ):
     
     return run_aggErr1(
         
             #model selection
-            tag='r3',
+            tag='r0',
             #vid_l=[811,798, 410] ,
             selection_d = { #selection criteria for models. {tabn:{coln:values}}
                           'model_id':[
@@ -293,17 +300,56 @@ def all_r2(
                 depths_resolution=2000,  #number of depths to draw from the depths distritupion
                           ),
             
-            rl_dxcol_d = dict(plot=False),
+            plot_rlMeans=True,
                  
                  
-            dfp_d = {
-                'rl_xmDisc_dxcol':  r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r2_0104_rl_xmDisc_dxcol.pickle',
-                'rl_xmDisc_xvals':  r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r2_0104_rl_xmDisc_xvals.pickle',
-                'rl_dxcol':         r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r3_0104_rl_dxcol.pickle',
-                'model_metrics':    r'C:\LS\09_REPOS\02_JOBS\2112_Agg\outs\aggErr1\r2\20220104\aggErr1_r3_0104_model_metrics.pickle'
+            compiled_fp_d = {
+                'rl_xmDisc_dxcol':  r'C:\LS\10_OUT\2112_Agg\outs\pdist\r0\20220205\working\aggErr1_r2_0104_rl_xmDisc_dxcol.pickle',
+                'rl_xmDisc_xvals':  r'C:\LS\10_OUT\2112_Agg\outs\pdist\r0\20220205\working\aggErr1_r2_0104_rl_xmDisc_xvals.pickle',
+                'rl_dxcol':         r'C:\LS\10_OUT\2112_Agg\outs\pdist\r0\20220205\working\aggErr1_r3_0104_rl_dxcol.pickle',
+                'model_metrics':    r'C:\LS\10_OUT\2112_Agg\outs\pdist\r0\20220205\working\aggErr1_r3_0104_model_metrics.pickle'
                         },
         
         )
+    
+def r0_noFlemo(
+        
+        ):
+    return run_aggErr1(
+            #model selection
+            tag='r0_noFlemo',
+            #vid_l=[811,798, 410] ,
+            selection_d = { #selection criteria for models. {tabn:{coln:values}}
+                          'model_id':[
+                              #1, 2, #continous 
+                              #3, #flemo 
+                              4, 6, 
+                              7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47
+                              ],
+                          'function_formate_attribute':['discrete'], #discrete
+                          'damage_formate_attribute':['relative'],
+                          'coverage_attribute':['building'],
+                         
+                         },
+                     
+            #run control
+            overwrite=False,
+            rl_xmDisc_dxcol_d = dict(
+                xdomain=(0,2), #min/max of the xdomain
+                xdomain_res = 30, #number of increments for the xdomain
+                
+                aggLevels_l= [2, 
+                             5, 
+                             100,
+                             ],
+                
+                #random depths pramaeters
+                xvars_ar = np.linspace(.1,1,num=3), #varice values to iterate over
+                statsFunc = scipy.stats.norm, #function to use for the depths distribution
+                depths_resolution=2000,  #number of depths to draw from the depths distritupion
+                          ),
+            
+            plot_rlMeans=True)
 
 def dev(
         
@@ -355,11 +401,16 @@ def dev(
                 depths_resolution=100,  #number of depths to draw from the depths distritupion
                           ),
             
-            rl_dxcol_d = dict(plot=False),
+            plot_rlMeans=True,
                  
                  
             compiled_fp_d = {
-
+                    #===========================================================
+                    # 'rl_xmDisc_dxcol':r'C:\LS\10_OUT\2112_Agg\outs\pdist\dev\20220205\pdist_dev_0205_rl_xmDisc_dxcol.pickle',
+                    # 'rl_xmDisc_xvals':r'C:\LS\10_OUT\2112_Agg\outs\pdist\dev\20220205\pdist_dev_0205_rl_xmDisc_xvals.pickle',
+                    # 'rl_dxcol':r'C:\LS\10_OUT\2112_Agg\outs\pdist\dev\20220205\pdist_dev_0205_rl_dxcol.pickle',
+                    # 'model_metrics':r'C:\LS\10_OUT\2112_Agg\outs\pdist\dev\20220205\pdist_dev_0205_model_metrics.pickle',
+                    #===========================================================
                         },
         
         )
@@ -367,8 +418,8 @@ def dev(
 if __name__ == "__main__": 
     
     #output = run_aggErr1()
-    #output=all_r2()
-    output=dev()
+    output=all_r0()
+    #output=dev()
     #output = run_plotVfunc()
     # reader()
     
