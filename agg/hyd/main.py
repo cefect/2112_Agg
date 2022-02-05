@@ -167,7 +167,7 @@ def run(
     with Session(tag=tag,proj_lib=proj_lib,
                  
                  bk_lib = {
-                     'finvg':dict(grid_sizes=grid_sizes),
+                     'finv_gPoly':dict(grid_sizes=grid_sizes),
                      
                      'vid_df':dict(
                             selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
@@ -214,11 +214,7 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-     'finvg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\finvg_hyd_dev_0204.pickle',
-     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\rsamps_hyd_dev_0204.pickle',
-     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\rloss_hyd_dev_0204.pickle',
-     'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\tloss_hyd_dev_0204.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220204\working\errs_hyd_dev_0204.pickle',
+ 
             },
         
     proj_lib =     {
@@ -326,8 +322,8 @@ def r2():
     
 if __name__ == "__main__": 
     
-    output=r1()
-    #output=dev()
+    #output=r1()
+    output=dev()
  
     
     tdelta = datetime.datetime.now() - start

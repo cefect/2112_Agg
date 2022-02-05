@@ -58,7 +58,7 @@ class Session(agSession):
                 'build':lambda **kwargs: self.build_rsamps(**kwargs),
                 },
             
-            'finvg':{
+            'finv_gPoly':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_finv_gridPoly(**kwargs),
                 },
@@ -1530,9 +1530,10 @@ class Session(agSession):
     
     def build_finv_gridPoly(self, #build polygon grids for each study area (and each grid_size)
                  dkey=None,
-                 
+                 out_dir=None,
                  **kwargs):
-        """here we store the following in one pickle 'finvg'
+        
+        """here we store the following in one pickle 'finv_gPoly'
             fgm_fps_d: filepaths to merged grouped finvs {name:fp}
             fgdir_dxind: directory of finv keys from raw to grouped for each studyArea
             """
@@ -1540,40 +1541,44 @@ class Session(agSession):
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_finv_gridPoly')
-        assert dkey=='finvg'
-        
+        assert dkey=='finv_gPoly'
+        if out_dir is None: out_dir=os.path.join(self.wrk_dir, dkey)
         #=======================================================================
         # #run the method on all the studyAreas
         #=======================================================================
         res_d = self.sa_get(meth='get_finvs_gridPoly', write=False, dkey=dkey, **kwargs)
         
         #unzip results
-        finv_gkey_df_d, fgm_vlay_d = dict(), dict() 
+        #finv_gkey_df, finv_grid_d
+        finv_gkey_df_d, finv_grid_lib = dict(), dict() 
         for k,v in res_d.items():
-            finv_gkey_df_d[k], fgm_vlay_d[k]  = v
+            finv_gkey_df_d[k], finv_grid_lib[k]  = v
             
  
         #=======================================================================
-        # write finv points vector layers
+        # write layers
         #=======================================================================
- 
-        #setup directory
-        od = os.path.join(self.wrk_dir, 'fgm_vlays')
-        if not os.path.exists(od): os.makedirs(od)
-        
-        log.info('writing %i layers to %s'%(len(fgm_vlay_d), od))
+
+        log.info('writing layers to %s'%(out_dir))
         
         ofp_d = dict()
-        for name, fgm_vlay in fgm_vlay_d.items():
-            ofp_d[name] = self.vlay_write(fgm_vlay,
-                                     os.path.join(od, 'fgm_%s_%s.gpkg'%(self.longname, name)),
-                                     logger=log)
+        cnt = 0
+        for studyArea, finv_grid_d in finv_grid_lib.items():
+            #setup directory
+            od = os.path.join(out_dir, studyArea)
+            if not os.path.exists(od): os.makedirs(od)
             
-        log.debug('wrote %i'%len(ofp_d))
+            #write each sstudy area
+            ofp_d[studyArea] = dict()
+            for grid_size, poly_vlay in finv_grid_d.items():
+                ofp_d[studyArea][grid_size] = self.vlay_write(poly_vlay,
+                                         os.path.join(od, poly_vlay.name() + '.gpkg'),
+                                         logger=log)
+                cnt+=1
+            
+        log.debug('wrote %i layers'%cnt)
         
- 
-        
-        
+
         #=======================================================================
         # write the dxcol and the fp_d
         #=======================================================================
@@ -1581,6 +1586,7 @@ class Session(agSession):
         
         #check index
         dxind.index.set_names('studyArea', level=0, inplace=True)
+        dxind.columns.name = 'grid_size'
         self.check_mindex(dxind.index)
 
  
@@ -1599,6 +1605,56 @@ class Session(agSession):
         finvg.keys()
         """
         return finvg
+    
+    def build_finv_gridPts(self, #build polygon grids for each study area (and each grid_size)
+                 dkey=None,
+                 out_dir=None,
+                 **kwargs):
+        
+        """here we store the following in one pickle 'finv_gPoly'
+            fgm_fps_d: filepaths to merged grouped finvs {name:fp}
+            fgdir_dxind: directory of finv keys from raw to grouped for each studyArea
+            """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_finv_gridPoly')
+        assert dkey=='finv_gPoly'
+        if out_dir is None: out_dir=os.path.join(self.wrk_dir, dkey)
+        #=======================================================================
+        # #run the method on all the studyAreas
+        #=======================================================================
+        res_d = self.sa_get(meth='get_finvs_gridPoly', write=False, dkey=dkey, **kwargs)
+        
+        #unzip results
+        #finv_gkey_df, finv_grid_d
+        finv_gkey_df_d, finv_grid_lib = dict(), dict() 
+        for k,v in res_d.items():
+            finv_gkey_df_d[k], finv_grid_lib[k]  = v
+            
+ 
+        #=======================================================================
+        # write layers
+        #=======================================================================
+
+        log.info('writing layers to %s'%(out_dir))
+        
+        ofp_d = dict()
+        cnt = 0
+        for studyArea, finv_grid_d in finv_grid_lib.items():
+            #setup directory
+            od = os.path.join(out_dir, studyArea)
+            if not os.path.exists(od): os.makedirs(od)
+            
+            #write each sstudy area
+            ofp_d[studyArea] = dict()
+            for grid_size, poly_vlay in finv_grid_d.items():
+                ofp_d[studyArea][grid_size] = self.vlay_write(poly_vlay,
+                                         os.path.join(od, poly_vlay.name() + '.gpkg'),
+                                         logger=log)
+                cnt+=1
+            
+        log.debug('wrote %i layers'%cnt)
         
  
     def build_rsamps(self, #get raster samples for all finvs
@@ -1681,7 +1737,7 @@ class Session(agSession):
         #=======================================================================
         # load
         #=======================================================================
-        d = self.retrieve('finvg')
+        d = self.retrieve('finv_gPoly')
         
         if not 'fgm_ofp_d' in d and 'fgdir_dxind' in d:
             raise Error('got bad keys on finvg')
@@ -1712,11 +1768,7 @@ class Session(agSession):
             
         return fgm_ofp_d, fgdir_dxind
         
-    
-        
-    #===========================================================================
-    # GENERICS---------------
-    #===========================================================================
+
     def sa_get(self, #spatial tasks on each study area
                        proj_lib=None,
                        meth='get_rsamps', #method to run
@@ -1735,7 +1787,7 @@ class Session(agSession):
         log.info('on %i \n    %s'%(len(proj_lib), list(proj_lib.keys())))
         
         
-        assert dkey in ['rsamps', 'finvg'], 'bad dkey %s'%dkey
+        assert dkey in ['rsamps', 'finv_gPoly'], 'bad dkey %s'%dkey
         
         #=======================================================================
         # loop and load
@@ -1879,7 +1931,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                   finv_vlay=None,
                   grid_sizes = [5, 20, 100], #resolution in meters
                   idfn=None,
-                  write_grids=True, #whether to also write the grids to file
+ 
                   overwrite=None,
                   ):
         """
@@ -1888,9 +1940,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             study area generates a single layer on local EPSG
             
             Session writes these to a directory
-        
- 
-            
+
         need a meta table
         """
         #=======================================================================
@@ -1902,10 +1952,11 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         if finv_vlay is None: finv_vlay=self.finv_vlay
         if idfn is None: idfn=self.idfn
         
+ 
         #=======================================================================
         # loop and aggregate
         #=======================================================================
-        fpts_d = dict() #container for resulting finv points layers
+        finv_grid_d = dict() #container for resulting finv points layers
         groups_d = dict()
         meta_d = dict()
  
@@ -1922,58 +1973,48 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             self.mstore.addMapLayer(gvlay1)
             log.info('    built grid w/ %i'%gvlay1.dataProvider().featureCount())
             
-
-            gvlay2 = self.renameField(gvlay1, 'id', gcn, logger=log)
-            self.mstore.addMapLayer(gvlay2)
-            log.info('    renamed field \'id\':\'%s\''%gcn)
-            
-            
+ 
             #===================================================================
             # active grid cells only
             #===================================================================
-            #handel writing
-            if write_grids:
-                od = os.path.join(self.out_dir, 'grids', self.name)
-                if not os.path.exists(od):os.makedirs(od)
-                output = os.path.join(od, 'fgrid_%i_%s.gpkg'%(grid_size, self.longname))
-                if os.path.exists(output):
-                    assert overwrite
-                    os.remove(output)
-            else:
-                output='TEMPORARY_OUTPUT'
+
             
             #select those w/ some assets
-            gvlay2.removeSelection()
-            self.createspatialindex(gvlay2)
+            gvlay1.removeSelection()
+            self.createspatialindex(gvlay1)
             log.info('    selecting from grid based on intersect w/ \'%s\''%(finv_vlay.name()))
-            self.selectbylocation(gvlay2, finv_vlay, logger=log)
+            self.selectbylocation(gvlay1, finv_vlay, logger=log)
             
+            #save these
+            gvlay2 = self.saveselectedfeatures(gvlay1, logger=log, output='TEMPORARY_OUTPUT')
  
-            gvlay2b = self.saveselectedfeatures(gvlay2, logger=log, output=output)
-            if not write_grids: 
-                self.mstore.addMapLayer(gvlay2b)
-            else:
-                log.info('    wrote grid layer to %s'%output)
- 
-            
-            #drop these to centroids
-            gvlay3 = self.centroids(gvlay2b, logger=log)
+            #===================================================================
+            # populate/clean fields            
+            #===================================================================
+            #rename id field
+            gvlay3 = self.renameField(gvlay2, 'id', gcn, logger=log)
             self.mstore.addMapLayer(gvlay3)
+            log.info('    renamed field \'id\':\'%s\''%gcn)
             
- 
-            #add groupsize field            
-            gvlay_pts = self.fieldcalculator(gvlay3, grid_size, fieldName='grid_size', 
+            
+            #delete grid dimension fields
+            fnl = set([f.name() for f in gvlay3.fields()]).difference([gcn])
+            gvlay3b = self.deletecolumn(gvlay3, list(fnl),  logger=log)
+            self.mstore.addMapLayer(gvlay3b)
+            
+            #add the grid_size
+            gvlay4 = self.fieldcalculator(gvlay3b, grid_size, fieldName='grid_size', 
                                            fieldType='Integer', logger=log)
             
-            log.info('    got %i pts from grid'%gvlay3.dataProvider().featureCount())
+ 
+            
             #===================================================================
-            # #copy/join over the keys
+            # build refecrence dictionary to true assets
             #===================================================================
-            jd = self.joinattributesbylocation(finv_vlay, gvlay2b, jvlay_fnl=gcn, 
-                                               method=1, 
+            jd = self.joinattributesbylocation(finv_vlay, gvlay4, jvlay_fnl=gcn, 
+                                               method=1, logger=log,
                                                #predicate='touches',
-                                               logger=log,
-                                             output_nom=os.path.join(self.temp_dir, 'finv_grid_noMatch_%i_%s.gpkg'%(
+                     output_nom=os.path.join(self.temp_dir, 'finv_grid_noMatch_%i_%s.gpkg'%(
                                                  grid_size, self.longname)))
             
             #check match
@@ -1996,7 +2037,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                 sometimes 1 or 2 grid cells are erroneously joined
                 here we just delete them
             """
-            gpts_ser = vlay_get_fdf(gvlay_pts)[gcn]
+            gpts_ser = vlay_get_fdf(gvlay4)[gcn]
             
             set_d = set_info(gpts_ser.values, df[gcn].values)
 
@@ -2011,19 +2052,28 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                 
                 #get matching ids
                 fid_l = gpts_ser.index[gpts_ser.isin(set_d['diff_left'])].tolist()
-                gvlay_pts.removeSelection()
-                gvlay_pts.selectByIds(fid_l)
-                assert gvlay_pts.selectedFeatureCount()==len(set_d['diff_left'])
+                gvlay4.removeSelection()
+                gvlay4.selectByIds(fid_l)
+                assert gvlay4.selectedFeatureCount()==len(set_d['diff_left'])
                 
                 #delete these
-                gvlay_pts.invertSelection()
-                gvlay_pts = self.saveselectedfeatures(gvlay_pts, logger=log)
+                gvlay4.invertSelection()
+                gvlay4 = self.saveselectedfeatures(gvlay4, logger=log)
+                
+            #===================================================================
+            # write
+            #===================================================================
             
-
+            gvlay4.setName('finv_gPoly_%i_%s'%(grid_size, self.longname.replace('_', '')))
+            """moved onto the session
+            if write_grids:
+                self.vlay_write(gvlay4, os.path.join(od, gvlay4.name() + '.gpkg'),
+                                logger=log)"""
+ 
             #===================================================================
             # wrap
             #===================================================================
-            fpts_d[grid_size]=gvlay_pts
+            finv_grid_d[grid_size]=gvlay4
             groups_d[grid_size] = df.copy()
  
             #===================================================================
@@ -2032,23 +2082,59 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             mcnt_ser = df[gcn].groupby(df[gcn]).count()
             meta_d[grid_size] = {
                 'total_cells':gvlay1.dataProvider().featureCount(), 
-                'active_cells':gvlay2.selectedFeatureCount(),
+                'active_cells':gvlay1.selectedFeatureCount(),
                 'max_member_cnt':mcnt_ser.max()
                 }
             
-            
-            
+ 
             log.info('    joined w/ %s'%meta_d[grid_size])
             
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        
+        log.info('finished on %i'%len(groups_d))
+ 
+        #assemble the grid id per raw asset
+        finv_gkey_df = pd.concat(groups_d, axis=1).droplevel(axis=1, level=1)
+        
+ 
+        
+        return finv_gkey_df, finv_grid_d
+        
+ 
+    def get_finvs_gridPts(self, #drop grid_polys to grid_points
+                  finv_vlay=None,
+                  grid_sizes = [5, 20, 100], #resolution in meters
+                  idfn=None,
+                  write_grids=True, #whether to also write the grids to file
+                  overwrite=None,
+                  ):
+        """
+        
+        how do we store an intermitten here?
+            study area generates a single layer on local EPSG
+            
+            Session writes these to a directory
+
+        need a meta table
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('get_finvs_gridPoly')
+        gcn = self.gcn
+        if overwrite is None: overwrite=self.overwrite
+        if finv_vlay is None: finv_vlay=self.finv_vlay
+        if idfn is None: idfn=self.idfn
+        
+        
+        
         #=======================================================================
         # combine results----
         #=======================================================================
-        log.info('finished on %i'%len(groups_d))
-        """
-        view(finvR_vlay2)
-        """
-        #assemble the grid id per raw asset
-        finv_gkey_df = pd.concat(groups_d, axis=1).droplevel(axis=1, level=1)
+
         
         #=======================================================================
         # #merge points vector layers
@@ -2062,10 +2148,10 @@ class StudyArea(Session, Qproj): #spatial work on study areas
  
         
         #add the raw finv (to the head)
-        fpts_d = {**{0:finvR_vlay2},**fpts_d}
+        finv_grid_d = {**{0:finvR_vlay2},**finv_grid_d}
         
         #merge
-        fgm_vlay1 = self.mergevectorlayers(list(fpts_d.values()), logger=log)
+        fgm_vlay1 = self.mergevectorlayers(list(finv_grid_d.values()), logger=log)
         self.mstore.addMapLayer(fgm_vlay1)
         
 
@@ -2095,23 +2181,6 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             miss_l = set(fgm_gdf[gcn].values).difference(finv_gkey_df[grid_size].values)  #those in left no tin right
             assert len(miss_l)==0, 'missing %i/%i keys on %s grid_size=%i'%(
                 len(miss_l), len(fgm_gdf), self.name, grid_size)
-        """
-        fgm_gdf.sort_values('gid').dtypes
-        view(fgm_gdf.sort_values('gid'))
-        view(fgm_vlay3)
-        """
- 
-        
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info('merged %i gridded inventories into %i pts'%(
-            len(fpts_d), fgm_vlay3.dataProvider().featureCount()))
-        
-        return finv_gkey_df, fgm_vlay3
-        
- 
-            
                 
         
     def get_rsamps(self,
