@@ -196,11 +196,11 @@ def run(
         #layers (for making MAPS)
         ses.write_errs()
         #ses.get_confusion_matrix()
-        
+         
         #shows the spread on total loss values
         ses.plot_terrs_box(lossType = 'tl', ycoln='delta', ylabel='TL error (gridded - true)')
         ses.plot_terrs_box(lossType = 'rl', ycoln='delta', ylabel='RL error (gridded - true)')
-        
+         
         #shows how errors vary with depth
         ses.plot_errs_scatter(lossType='rl', ycoln='delta', ylims=None, plot_vf=True)
         ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
@@ -221,15 +221,7 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\finv_gPoly_hyd_dev_0205.pickle',
-    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\finv_gPoly_id_dxind_hyd_dev_0205.pickle',
-    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\finv_agg_hyd_dev_0205.pickle',
-    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\fgdir_dxind_hyd_dev_0205.pickle',
-    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\finv_sg_agg_hyd_dev_0205.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\rsamps_hyd_dev_0205.pickle',
-    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\rloss_hyd_dev_0205.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\tloss_hyd_dev_0205.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\errs_hyd_dev_0205.pickle',
+ 
             },
         
     proj_lib =     {
@@ -291,25 +283,30 @@ def dev():
         
 def r1():
     return run(
-        tag='r1_means',
+        tag='points_r1',
         compiled_fp_d = {
-    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220205\working\finv_gPoly_hyd_r1_0205.pickle',
-    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220205\working\finv_gPoly_id_dxind_hyd_r1_0205.pickle',
-    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220205\working\finv_agg_hyd_r1_0205.pickle',
-    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220205\working\fgdir_dxind_hyd_r1_0205.pickle',
-    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\r1\20220205\working\finv_sg_agg_hyd_r1_0205.pickle',
-    
+ 
+    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\finv_gPoly_hyd_points_r1_0205.pickle',
+    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\finv_gPoly_id_dxind_hyd_points_r1_0205.pickle',
+    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\finv_agg_hyd_points_r1_0205.pickle',
+    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\fgdir_dxind_hyd_points_r1_0205.pickle',
+    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\finv_sg_agg_hyd_points_r1_0205.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\rsamps_hyd_points_r1_0205.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\rloss_hyd_points_r1_0205.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\tloss_hyd_points_r1_0205.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\errs_hyd_points_r1_0205.pickle',
             },
         
         #vid_sample=5,
         vid_l = [
-            402, #MURL. straight line. smallest agg error
+            #402, #MURL. straight line. smallest agg error
             798, #Budiyono from super meet 4
             811, #Budiyono from super meet 4
-            #794, #budyi.. largest postiive error
+            #794, #budyi.. largest postiive error (as some RL >100)
+            49, #worst case FLEMO
             ],
                 
-                
+        rsamps_method = 'points',
         trim=False,
         overwrite=True,
         )
@@ -340,13 +337,14 @@ def means_r1():
             ],
         
         rsamps_method = 'true_mean',
- 
+        trim=False,
         )
     
     
 if __name__ == "__main__": 
     
-    output=means_r1()
+    #output=means_r1()
+    output=r1()
     #output=dev()
  
     

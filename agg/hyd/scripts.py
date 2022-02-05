@@ -261,6 +261,8 @@ class Session(agSession):
                 colors: grid_size
         
         """
+        
+        raise Error('add percent error to each bar... fancy format y axis'
         #=======================================================================
         # defaults
         #=======================================================================
@@ -345,11 +347,10 @@ class Session(agSession):
                 # #formatters.
                 #===============================================================
                 #labels
-                if row_key == mdex.unique(plot_rown)[-1]: #last row
-                    tick_label = ['e%i'%i for i in range(0,len(tlsum_ser))]
  
-                else:
-                    tick_label=None
+                tick_label = ['e%i'%i for i in range(0,len(tlsum_ser))]
+ 
+ 
                     
                 #widths
                 bar_cnt = len(mdex.unique(plot_colr))*len(tlsum_ser)
@@ -366,7 +367,7 @@ class Session(agSession):
                     color=newColor_d[ckey],
                     label='%s=%s'%(plot_colr, ckey),
                     alpha=0.5,
-                    tick_label=tick_label, #just adding at the end
+                    tick_label=tick_label, 
                     )
                 
             #===============================================================
