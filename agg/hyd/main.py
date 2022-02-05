@@ -105,7 +105,7 @@ def run(
                    'EPSG': 2955, 
                   'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_cent_aoi06.gpkg', 
                   'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
-                  'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\DEVdepth_sB_1218',
+                  'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218',
                   'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                      }, 
             'LMFRA': {
@@ -194,7 +194,7 @@ def run(
         ses.plot_totals_bars()
         
         #layers (for making MAPS)
-        #ses.write_errs()
+        ses.write_errs()
         #ses.get_confusion_matrix()
         
         #shows the spread on total loss values
@@ -202,7 +202,7 @@ def run(
         ses.plot_terrs_box(lossType = 'rl', ycoln='delta', ylabel='RL error (gridded - true)')
         
         #shows how errors vary with depth
-        #ses.plot_errs_scatter(lossType='rl', ycoln='delta', ylims=None, plot_vf=True)
+        ses.plot_errs_scatter(lossType='rl', ycoln='delta', ylims=None, plot_vf=True)
         ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
 
 
@@ -328,7 +328,6 @@ def means_r1():
     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\rloss_hyd_means_r1_0205.pickle',
     'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\tloss_hyd_means_r1_0205.pickle',
     'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\errs_hyd_means_r1_0205.pickle',
-    
             },
         
         #vid_sample=5,
@@ -337,6 +336,7 @@ def means_r1():
             798, #Budiyono from super meet 4
             811, #Budiyono from super meet 4
             #794, #budyi.. largest postiive error (as some RL >100)
+            49, #worst case FLEMO
             ],
         
         rsamps_method = 'true_mean',

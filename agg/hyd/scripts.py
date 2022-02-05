@@ -125,12 +125,14 @@ class Session(agSession):
                     xlims = (0,2),
                     ylims=(0,2.5),
                     
+                    out_dir=None,
+                    
                     ):
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('plot_depths')
-        
+        if out_dir is None: out_dir = os.path.join(self.out_dir, 'depths')
         #=======================================================================
         # #retrieve child data
         #=======================================================================
@@ -226,7 +228,7 @@ class Session(agSession):
             #===================================================================
             # wrap figure
             #===================================================================
-            res_d[sName]= self.output_fig(fig, fname='depths_%s_%s'%(sName, self.longname))
+            res_d[sName]= self.output_fig(fig, out_dir=out_dir, fname='depths_%s_%s'%(sName, self.longname))
 
         #=======================================================================
         # warp
@@ -408,6 +410,8 @@ class Session(agSession):
                     ylabel=None,
                     colorMap=None,
                     add_text=True,
+                    
+                    out_dir=None,
                    ):
         """
         matrix figure
@@ -424,6 +428,7 @@ class Session(agSession):
         log = self.logger.getChild('plot_terr_box')
         if colorMap is None: colorMap=self.colorMap
         if ylabel is None: ylabel = dkey
+        if out_dir is None: out_dir=os.path.join(self.out_dir, 'errs')
         #=======================================================================
         # #retrieve child data
         #=======================================================================
@@ -557,7 +562,8 @@ class Session(agSession):
             # wrap fig
             #===================================================================
             log.debug('finsihed %s'%fig_key)
-            self.output_fig(fig, fname='box_%s_%s_%s_%s'%(lossType, ycoln, fig_key, self.longname))
+            self.output_fig(fig, fname='box_%s_%s_%s_%s'%(lossType, ycoln, fig_key, self.longname), 
+                            out_dir=os.path.join(out_dir, fig_key))
                     
 
         #=======================================================================
@@ -608,7 +614,7 @@ class Session(agSession):
             assert lossType=='rl'
             
         if plot_colr is None: plot_colr=plot_rown
-        if out_dir is None: out_dir = os.path.join(self.out_dir, 'errs_scatter')
+        if out_dir is None: out_dir = os.path.join(self.out_dir, 'errs')
         #=======================================================================
         # #retrieve child data
         #=======================================================================
@@ -1726,7 +1732,7 @@ class Session(agSession):
         #=======================================================================
         if logger is None: logger=self.logger
         log = logger.getChild('store_finv')
-        if out_dir is None: out_dir=os.path.join(self.out_dir, dkey)
+        if out_dir is None: out_dir=os.path.join(self.wrk_dir, dkey)
         
         log.info('writing \'%s\' layers to %s' % (dkey, out_dir))
         
