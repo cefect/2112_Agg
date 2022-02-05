@@ -55,24 +55,24 @@ class Session(agSession):
         data_retrieve_hndls = {
             'rsamps':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.rsamps_sa(**kwargs),
+                'build':lambda **kwargs: self.build_rsamps(**kwargs),
                 },
             
             'finvg':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.finvg_sa(**kwargs),
+                'build':lambda **kwargs: self.build_finv_gridPoly(**kwargs),
                 },
             'rloss':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.rloss_build(**kwargs),
+                'build':lambda **kwargs:self.build_rloss(**kwargs),
                 },
             'tloss':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.tloss_build(**kwargs),
+                'build':lambda **kwargs:self.build_tloss(**kwargs),
                 },
             'errs':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.errs_build(**kwargs),
+                'build':lambda **kwargs:self.build_errs(**kwargs),
                 }
             
             }
@@ -1029,7 +1029,7 @@ class Session(agSession):
     # DATA CONSTRUCTION-------------
     #===========================================================================
 
-    def errs_build(self, #get the errors (gridded - true)
+    def build_errs(self, #get the errors (gridded - true)
                     dkey=None,
                      prec=None,
                     ):
@@ -1042,7 +1042,7 @@ class Session(agSession):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('errs_build')
+        log = self.logger.getChild('build_errs')
         assert dkey=='errs'
         if prec is None: prec=self.prec
         gcn = self.gcn
@@ -1262,7 +1262,7 @@ class Session(agSession):
  
     
     
-    def tloss_build(self, #get the total loss
+    def build_tloss(self, #get the total loss
                     dkey=None,
                     prec=2,
                     ):
@@ -1270,7 +1270,7 @@ class Session(agSession):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('tloss_build')
+        log = self.logger.getChild('build_tloss')
         assert dkey=='tloss'
         if prec is None: prec=self.prec
         gcn = self.gcn
@@ -1458,14 +1458,14 @@ class Session(agSession):
         return dx2
 
     
-    def rloss_build(self,
+    def build_rloss(self,
                     dkey=None,
                     prec=None, #precision for RL
                     **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('rloss_build')
+        log = self.logger.getChild('build_rloss')
         assert dkey=='rloss'
         if prec is None: prec=self.prec
         
@@ -1528,7 +1528,7 @@ class Session(agSession):
  
                     
     
-    def finvg_sa(self, #build the finv groups on each studyArea
+    def build_finv_gridPoly(self, #build polygon grids for each study area (and each grid_size)
                  dkey=None,
                  
                  **kwargs):
@@ -1539,21 +1539,20 @@ class Session(agSession):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('finvg_sa')
+        log = self.logger.getChild('build_finv_gridPoly')
         assert dkey=='finvg'
         
         #=======================================================================
         # #run the method on all the studyAreas
         #=======================================================================
-        res_d = self.sa_get(meth='get_finvsg', write=False, dkey=dkey, **kwargs)
+        res_d = self.sa_get(meth='get_finvs_gridPoly', write=False, dkey=dkey, **kwargs)
         
         #unzip results
         finv_gkey_df_d, fgm_vlay_d = dict(), dict() 
         for k,v in res_d.items():
             finv_gkey_df_d[k], fgm_vlay_d[k]  = v
             
-        
-        
+ 
         #=======================================================================
         # write finv points vector layers
         #=======================================================================
@@ -1602,7 +1601,7 @@ class Session(agSession):
         return finvg
         
  
-    def rsamps_sa(self, #get raster samples for all finvs
+    def build_rsamps(self, #get raster samples for all finvs
                      dkey=None,
                      proj_lib=None,
                      ):
@@ -1613,7 +1612,7 @@ class Session(agSession):
         # defaults
         #=======================================================================
         assert dkey=='rsamps', dkey
-        log = self.logger.getChild('rsamps_sa')
+        log = self.logger.getChild('build_rsamps')
         if proj_lib is None: proj_lib=self.proj_lib
         gcn=self.gcn
         #=======================================================================
@@ -1876,7 +1875,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         self.wd_dir=wd_dir
  
         
-    def get_finvsg(self, #get the set of finvs per aggLevel
+    def get_finvs_gridPoly(self, #get a set of polygon grid finvs (for each grid_size)
                   finv_vlay=None,
                   grid_sizes = [5, 20, 100], #resolution in meters
                   idfn=None,
@@ -1897,7 +1896,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('get_finvsg')
+        log = self.logger.getChild('get_finvs_gridPoly')
         gcn = self.gcn
         if overwrite is None: overwrite=self.overwrite
         if finv_vlay is None: finv_vlay=self.finv_vlay
@@ -1916,23 +1915,22 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             log.info('%i/%i grid w/ %.1f'%(i+1, len(grid_sizes), grid_size))
             
             #===================================================================
-            # #build the grid
+            # raw grid
             #===================================================================
             
             gvlay1 = self.creategrid(finv_vlay, spacing=grid_size, logger=log)
             self.mstore.addMapLayer(gvlay1)
             log.info('    built grid w/ %i'%gvlay1.dataProvider().featureCount())
             
-            #clear all the fields
-            #gvlay1a = self.deletecolumn(gvlay1, [f.name() for f in gvlay1.fields()], logger=log)
-            
-            #index the grid
-            #gvlay2 = self.addautoincrement(gvlay1a, fieldName='gid', logger=log)
-            
+
             gvlay2 = self.renameField(gvlay1, 'id', gcn, logger=log)
             self.mstore.addMapLayer(gvlay2)
             log.info('    renamed field \'id\':\'%s\''%gcn)
             
+            
+            #===================================================================
+            # active grid cells only
+            #===================================================================
             #handel writing
             if write_grids:
                 od = os.path.join(self.out_dir, 'grids', self.name)
@@ -1962,14 +1960,10 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             gvlay3 = self.centroids(gvlay2b, logger=log)
             self.mstore.addMapLayer(gvlay3)
             
-
  
-            
             #add groupsize field            
             gvlay_pts = self.fieldcalculator(gvlay3, grid_size, fieldName='grid_size', 
                                            fieldType='Integer', logger=log)
-            
- 
             
             log.info('    got %i pts from grid'%gvlay3.dataProvider().featureCount())
             #===================================================================
@@ -2025,9 +2019,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                 gvlay_pts.invertSelection()
                 gvlay_pts = self.saveselectedfeatures(gvlay_pts, logger=log)
             
-            
-            
-            
+
             #===================================================================
             # wrap
             #===================================================================
