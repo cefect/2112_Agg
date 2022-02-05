@@ -181,9 +181,9 @@ def run(
         ses.plt = plt  #attach local matplotlib init
         
         #ses.build_finv_gridPoly()
-        ses.retrieve('finv_sg_agg')
+        #ses.retrieve('finv_sg_agg')
         
-        #ses.plot_depths()
+        ses.plot_depths()
         
 
         #gives a nice 'total model output' chart
@@ -218,7 +218,9 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
- 
+    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\finv_agg_hyd_dev_0205.pickle',
+    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\fgdir_dxind_hyd_dev_0205.pickle',
+    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220205\working\finv_sg_agg_hyd_dev_0205.pickle',
             },
         
     proj_lib =     {

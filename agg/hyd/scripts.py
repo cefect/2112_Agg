@@ -1655,7 +1655,7 @@ class Session(agSession):
         # defaults
         #=======================================================================
         log = self.logger.getChild('load_finv_lib.%s'%dkey)
-        assert dkey in ['finv_agg',  'finv_gPoly']
+        assert dkey in ['finv_agg',  'finv_gPoly', 'finv_sg_agg']
         
         
         vlay_fp_lib = self.load_pick(fp=fp) #{study area: aggLevel : vlay filepath}}
@@ -1832,6 +1832,7 @@ class Session(agSession):
                 log.info('on %s.%s w/ %i feats'%(studyArea, aggLevel, poly_vlay.dataProvider().featureCount()))
                 
                 if sgType == 'centroids':
+                    """works on point layers"""
                     sg_vlay = self.centroids(poly_vlay, logger=log)
                 else:
                     raise Error('not implemented')
@@ -1856,7 +1857,7 @@ class Session(agSession):
  
     def build_rsamps(self, #get raster samples for all finvs
                      dkey=None,
-                     proj_lib=None,
+ 
                      ):
         """
         keeping these as a dict because each studyArea/event is unique
@@ -1866,30 +1867,21 @@ class Session(agSession):
         #=======================================================================
         assert dkey=='rsamps', dkey
         log = self.logger.getChild('build_rsamps')
-        if proj_lib is None: proj_lib=self.proj_lib
+ 
         gcn=self.gcn
         #=======================================================================
         # child data
         #=======================================================================
         
-        finv_grid_lib, dxind = self.retrieve('finv_agg')
-        #=======================================================================
-        # fgm_ofp_d, fgdir_dxind = self.get_finvg()
-        # 
-        # log.debug('on %i'%len(fgm_ofp_d))
-        #=======================================================================
-        
+        finv_aggS_lib = self.retrieve('finv_sg_agg')
+
         #=======================================================================
         # update the finv
         #=======================================================================
-        d = dict()
-        for name, pars_d in proj_lib.items():
-            d[name] = copy.deepcopy(pars_d)
-            d[name]['finv_fp'] = fgm_ofp_d[name]
-            d[name]['idfn'] = gcn #these finvs are keyed by gid
         
  
-        res_d = self.sa_get(proj_lib=d, meth='get_rsamps', logger=log, dkey=dkey, write=False)
+        res_d = self.sa_get(meth='get_rsamps_lib', logger=log, dkey=dkey, write=False, 
+                            finv_lib=finv_aggS_lib, idfn=gcn)
         
         #=======================================================================
         # shape into dxind
@@ -2290,6 +2282,41 @@ class StudyArea(Session, Qproj): #spatial work on study areas
  
             log.info('    joined w/ %s'%meta_d[grid_size])
             
+        #=======================================================================
+        # add trues
+        #=======================================================================
+ 
+        grid_size = 0
+        if not 'Polygon' in QgsWkbTypes().displayString(finv_vlay.wkbType()):
+            log.warning('mixed types in finv_lib')
+            
+            """consider using a common function for this and the above"""
+            
+            
+        #rename the id field
+        tgvlay1 = self.renameField(finv_vlay, idfn, gcn, logger=log)
+        self.mstore.addMapLayer(tgvlay1)
+        
+        #remove other fields
+        fnl = set([f.name() for f in tgvlay1.fields()]).difference([gcn])
+        tgvlay2 = self.deletecolumn(tgvlay1, list(fnl),  logger=log)
+        self.mstore.addMapLayer(tgvlay2)
+        
+        
+        #add the grid_size
+        tgvlay3 = self.fieldcalculator(tgvlay2, grid_size, fieldName='grid_size', 
+                                       fieldType='Integer', logger=log)
+        
+        
+        tgvlay3.setName('finv_gPoly_%i_%s'%(grid_size, self.longname.replace('_', '')))
+        
+        finv_grid_d[grid_size]=tgvlay3
+        
+        meta_d[grid_size] = {
+            'total_cells':tgvlay3.dataProvider().featureCount(), 
+            'active_cells':tgvlay3.dataProvider().featureCount(),
+            'max_member_cnt':1
+            }
  
         #=======================================================================
         # wrap
@@ -2305,18 +2332,55 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         return finv_gkey_df, finv_grid_d
         
  
-
+    def get_rsamps_lib(self, #get samples for a set of layers
+                       finv_lib=None,
+ 
+                       **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('get_rsamps_lib')
+ 
         
-    def get_rsamps(self,
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        #pull your layers from the session
+        finv_vlay_d = finv_lib[self.name]
+        
+        
+        #=======================================================================
+        # loop and sample each
+        #=======================================================================
+        log.info('sampling on %i finvs'%len(finv_vlay_d))
+        
+        res_d = dict()
+        for aggLevel, finv_vlay in finv_vlay_d.items():
+            res_d[aggLevel] = self.get_rsamps(finv_vlay=finv_vlay, logger=self.logger.getChild('aL%i'%aggLevel),
+                            **kwargs)
+            
+        #=======================================================================
+        # combine
+        #=======================================================================
+        dxind = pd.concat(res_d)
+        dxind.index.set_names('grid_size', level=0, inplace=True)
+        
+        self.session.check_mindex(dxind.index)
+        
+        return dxind
+                       
+        
+    def get_rsamps(self, #raster samples on a single finv
                    wd_dir = None,
                    finv_vlay=None,
                    idfn=None,
-
+                   logger=None,
                    ):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('get_rsamps')
+        if logger is None: logger=self.logger
+        log = logger.getChild('get_rsamps')
         if wd_dir is None: wd_dir = self.wd_dir
         if finv_vlay is None: finv_vlay=self.finv_vlay
         if idfn is None: idfn=self.idfn
@@ -2342,12 +2406,15 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             df = vlay_get_fdf(vlay_samps, logger=log).drop('fid', axis=1).rename(columns={'samp_1':rname})
             
             #force type
+            assert idfn in df.columns, 'missing key \'%s\' on %s'%(idfn, finv_vlay.name())
             df.loc[:, idfn] = df[idfn].astype(np.int64)
             
             #promote columns to multindex
-            df.index = pd.MultiIndex.from_frame(df.loc[:, [idfn, 'grid_size']])
+            #df.index = pd.MultiIndex.from_frame(df.loc[:, [idfn, 'grid_size']])
  
-            res_d[rname] = df.drop([idfn, 'grid_size'], axis=1)
+            #res_d[rname] = df.drop([idfn, 'grid_size'], axis=1)
+            
+            res_d[rname] = df.set_index(idfn).drop('grid_size', axis=1)
             
             """
             view(finv_vlay)
@@ -2357,12 +2424,15 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         # wrap
         #=======================================================================
-        dxind = pd.concat(res_d, axis=1, keys=None).droplevel(0, axis=1).swaplevel(axis=0)
+ 
+        dxind = pd.concat(res_d.values(), axis=0)
         
-        try:
-            self.session.check_mindex(dxind.index)
-        except Exception as e:
-            raise Error('%s failed index check \n    %s'%(self.name, e))
+        #=======================================================================
+        # try:
+        #     self.session.check_mindex(dxind.index)
+        # except Exception as e:
+        #     raise Error('%s failed index check \n    %s'%(self.name, e))
+        #=======================================================================
             
         
         return dxind
