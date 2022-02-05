@@ -14,7 +14,8 @@ idx = pd.IndexSlice
 
 
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
-    vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo
+    vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
+    QgsWkbTypes
 
  
 from hp.basic import set_info
@@ -1661,6 +1662,10 @@ class Session(agSession):
         
         return dxser
     
+    
+ 
+        
+    
     #===========================================================================
     # HELPERS--------
     #===========================================================================
@@ -2132,7 +2137,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         if idfn is None: idfn=self.idfn
         
         assert os.path.exists(wd_dir)
-        
+        assert 'Point' in QgsWkbTypes().displayString(finv_vlay.wkbType())
         #=======================================================================
         # retrieve
         #=======================================================================
@@ -2144,6 +2149,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         for i, fn in enumerate(fns):
             rname = fn.replace('.tif', '')
             log.debug('%i %s'%(i, fn))
+            
             vlay_samps = self.rastersampling(finv_vlay, os.path.join(wd_dir, fn), logger=log, pfx='samp_')
             self.mstore.addMapLayer(vlay_samps)
             
