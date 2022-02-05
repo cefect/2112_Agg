@@ -121,8 +121,9 @@ class Session(agSession):
                     plot_coln = 'event',
  
                     
-                    
+                    plot_zeros=False,
                     xlims = (0,2),
+                    ylims=(0,2.5),
                     
                     ):
         #=======================================================================
@@ -130,20 +131,32 @@ class Session(agSession):
         #=======================================================================
         log = self.logger.getChild('plot_depths')
         
-        #retrieve child data
-        #fgm_ofp_d, fgdir_dxind = self.get_finvg()
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+ 
         serx = self.retrieve('rsamps')
-        mdex = serx.index
         
-        log.info('on %i'%len(serx))
-        plt.close('all')
+        
+        
+        assert serx.notna().all().all(), 'drys should be zeros'
+
+        """
+        view(serx)
+        """
         #=======================================================================
         # loop on studyAreas
         #=======================================================================
+        
+        log.info('on %i'%len(serx))
+        
+        
+        
         res_d = dict()
         for i, (sName, gsx1r) in enumerate(serx.groupby(level=plot_fign)):
+            plt.close('all')
             gsx1 = gsx1r.droplevel(plot_fign)
-     
+            mdex = gsx1.index
             
             fig, ax_d = self.get_matrix_fig(
                                     gsx1.index.unique(plot_rown).tolist(), #row keys
@@ -159,50 +172,62 @@ class Session(agSession):
             
             
             for (row_key, col_key), gsx2r in gsx1r.groupby(level=[plot_rown, plot_coln]):
-                #prep
+                #===============================================================
+                # #prep data
+                #===============================================================
                 gsx2 = gsx2r.droplevel([plot_rown, plot_coln, plot_fign])
-                ax = ax_d[row_key][col_key]
                 
-                #plot
-                ar = gsx2.dropna().values
+                if plot_zeros:
+                    ar = gsx2.values
+                else:
+                    bx = gsx2>0.0
+                    ar = gsx2[bx].values
+                
+                if not len(ar)>0:
+                    log.warning('no values for %s.%s.%s'%(sName, row_key, col_key))
+                    continue
+                #===============================================================
+                # #plot
+                #===============================================================
+                ax = ax_d[row_key][col_key]
                 ax.hist(ar, color='blue', alpha=0.3, label=row_key, density=True, bins=30, range=xlims)
                 
                 #label
                 meta_d = {
                     plot_rown:row_key,
-                    'wet':len(ar), 'dry':gsx2.isna().sum(), 'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
+                    'wet':len(ar), 'dry':(gsx2<=0.0).sum(), 'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
                 
                 txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
                 ax.text(0.5, 0.9, txt, transform=ax.transAxes, va='top', fontsize=8, color='blue')
                 
-                """
-                plt.show()
-                """
-                
-                #style                    
-                ax.set_xlim(xlims)
-                
+
+                #===============================================================
+                # styling
+                #===============================================================                    
                 #first columns
                 if col_key == mdex.unique(plot_coln)[0]:
-                    ax.set_ylabel('%s=%s'%(plot_rown, row_key))
+                    """not setting for some reason"""
+                    ax.set_ylabel('density')
                 
  
                 #first row
                 if row_key == mdex.unique(plot_rown)[0]:
+                    ax.set_xlim(xlims)
+                    ax.set_ylim(ylims)
                     pass
                     #ax.set_title('event \'%s\''%(rlayName))
                     
                 #last row
                 if row_key == mdex.unique(plot_rown)[-1]:
                     ax.set_xlabel('depth (m)')
-                        
+                    
+                    
+            fig.suptitle('depths for studyArea \'%s\' (%s)'%(sName, self.tag))
             #===================================================================
             # wrap figure
             #===================================================================
-            fig.suptitle('depths for studyArea \'%s\''%sName)
-            
             res_d[sName]= self.output_fig(fig, fname='depths_%s_%s'%(sName, self.longname))
-            
+
         #=======================================================================
         # warp
         #=======================================================================
@@ -285,7 +310,7 @@ class Session(agSession):
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
-        fig.suptitle('%s summed'%lossType)
+        fig.suptitle('%s summed (%s)'%(lossType.upper(), self.tag))
         
         #get colors
         cvals = dxser.index.unique(plot_colr)
@@ -457,7 +482,7 @@ class Session(agSession):
                                         set_ax_title=True,
                                         )
             
-            fig.suptitle('%s of %s for %s \'%s\''%(ycoln, lossType, plot_fign, fig_key))
+            fig.suptitle('%s of %s for %s \'%s\' (%s)'%(ycoln, lossType.upper(), plot_fign, fig_key, self.tag))
         
 
         
@@ -559,6 +584,7 @@ class Session(agSession):
                     out_dir = None,
                     
                     plot_vf=False, #plot the vf
+                    plot_zeros=False,
                     
                     #axconfig
                     ylims = (-2,2),
@@ -654,10 +680,10 @@ class Session(agSession):
                 """
             
                 #===================================================================
-                # loop on axis row/column (and colors)
+                # loop on axis row/column (and colors)----------
                 #===================================================================
                 for (row_key, col_key, ckey), gser1r in gser0r.groupby(level=[plot_rown, plot_coln, plot_colr]):
-                    
+                    keys_d = dict(zip([plot_rown, plot_coln, plot_fign], (row_key, col_key, fig_key)))
                     #skip trues
                     #===========================================================
                     # if ckey == 0:
@@ -675,12 +701,21 @@ class Session(agSession):
                     #cross section of depth values
                     xser = xval_dxser.xs((fig_key, row_key, ckey), level=[plot_fign, plot_rown, plot_colr])
                     
+                    #check
+                    miss_l = set(xser.index).symmetric_difference(gser1r.index.unique(xser.index.name))
+                    assert len(miss_l)==0, 'index mismatch w/ depths on %s'%(keys_d)
+                    
                     #join to xvalues
-                    """nulls are dry"""
+                    """zeros are dry"""
                     dxind = gser1r.to_frame().join(xser, on=xser.index.name)
                     
+                    dry_bx = dxind['depth']<=0.0
                     
-                    
+                    if not plot_zeros:
+                        xar, yar = dxind.loc[~dry_bx, xcoln], dxind.loc[~dry_bx, ycoln]
+                    else:
+                        xar, yar = dxind[xcoln], dxind[ycoln]
+
                     #===============================================================
                     # zero line
                     #===============================================================
@@ -699,17 +734,22 @@ class Session(agSession):
                     #===============================================================
                     # #add scatter plot
                     #===============================================================
-                    ax.scatter(x=dxind[xcoln].values, y=dxind[ycoln].values, 
-                               color=newColor_d[ckey], s=10, marker='.', alpha=0.8,
+                    ax.plot(xar, yar,
+                               color=newColor_d[ckey], markersize=4, marker='x', alpha=0.8, 
+                               linestyle='none',
                                    label='%s=%s'%(plot_colr, ckey))
-                    
+ 
                     #===========================================================
                     # add text
                     #===========================================================
 
                     if add_text:
-                        meta_d = {'cnt':len(dxind), 'dry_cnt':dxind['depth'].isna().sum(),
-                              'mean':gser1r.mean(), 'min':gser1r.min(), 'max':gser1r.max(),
+                        meta_d = {'ycnt':len(yar), 
+                                  'dry_cnt':dry_bx.sum(),
+                                  'wet_cnt':np.invert(dry_bx).sum(),
+                                  'y0_cnt':(yar==0.0).sum(),
+                                  'mean':yar.mean(), 'min':yar.min(), 'max':yar.max(),
+                              #'plot_zeros':plot_zeros,
                               }
                         
                         if ycoln == 'delta':
@@ -764,7 +804,7 @@ class Session(agSession):
                 log.debug('finsihed %s'%fig_key)
                 self.output_fig(fig, out_dir=od, 
                                 fname='scatter_%s_%s_%s_%s'%(lossType.upper(),ycoln, fig_key, self.longname),
-                                fmt='png', logger=log)
+                                fmt='svg', logger=log)
             """
             fig.show()
             """
@@ -803,7 +843,7 @@ class Session(agSession):
         if out_dir is None:
             out_dir = os.path.join(self.out_dir, 'errs')
             
-        
+        gcn = self.gcn
         #=======================================================================
         # #retrieve child data
         #=======================================================================
@@ -826,7 +866,7 @@ class Session(agSession):
         tl_dxind = self.retrieve('tloss')
         
         #geometry
-        fgm_vlay_d, fgdir_dxind = self.get_finvg(load_vlays=True)
+        finv_agg_lib = self.retrieve('finv_agg')
         
         #=======================================================================
         # prep data
@@ -852,26 +892,31 @@ class Session(agSession):
             # retrieve spatial data
             #===================================================================
             #get vlay
-            fgm_vlay = fgm_vlay_d[keys_d['studyArea']]
+            finv_vlay = finv_agg_lib[keys_d['studyArea']][keys_d['grid_size']]
+             
             
-            #get key dictionary off layer
-            fgm_df = vlay_get_fdf(fgm_vlay, logger=log)
+#===============================================================================
+#             #get key dictionary off layer
+#             fgm_df = vlay_get_fdf(fgm_vlay, logger=log)
+#             
+#             fgm_ser1 = fgm_df.loc[fgm_df['grid_size']==keys_d['grid_size'], ['fid', 'gid']].set_index('fid').iloc[:,0]
+#             
+#             #check key match
+#             miss_l = set(gdx.index.unique('gid')).difference(fgm_ser1.values)
+#             assert len(miss_l)==0, 'missing %i entries found in dxcol but not in fgm_vlay: \n    %s'%(len(miss_l), miss_l)
+#             
+#             #get fid match
+#             gf_all_d = {v:k for k,v in fgm_ser1.to_dict().items()} #all the keys
+#             gf_d = {gid:gf_all_d[gid] for gid in gdx.index.unique('gid')} #just those in the index
+#             
+# 
+#             #get geometries
+#             request = QgsFeatureRequest().setFilterFids(list(gf_d.values()))
+#             geo_d = vlay_get_geo(fgm_vlay, request=request)
+#===============================================================================
             
-            fgm_ser1 = fgm_df.loc[fgm_df['grid_size']==keys_d['grid_size'], ['fid', 'gid']].set_index('fid').iloc[:,0]
-            
-            #check key match
-            miss_l = set(gdx.index.unique('gid')).difference(fgm_ser1.values)
-            assert len(miss_l)==0, 'missing %i entries found in dxcol but not in fgm_vlay: \n    %s'%(len(miss_l), miss_l)
-            
-            #get fid match
-            gf_all_d = {v:k for k,v in fgm_ser1.to_dict().items()} #all the keys
-            gf_d = {gid:gf_all_d[gid] for gid in gdx.index.unique('gid')} #just those in the index
-            
-
-            #get geometries
-            request = QgsFeatureRequest().setFilterFids(list(gf_d.values()))
-            geo_d = vlay_get_geo(fgm_vlay, request=request)
-            
+            geo_d = vlay_get_geo(finv_vlay)
+            fid_gid_d = vlay_get_fdata(finv_vlay, fieldn=gcn)
             #===================================================================
             # prepare data
             #===================================================================
@@ -893,7 +938,7 @@ class Session(agSession):
             
  
             #reset index
-            gdf2 = gdf1.join(pd.Series(gf_d, name='fid'), on='gid').set_index('fid')
+            gdf2 = gdf1.join(pd.Series({v:k for k,v in fid_gid_d.items()}, name='fid'), on='gid').set_index('fid')
             
             """
             view(gdf2)
@@ -903,7 +948,7 @@ class Session(agSession):
             #===================================================================
             layname = '_'.join([str(e).replace('_','') for e in keys_d.values()])
             vlay = self.vlay_new_df(gdf2, geo_d=geo_d, layname=layname, logger=log, 
-                                    crs=fgm_vlay.crs(), #session crs does not match studyAreas
+                                    crs=finv_vlay.crs(), #session crs does not match studyAreas
                                     )
             
             #===================================================================
@@ -1076,21 +1121,13 @@ class Session(agSession):
         tl_dx = self.retrieve('tloss')
         
         tlnames_d= {lvlName:i for i, lvlName in enumerate(tl_dx.index.names)}
-        
-        #identify totalLoss columns (and their vid)
-        #tlcoln_d = {c:int(c.replace('tloss','')) for c in tl_dxind.columns if c.endswith('tloss')}
-
-        _, fgdir_dxind = self.get_finvg()
+ 
+        fgdir_dxind = self.retrieve('fgdir_dxind')
 
         #=======================================================================
         # clean data
         #=======================================================================
-        #tl_dxind1 = tl_dxind.loc[:, tlcoln_d.keys()]
-        #tl_dxind1 = tl_dxind1.rename(columns = {c:tlcoln_d[c] for c in tl_dxind1.columns})
-        """
-        view(tl_dxind)
-        view(tl_dxind1)
-        """
+ 
         vid_l = tl_dx.drop('meta', axis=1, level=0).columns.unique(1).to_list()
         #=======================================================================
         # #loop on each grid_size, studyArea, event
@@ -1305,7 +1342,7 @@ class Session(agSession):
         
         rlnames_d= {lvlName:i for i, lvlName in enumerate(rl_dxind.index.names)}
         
-        _, fgdir_dxind = self.get_finvg()
+        fgdir_dxind = self.retrieve('fgdir_dxind')
         
         """
         view(rl_dxind)
@@ -1857,7 +1894,7 @@ class Session(agSession):
  
     def build_rsamps(self, #get raster samples for all finvs
                      dkey=None,
- 
+                     method='points', #method for raster sampling
                      ):
         """
         keeping these as a dict because each studyArea/event is unique
@@ -1876,32 +1913,149 @@ class Session(agSession):
         finv_aggS_lib = self.retrieve('finv_sg_agg')
 
         #=======================================================================
-        # update the finv
+        # generate depths------
         #=======================================================================
+        #=======================================================================
+        # simple point-raster sampling
+        #=======================================================================
+        if method == 'points':
+            res_d = self.sa_get(meth='get_rsamps_lib', logger=log, dkey=dkey, write=False, 
+                                finv_lib=finv_aggS_lib, idfn=gcn)
         
+
+        #=======================================================================
+        # use mean depths from true assets (for error isolation only)
+        #=======================================================================
+        elif method == 'true_mean':
  
-        res_d = self.sa_get(meth='get_rsamps_lib', logger=log, dkey=dkey, write=False, 
-                            finv_lib=finv_aggS_lib, idfn=gcn)
-        
+            #===================================================================
+            # #get the true depths
+            #===================================================================
+            #just the true finvs
+            finvT_lib = dict()
+            for studyArea, lay_d in finv_aggS_lib.items():
+                finvT_lib[studyArea] = {0:lay_d[0]}
+            
+            resT_d = self.sa_get(meth='get_rsamps_lib', logger=log, dkey=dkey, write=False, 
+                            finv_lib=finvT_lib, idfn=gcn)
+            
+            """
+            resT_d.keys()
+            """
+            #===================================================================
+            # get means
+            #===================================================================
+            fgdir_dxind = self.retrieve('fgdir_dxind')
+            res_d = dict()
+            
+            for studyArea, lay_d in finv_aggS_lib.items():
+                
+                res_df = None
+                for grid_size, vlay in lay_d.items():
+                    log.info('true_mean on %s.%s'%(studyArea, grid_size))
+                    
+                    rsampT_df = resT_d[studyArea].copy()
+                    
+                    #===========================================================
+                    # trues
+                    #===========================================================
+                    if grid_size == 0:
+                        rdf = rsampT_df
+                        
+                    #===========================================================
+                    # gridded
+                    #===========================================================
+                    else:
+                        #=======================================================
+                        # #join gids to trues
+                        #=======================================================
+                        id_gid_ser = fgdir_dxind.loc[idx[studyArea, :], grid_size].droplevel(0).rename(gcn)
+                        
+                        rsampT_df.index.set_names(id_gid_ser.index.name, level=1, inplace=True)
+                        
+                        rsampT_df1 = rsampT_df.join(id_gid_ser) 
+                        
+                        #=======================================================
+                        # calc stat on gridded values
+                        #=======================================================
+                        gsamp1_df = rsampT_df1.groupby(gcn).mean()
+                        
+                        #clean up index
+                        gsamp1_df['grid_size'] = grid_size
+                        rdf = gsamp1_df.set_index('grid_size', append=True).swaplevel()
+                        
+                        #=======================================================
+                        # check
+                        #=======================================================
+                        fid_gid_d = vlay_get_fdata(vlay, fieldn=gcn)
+                        #gid_ser = pd.Series().sort_values().reset_index(drop=True)
+                        miss_l = set(fid_gid_d.values()).difference(gsamp1_df.index)
+                        assert len(miss_l)==0
+                        
+                    #===========================================================
+                    # join
+                    #===========================================================
+                    if res_df is None:
+                        res_df = rdf
+                    else:
+                        res_df = res_df.append(rdf)
+                #===============================================================
+                # wrap study area
+                #===============================================================
+                res_d[studyArea] = res_df
+            
+            #===================================================================
+            # wrap true_mean
+            #===================================================================
+            log.info('got true_means on %i study areas'%len(res_d))
+ 
+ 
         #=======================================================================
         # shape into dxind
         #=======================================================================
-        dxind1 = pd.concat(res_d, names=['studyArea', 'grid_size', gcn])
+        dxind1 = pd.concat(res_d)
+        dxind1.index.set_names('studyArea', level=0, inplace=True)
+        
+        """this will have some nulls as weve mashed all the events together
+        assert dxind1.notna().all().all(), 'nulls should be replaced at lowset level'"""
         
  
-        
-        dxser = dxind1.stack().rename('depth') #promote depths to index
+        dxser = dxind1.stack(
+            dropna=True, #zero values need to be set per-study area
+            ).rename('depth') #promote depths to index
+            
         dxser.index.set_names('event', level=3, inplace=True) 
- 
         
+        #=======================================================================
+        # replace nulls with zeros
+        #=======================================================================
+        #$dxser = dxser.fillna(0.0)
+        
+        #=======================================================================
+        # clean event names
+        #=======================================================================
+        """TODO: make a metatable for all the events then populate the names with something pretty and consistent"""
+        idf = dxser.index.to_frame().reset_index(drop=True)
+        idf['event'] = idf['event'].str.slice(start=5, stop=25).str.replace('_', '')
+        
+        dxser.index = pd.MultiIndex.from_frame(idf)
+        #=======================================================================
+        # #re-org
+        #=======================================================================
         dxser = dxser.swaplevel().swaplevel(i=1,j=0).sort_index(axis=0, level=0, sort_remaining=True)
+        
+        dxser = dxser.sort_index(level=0, axis=0, sort_remaining=True)
+        
+        #=======================================================================
+        # checks
+        #=======================================================================
+        bx = dxser<0.0
+        if bx.any().any():
+            raise Error('got some negative depths')
         
         self.check_mindex(dxser.index)
  
-        
-        
-        log.debug('on %i'%len(res_d))
-        
+ 
         #=======================================================================
         # write
         #=======================================================================
@@ -2364,8 +2518,21 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         dxind = pd.concat(res_d)
         dxind.index.set_names('grid_size', level=0, inplace=True)
+ 
+        assert dxind.notna().all().all(), 'zeros replaced at lowset level'
         
-        self.session.check_mindex(dxind.index)
+        dry_bx = dxind<=0
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished on %i vlays and %i rasters w/ %i/%i dry'%(
+            len(finv_vlay_d), len(dxind.columns), dry_bx.sum().sum(), dxind.size))
+        
+        try:
+            self.session.check_mindex(dxind.index)
+        except Exception as e:
+            raise Error('%s failed w/ %s'%(self.name, e))
         
         return dxind
                        
@@ -2394,7 +2561,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         
         log.info('on %i rlays \n    %s'%(len(fns), fns))
         
-        res_d = dict()
+        res_df = None
         for i, fn in enumerate(fns):
             rname = fn.replace('.tif', '')
             log.debug('%i %s'%(i, fn))
@@ -2403,30 +2570,47 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             self.mstore.addMapLayer(vlay_samps)
             
             #retrive and clean
-            df = vlay_get_fdf(vlay_samps, logger=log).drop('fid', axis=1).rename(columns={'samp_1':rname})
+            df = vlay_get_fdf(vlay_samps, logger=log).drop('fid', axis=1, errors='ignore').rename(columns={'samp_1':rname})
+            
+            
             
             #force type
             assert idfn in df.columns, 'missing key \'%s\' on %s'%(idfn, finv_vlay.name())
             df.loc[:, idfn] = df[idfn].astype(np.int64)
+            
+            assert df[idfn].is_unique, finv_vlay.name()
             
             #promote columns to multindex
             #df.index = pd.MultiIndex.from_frame(df.loc[:, [idfn, 'grid_size']])
  
             #res_d[rname] = df.drop([idfn, 'grid_size'], axis=1)
             
-            res_d[rname] = df.set_index(idfn).drop('grid_size', axis=1)
+            rdf = df.set_index(idfn).drop('grid_size', axis=1)
+            if res_df is None:
+                res_df = rdf
+            else:
+                res_df = res_df.join(rdf, how='outer')
             
             """
+            view(df)
             view(finv_vlay)
-            view(vlay_samps)
+            view(dxind)
             """
-            
+        
+        #=======================================================================
+        # fill zeros
+        #=======================================================================
+        res_df1 = res_df.fillna(0.0)
         #=======================================================================
         # wrap
         #=======================================================================
  
-        dxind = pd.concat(res_d.values(), axis=0)
+        #res_df = pd.concat(res_d.values(), axis=0).sort_index()
+        assert res_df.index.is_unique
         
+        
+        log.info('finished on %s and %i rasters w/ %i/%i dry'%(
+            finv_vlay.name(), len(fns), res_df.isna().sum().sum(), res_df.size))
         #=======================================================================
         # try:
         #     self.session.check_mindex(dxind.index)
@@ -2435,7 +2619,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
             
         
-        return dxind
+        return res_df1.sort_index()
     
  
         
