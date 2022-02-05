@@ -24,6 +24,9 @@ from agg.scripts import Session as agSession
 
 idx = pd.IndexSlice
 
+import matplotlib.pyplot as plt
+import matplotlib
+
 class Session(agSession):
     
     
@@ -39,18 +42,14 @@ class Session(agSession):
     color_lib=dict() #container of loaded color librarires
     
     def __init__(self, 
-
-                  dfp_d=dict(), #container for compiled (intermediate) results {dkey:filepath}
-                  bk_lib=dict(), #kwargs for builder calls
+                 name='pdist',
                  **kwargs):
         
-        super().__init__(
-                         
-                         **kwargs)
+
         
         
         
-        self.data_hndls = { #function mappings for loading data types
+        data_retrieve_hndls = { #function mappings for loading data types
                         #compiled takes 1 kwarg (fp)
                         #build takes multi kwargs
 
@@ -94,8 +93,10 @@ class Session(agSession):
  
             }
         
-        self.bk_lib=bk_lib
-        self.dfp_d=dfp_d
+        super().__init__(name=name,
+                         data_retrieve_hndls=data_retrieve_hndls,
+                         **kwargs)
+ 
         
         
 
@@ -103,61 +104,12 @@ class Session(agSession):
     # COMPMILED-------------
     #===========================================================================
 
-    def get_data(self, #flexible intelligement data retrieval
-                 dkey,
-                 logger=None,
-                 **kwargs
-                 ):
-        
-        if logger is None: logger=self.logger
-        log = logger.getChild('get_data')
-        
-        #get handles
-        assert dkey in self.data_hndls, dkey
-        
-        hndl_d = self.data_hndls[dkey]
-        
-        #=======================================================================
-        # alredy loaded
-        #=======================================================================
-        if dkey in self.data_d:
-            return self.data_d[dkey]
-        
-        log.info('loading %s'%dkey)
-        #=======================================================================
-        # load by type
-        #=======================================================================
-        if dkey in self.dfp_d and 'compiled' in hndl_d:
-            data = hndl_d['compiled'](fp=self.dfp_d[dkey])
- 
-        else:
-            assert 'build' in hndl_d, 'no build handles for %s'%dkey
-            if dkey in self.bk_lib:
-                bkwargs=self.bk_lib[dkey].copy()
-                bkwargs.update(kwargs) #function kwargs take precident
-                kwargs = bkwargs
-                """
-                clearer to the user
-                also gives us more control for calls within calls
-                """
-                
-            
-            
-            data = hndl_d['build'](dkey=dkey, **kwargs)
-            
-        #=======================================================================
-        # store
-        #=======================================================================
-        self.data_d[dkey] = data
-            
-        log.info('finished on \'%s\' w/ %i'%(dkey, len(data)))
-        
-        return data
-        
 
     
     def load_aggRes(self, #loading dxcol from pickels for rl_xmDisc_dxcol and rl_dxcol
-                    fp):
+                    fp,
+                    dkey=None,
+                    ):
         
         assert os.path.exists(fp), fp
         assert fp.endswith('.pickle')
@@ -198,7 +150,7 @@ class Session(agSession):
         # check selection
         #=======================================================================
         #need to make sure the current selection matches whats loaded
-        vid_df = self.get_data('vid_df')
+        vid_df = self.retrieve('vid_df')
         
         
         #check lvl0:vid
@@ -257,7 +209,7 @@ class Session(agSession):
         # #load dfuncs
         #=======================================================================
         if vf_d is None:
-            vf_d = self.get_data('vf_d')
+            vf_d = self.retrieve('vf_d')
             
         assert len(vf_d)>0
         #=======================================================================
@@ -388,13 +340,13 @@ class Session(agSession):
         # retrieve
         #=======================================================================
         if dxcol is None:
-            dxcol = self.get_data('rl_xmDisc_dxcol')
+            dxcol = self.retrieve('rl_xmDisc_dxcol')
         
 
         
         #get vid_df for slicing
         if vid_df is None:
-            vid_df = self.get_data('vid_df')
+            vid_df = self.retrieve('vid_df')
             
             
         
@@ -437,7 +389,7 @@ class Session(agSession):
         # get vfuncs-----
         #=======================================================================
         if vf_d is None: 
-            vf_d =  self.get_data('vf_d', vid_df = vid_df)
+            vf_d =  self.retrieve('vf_d', vid_df = vid_df)
             
         #check
         l = set(vf_d.keys()).symmetric_difference(vid_l)
@@ -487,7 +439,7 @@ class Session(agSession):
         # retrieve
         #=======================================================================
         if dxcol is None:
-            dxcol = self.get_data('rl_dxcol')
+            dxcol = self.retrieve('rl_dxcol')
             
         mdex = dxcol.columns
         names_d = {lvlName:i for i, lvlName in enumerate(mdex.names)} 
@@ -559,7 +511,7 @@ class Session(agSession):
         # retrieve
         #=======================================================================
         if dxcol is None:
-            dxcol = self.get_data('model_metrics')
+            dxcol = self.retrieve('model_metrics')
             
             
         #=======================================================================
@@ -591,7 +543,7 @@ class Session(agSession):
         names_d = {lvlName:i for i, lvlName in enumerate(dx2.columns.names)}
         
         #retrieve attribute info
-        vid_df = self.get_data('vid_df')
+        vid_df = self.retrieve('vid_df')
         
         l = set(grp_colns).difference(vid_df.columns)
         assert len(l)==0, l
@@ -639,7 +591,7 @@ class Session(agSession):
                     fig.suptitle(gval)
                     
                     
-                    self.output_fig(fig, out_dir=out_dir, fname='%s_%s_%s'%(self.resname, coln, gval),
+                    self.output_fig(fig, out_dir=out_dir, fname='%s_%s_%s'%(self.longname, coln, gval),
                                     overwrite=True,
                                     transparent=False)
                 
@@ -682,9 +634,9 @@ class Session(agSession):
         # retrieve
         #=======================================================================
         if dxcol is None:
-            dxcol = self.get_data('model_metrics')
+            dxcol = self.retrieve('model_metrics')
             
-        vid_df = self.get_data('vid_df')
+        vid_df = self.retrieve('vid_df')
         
         """
         view(vid_df)
@@ -738,7 +690,7 @@ class Session(agSession):
             
             
             self.output_fig(fig, out_dir=os.path.join(self.out_dir, 'plot_eA_bars'), 
-                            fname='%s_%s'%(self.resname,gv_str))
+                            fname='%s_%s'%(self.longname,gv_str))
             
         #=======================================================================
         # wrap
@@ -751,10 +703,6 @@ class Session(agSession):
                     xvals_dxcol=None, #random xvals used to generate dxcol results
                     vf_d = None,
  
-                        
-                        #vid selection
- 
-                        
                         #run control
  
                         **kwargs
@@ -775,13 +723,13 @@ class Session(agSession):
         # retrieve
         #=======================================================================
         if dxcol is None:
-            dxcol = self.get_data('rl_xmDisc_dxcol')
+            dxcol = self.retrieve('rl_xmDisc_dxcol')
             
         if xvals_dxcol is None:
-            xvals_dxcol = self.get_data('rl_xmDisc_xvals')
+            xvals_dxcol = self.retrieve('rl_xmDisc_xvals')
             
         if vf_d is None:
-            vf_d = self.get_data('vf_d')
+            vf_d = self.retrieve('vf_d')
         
 
         log.info('on %s'%str(dxcol.shape))
@@ -817,7 +765,7 @@ class Session(agSession):
             #write the figure
             ofp_d[i] = self.output_fig(fig,
                     out_dir=os.path.join(od0,str(vfunc.model_id), str(vfunc.vid)), #matching calc_rlMeans
-                    fname='_'.join([self.resname, 'v%i'%vid, 'm%.1f'%xmean, 'xmDisc']),
+                    fname='_'.join([self.longname, 'v%i'%vid, 'm%.1f'%xmean, 'xmDisc']),
                     fmt='svg', dpi=400,transparent=False
                     )
         
@@ -830,11 +778,6 @@ class Session(agSession):
         return ofp_d
         
                             
-            
-            
-
-        
-        
  
     def plot_all_vfuncs(self,
                  #data selection
@@ -866,7 +809,7 @@ class Session(agSession):
         vidnm=self.vidnm
         
         if vf_d is None: 
-            vf_d=self.get_data('vf_d', vid_df=vid_df)
+            vf_d=self.retrieve('vf_d', vid_df=vid_df)
         
         log.info('on %i'%len(vf_d))
         
@@ -934,7 +877,7 @@ class Session(agSession):
         #=======================================================================
         return fig
     
-    def run_err_stats(self,
+    def run_err_stats(self, #calc some stats and write to xls
                       dxcol=None,
                       grp_colns =  ['model_id', 'sector_attribute'],
                       ):
@@ -950,7 +893,7 @@ class Session(agSession):
         # retrieve
         #=======================================================================
         if dxcol is None:
-            dxcol = self.get_data('model_metrics')
+            dxcol = self.retrieve('model_metrics')
             
         #retrieve attribute info
         
@@ -1002,7 +945,7 @@ class Session(agSession):
         #=======================================================================
         # all models
         #=======================================================================
-        vid_df = self.get_data('vid_df')
+        vid_df = self.retrieve('vid_df')
         gcoln = 'model_id'
         dx3 = dx2.copy()
         #add model id for easy lookup
@@ -1018,10 +961,7 @@ class Session(agSession):
         # get grouped stats-----
         #=======================================================================
         
-
-        
-        
-
+ 
         
         
         for gcoln in  grp_colns:
@@ -1045,7 +985,7 @@ class Session(agSession):
         #=======================================================================
         # write
         #=======================================================================
-        out_fp=os.path.join(self.out_dir, '%s_err_stats.xls'%self.resname)
+        out_fp=os.path.join(self.out_dir, '%s_err_stats.xls'%self.longname)
         with pd.ExcelWriter(out_fp) as writer:
             for tabnm, df in res_lib.items():
                 df.to_excel(writer, sheet_name=tabnm, index=True, header=True)
@@ -1597,6 +1537,7 @@ class Session(agSession):
         vidnm = self.vidnm
         xcn, ycn = self.xcn, self.ycn
         if colorMap is None: colorMap=self.colorMap
+        plt = self.plt
         
         #output dir
         if out_dir is None: 
@@ -1879,7 +1820,7 @@ class Session(agSession):
                     if not ylims_d[rowName] is None:
                         ax.set_ylim( ylims_d[rowName])
                         
-            self.output_fig(fig, fname='%s_%s_rlMeans'%(self.resname, vfunc.vid), out_dir=out_dir,
+            self.output_fig(fig, fname='%s_%s_rlMeans'%(self.longname, vfunc.vid), out_dir=out_dir,
                             transparent=False, overwrite=True)
                 
  
@@ -2217,7 +2158,7 @@ class Session(agSession):
         #                        left=self.master_xlim[0], right=self.master_xlim[1])
         #         
         #         #print(xmean)
-        #         self.output_fig(fig, fname='%s_xmean%.2f'%(self.resname, xmean),
+        #         self.output_fig(fig, fname='%s_xmean%.2f'%(self.longname, xmean),
         #                         fmt='png',
         #                         out_dir=out_dir)
         #=======================================================================
@@ -2342,7 +2283,7 @@ class Session(agSession):
         # #picklle
         #=======================================================================
         if out_fp is None:
-            out_fp = os.path.join(self.out_dir, '%s_%s.pickle' % (self.resname, dkey))
+            out_fp = os.path.join(self.out_dir, '%s_%s.pickle' % (self.longname, dkey))
             
         else:
             write_csv=False
@@ -2359,7 +2300,7 @@ class Session(agSession):
         # #csv
         #=======================================================================
         if write_csv:
-            out_fp2 = os.path.join(self.out_dir, '%s_%s.csv' % (self.resname, dkey))
+            out_fp2 = os.path.join(self.out_dir, '%s_%s.csv' % (self.longname, dkey))
             dxcol.to_csv(out_fp2, 
                 index=True) #keep the names
             

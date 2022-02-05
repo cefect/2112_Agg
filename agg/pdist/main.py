@@ -136,7 +136,7 @@ def run_plotVfunc(
  
         
  
-        vid_df = ses.get_data('vid_df')
+        vid_df = ses.retriee('vid_df')
  
  
         """
@@ -169,7 +169,7 @@ def run_plotVfunc(
 
 
 def run_aggErr1(#agg error per function
-        tag='r3',
+
         
         #selection
 
@@ -215,32 +215,32 @@ def run_aggErr1(#agg error per function
  
     
  
-    with Session(tag=tag,  overwrite=overwrite,  name='aggErr1',
+    with Session(overwrite=overwrite,  
                  bk_lib = {
                      'vid_df':dict(
                             selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
                                     ),
                      'rl_xmDisc_dxcol':rl_xmDisc_dxcol_d,
                      'rl_dxcol':rl_dxcol_d,
-                            }
+                            },
                  # figsize=figsize,
-                 ) as ses:
-        
-        vid_df=ses.get_data('vid_df')
+                 **kwargs) as ses:
+        ses.plt = plt
+ 
         
         #discretization calcs
-        #ses.plot_xmDisc()
+        ses.plot_xmDisc()
         
-        #combine
-        #ses.build_rl_dxcol()
+ 
         
         #combined box plots
-        #ses.plot_eA_box(grp_colns = ['model_id', 'sector_attribute'])
+        ses.plot_eA_box(grp_colns = ['model_id', 'sector_attribute'])
         
         #per-model bar plots
         ses.plot_eA_bars()
         
-        #ses.run_err_stats()
+        #calc some stats and write to xls
+        ses.run_err_stats()
         
         
  
@@ -324,6 +324,7 @@ def dev(
             #=======================================================================
         
             #vid_l=[811,798, 410] ,
+            vid_sample = 3,
             selection_d = { #selection criteria for models. {tabn:{coln:values}}
                           'model_id':[
                               #1, 2, #continous 
@@ -338,13 +339,13 @@ def dev(
                          },
                      
             #run control
-            overwrite=False,
+            overwrite=True,
             rl_xmDisc_dxcol_d = dict(
                 xdomain=(0,2), #min/max of the xdomain
-                xdomain_res = 10, #number of increments for the xdomain
+                xdomain_res = 5, #number of increments for the xdomain
                 
                 aggLevels_l= [2, 
-                             5, 
+                             #5, 
                              100,
                              ],
                 
@@ -358,7 +359,7 @@ def dev(
                  
                  
             compiled_fp_d = {
- 
+
                         },
         
         )
