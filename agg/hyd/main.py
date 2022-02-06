@@ -186,24 +186,28 @@ def run(
         
  
         
-        ses.plot_depths()
+        #ses.plot_depths()
         
-
+        #summary of total loss
+        #ses.write_loss_smry()
+        
         #gives a nice 'total model output' chart
         #shows how sensitive the top-line results are to aggregation
-        ses.plot_totals_bars()
+        ses.plot_tloss_bars()
         
         #layers (for making MAPS)
-        ses.write_errs()
-        #ses.get_confusion_matrix()
-         
-        #shows the spread on total loss values
-        ses.plot_terrs_box(lossType = 'tl', ycoln='delta', ylabel='TL error (gridded - true)')
-        ses.plot_terrs_box(lossType = 'rl', ycoln='delta', ylabel='RL error (gridded - true)')
-         
-        #shows how errors vary with depth
-        ses.plot_errs_scatter(lossType='rl', ycoln='delta', ylims=None, plot_vf=True)
-        ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
+        #=======================================================================
+        # ses.write_errs()
+        # #ses.get_confusion_matrix()
+        #  
+        # #shows the spread on total loss values
+        # ses.plot_terrs_box(lossType = 'tl', ycoln='delta', ylabel='TL error (gridded - true)')
+        # ses.plot_terrs_box(lossType = 'rl', ycoln='delta', ylabel='RL error (gridded - true)')
+        #  
+        # #shows how errors vary with depth
+        # ses.plot_errs_scatter(lossType='rl', ycoln='delta', ylims=None, plot_vf=True)
+        # ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
+        #=======================================================================
 
 
         #
@@ -221,7 +225,14 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
- 
+    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220206\working\finv_gPoly_hyd_dev_0206.pickle',
+    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220206\working\finv_gPoly_id_dxind_hyd_dev_0206.pickle',
+    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220206\working\finv_agg_hyd_dev_0206.pickle',
+    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220206\working\fgdir_dxind_hyd_dev_0206.pickle',
+    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220206\working\finv_sg_agg_hyd_dev_0206.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220206\working\rsamps_hyd_dev_0206.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220206\working\tloss_hyd_dev_0206.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220206\working\errs_hyd_dev_0206.pickle',
             },
         
     proj_lib =     {
@@ -343,8 +354,8 @@ def means_r1():
     
 if __name__ == "__main__": 
     
-    #output=means_r1()
-    output=r1()
+    output=means_r1()
+    #output=r1()
     #output=dev()
  
     

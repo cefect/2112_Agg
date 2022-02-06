@@ -112,7 +112,7 @@ class Session(agSession):
         
     
     #===========================================================================
-    # ANALYSIS-------------
+    # PLOTTERS-------------
     #===========================================================================
     
     def plot_depths(self,
@@ -240,7 +240,7 @@ class Session(agSession):
  
             
             
-    def plot_totals_bars(self, #barchart of total losses
+    def plot_tloss_bars(self, #barchart of total losses
                     dkey = 'tloss', #dxind to plot
                     lossType = 'tl', 
                     #plot_fign = 'studyArea',
@@ -250,7 +250,13 @@ class Session(agSession):
                     plot_bgrp = 'event',
                     
                     #plot style
+                    ylabel=None,
                     colorMap=None,
+                    yticklabelsF = lambda x,p: "{:,.0f}".format(x),
+                    
+                    ylims_d = {'Calgary':8e5, 'LMFRA':4e5, 'SaintJohn':1.5e5,'dP':0.5e5, 'obwb':6e5},
+                    
+                    add_label = True,
                    ):
         """
         matrix figure
@@ -262,22 +268,19 @@ class Session(agSession):
         
         """
         
-        raise Error('add percent error to each bar... fancy format y axis'
+        raise Error('remove grid_size from title')
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('plot_tloss')
         if colorMap is None: colorMap=self.colorMap
-        
+        if ylabel is None: ylabel = '%s sum'%lossType.upper()
         #=======================================================================
         # #retrieve child data
         #=======================================================================
 
         dx_raw = self.retrieve(dkey)
-        
-        
-        
-        
+ 
         log.info('on \'%s\' w/ %i'%(dkey, len(dx_raw)))
         
         #=======================================================================
@@ -312,9 +315,9 @@ class Session(agSession):
                                     constrained_layout=True,
                                     sharey='row', sharex='row', #everything should b euniform
                                     fig_id=0,
-                                    set_ax_title=True,
+                                    set_ax_title=False,
                                     )
-        fig.suptitle('%s summed (%s)'%(lossType.upper(), self.tag))
+        fig.suptitle('%s total on %i studyAreas (%s)'%(lossType.upper(), len(mdex.unique('studyArea')), self.tag))
         
         #get colors
         cvals = dxser.index.unique(plot_colr)
@@ -325,6 +328,7 @@ class Session(agSession):
         # loop and plot
         #===================================================================
         for (row_key, col_key), gser1r in dxser.groupby(level=[plot_rown, plot_coln]):
+            keys_d = dict(zip([plot_rown, plot_coln], (row_key, col_key)))
             
             #data setup
             gser1 = gser1r.droplevel([plot_rown, plot_coln])
@@ -337,7 +341,7 @@ class Session(agSession):
             # loop on colors
             #===================================================================
             for i, (ckey, gser2r) in enumerate(gser1.groupby(level=plot_colr)):
-                
+                keys_d[plot_colr] = ckey
                 #get data
                 gser2 = gser2r.droplevel(plot_colr)
  
@@ -350,8 +354,7 @@ class Session(agSession):
  
                 tick_label = ['e%i'%i for i in range(0,len(tlsum_ser))]
  
- 
-                    
+  
                 #widths
                 bar_cnt = len(mdex.unique(plot_colr))*len(tlsum_ser)
                 width = 0.9/float(bar_cnt)
@@ -359,8 +362,9 @@ class Session(agSession):
                 #===============================================================
                 # #add bars
                 #===============================================================
-                ax.bar(
-                    np.linspace(0,1,num=len(tlsum_ser)) + width*i, #xlocation of bars
+                xlocs = np.linspace(0,1,num=len(tlsum_ser)) + width*i
+                bars = ax.bar(
+                    xlocs, #xlocation of bars
                     tlsum_ser.values, #heights
                     width=width,
                     align='center',
@@ -370,21 +374,65 @@ class Session(agSession):
                     tick_label=tick_label, 
                     )
                 
+                #===============================================================
+                # add labels
+                #===============================================================
+                if add_label:
+                    log.debug(keys_d)
+                    assert plot_colr == 'grid_size'
+                    if ckey==0:continue
+                    
+                    #===========================================================
+                    # #calc errors
+                    #===========================================================
+                    d = {'pred':tlsum_ser}
+                    #get trues
+                    d['true'] = gser1r.loc[idx[0, keys_d['studyArea'],:, :, keys_d['vid']]].groupby('event').sum()
+                    
+                    d['delta'] = (tlsum_ser - d['true']).round(3)
+                    
+                    #collect
+                    tl_df = pd.concat(d, axis=1)
+                    
+                    tl_df['relErr'] = (tl_df['delta']/tl_df['true'])
+                
+                    tl_df['xloc'] = xlocs
+                    #===========================================================
+                    # add as labels
+                    #===========================================================
+                    for event, row in tl_df.iterrows():
+                        ax.text(row['xloc'], row['pred'], '%.1f'%(row['relErr']*100),
+                                ha='center', va='bottom', rotation='vertical',
+                                fontsize=8,color='red')
+                        
+                    log.debug('added error labels \n%s'%tl_df)
+                        
+                    
+                    
             #===============================================================
             # #wrap format subplot
             #===============================================================
-            
-            
+            """
+            fig.show()
+            """
+            ax.set_title(' & '.join(['%s:%s'%(k,v) for k,v in keys_d.items()]))
             #first row
             if row_key==mdex.unique(plot_rown)[0]:
-                
+ 
                 #last col
                 if col_key == mdex.unique(plot_coln)[-1]:
                     ax.legend()
                     
             #first col
             if col_key == mdex.unique(plot_coln)[0]:
-                ax.set_ylabel(dkey)
+                ax.set_ylabel(ylabel)
+                
+                ax.get_yaxis().set_major_formatter(
+                     matplotlib.ticker.FuncFormatter(yticklabelsF)
+                     )
+                
+                if row_key in ylims_d:
+                    ax.set_ylim((0, ylims_d[row_key]))
                     
 
         #=======================================================================
@@ -822,6 +870,177 @@ class Session(agSession):
         #=======================================================================
         log.info('finsihed')
         return
+    
+    #===========================================================================
+    # ANALYSIS WRITERS---------
+    #===========================================================================
+    def write_loss_smry(self, #write statistcs on total loss grouped by grid_size, studyArea, and event
+                    
+                   #data control   
+                    dkey='tloss',
+                    #lossType='tl', #loss types to generate layers for
+                    gkeys = [ 'studyArea', 'event','grid_size'],
+                    
+                    #output config
+                    write=True,
+                    out_dir=None,
+                    ):
+ 
+        """not an intermediate result.. jsut some summary stats
+        any additional analysis should be done on the raw data
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('write_loss_smry')
+        assert dkey=='tloss'
+        if out_dir is None:
+            out_dir = os.path.join(self.out_dir, 'errs')
+            
+ 
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+        #errors
+        dx_raw = self.retrieve(dkey)
+        
+        """
+        view(self.retrieve('errs'))
+        view(dxind1)
+        """
+ 
+        log.info('on %i for \'%s\''%(len(dx_raw), gkeys))
+        #=======================================================================
+        # calc group stats-----
+        #=======================================================================
+        rlib = dict()
+        #=======================================================================
+        # loss values
+        #=======================================================================
+        
+        for lossType in dx_raw.columns.unique('lossType'):
+            if lossType == 'meta':continue
+            dxind1 = dx_raw.loc[:, idx[lossType, :]].droplevel(0, axis=1)
+            #mdex = dxind1.index
+            
+            gbo = dxind1.groupby(level=gkeys)
+            
+            #loop and get each from the grouper
+            d = dict()
+            for statName in ['sum', 'mean', 'min', 'max']:
+                d[statName] = getattr(gbo, statName)()
+                
+                
+            #collect
+            
+            #=======================================================================
+            # errors
+            #=======================================================================
+            """could also do this with the 'errs' data set... but simpler to just re-calc the totals here"""
+            err_df = None
+            for keys, gdf in gbo:
+                keys_d = dict(zip(gkeys, keys))
+                
+                if keys_d['grid_size']==0: continue
+                
+                #get trues
+                """a bit awkward as our key order has changed"""
+                true_gdf = dxind1.loc[idx[0, keys_d['studyArea'], keys_d['event']], :]
+     
+                #calc delta (gridded - true)
+                eser1 = gdf.sum() - true_gdf.sum()
+                
+     
+                #handle results
+                """couldnt figure out a nice way to handle this... just collecting in frame"""
+                ival_ser = gdf.index.droplevel('gid').to_frame().reset_index(drop=True).iloc[0, :]
+                
+                eser2 = pd.concat([eser1, ival_ser])
+                
+                if err_df is None:
+                    err_df = eser2.to_frame().T
+                    
+                else:
+                    err_df = err_df.append(eser2, ignore_index=True)
+            
+            #collect
+            d['delta'] = pd.DataFrame(err_df.loc[:, gdf.columns].values,
+                index=pd.MultiIndex.from_frame(err_df.loc[:, gkeys]),
+                columns = gdf.columns)
+     
+            
+            rlib[lossType] = pd.concat(d, axis=1).swaplevel(axis=1).sort_index(axis=1)
+        
+        
+ 
+        
+        #=======================================================================
+        # meta stats 
+        #=======================================================================
+        meta_d = dict()
+        d=dict()
+        dindex2 = dx_raw.loc[:, idx['meta', :]].droplevel(0, axis=1)
+        
+        d['count'] = dindex2['depth'].groupby(level=gkeys).count()
+        
+        #=======================================================================
+        # depth stats
+        #=======================================================================
+        gbo = dindex2['depth'].groupby(level=gkeys)
+        
+        d['dry_cnt'] = gbo.agg(lambda x: x.eq(0).sum())
+        
+        d['wet_cnt'] = gbo.agg(lambda x: x.ne(0).sum())
+ 
+ 
+        #loop and get each from the grouper
+        for statName in ['mean', 'min', 'max', 'var']:
+            d[statName] = getattr(gbo, statName)()
+            
+            
+        meta_d['depth'] = pd.concat(d, axis=1)
+        #=======================================================================
+        # asset count stats
+        #=======================================================================
+        gbo = dindex2['id_cnt'].groupby(level=gkeys)
+        
+        d=dict()
+        
+        d['mode'] = gbo.agg(lambda x:x.value_counts().index[0])
+        for statName in ['mean', 'min', 'max', 'sum']:
+            d[statName] = getattr(gbo, statName)()
+            
+ 
+        meta_d['assets'] = pd.concat(d, axis=1)
+        
+        #=======================================================================
+        # collect all
+        #=======================================================================
+        rlib['meta'] = pd.concat(meta_d, axis=1)
+        
+        rdx = pd.concat(rlib, axis=1, names=['cat', 'var', 'stat'])
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        log.info('finished w/ %s'%str(rdx.shape))
+        if write:
+            ofp = os.path.join(self.out_dir, 'lossSmry_%i_%s.csv'%(
+                  len(dx_raw), self.longname))
+            
+            if os.path.exists(ofp): assert self.overwrite
+            
+            rdx.to_csv(ofp)
+            
+            log.info('wrote %s to %s'%(str(rdx.shape), ofp))
+        
+        return rdx
+            
+        """
+        view(rdx)
+        mindex.names
+        view(dx_raw)
+        """
     
     def write_errs(self, #write a points layer with the errors
                                        #data control   
@@ -1493,12 +1712,10 @@ class Session(agSession):
         #join these in 
         dx2 = dx1.join(tl_dx)
  
-        
-        """
-        view(dx2)
-        view(rdx)
-        """
-        
+        #set the names
+        """these dont actually apply to the meta group.. but still nicer to have the names"""
+        dx2.columns.set_names(['lossType', 'vid'], inplace=True)
+ 
         #=======================================================================
         # wrap
         #=======================================================================
