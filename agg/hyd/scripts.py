@@ -636,7 +636,7 @@ class Session(agSession):
                     add_text=True,
                     
                     #outputs
-                    fmt='png',
+                    fmt='png', transparent=False,
                     out_dir = None,
                    ):
         
@@ -734,8 +734,7 @@ class Session(agSession):
                     #===========================================================
                     #subplot setup 
                     ax = ax_d[row_key][col_key]
-                    
-     
+ 
                     #===============================================================
                     # prep data
                     #===============================================================
@@ -840,7 +839,7 @@ class Session(agSession):
                 
                 self.output_fig(fig, out_dir=od, 
                                 fname='scatter_%s_%s_%s'%( s2, s, self.longname.replace('_', '')),
-                                fmt=fmt, logger=log)
+                                fmt=fmt, transparent=transparent, logger=log)
             """
             fig.show()
             """
@@ -874,6 +873,7 @@ class Session(agSession):
                     #plot style
                     binWidth=None,
                     colorMap=None,
+                    lims_d = {'raw':{'x':None, 'y':None}} #control limits by column
                     #add_text=True,
                    ):
         
@@ -912,10 +912,32 @@ class Session(agSession):
         #=======================================================================
         # helpers
         #=======================================================================
- 
+        lim_max_d = {'raw':{'x':(0,0), 'y':(0,0)}, 'delta':{'x':(0,0), 'y':(0,0)}}
+        def upd_lims(key, ax):
+            #x axis
+            lefti, righti = ax.get_xlim()
+            leftj, rightj = lim_max_d[key]['x'] 
+            
+            lim_max_d[key]['x']  = (min(lefti, leftj), max(righti, rightj))
+            
+            #yaxis
+            lefti, righti = ax.get_ylim()
+            leftj, rightj = lim_max_d[key]['y'] 
+            
+            lim_max_d[key]['y']  = (min(lefti, leftj), max(righti, rightj))
+        
+        def set_lims(key, ax):
+            if key in lims_d:
+                if 'x' in lims_d[key]:
+                    ax.set_xlim(lims_d[key]['x'])
+                if 'y' in lims_d[key]:
+                    ax.set_ylim(lims_d[key]['y'])
+            
+            upd_lims(key, ax)
         #=======================================================================
-        # loop and plot
+        # loop and plot----------
         #=======================================================================
+        
         log.info('for \'%s\' w/ %i'%(lossType, len(dxind1)))
         for fkeys, gdxind1 in dxind1.groupby(level=folder_varns):
             keys_d = dict(zip(folder_varns, fkeys))
@@ -959,9 +981,8 @@ class Session(agSession):
                 for ax_key, gser in gdxind2[varn].groupby(level=plot_rown):
                     keys_d[plot_rown] = ax_key
                     s1 = ' '.join(['%s:%s'%(k,v) for k,v in keys_d.items()])
-                    
-                    self.ax_hist(
-                        ax_lib[ax_key]['raw'],
+                    ax = ax_lib[ax_key]['raw']
+                    self.ax_hist(ax,
                         gser, 
                         label=varn,
                         stat_keys = ['min', 'max', 'median', 'mean', 'std'],
@@ -970,6 +991,10 @@ class Session(agSession):
                         plot_zeros = plot_zeros,
                         logger=log.getChild(s1),
                         )
+                    
+                    #set limits
+                    set_lims('raw', ax)
+                    
                     
                 #===============================================================
                 # deltas
@@ -990,6 +1015,7 @@ class Session(agSession):
                         logger=log.getChild(s1),
                         )
                     
+                    upd_lims(varn, ax)
                 #===============================================================
                 # scatter
                 #===============================================================
@@ -1026,10 +1052,6 @@ class Session(agSession):
                             #last col
                             if col_key == col_keys[-1]:
                                 pass
-                                 
-                        #first col
-                        if col_key == col_keys[0]:
-                            ax.set_ylabel('count')
                             
                         #last row
                         if row_key==mdex.unique(plot_rown)[-1]:
@@ -1040,8 +1062,16 @@ class Session(agSession):
                                 ax.set_xlabel('%s (%s)'%(lossType, 'delta'))
                             elif col_key==col_keys[-1]:
                                 ax.set_xlabel('%s (%s)'%(lossType, 'grid'))
+                                 
+                        #first col
+                        if col_key == col_keys[0]:
+                            ax.set_ylabel('count')
+                            ax.set_xlim(lim_max_d['raw']['x'])
+                            ax.set_ylim(lim_max_d['raw']['y'])
                             
-                            
+                        #second col
+                        if col_key == col_keys[1]:
+                            ax.set_ylim(lim_max_d['raw']['y'])
                             
                         #loast col
                         if col_key ==col_keys[-1]:
@@ -1062,9 +1092,10 @@ class Session(agSession):
                 #===============================================================
                 # wrap fig
                 #===============================================================
+                s = '_'.join([str(e) for e in keys_d.values()])
                 self.output_fig(fig, out_dir=od, 
                                 fname='accuracy_%s_%s_%s'%(lossType, s, self.longname.replace('_', '')),
-                                fmt=fmt, logger=log)
+                                fmt=fmt, logger=log, transparent=False)
                 
                 
             #===================================================================
@@ -1220,7 +1251,9 @@ class Session(agSession):
             data = data_raw.loc[~bx]
  
         
- 
+        if data.min()==data.max():
+            log.warning('no variance')
+            return {}
         #=======================================================================
         # #add the hist
         #=======================================================================
@@ -1469,8 +1502,7 @@ class Session(agSession):
         #=======================================================================
         log = self.logger.getChild('write_errs')
         assert dkey=='errs'
-        if out_dir is None:
-            out_dir = os.path.join(self.out_dir, 'errs')
+        if out_dir is None:out_dir = self.out_dir
             
         gcn = self.gcn
         #=======================================================================
