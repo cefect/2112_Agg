@@ -866,7 +866,7 @@ class Session(agSession):
 
                     #output control
                     out_dir = None,
-                    fmt='svg',
+                    fmt='png',
                     
  
  
@@ -888,7 +888,7 @@ class Session(agSession):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('plot_accuracy_mat')
+        log = self.logger.getChild('plot_accuracy_mat.%s'%lossType)
         if colorMap is None: colorMap=self.colorMap
  
         if out_dir is None: out_dir = self.out_dir
@@ -901,6 +901,7 @@ class Session(agSession):
         #slice by user
         dxind1 = dx_raw.loc[:, idx[lossType, ['grid', 'true', 'delta']]].droplevel(0, axis=1)
         """
+        dx_raw.columns
         view(dx_raw)
         """
         #get colors
@@ -915,6 +916,7 @@ class Session(agSession):
         #=======================================================================
         # loop and plot
         #=======================================================================
+        log.info('for \'%s\' w/ %i'%(lossType, len(dxind1)))
         for fkeys, gdxind1 in dxind1.groupby(level=folder_varns):
             keys_d = dict(zip(folder_varns, fkeys))
             
@@ -948,7 +950,7 @@ class Session(agSession):
                                             )
                 
                 s = ' '.join(['%s-%s'%(k,v) for k,v in keys_d.items()])
-                fig.suptitle('Accruacy for %s'%s)
+                fig.suptitle('%s Accruacy for %s'%(lossType.upper(), s))
                 
                 #===============================================================
                 # raws
@@ -1056,19 +1058,15 @@ class Session(agSession):
                                 #move to the right
                                 ax.yaxis.set_label_position("right")
                                 ax.yaxis.tick_right()
-                                
-
-                                
-                            
-                                
+ 
                 #===============================================================
                 # wrap fig
                 #===============================================================
                 self.output_fig(fig, out_dir=od, 
-                                fname='accuracy_%s_%s'%(s, self.longname.replace('_', '')),
+                                fname='accuracy_%s_%s_%s'%(lossType, s, self.longname.replace('_', '')),
                                 fmt=fmt, logger=log)
                 
-                return
+                
             #===================================================================
             # wrap folder
             #===================================================================
@@ -1168,7 +1166,7 @@ class Session(agSession):
         #dump into a string
         annot = label +'\n'+ '\n'.join(['%s=%s'%(k,v) for k,v in stat_d.items()])
         
-        anno_obj = ax.text(0.5, 0.5, annot, transform=ax.transAxes, va='center')
+        anno_obj = ax.text(0.1, 0.9, annot, transform=ax.transAxes, va='center')
         
  
         #=======================================================================
@@ -1268,7 +1266,7 @@ class Session(agSession):
         #dump into a string
         annot = label +'\n'+ '\n'.join(['%s=%s'%(k,v) for k,v in stat_d.items()])
  
-        anno_obj = ax.text(0.5, 0.5, annot, transform=ax.transAxes, va='center')
+        anno_obj = ax.text(0.5, 0.8, annot, transform=ax.transAxes, va='center')
         
  
  
