@@ -197,20 +197,27 @@ def run(
         
         #layers (for making MAPS)
         #=======================================================================
-        # ses.write_errs()
-        # #ses.get_confusion_matrix()
+        #ses.write_errs()
+        #ses.get_confusion_matrix()
         #  
         # #shows the spread on total loss values
-        # ses.plot_terrs_box(lossType = 'tl', ycoln='delta', ylabel='TL error (gridded - true)')
-        # ses.plot_terrs_box(lossType = 'rl', ycoln='delta', ylabel='RL error (gridded - true)')
-        #  
-        # #shows how errors vary with depth
-        #ses.plot_errs_scatter(lossType='rl', ycoln='delta', ylims=None, plot_vf=True)
-        ses.plot_errs_scatter()
-        # ses.plot_errs_scatter(lossType='tl', ycoln='delta', ylims=None, plot_vf=False)
+        #ses.plot_terrs_box(ycoln = ('tl', 'delta'), ylabel='TL error (gridded - true)')
+        #ses.plot_terrs_box(ycoln = ('rl', 'delta'), ylabel='RL error (gridded - true)')
+        #
         #=======================================================================
+        # error scatter plots  
+        #=======================================================================
+        #shows how errors vary with depth
+        #ses.plot_errs_scatter(xcoln = ('depth', 'grid'), ycoln = ('rl', 'delta'), xlims = (0, 2), ylims=(-10,100), plot_vf=True)
+        #ses.plot_errs_scatter(xcoln = ('depth', 'grid'), ycoln = ('tl', 'delta'), xlims = (0, 2), ylims=None, plot_vf=False)
         
-        #ses.plot_accuracy_mat()
+        #vs aggregated counts
+        #ses.plot_errs_scatter(xcoln = ('id_cnt', 'grid'), ycoln = ('rl', 'delta'), xlims = (0,50), ylims=(-10,100), plot_vf=False)
+        #ses.plot_errs_scatter(xcoln = ('id_cnt', 'grid'), ycoln = ('tl', 'delta'), xlims = None, ylims=None, plot_vf=False)
+        
+
+        
+        ses.plot_accuracy_mat()
 
         #
         
@@ -235,7 +242,7 @@ def dev():
     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220207\working\rsamps_hyd_dev_0207.pickle',
     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220207\working\rloss_hyd_dev_0207.pickle',
     'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220207\working\tloss_hyd_dev_0207.pickle',
-    #'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220207\working\errs_hyd_dev_0207.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220207\working\errs_hyd_dev_0207.pickle',
             },
         
     proj_lib =     {
@@ -307,8 +314,8 @@ def r1():
     'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\finv_sg_agg_hyd_points_r1_0205.pickle',
     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\rsamps_hyd_points_r1_0205.pickle',
     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\rloss_hyd_points_r1_0205.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\tloss_hyd_points_r1_0205.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220205\working\errs_hyd_points_r1_0205.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220207\working\tloss_hyd_points_r1_0207.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1\20220207\working\errs_hyd_points_r1_0207.pickle',
             },
         
         #vid_sample=5,
@@ -337,8 +344,8 @@ def means_r1():
     'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\finv_sg_agg_hyd_means_r1_0205.pickle',
     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\rsamps_hyd_means_r1_0205.pickle',
     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\rloss_hyd_means_r1_0205.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\tloss_hyd_means_r1_0205.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\errs_hyd_means_r1_0205.pickle',
+    #'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\tloss_hyd_means_r1_0205.pickle',
+    #'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220205\working\errs_hyd_means_r1_0205.pickle',
             },
         
         #vid_sample=5,
@@ -357,9 +364,9 @@ def means_r1():
     
 if __name__ == "__main__": 
     
-    #output=means_r1()
+    output=means_r1()
     #output=r1()
-    output=dev()
+    #output=dev()
  
     
     tdelta = datetime.datetime.now() - start
