@@ -361,64 +361,7 @@ class Session(Session, Qproj, Plotr):
     #===========================================================================
     # PLOTTING-----------
     #===========================================================================
-
-    def output_fig(self, 
-                   fig,
-                   
-                   #file controls
-                   out_dir = None, overwrite=True, 
-                   out_fp=None, #defaults to figure name w/ a date stamp
-                   fname = None, #filename
-                   
-                   #figure write controls
-                 fmt='svg', 
-                  transparent=True, 
-                  dpi = 150,
-                  logger=None,
-                  ):
-        #======================================================================
-        # defaults
-        #======================================================================
-        if out_dir is None: out_dir = self.out_dir
-        if overwrite is None: overwrite = self.overwrite
-        if logger is None: logger=self.logger
-        log = logger.getChild('output_fig')
-        
-        if not os.path.exists(out_dir):os.makedirs(out_dir)
-        #=======================================================================
-        # precheck
-        #=======================================================================
-        
-        assert isinstance(fig, matplotlib.figure.Figure)
-        log.debug('on %s'%fig)
-        #======================================================================
-        # output
-        #======================================================================
-        if out_fp is None:
-            #file setup
-            if fname is None:
-                try:
-                    fname = fig._suptitle.get_text()
-                except:
-                    fname = self.name
-                    
-                fname =str('%s_%s'%(fname, self.resname)).replace(' ','')
-                
-            out_fp = os.path.join(out_dir, '%s.%s'%(fname, fmt))
-            
-        if os.path.exists(out_fp): 
-            assert overwrite
-            os.remove(out_fp)
-
-            
-        #write the file
-        try: 
-            fig.savefig(out_fp, dpi = dpi, format = fmt, transparent=transparent)
-            log.info('saved figure to file:   %s'%out_fp)
-        except Exception as e:
-            raise Error('failed to write figure to file w/ \n    %s'%e)
-        
-        return out_fp
+ 
     
     #===========================================================================
     # HELPERS----------

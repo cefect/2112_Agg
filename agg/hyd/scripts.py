@@ -379,7 +379,7 @@ class Session(agSession):
                     )
                 
                 #===============================================================
-                # add labels
+                # add labels--------
                 #===============================================================
                 if add_label:
                     log.debug(keys_d)
@@ -405,9 +405,9 @@ class Session(agSession):
                     # add as labels
                     #===========================================================
                     for event, row in tl_df.iterrows():
-                        ax.text(row['xloc'], row['pred'], '%.1f'%(row['relErr']*100),
+                        ax.text(row['xloc'], row['pred']*1.01, '%+.1f'%(row['relErr']*100),
                                 ha='center', va='bottom', rotation='vertical',
-                                fontsize=8,color='red')
+                                fontsize=10,color='red')
                         
                     log.debug('added error labels \n%s'%tl_df)
                         

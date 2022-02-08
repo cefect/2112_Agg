@@ -179,12 +179,12 @@ def run(
         #=======================================================================
         # plot control
         #=======================================================================
- 
+        transparent=False,
         
         **kwargs):
     
     with Session(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim,
-                 
+                 transparent=transparent,
                  bk_lib = {
                      'rsamps':dict(method=rsamps_method),
                      'finv_gPoly':dict(grid_sizes=grid_sizes),
@@ -211,7 +211,7 @@ def run(
         #=======================================================================
         ses.plot_tloss_bars()
         # 
-         #layers (for making MAPS)
+        #layers (for making MAPS)
  
         #=======================================================================
         # ses.write_errs()
@@ -236,8 +236,10 @@ def run(
         # ses.plot_accuracy_mat(plot_zeros=False,lossType = 'tl', binwidth=100, )"""
         # ses.plot_accuracy_mat(plot_zeros=False,lossType = 'rl', binWidth=5)
         #=======================================================================
-        ses.plot_accuracy_mat(plot_zeros=False,lossType = 'depth', binWidth=None,
-                               lims_d={'raw':{'x':None, 'y':(0,500)}})        
+        #=======================================================================
+        # ses.plot_accuracy_mat(plot_zeros=False,lossType = 'depth', binWidth=None,
+        #                        lims_d={'raw':{'x':None, 'y':(0,500)}})        
+        #=======================================================================
         
         out_dir = ses.out_dir
         
