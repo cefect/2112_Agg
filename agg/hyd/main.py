@@ -201,7 +201,7 @@ def run(
         
  
         
-        #ses.plot_depths()
+        ses.plot_depths()
         
         #summary of total loss
         #ses.write_loss_smry()
@@ -209,7 +209,7 @@ def run(
         #gives a nice 'total model output' chart
         #shows how sensitive the top-line results are to aggregation
         #=======================================================================
-        ses.plot_tloss_bars()
+        #ses.plot_tloss_bars()
         # 
         #layers (for making MAPS)
  
@@ -429,8 +429,8 @@ def means_r1():
     
 if __name__ == "__main__": 
     
-    output=means_r1()
-    #output=r1()
+    #output=means_r1()
+    output=r1()
     #output=dev()
     
     #output=r1_single()
