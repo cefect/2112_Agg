@@ -1651,13 +1651,13 @@ class Session(agSession):
                     continue
                 
                 #get deltas
-                diff_ar = yar_base - yar
+                diff_ar = yar - yar_base
                 
                 #===============================================================
                 # plot
                 #===============================================================
                 ax = ax_d['delta'][xvar]
-                ax.plot(xar, diff_ar, label='aggLevel=%i (true - rl_mean)'%aggLevel, **pkwargs)
+                ax.plot(xar, diff_ar, label='aggLevel=%i (rl_mean - true)'%aggLevel, **pkwargs)
                 #===============================================================
                 # areas----
                 #===============================================================
@@ -1767,7 +1767,7 @@ class Session(agSession):
      
                 
                 if first:
-                    ax.set_ylabel('%s (true - mean)'%ycn)
+                    ax.set_ylabel('%s (mean - true)'%ycn)
                     first=False
      
                             

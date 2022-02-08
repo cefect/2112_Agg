@@ -258,6 +258,43 @@ def run_aggErr1(#agg error per function
         
     return out_dir
 
+def r1_3mods(#just those used in p2
+             #reversed delta values
+        ):
+    
+    return run_aggErr1(
+        
+            #model selection
+            tag='r1_3mods',
+            vid_l=[798,811, 49] ,
+            
+                     
+            #run control
+            overwrite=True,
+            rl_xmDisc_dxcol_d = dict(
+                xdomain=(0,2), #min/max of the xdomain
+                xdomain_res = 30, #number of increments for the xdomain
+                
+                aggLevels_l= [2, 
+                             5, 
+                             100,
+                             ],
+                
+                #random depths pramaeters
+                xvars_ar = np.linspace(.1,1,num=3), #varice values to iterate over
+                statsFunc = scipy.stats.norm, #function to use for the depths distribution
+                depths_resolution=2000,  #number of depths to draw from the depths distritupion
+                          ),
+            
+            plot_rlMeans=True,
+                 
+                 
+            compiled_fp_d = {
+ 
+                        },
+        
+        )
+    
 def all_r0(#results presented at supervisor meeting on Jan 4th
            #focused on vid 027, 811, and 798
            #but included some stats for every curve in the library
@@ -417,11 +454,14 @@ def dev(
 
 if __name__ == "__main__": 
     
-    #output = run_aggErr1()
-    output=all_r0()
+    output=r1_3mods()
+    
+    
+ 
+    #output=all_r0()
     #output=dev()
     #output = run_plotVfunc()
-    # reader()
+ 
     
     tdelta = datetime.datetime.now() - start
     print('finished in %s \n    %s' % (tdelta, output))
