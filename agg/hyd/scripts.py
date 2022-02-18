@@ -1974,7 +1974,7 @@ class Session(agSession):
         
         rlnames_d= {lvlName:i for i, lvlName in enumerate(rl_dxind.index.names)}
         
-        fgdir_dxind = self.retrieve('fgdir_dxind')
+        fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
         
         """
         view(rl_dxind)
@@ -2083,9 +2083,7 @@ class Session(agSession):
         dxind1 = rl_dxind.join(jserx1, on=jserx1.index.names)
         
         assert dxind1[scale_cn].notna().all()
-        """
-        view(dxind1)
-        """
+
         
         #re-org columns
         
@@ -2138,9 +2136,14 @@ class Session(agSession):
                                    logger=log)
 
         return dx2
+    
+        """
+        view(dx2)
+        view(dxind1)
+        """
 
     
-    def build_rloss(self,
+    def build_rloss(self, #calculate relative loss from rsamps on each vfunc
                     dkey=None,
                     prec=None, #precision for RL
                     **kwargs):
