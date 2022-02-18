@@ -9,9 +9,10 @@ Created on Jan. 18, 2022
 #===============================================================================
 # imports--------
 #===============================================================================
-import os, datetime, math, pickle, copy
+import os, datetime, math, pickle, copy, random
 import pandas as pd
 import numpy as np
+
 idx = pd.IndexSlice
 
 import scipy.stats
@@ -156,6 +157,7 @@ class Session(agSession):
         assert serx.notna().all().all(), 'drys should be zeros'
 
         """
+        self.retrieve('tvals')
         view(serx)
         """
         #=======================================================================
@@ -248,7 +250,135 @@ class Session(agSession):
         log.info('finished writing %i figures'%len(res_d))
         
         return res_d
+
+    def plot_tvals(self,
+                    plot_fign = 'studyArea',
+                    plot_rown = 'grid_size', 
+                    #plot_coln = 'event',
+ 
                     
+                    plot_zeros=True,
+                    xlims = (0,200),
+                    ylims=None,
+                    
+                    out_dir=None,
+                    color='orange',
+                    
+                    ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_tvals')
+        if out_dir is None: out_dir = self.out_dir
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+ 
+        serx = self.retrieve('tvals')
+        
+        
+        
+        assert serx.notna().all().all(), 'drys should be zeros'
+
+        """
+        self.retrieve('tvals')
+        view(serx)
+        """
+        #=======================================================================
+        # loop on studyAreas
+        #=======================================================================
+        
+        log.info('on %i'%len(serx))
+        
+        
+        col_key = ''
+        res_d = dict()
+        for i, (sName, gsx1r) in enumerate(serx.groupby(level=plot_fign)):
+            plt.close('all')
+            gsx1 = gsx1r.droplevel(plot_fign)
+            mdex = gsx1.index
+            
+            fig, ax_d = self.get_matrix_fig(
+                                    gsx1.index.unique(plot_rown).tolist(), #row keys
+                                    [col_key], #col keys
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey='all', sharex='all', #everything should b euniform
+                                    fig_id=i,
+                                    set_ax_title=True,
+                                    )
+            
+ 
+            
+            
+            for row_key, gsx2r in gsx1r.groupby(level=plot_rown):
+                #===============================================================
+                # #prep data
+                #===============================================================
+                gsx2 = gsx2r.droplevel([plot_rown, plot_fign])
+                
+                if plot_zeros:
+                    ar = gsx2.values
+                else:
+                    bx = gsx2>0.0
+                    ar = gsx2[bx].values
+                
+                if not len(ar)>0:
+                    log.warning('no values for %s.%s.%s'%(sName, row_key, ))
+                    continue
+                #===============================================================
+                # #plot
+                #===============================================================
+                ax = ax_d[row_key][col_key]
+                ax.hist(ar, color=color, alpha=0.3, label=row_key, density=True, bins=30, range=xlims)
+                
+                #label
+                meta_d = {
+                    plot_rown:row_key,
+                    'cnt':len(ar), 'zeros_cnt':np.invert(bx).sum(),  'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
+                
+                txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
+                ax.text(0.5, 0.9, txt, transform=ax.transAxes, va='top', fontsize=8, color='blue')
+                
+
+                #===============================================================
+                # styling
+                #===============================================================                    
+                #first columns
+                #===============================================================
+                # if col_key == mdex.unique(plot_coln)[0]:
+                #     """not setting for some reason"""
+                #===============================================================
+                ax.set_ylabel('density')
+                
+ 
+                #first row
+                if row_key == mdex.unique(plot_rown)[0]:
+                    ax.set_xlim(xlims)
+                    ax.set_ylim(ylims)
+                    pass
+                    #ax.set_title('event \'%s\''%(rlayName))
+                    
+                #last row
+                if row_key == mdex.unique(plot_rown)[-1]:
+                    ax.set_xlabel('total value (scale)')
+                    
+                    
+            fig.suptitle('depths for studyArea \'%s\' (%s)'%(sName, self.tag))
+            #===================================================================
+            # wrap figure
+            #===================================================================
+            res_d[sName]= self.output_fig(fig, out_dir=os.path.join(out_dir, sName), fname='depths_%s_%s'%(sName, self.longname))
+
+        #=======================================================================
+        # warp
+        #=======================================================================
+        log.info('finished writing %i figures'%len(res_d))
+        
+        return res_d      
+    """
+    plt.show()
+    """  
  
             
             
@@ -1883,8 +2013,7 @@ class Session(agSession):
                 #promote
                 res_lib[ckeys[0]][ckeys[1]] =rdxind1
                 
-                 
-                
+  
             #===================================================================
             # wrap index loop-----
             #===================================================================
@@ -2070,8 +2199,8 @@ class Session(agSession):
                     dkey=None,
                     prec=2,
                     tval_type='uniform', #type for total values
- 
-                    ):
+                    
+                    **kwargs):
         
         #=======================================================================
         # defaults
@@ -2126,10 +2255,8 @@ class Session(agSession):
         #=======================================================================
         # calculate the asset scalers
         #=======================================================================
-        if tval_type == 'uniform':
-            rserx = self.tvals_uni(mindex)
-        else:
-            raise Error('not implemented')
+        rserx = getattr(self, 'tvals_' + tval_type)(mindex, **kwargs)
+ 
 
  
         #=======================================================================
@@ -2146,17 +2273,87 @@ class Session(agSession):
 
         return rserx
     
+    def tvals_rand(self,
+                    mindex,
+                    **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('tvals_pnorm')
  
+        scale_cn = self.scale_cn
         
-    def tvals_uni(self, #get uniform tvals
+        
+        
+        #=======================================================================
+        # loop and calc true scales randomly
+        #=======================================================================
+        rserx = pd.Series(np.nan, index=mindex, name=scale_cn)
+        levelNames = mindex.names[0:2]
+        for keys, gser in pd.Series(index=mindex).groupby(level=levelNames):
+            keys_d = dict(zip(levelNames, keys))
+            
+            if not keys_d['grid_size'] == 0: continue
+            
+            rser = pd.Series(np.random.random(len(gser)), index=gser.index, name=scale_cn)
+            
+            #set these
+            rserx.loc[rser.index] = rser
+ 
+                
+        #=======================================================================
+        # get aggregated scales
+        #=======================================================================
+        return self.agg_from_true(rserx, gfunc='sum', logger=log, **kwargs)
+    
+
+        
+        
+    def tvals_uniform(self, #get uniform tvals
                   mindex, #index for grouping results
  
-                  ):
+                  **kwargs):
         
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('tvals_uni')
+        #fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
+        #gcn = self.gcn
+        scale_cn = self.scale_cn
+        
+        #=======================================================================
+        # loop and calc true scales randomly
+        #=======================================================================
+        rserx = pd.Series(np.nan, index=mindex, name=scale_cn)
+        levelNames = mindex.names[0:2]
+        for keys, gser in pd.Series(index=mindex).groupby(level=levelNames):
+            keys_d = dict(zip(levelNames, keys))
+            
+            if not keys_d['grid_size'] == 0: continue
+            
+            rser = pd.Series(1, index=gser.index, name=scale_cn)
+            
+            #set these
+            rserx.loc[rser.index] = rser
+ 
+                
+        #=======================================================================
+        # get aggregated scales
+        #=======================================================================
+        return self.agg_from_true(rserx, gfunc='sum', logger=log, **kwargs)
+            
+        
+    def agg_from_true(self, #aggregating grid values from true (grid_size=0) values
+                      serx,
+                      gfunc='sum', #groupby method to apply
+                      logger=None,
+                      ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = self.logger.getChild('agg_from_true')
         fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
         gcn = self.gcn
         scale_cn = self.scale_cn
@@ -2164,62 +2361,69 @@ class Session(agSession):
         # loop and calc uinform scalers
         #=======================================================================
         rserx = None
-        levelNames = mindex.names[0:2]
-        for keys, gser in pd.Series(index=mindex).groupby(level=levelNames):
+        levelNames = serx.index.names[0:2]
+        for keys, gser in serx.groupby(level=levelNames):
             keys_d = dict(zip(levelNames, keys))
             
             #===================================================================
             # un-gridded
             #===================================================================
             if keys_d['grid_size'] == 0:
-                rser = pd.Series(1, index=gser.index, name=scale_cn, dtype=np.int)
+                rser = gser.copy()
             
             #===================================================================
             # gridded
             #===================================================================
             else:
                 #get lookups
-                id_lookuop_serx = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']].rename(gcn).sort_values()
+                id_lookuop_serx = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']].rename(gcn).sort_index()
                 
-                #count raws within each gridded
-                gid_idcnt_ser = id_lookuop_serx.groupby(id_lookuop_serx).count().rename(scale_cn)
+                #get trues
+                t_serx = serx.loc[idx[keys[0], [0], :]].droplevel(1)
+                t_serx.index.set_names('id', level=1, inplace=True) #rename the true gid to id
                 
-                #get matching index
-                gid_idcnt_df = gid_idcnt_ser.to_frame()
-                for name in levelNames:
-                    gid_idcnt_df[name] = keys_d[name]
-                    
-                rser_raw = gid_idcnt_df.set_index(levelNames, append=True).reorder_levels(gser.index.names).iloc[:,0]
+                #join true values to lookuop
+                dxind1 = id_lookuop_serx.to_frame().join(t_serx)
                 
-                #update with these
-                rser = gser.fillna(0).astype(np.int)
-                rser.loc[rser_raw.index] = rser_raw
+                #collapse/group by gid
+                gb = dxind1.groupby('gid')
+                agg_df = getattr(gb, gfunc)()
                 
  
-                
+                #get matching index
+                for name in levelNames:
+                    agg_df[name] = keys_d[name]
+                    
+                rser_raw = agg_df.set_index(levelNames, append=True).reorder_levels(gser.index.names).iloc[:,0]
             
+                #update with these
+                rser = gser.fillna(0).astype(int)
+                rser.loc[rser_raw.index] = rser_raw
+                
+                
             #===================================================================
             # check
             #===================================================================
+            assert rser.notna().all()
             rser = rser.sort_index()
             if not np.array_equal(gser.index.values, rser.index.values):
                 raise Error('failed to get matching indicies on %s'%keys_d)
             assert isinstance(rser, pd.Series), keys_d
+                
             #===================================================================
             # collect
             #===================================================================
-
             if rserx is None:
                 rserx = rser
             else:
                 rserx = rserx.append(rser)
         
-        log.debug('finished on %s'%str(rserx.shape))
-        return rserx.rename(scale_cn).astype(np.float32)
-            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.debug('finished on %i'%len(rserx))
         
- 
-                   
+        return rserx   
 
     
     def build_rloss(self, #calculate relative loss from rsamps on each vfunc
@@ -2773,49 +2977,7 @@ class Session(agSession):
     #===========================================================================
     # HELPERS--------
     #===========================================================================
-    def xxxget_finvg(self, #special retrival for finvg as 
-                  load_vlays=False, #whether to load the vlays found in fgm_ofp_d
-                  logger=None,
-                  ): #get and check the finvg data
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if logger is None: logger=self.logger
-        log=logger.getChild('get_finvg')
-        #=======================================================================
-        # load
-        #=======================================================================
-        d = self.retrieve('finv_gPoly')
-        
-        if not 'fgm_ofp_d' in d and 'fgdir_dxind' in d:
-            raise Error('got bad keys on finvg')
  
-        fgm_ofp_d, fgdir_dxind = d['fgm_ofp_d'], d['fgdir_dxind']
-        
-        #=======================================================================
-        # check
-        #=======================================================================
-        miss_l = set(fgm_ofp_d.keys()).symmetric_difference(fgdir_dxind.index.get_level_values(0).unique())
-        assert len(miss_l)==0
-        
-        for k,fp in fgm_ofp_d.items():
-            assert os.path.exists(fp), k
-            assert fp.endswith('.gpkg'), k
-            
-        #=======================================================================
-        # load the layers
-        #=======================================================================
-        
-        if load_vlays:
-            vlay_d = dict()
-            for k,fp in fgm_ofp_d.items(): 
-                """not sure how this will work with changing slicing"""
-                vlay_d[k] = self.vlay_load(fp, logger=log)
-            fgm_ofp_d = vlay_d
-            
-            
-        return fgm_ofp_d, fgdir_dxind
         
 
     def sa_get(self, #spatial tasks on each study area

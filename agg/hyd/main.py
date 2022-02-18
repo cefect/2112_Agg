@@ -20,7 +20,7 @@ key questions
 import os, datetime, math, pickle, copy
 import qgis.core
 import pandas as pd
-
+import numpy as np
 #===============================================================================
 # import scipy.stats 
 # import scipy.integrate
@@ -148,6 +148,9 @@ def run(
         #aggregation
         grid_sizes = [50, 200, 500],
         
+        #asset values
+        tval_type = 'rand',
+        
         #sampling
         rsamps_method = 'points',
         
@@ -192,6 +195,8 @@ def run(
                      'vid_df':dict(
                             selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
                                     ),
+                     
+                     'tvals':dict(tval_type=tval_type),
                                           
                      },
                  **kwargs) as ses:
@@ -200,46 +205,46 @@ def run(
         ses.plt = plt  #attach local matplotlib init
         
  
-        
+        ses.plot_tvals()
         #ses.plot_depths()
         
-        #summary of total loss
-        #ses.write_loss_smry()
-        
-        #gives a nice 'total model output' chart
-        #shows how sensitive the top-line results are to aggregation
-        #ses.plot_tloss_bars()
-         
-        #layers (for making MAPS)
-        #ses.write_errs()
-        #ses.get_confusion_matrix()
+        #=======================================================================
+        # #summary of total loss
+        # #ses.write_loss_smry()
+        # 
+        # #gives a nice 'total model output' chart
+        # #shows how sensitive the top-line results are to aggregation
+        # ses.plot_tloss_bars()
         #  
-        # #shows the spread on total loss values
-        #ses.plot_terrs_box(ycoln = ('tl', 'delta'), ylabel='TL error (gridded - true)')
-        #ses.plot_terrs_box(ycoln = ('rl', 'delta'), ylabel='RL error (gridded - true)')
-        #
-        #=======================================================================
-        # error scatter plots  
-        #=======================================================================
-        #shows how errors vary with depth
-        #=======================================================================
+        # #layers (for making MAPS)
+        # #ses.write_errs()
+        # #ses.get_confusion_matrix()
+        # #  
+        # # #shows the spread on total loss values
+        # ses.plot_terrs_box(ycoln = ('tl', 'delta'), ylabel='TL error (gridded - true)')
+        # #ses.plot_terrs_box(ycoln = ('rl', 'delta'), ylabel='RL error (gridded - true)')
+        # #
+        # #=======================================================================
+        # # error scatter plots  
+        # #=======================================================================
+        # #shows how errors vary with depth
         # ses.plot_errs_scatter(xcoln = ('depth', 'grid'), ycoln = ('rl', 'delta'), xlims = (0, 2), ylims=(-10,100), plot_vf=True)
         # ses.plot_errs_scatter(xcoln = ('depth', 'grid'), ycoln = ('tl', 'delta'), xlims = (0, 2), ylims=None, plot_vf=False)
-        # 
+        #  
         # #vs aggregated counts
         # ses.plot_errs_scatter(xcoln = (Session.scale_cn, 'grid'), ycoln = ('rl', 'delta'), xlims = (0,50), ylims=(-10,100), plot_vf=False)
         # ses.plot_errs_scatter(xcoln = (Session.scale_cn, 'grid'), ycoln = ('tl', 'delta'), xlims = None, ylims=None, plot_vf=False)
+        # 
+        # """first row on this one doesnt make sense
+        # ses.plot_accuracy_mat(plot_zeros=False,lossType = 'tl', binwidth=100, )"""
+        # ses.plot_accuracy_mat(plot_zeros=False,lossType = 'rl', binWidth=5)
+        # ses.plot_accuracy_mat(plot_zeros=False,lossType = 'depth', binWidth=None,
+        #                      lims_d={'raw':{'x':None, 'y':(0,500)}})        
         #=======================================================================
-        
-        """first row on this one doesnt make sense
-        ses.plot_accuracy_mat(plot_zeros=False,lossType = 'tl', binwidth=100, )"""
-        ses.plot_accuracy_mat(plot_zeros=False,lossType = 'rl', binWidth=5)
-        ses.plot_accuracy_mat(plot_zeros=False,lossType = 'depth', binWidth=None,
-                             lims_d={'raw':{'x':None, 'y':(0,500)}})        
         
         out_dir = ses.out_dir
         
-    print('finished %s'%tag)
+    print('\nfinished %s'%tag)
     
     return out_dir
         
@@ -247,6 +252,7 @@ def run(
  
  
 def dev():
+    np.random.seed(100)
     return run(
         tag='dev',
         compiled_fp_d = {
@@ -256,11 +262,7 @@ def dev():
     'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\fgdir_dxind_hyd_dev_0218.pickle',
     'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\finv_sg_agg_hyd_dev_0218.pickle',
     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\rsamps_hyd_dev_0218.pickle',
-    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\tvals_hyd_dev_0218.pickle',
-    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\rloss_hyd_dev_0218.pickle',
-    
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\tloss_hyd_dev_0218.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\errs_hyd_dev_0218.pickle',
+ 
             },
         
     proj_lib =     {
@@ -343,6 +345,51 @@ def r1():
  
         )
     
+
+        
+def means_r1():
+    return run(
+        tag='means_r1',
+        compiled_fp_d = {
+    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_gPoly_hyd_means_r1_0207.pickle',
+    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_gPoly_id_dxind_hyd_means_r1_0207.pickle',
+    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_agg_hyd_means_r1_0207.pickle',
+    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\fgdir_dxind_hyd_means_r1_0207.pickle',
+    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_sg_agg_hyd_means_r1_0207.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\rsamps_hyd_means_r1_0207.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\rloss_hyd_means_r1_0207.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\tloss_hyd_means_r1_0207.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\errs_hyd_means_r1_0207.pickle',
+            },
+        
+ 
+        rsamps_method = 'true_mean',
+ 
+        )
+
+def means_r1_rand():
+    return run(
+        tag='means_r1_rand',
+        compiled_fp_d = {
+    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_gPoly_hyd_means_r1_0207.pickle',
+    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_gPoly_id_dxind_hyd_means_r1_0207.pickle',
+    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_agg_hyd_means_r1_0207.pickle',
+    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\fgdir_dxind_hyd_means_r1_0207.pickle',
+    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_sg_agg_hyd_means_r1_0207.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\rsamps_hyd_means_r1_0207.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\rloss_hyd_means_r1_0207.pickle',
+ 
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_rand\20220218\working\tvals_hyd_means_r1_rand_0218.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_rand\20220218\working\tloss_hyd_means_r1_rand_0218.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_rand\20220218\working\errs_hyd_means_r1_rand_0218.pickle',
+
+            },
+        
+ 
+        rsamps_method = 'true_mean',
+        tval_type = 'rand',
+        )
+
 def r1_single(): #single grid, raster, and vid. nice for presentation
         return run(
         tag='points_r1_single',
@@ -380,16 +427,21 @@ def mr1_single(): #single grid, raster, and vid. nice for presentation
             'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1_single\20220207\working\finv_gPoly_hyd_points_r1_single_0207.pickle',
             'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1_single\20220207\working\finv_gPoly_id_dxind_hyd_points_r1_single_0207.pickle',
             'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1_single\20220207\working\finv_agg_hyd_points_r1_single_0207.pickle',
-            'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1_single\20220207\working\fgdir_dxind_hyd_points_r1_single_0207.pickle',
-            'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1_single\20220207\working\finv_sg_agg_hyd_points_r1_single_0207.pickle',
+
  
-     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220207\working\rsamps_hyd_means_r1_single_0207.pickle',
-    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220207\working\rloss_hyd_means_r1_single_0207.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220207\working\tloss_hyd_means_r1_single_0207.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220207\working\errs_hyd_means_r1_single_0207.pickle',
+    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220218\working\fgdir_dxind_hyd_means_r1_single_0218.pickle',
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220218\working\tvals_hyd_means_r1_single_0218.pickle',
+    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220218\working\finv_sg_agg_hyd_means_r1_single_0218.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220218\working\rsamps_hyd_means_r1_single_0218.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220218\working\rloss_hyd_means_r1_single_0218.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220218\working\tloss_hyd_means_r1_single_0218.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1_single\20220218\working\errs_hyd_means_r1_single_0218.pickle',
+ 
             },
  
         rsamps_method = 'true_mean',
+        tval_type = 'uniform',
+        
         grid_sizes = [200],
         vid_l = [811],
         proj_lib =     {
@@ -403,36 +455,49 @@ def mr1_single(): #single grid, raster, and vid. nice for presentation
              },
  
         )
-    
-def means_r1():
-    return run(
-        tag='means_r1',
+
+def mr1_single_rand(): #single grid, raster, and vid. nice for presentation
+        return run(
+        tag='means_r1_single_rand',
         compiled_fp_d = {
-    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_gPoly_hyd_means_r1_0207.pickle',
-    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_gPoly_id_dxind_hyd_means_r1_0207.pickle',
-    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_agg_hyd_means_r1_0207.pickle',
-    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\fgdir_dxind_hyd_means_r1_0207.pickle',
-    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\finv_sg_agg_hyd_means_r1_0207.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\rsamps_hyd_means_r1_0207.pickle',
-    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\rloss_hyd_means_r1_0207.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\tloss_hyd_means_r1_0207.pickle',
-    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\means_r1\20220207\working\errs_hyd_means_r1_0207.pickle',
+            'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1_single\20220207\working\finv_gPoly_hyd_points_r1_single_0207.pickle',
+            'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1_single\20220207\working\finv_gPoly_id_dxind_hyd_points_r1_single_0207.pickle',
+            'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\points_r1_single\20220207\working\finv_agg_hyd_points_r1_single_0207.pickle',
+            
+            
+
             },
-        
  
         rsamps_method = 'true_mean',
+        tval_type = 'rand',
+        
+        grid_sizes = [200],
+        vid_l = [811],
+        proj_lib =     {
+             'obwb':{
+                   'EPSG': 2955, 
+                  'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_cent_aoi06.gpkg', 
+                  'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
+                  'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\500',
+                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
+                     }, 
+             },
  
-        )
-    
-    
+        )    
 if __name__ == "__main__": 
     
+    #output=dev()
+        
+        
+    
     #output=means_r1()
+    output=means_r1_rand()
     #output=r1()
-    output=dev()
+
     
     #output=r1_single()
     #output=mr1_single()
+    #output = mr1_single_rand()
  
     
     tdelta = datetime.datetime.now() - start
