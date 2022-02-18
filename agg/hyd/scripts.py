@@ -27,7 +27,7 @@ from hp.basic import set_info
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-from agg.scripts import Session as agSession
+from agg.coms.scripts import Session as agSession
 
 import matplotlib
 

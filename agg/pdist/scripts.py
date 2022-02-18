@@ -19,8 +19,8 @@ import scipy.integrate
 from hp.oop import Basic, Error
 from hp.pd import view, get_bx_multiVal
 
-from agg.scripts import Vfunc, get_ax
-from agg.scripts import Session as agSession
+from agg.coms.scripts import Vfunc, get_ax
+from agg.coms.scripts import Session as agSession
 
 idx = pd.IndexSlice
 
