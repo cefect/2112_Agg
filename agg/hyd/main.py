@@ -201,33 +201,35 @@ def run(
         
  
         
-        ses.plot_depths()
+        #ses.plot_depths()
         
         #summary of total loss
         #ses.write_loss_smry()
         
         #gives a nice 'total model output' chart
         #shows how sensitive the top-line results are to aggregation
-        ses.plot_tloss_bars()
+        #ses.plot_tloss_bars()
          
         #layers (for making MAPS)
-        ses.write_errs()
+        #ses.write_errs()
         #ses.get_confusion_matrix()
         #  
         # #shows the spread on total loss values
-        ses.plot_terrs_box(ycoln = ('tl', 'delta'), ylabel='TL error (gridded - true)')
+        #ses.plot_terrs_box(ycoln = ('tl', 'delta'), ylabel='TL error (gridded - true)')
         #ses.plot_terrs_box(ycoln = ('rl', 'delta'), ylabel='RL error (gridded - true)')
         #
         #=======================================================================
         # error scatter plots  
         #=======================================================================
         #shows how errors vary with depth
-        ses.plot_errs_scatter(xcoln = ('depth', 'grid'), ycoln = ('rl', 'delta'), xlims = (0, 2), ylims=(-10,100), plot_vf=True)
-        ses.plot_errs_scatter(xcoln = ('depth', 'grid'), ycoln = ('tl', 'delta'), xlims = (0, 2), ylims=None, plot_vf=False)
-        
-        #vs aggregated counts
-        ses.plot_errs_scatter(xcoln = ('id_cnt', 'grid'), ycoln = ('rl', 'delta'), xlims = (0,50), ylims=(-10,100), plot_vf=False)
-        ses.plot_errs_scatter(xcoln = ('id_cnt', 'grid'), ycoln = ('tl', 'delta'), xlims = None, ylims=None, plot_vf=False)
+        #=======================================================================
+        # ses.plot_errs_scatter(xcoln = ('depth', 'grid'), ycoln = ('rl', 'delta'), xlims = (0, 2), ylims=(-10,100), plot_vf=True)
+        # ses.plot_errs_scatter(xcoln = ('depth', 'grid'), ycoln = ('tl', 'delta'), xlims = (0, 2), ylims=None, plot_vf=False)
+        # 
+        # #vs aggregated counts
+        # ses.plot_errs_scatter(xcoln = (Session.scale_cn, 'grid'), ycoln = ('rl', 'delta'), xlims = (0,50), ylims=(-10,100), plot_vf=False)
+        # ses.plot_errs_scatter(xcoln = (Session.scale_cn, 'grid'), ycoln = ('tl', 'delta'), xlims = None, ylims=None, plot_vf=False)
+        #=======================================================================
         
         """first row on this one doesnt make sense
         ses.plot_accuracy_mat(plot_zeros=False,lossType = 'tl', binwidth=100, )"""
@@ -254,6 +256,11 @@ def dev():
     'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\fgdir_dxind_hyd_dev_0218.pickle',
     'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\finv_sg_agg_hyd_dev_0218.pickle',
     'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\rsamps_hyd_dev_0218.pickle',
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\tvals_hyd_dev_0218.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\rloss_hyd_dev_0218.pickle',
+    
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\tloss_hyd_dev_0218.pickle',
+    'errs':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\errs_hyd_dev_0218.pickle',
             },
         
     proj_lib =     {

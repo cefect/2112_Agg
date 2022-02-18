@@ -35,14 +35,8 @@ import matplotlib
 class Session(agSession):
     
     gcn = 'gid'
-    
-    mindex_dtypes={
-                 'studyArea':np.dtype('object'),
-                 'id':np.dtype('int64'),
-                 'gid':np.dtype('int64'), #both ids are valid
-                 'grid_size':np.dtype('int64'), 
-                 'event':np.dtype('O'),           
-                         }
+    scale_cn = 'scale'
+
     
     colorMap = 'cool'
     
@@ -52,9 +46,18 @@ class Session(agSession):
                  trim=True, #whether to apply aois
                  **kwargs):
         
-    #===========================================================================
-    # HANDLES-----------
-    #===========================================================================
+        self.mindex_dtypes={
+                 'studyArea':np.dtype('object'),
+                 'id':np.dtype('int64'),
+                 self.gcn:np.dtype('int64'), #both ids are valid
+                 'grid_size':np.dtype('int64'), 
+                 'event':np.dtype('O'),
+                 self.scale_cn:np.dtype('int64'),           
+                         }
+        
+        #===========================================================================
+        # HANDLES-----------
+        #===========================================================================
         #configure handles
         data_retrieve_hndls = {
 
@@ -84,7 +87,12 @@ class Session(agSession):
                 'build':lambda **kwargs: self.build_sampGeo(**kwargs),
                 },
             
-            'rsamps':{
+            'tvals':{ #total asset values (series)
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_tvals(**kwargs),
+                },
+            
+            'rsamps':{ #depth raster samples
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_rsamps(**kwargs),
                 },
@@ -93,7 +101,7 @@ class Session(agSession):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs:self.build_rloss(**kwargs),
                 },
-            'tloss':{
+            'tloss':{ #total losses
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs:self.build_tloss(**kwargs),
                 },
@@ -1237,12 +1245,16 @@ class Session(agSession):
         # setup  data
         #=======================================================================
         assert data_raw.notna().all().all()
+        assert len(data_raw)>0
  
         dcount = len(data_raw) #length of raw data
         
         #handle zeros
         bx = data_raw <=0
- 
+        
+        if bx.all():
+            log.warning('got all zeros!')
+            return {}
         
         if plot_zeros: 
             """usually dropping for delta plots"""
@@ -1257,8 +1269,12 @@ class Session(agSession):
         #=======================================================================
         # #add the hist
         #=======================================================================
+        assert len(data)>0
         if not binWidth is None:
-            bins=np.arange(data.min(), data.max()+binWidth, binWidth)
+            try:
+                bins=np.arange(data.min(), data.max()+binWidth, binWidth)
+            except Exception as e:
+                raise Error('faliled to get bin dimensions w/ \n    %s'%e)
         else:
             bins=None
         
@@ -1327,6 +1343,7 @@ class Session(agSession):
         #=======================================================================
         # defaults
         #=======================================================================
+        scale_cn = self.scale_cn
         log = self.logger.getChild('write_loss_smry')
         assert dkey=='tloss'
         if out_dir is None:
@@ -1437,7 +1454,7 @@ class Session(agSession):
         #=======================================================================
         # asset count stats
         #=======================================================================
-        gbo = dindex2['id_cnt'].groupby(level=gkeys)
+        gbo = dindex2[scale_cn].groupby(level=gkeys)
         
         d=dict()
         
@@ -1749,6 +1766,7 @@ class Session(agSession):
         assert dkey=='errs'
         if prec is None: prec=self.prec
         gcn = self.gcn
+        scale_cn = self.scale_cn
  
         #=======================================================================
         # retriever
@@ -1813,7 +1831,7 @@ class Session(agSession):
                     true_df0 = gb.mean()
                 elif ckeys_d['vid'] == 'depth':
                     true_df0 = gb.mean()
-                elif ckeys_d['vid'] == 'id_cnt':    
+                elif ckeys_d['vid'] == scale_cn:    
                     true_df0 = gb.sum()
                 else:
                     raise Error('bad lossType')
@@ -1952,8 +1970,6 @@ class Session(agSession):
         return res_dx3
  
  
-    
-    
     def build_tloss(self, #get the total loss
                     dkey=None,
                     prec=2,
@@ -1962,125 +1978,27 @@ class Session(agSession):
         #=======================================================================
         # defaults
         #=======================================================================
+        scale_cn = self.scale_cn
         log = self.logger.getChild('build_tloss')
         assert dkey=='tloss'
-        if prec is None: prec=self.prec
-        gcn = self.gcn
-        scale_cn = 'id_cnt'
+        
         #=======================================================================
         # retriever
         #=======================================================================
+
+        
+        tv_serx = self.retrieve('tvals') #studyArea, id : grid_size : corresponding gid
+        
         rl_dxind = self.retrieve('rloss')
         
         rlnames_d= {lvlName:i for i, lvlName in enumerate(rl_dxind.index.names)}
         
-        fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
-        
-        """
-        view(rl_dxind)
-        view(fgdir_dxind)
-        view(ser1)
-        """
         #=======================================================================
-        # calculate the asset scalers
+        # join tval and rloss
         #=======================================================================
-        grid_d =dict()
-        for grid_size, gdf in rl_dxind.groupby(level=rlnames_d['grid_size']):
-            #get teh scaler series
-            if grid_size==0:
-                #unique studyArea:gid
-                mindex = gdf.index.droplevel(['grid_size', 'event']).drop_duplicates()
-                cnt_serix = pd.Series(1, index=mindex)
-                                      
  
-            else:
-                #retrieve the lookup studyArea+id:gid
-                ser1 = fgdir_dxind.loc[:, grid_size].rename(gcn)
-                
-                assert ser1.notna().all(), grid_size
-                
-                
-                #get counts per-area (for this group size)
-                d = dict()
-                for sName, ser2 in ser1.groupby(level=0):                
-                    d[sName] = ser2.groupby(ser2).count()
+        dxind1 = rl_dxind.join(tv_serx, on=tv_serx.index.names)
  
-                cnt_serix = pd.concat(d, names=mindex.names)
-                
-            #===================================================================
-            # #checks
-            #===================================================================
-            assert cnt_serix.notna().all(), grid_size
-            try:
-                self.check_mindex(cnt_serix.index)
-            except Exception as e:
-                raise Error('index on grid_size=%i failed w/ \n    %s'%(grid_size, e))
-            
-            #all the keys needed by the right are in the left
-            miss_l = set(gdf.index.unique(gcn)).difference(cnt_serix.index.unique(gcn))
-            if not len(miss_l)==0:
-                bx = rl_dxind.index.to_frame().loc[:,gcn].isin(miss_l)
- 
-                
-                with pd.option_context('display.max_rows', None,'display.max_columns', None,'display.width',1000):
-                    log.debug('\n%s'%rl_dxind.loc[bx,:].index.to_frame().reset_index(drop=True))
-        
- 
-                raise Error('missing %i lookup \'%s\' values... see logger'%(len(miss_l), gcn))
-            
-            #wrap
-            grid_d[grid_size] = cnt_serix.rename(scale_cn)
-
-        
-        #shape into a dxind with matching names
-        jserx1 = pd.concat(grid_d, names= rl_dxind.droplevel(rlnames_d['event']).index.names)
-
-        
-        
-        #=======================================================================
-        # check
-        #=======================================================================
-        self.check_mindex(jserx1.index)
- 
-        
-        jnames_d = {lvlName:i for i, lvlName in enumerate(jserx1.index.names)}
-        assert jserx1.notna().all()
-        
-        #check index
-        """we expect more in the scaleing lookup (jserx1) as these have not been filtered for zero impacts"""
-        for name in jnames_d.keys():
-            
-            left_vals = rl_dxind.index.get_level_values(rlnames_d[name]).unique()
-            right_vals = jserx1.index.get_level_values(jnames_d[name]).unique()
-            
-            el_d = set_info(left_vals, right_vals)
-            
-            
-            
-            for k,v in el_d.items():
-                log.debug('%s    %s'%(k,v))
-                
-            if not len(el_d['diff_left'])==0:
-                
-                bx = rl_dxind.index.to_frame().loc[:,name].isin(el_d['diff_left'])
-                assert bx.sum() == len(el_d['diff_left'])
-                
-                with pd.option_context('display.max_rows', None,'display.max_columns', None,'display.width',1000):
-                    log.debug(rl_dxind.loc[bx,:].index.to_frame().reset_index(drop=True))
-        
- 
-                raise Error('%s missing %i some lookup values'%(name, len(el_d['diff_left'])))
-        
- 
-        """
-        I think we get very few on grid_size=0 because this as been null filtered
-        view(jdxind1)
-        """
-        
-        #=======================================================================
-        # #join to the rloss data
-        #=======================================================================
-        dxind1 = rl_dxind.join(jserx1, on=jserx1.index.names)
         
         assert dxind1[scale_cn].notna().all()
 
@@ -2090,7 +2008,7 @@ class Session(agSession):
         dx1 = pd.concat({
             'expo':dxind1.loc[:, ['depth', scale_cn]],
             'rl':dxind1.loc[:, rl_dxind.drop('depth', axis=1).columns]},
-            axis=1)
+            axis=1, verify_integrity=True)
         
  
         
@@ -2111,6 +2029,11 @@ class Session(agSession):
         #set the names
         """these dont actually apply to the meta group.. but still nicer to have the names"""
         dx2.columns.set_names(['lossType', 'vid'], inplace=True)
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        self.check_mindex(dx2.index)
  
         #=======================================================================
         # wrap
@@ -2130,17 +2053,173 @@ class Session(agSession):
             mdf
             ))
         
+        
+ 
+ 
 
         self.ofp_d[dkey] = self.write_pick(dx2,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
                                    logger=log)
 
         return dx2
+        
+        
+        
     
+    def build_tvals(self, #get the total values on each asset
+                    dkey=None,
+                    prec=2,
+                    tval_type='uniform', #type for total values
+ 
+                    ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_tvals')
+        assert dkey=='tvals'
+        if prec is None: prec=self.prec
+        gcn = self.gcn
+        scale_cn = self.scale_cn
+        
+        #=======================================================================
+        # retriever
+        #=======================================================================
+        
+        #fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
+        finv_agg_lib = self.retrieve('finv_agg')
+        #dxser = self.retrieve('rsamps')
+ 
+        
+
+        
         """
-        view(dx2)
-        view(dxind1)
+        view(dxser)
+        view(finv_agg)
+        view(fgdir_dxind)
         """
+        #=======================================================================
+        # build combined index from layers
+        #=======================================================================
+        """cleaner to build this in the shape/form expected by later functions
+        contains ALL assets (even those without children or exposure)"""
+        res_lib = dict()
+        for studyArea, d1 in finv_agg_lib.items():
+            res_d = dict()
+            for grid_size, vlay in d1.items():
+                df_raw = vlay_get_fdf(vlay)
+                res_d[grid_size] = df_raw.set_index(gcn).iloc[:,0]
+                
+            res_lib[studyArea] = pd.concat(res_d)
+            
+        mindex = pd.concat(res_lib, names =['studyArea','grid_size', gcn], verify_integrity=True).sort_index().index
+        
+        """no... this is missing nulls. best to construct from layers
+        #prepaer index (to match rsamps)
+        fgdir_dxind[0] = fgdir_dxind.index.get_level_values('id') #add the un-gridded for consistency
+        fg_dxind = fgdir_dxind.droplevel(1).stack().rename(gcn)
+        mdf = fg_dxind.to_frame().set_index(gcn, append=True, drop=False).sort_index().index.to_frame().reset_index(drop=True).drop_duplicates(gcn)
+        mdf = mdf.loc[:, ['grid_size', 'studyArea', gcn]] #reorder to match rsamps
+        
+        rser_dx = pd.Series(index=pd.MultiIndex.from_frame(mdf), name=scale_cn)"""
+ 
+        #=======================================================================
+        # calculate the asset scalers
+        #=======================================================================
+        if tval_type == 'uniform':
+            rserx = self.tvals_uni(mindex)
+        else:
+            raise Error('not implemented')
+
+ 
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert rserx.name == scale_cn
+        self.check_mindex(rserx.index)
+ 
+ 
+
+        self.ofp_d[dkey] = self.write_pick(rserx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
+                                   logger=log)
+
+        return rserx
+    
+ 
+        
+    def tvals_uni(self, #get uniform tvals
+                  mindex, #index for grouping results
+ 
+                  ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('tvals_uni')
+        fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
+        gcn = self.gcn
+        scale_cn = self.scale_cn
+        #=======================================================================
+        # loop and calc uinform scalers
+        #=======================================================================
+        rserx = None
+        levelNames = mindex.names[0:2]
+        for keys, gser in pd.Series(index=mindex).groupby(level=levelNames):
+            keys_d = dict(zip(levelNames, keys))
+            
+            #===================================================================
+            # un-gridded
+            #===================================================================
+            if keys_d['grid_size'] == 0:
+                rser = pd.Series(1, index=gser.index, name=scale_cn, dtype=np.int)
+            
+            #===================================================================
+            # gridded
+            #===================================================================
+            else:
+                #get lookups
+                id_lookuop_serx = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']].rename(gcn).sort_values()
+                
+                #count raws within each gridded
+                gid_idcnt_ser = id_lookuop_serx.groupby(id_lookuop_serx).count().rename(scale_cn)
+                
+                #get matching index
+                gid_idcnt_df = gid_idcnt_ser.to_frame()
+                for name in levelNames:
+                    gid_idcnt_df[name] = keys_d[name]
+                    
+                rser_raw = gid_idcnt_df.set_index(levelNames, append=True).reorder_levels(gser.index.names).iloc[:,0]
+                
+                #update with these
+                rser = gser.fillna(0).astype(np.int)
+                rser.loc[rser_raw.index] = rser_raw
+                
+ 
+                
+            
+            #===================================================================
+            # check
+            #===================================================================
+            rser = rser.sort_index()
+            if not np.array_equal(gser.index.values, rser.index.values):
+                raise Error('failed to get matching indicies on %s'%keys_d)
+            assert isinstance(rser, pd.Series), keys_d
+            #===================================================================
+            # collect
+            #===================================================================
+
+            if rserx is None:
+                rserx = rser
+            else:
+                rserx = rserx.append(rser)
+        
+        log.debug('finished on %s'%str(rserx.shape))
+        return rserx.rename(scale_cn).astype(np.float32)
+            
+        
+ 
+                   
 
     
     def build_rloss(self, #calculate relative loss from rsamps on each vfunc
