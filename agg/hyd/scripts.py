@@ -2515,6 +2515,7 @@ class Session(agSession):
         #=======================================================================
         # handle dxcol-------
         #=======================================================================
+        assert len(finv_gkey_df_d)>0
         dkey1 = 'finv_gPoly_id_dxind'
         dxind = pd.concat(finv_gkey_df_d)
         
