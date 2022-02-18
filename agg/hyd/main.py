@@ -104,7 +104,7 @@ def run(
         proj_lib =     {
              'obwb':{
                    'EPSG': 2955, 
-                  'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_cent_aoi06.gpkg', 
+                  'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_aoi06.gpkg', 
                   'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
                   'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218',
                   'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
@@ -118,28 +118,30 @@ def run(
             #     'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
             #         }, 
             #===================================================================
-             #==================================================================
-             # 'SaintJohn': {
-             #     'EPSG': 3979, 
-             #     'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\finv\\microsoft_0517_aoi13_0116.gpkg',
-             #      'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\dem\\HRDEM_0513_r5_filnd_aoi12b.tif',
-             #       'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\wd\\',
-             #       'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\SJ_aoiT01_0119.gpkg',
-             #                 }, 
+            'SaintJohn': {
+                'EPSG': 3979, 
+                'finv_fp': 'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\finv\microsoft_0218_aoi13.gpkg',
+                 'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\dem\\HRDEM_0513_r5_filnd_aoi12b.tif',
+                  'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\wd\\',
+                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\SJ_aoiT01_0119.gpkg',
+                            }, 
+             
             'Calgary': {
                 'EPSG': 3776, 
-                'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\finv\\calgary_IBI2016_binvRes_170729_aoi02_0116.gpkg', 
+                'finv_fp': 'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\finv\ISS_bldgs_das2017_20180501_aoi02.gpkg', 
                 'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\dem\\CoC_WR_DEM_170815_5x5_0126.tif', 
                 'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\DEV0116',
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
                         }, 
-            'dP': {
-                'EPSG': 2950, 
-                'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\finv\\microsoft_20210506_aoi03_0116.gpkg', 
-                'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\dem\\HRDEM_CMM2_0722_fild_aoi03_0116.tif', 
-                'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\wd\\',
-                'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\dP\aoiT01_202220118.gpkg',
-                },
+            #===================================================================
+            # 'dP': {
+            #     'EPSG': 2950, 
+            #     'finv_fp': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\finv\\microsoft_20210506_aoi03_0116.gpkg', 
+            #     'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\dem\\HRDEM_CMM2_0722_fild_aoi03_0116.tif', 
+            #     'wd_dir': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\dP\\wd\\',
+            #     'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\dP\aoiT01_202220118.gpkg',
+            #     },
+            #===================================================================
             },
         
         #=======================================================================
@@ -152,6 +154,7 @@ def run(
         tval_type = 'rand',
         
         #sampling
+        sample_geo_type = 'centroids',
         rsamps_method = 'points',
         
         #vfunc selection
@@ -189,8 +192,12 @@ def run(
     with Session(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim,
                  transparent=transparent,
                  bk_lib = {
-                     'rsamps':dict(method=rsamps_method),
+
                      'finv_gPoly':dict(grid_sizes=grid_sizes),
+                     
+                     'finv_sg_agg':dict(sgType=sample_geo_type),
+                     
+                     'rsamps':dict(method=rsamps_method),
                      
                      'vid_df':dict(
                             selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
@@ -208,13 +215,12 @@ def run(
         ses.plot_tvals()
         #ses.plot_depths()
         
-        #=======================================================================
-        # #summary of total loss
-        # #ses.write_loss_smry()
-        # 
-        # #gives a nice 'total model output' chart
-        # #shows how sensitive the top-line results are to aggregation
-        # ses.plot_tloss_bars()
+        #summary of total loss
+        #ses.write_loss_smry()
+         
+        #gives a nice 'total model output' chart
+        #shows how sensitive the top-line results are to aggregation
+        ses.plot_tloss_bars()
         #  
         # #layers (for making MAPS)
         # #ses.write_errs()
@@ -256,19 +262,14 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\finv_gPoly_hyd_dev_0218.pickle',
-    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\finv_gPoly_id_dxind_hyd_dev_0218.pickle',
-    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\finv_agg_hyd_dev_0218.pickle',
-    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\fgdir_dxind_hyd_dev_0218.pickle',
-    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\finv_sg_agg_hyd_dev_0218.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220218\working\rsamps_hyd_dev_0218.pickle',
+ 
  
             },
         
     proj_lib =     {
             'obwb':{
                   'EPSG': 2955, 
-                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_cent_aoi06.gpkg', 
+                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_aoiT01.gpkg', 
                  'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
                  'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\DEVdepth_sB_1218',
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
@@ -317,7 +318,7 @@ def dev():
             #794, #budyi.. largest postiive error
             ],
 
-        rsamps_method = 'true_mean',
+        rsamps_method = 'zonal', sample_geo_type='poly',
         trim=True,
         overwrite=True,
         )
@@ -486,12 +487,12 @@ def mr1_single_rand(): #single grid, raster, and vid. nice for presentation
         )    
 if __name__ == "__main__": 
     
-    #output=dev()
+    output=dev()
         
         
     
     #output=means_r1()
-    output=means_r1_rand()
+    #output=means_r1_rand()
     #output=r1()
 
     

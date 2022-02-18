@@ -316,11 +316,11 @@ class Session(agSession):
                 # #prep data
                 #===============================================================
                 gsx2 = gsx2r.droplevel([plot_rown, plot_fign])
-                
+                bx = gsx2>0.0
                 if plot_zeros:
                     ar = gsx2.values
                 else:
-                    bx = gsx2>0.0
+                    
                     ar = gsx2[bx].values
                 
                 if not len(ar)>0:
@@ -2777,6 +2777,13 @@ class Session(agSession):
                 if sgType == 'centroids':
                     """works on point layers"""
                     sg_vlay = self.centroids(poly_vlay, logger=log)
+                    
+                elif sgType == 'poly':
+                    assert 'Polygon' in QgsWkbTypes().displayString(poly_vlay.wkbType()), 'bad type on %s.%s'%(studyArea, aggLevel)
+                    poly_vlay.selectAll()
+                    
+                    sg_vlay = self.saveselectedfeatures(poly_vlay, logger=log) #just get a copy
+                    
                 else:
                     raise Error('not implemented')
                 
@@ -2798,10 +2805,13 @@ class Session(agSession):
                 
         
  
+
+
+
     def build_rsamps(self, #get raster samples for all finvs
                      dkey=None,
                      method='points', #method for raster sampling
-                     ):
+                     **kwargs):
         """
         keeping these as a dict because each studyArea/event is unique
         """
@@ -2826,94 +2836,18 @@ class Session(agSession):
         #=======================================================================
         if method == 'points':
             res_d = self.sa_get(meth='get_rsamps_lib', logger=log, dkey=dkey, write=False, 
-                                finv_lib=finv_aggS_lib, idfn=gcn)
+                                finv_lib=finv_aggS_lib, idfn=gcn, **kwargs)
+            
+        elif method == 'zonal':
+            res_d = self.sa_get(meth='get_zonal_lib', logger=log, dkey=dkey, write=False, 
+                                finv_lib=finv_aggS_lib, idfn=gcn, **kwargs)
         
 
         #=======================================================================
         # use mean depths from true assets (for error isolation only)
         #=======================================================================
         elif method == 'true_mean':
- 
-            #===================================================================
-            # #get the true depths
-            #===================================================================
-            #just the true finvs
-            finvT_lib = dict()
-            for studyArea, lay_d in finv_aggS_lib.items():
-                finvT_lib[studyArea] = {0:lay_d[0]}
-            
-            resT_d = self.sa_get(meth='get_rsamps_lib', logger=log, dkey=dkey, write=False, 
-                            finv_lib=finvT_lib, idfn=gcn)
-            
-            """
-            resT_d.keys()
-            """
-            #===================================================================
-            # get means
-            #===================================================================
-            fgdir_dxind = self.retrieve('fgdir_dxind')
-            res_d = dict()
-            
-            for studyArea, lay_d in finv_aggS_lib.items():
-                
-                res_df = None
-                for grid_size, vlay in lay_d.items():
-                    log.info('true_mean on %s.%s'%(studyArea, grid_size))
-                    
-                    rsampT_df = resT_d[studyArea].copy()
-                    
-                    #===========================================================
-                    # trues
-                    #===========================================================
-                    if grid_size == 0:
-                        rdf = rsampT_df
-                        
-                    #===========================================================
-                    # gridded
-                    #===========================================================
-                    else:
-                        #=======================================================
-                        # #join gids to trues
-                        #=======================================================
-                        id_gid_ser = fgdir_dxind.loc[idx[studyArea, :], grid_size].droplevel(0).rename(gcn)
-                        
-                        rsampT_df.index.set_names(id_gid_ser.index.name, level=1, inplace=True)
-                        
-                        rsampT_df1 = rsampT_df.join(id_gid_ser) 
-                        
-                        #=======================================================
-                        # calc stat on gridded values
-                        #=======================================================
-                        gsamp1_df = rsampT_df1.groupby(gcn).mean()
-                        
-                        #clean up index
-                        gsamp1_df['grid_size'] = grid_size
-                        rdf = gsamp1_df.set_index('grid_size', append=True).swaplevel()
-                        
-                        #=======================================================
-                        # check
-                        #=======================================================
-                        fid_gid_d = vlay_get_fdata(vlay, fieldn=gcn)
-                        #gid_ser = pd.Series().sort_values().reset_index(drop=True)
-                        miss_l = set(fid_gid_d.values()).difference(gsamp1_df.index)
-                        assert len(miss_l)==0
-                        
-                    #===========================================================
-                    # join
-                    #===========================================================
-                    if res_df is None:
-                        res_df = rdf
-                    else:
-                        res_df = res_df.append(rdf)
-                #===============================================================
-                # wrap study area
-                #===============================================================
-                res_d[studyArea] = res_df
-            
-            #===================================================================
-            # wrap true_mean
-            #===================================================================
-            log.info('got true_means on %i study areas'%len(res_d))
+            res_d = self.rsamp_trueMean(dkey,finv_aggS_lib,logger=log)
  
  
         #=======================================================================
@@ -2971,8 +2905,81 @@ class Session(agSession):
         return dxser
     
     
- 
+    def rsamp_trueMean(self, 
+                       dkey, 
+                       finv_aggS_lib,
+                           logger=None,
+                           ):
         
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_rsamp_trueMean')
+        gcn = self.gcn
+        #===================================================================
+        # #get the true depths
+        #===================================================================
+        #just the true finvs
+        finvT_lib = dict()
+        for studyArea, lay_d in finv_aggS_lib.items():
+            finvT_lib[studyArea] = {0:lay_d[0]}
+        
+        resT_d = self.sa_get(meth='get_rsamps_lib', logger=log, dkey=dkey, write=False, 
+            finv_lib=finvT_lib, idfn=gcn)
+ 
+        #===================================================================
+        # get means
+        #===================================================================
+        fgdir_dxind = self.retrieve('fgdir_dxind')
+        res_d = dict()
+        for studyArea, lay_d in finv_aggS_lib.items():
+            res_df = None
+            for grid_size, vlay in lay_d.items():
+                log.info('true_mean on %s.%s' % (studyArea, grid_size))
+                rsampT_df = resT_d[studyArea].copy()
+        #===========================================================
+        # trues
+        #===========================================================
+                if grid_size == 0:
+                    rdf = rsampT_df
+                else:
+                    id_gid_ser = fgdir_dxind.loc[idx[studyArea, :], grid_size].droplevel(0).rename(gcn)
+                    rsampT_df.index.set_names(id_gid_ser.index.name, level=1, inplace=True)
+                    rsampT_df1 = rsampT_df.join(id_gid_ser)
+            #=======================================================
+            # calc stat on gridded values
+            #=======================================================
+                    gsamp1_df = rsampT_df1.groupby(gcn).mean()
+            #clean up index
+                    gsamp1_df['grid_size'] = grid_size
+                    rdf = gsamp1_df.set_index('grid_size', append=True).swaplevel()
+            #=======================================================
+            # check
+            #=======================================================
+                    fid_gid_d = vlay_get_fdata(vlay, fieldn=gcn)
+            #gid_ser = pd.Series().sort_values().reset_index(drop=True)
+                    miss_l = set(fid_gid_d.values()).difference(gsamp1_df.index)
+                    assert len(miss_l) == 0 #=======================================================
+        # #join gids to trues
+        #=======================================================
+                #===========================================================
+                # join
+                #===========================================================
+        #===========================================================
+        # gridded
+        #===========================================================
+                if res_df is None:
+                    res_df = rdf
+                else:
+                    res_df = res_df.append(rdf)
+            
+            #===============================================================
+            # wrap study area
+            #===============================================================
+            res_d[studyArea] = res_df
+        log.info('got true_means on %i study areas'%len(res_d))
+        return res_d
     
     #===========================================================================
     # HELPERS--------
@@ -3348,6 +3355,20 @@ class StudyArea(Session, Qproj): #spatial work on study areas
  
         
         return finv_gkey_df, finv_grid_d
+    
+    def get_zonal_lib(self,
+                      finv_lib=None,
+                      **kwargs):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('get_zonal_lib')
+        
+        #pull your layers from the session
+        finv_vlay_d = finv_lib[self.name]
+        
+        raise Error('stopped here... need polygons on finvs')
         
  
     def get_rsamps_lib(self, #get samples for a set of layers
@@ -3443,11 +3464,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             df.loc[:, idfn] = df[idfn].astype(np.int64)
             
             assert df[idfn].is_unique, finv_vlay.name()
-            
-            #promote columns to multindex
-            #df.index = pd.MultiIndex.from_frame(df.loc[:, [idfn, 'grid_size']])
- 
-            #res_d[rname] = df.drop([idfn, 'grid_size'], axis=1)
+
             
             rdf = df.set_index(idfn).drop('grid_size', axis=1)
             if res_df is None:
@@ -3455,11 +3472,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             else:
                 res_df = res_df.join(rdf, how='outer')
             
-            """
-            view(df)
-            view(finv_vlay)
-            view(dxind)
-            """
+ 
         
         #=======================================================================
         # fill zeros
