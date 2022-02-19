@@ -6,9 +6,17 @@ Created on Feb. 18, 2022
 import unittest
 import tempfile
 import numpy as np
-import pandas as pd
+
 np.set_printoptions(precision=4)
 np.set_printoptions(suppress=True)
+ 
+from numpy.testing import assert_equal  
+from numpy import array, int32, float32, int64
+
+import pandas as pd
+from pandas import Index, Int64Index
+from pandas.testing import assert_frame_equal
+
 from qgis.core import QgsVectorLayer
 
 
@@ -83,7 +91,7 @@ class Dkey(Basic): #dkey based test methods
 class Dkey_finv_gPoly(Dkey):
     dkey = 'finv_gPoly'
     
-    bk_lib = dict(grid_sizes=[200])
+    bk_lib = dict(grid_sizes=[50])
 
         
     def test_keys(self):
@@ -102,17 +110,30 @@ class Dkey_finv_gPoly(Dkey):
  
         
         for studyArea, g_v_d in res_d.items():
+            self.assertEqual(set(g_v_d.keys()), set(true_d.keys()))
+ 
+ 
             for grid_size, vlay in g_v_d.items():
-                true_v = true_d[grid_size]
+                
                 self.assertTrue(isinstance(vlay, QgsVectorLayer))
                 
-                df = vlay_get_fdf(vlay)
+                df = vlay_get_fdf(vlay).set_index('gid').sort_index()
                 
                 #check grid_size
                 self.assertEqual(len(df['grid_size'].unique()), 1)
                 
                 #asset count
-                self.assertEqual(len(df), true_v)
+                true_df = true_d[grid_size]
+                
+                assert_frame_equal(true_df, df, check_dtype=False)
+ 
+                
+                """
+                np.version.version
+                df.T.values
+                df.index
+                df.columns
+                """
                 
 
                 
@@ -125,7 +146,19 @@ class Test_p1_finvgpoly(Project1, Dkey_finv_gPoly):
     tag='Test_p1_finvgpoly'
     true_lib = {
         'test_data':
-            {200:32, 0:450},
+            {50:pd.DataFrame(
+                np.array([[50, 50, 50, 50, 50, 50]], dtype=np.int64),
+                columns=pd.Int64Index([1, 2, 3, 4, 5, 6], dtype='int64', name='gid'),
+                index = pd.Index(['grid_size'], dtype='object')
+                
+                ).T,
+            0:pd.DataFrame(
+                np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0]], dtype=int64),
+                columns=Int64Index([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907, 10908, 11250, 11251,
+                    11252, 11254, 14376, 14377, 14378, 23029, 23030, 23032, 23084, 23086, 23087, 23088,23089],
+                   dtype='int64', name='gid'),
+                index=Index(['grid_size'], dtype='object'),                
+                ).T}
         }
  
 class Test_get_rsamps1(Project1, StudyArea):
@@ -136,7 +169,7 @@ class Test_get_rsamps1(Project1, StudyArea):
     #     super(Test_get_rsamps2, cls).setUpClass()
     #===========================================================================
 
-    def test_zonal(self):
+    def test_points(self):
         res_df = self.studyArea.get_rsamps(method='points', prec=self.prec)
         
         """
@@ -154,10 +187,63 @@ class Test_get_rsamps1(Project1, StudyArea):
             index = pd.Index(['wd_test_0218'], dtype='object'),            
             ).T
             
+        assert_frame_equal(true_df, res_df, check_dtype=False)
+            
         
+class Test_get_rsamps2(Project2, StudyArea):
+    tag='Test_get_rsamps2'
+    
+    index = pd.Int64Index([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907, 10908, 10910, 10911,
+                    10912, 10913, 11250, 11251, 11252, 11254, 14376, 14377, 14378, 23029, 23030, 23032,
+                    23034, 23035, 23036, 23084, 23085, 23086, 23087, 23088, 23089],
+                   dtype='int64', name='id')
+ 
+    def test_zonal_mean(self):
+        res_df = self.studyArea.get_rsamps(method='zonal', prec=self.prec, zonal_stats=[2])
         
+        """
+        res_df.columns
+        res_df.T.values
+        res_df.index
+        """
+        true_df = pd.DataFrame(
+            np.array([[0.04 , 0.   , 0.242, 0.033, 0.   , 0.   , 0.042, 0.   , 0.06 ,
+                0.195, 0.215, 0.452, 0.29 , 0.556, 0.068, 0.113, 0.   , 0.   ,
+                0.01 , 0.   , 0.   , 0.273, 0.343, 0.238, 0.568, 0.307, 0.322,
+                0.338, 0.023, 0.045, 0.   , 0.07 , 0.093]], dtype=np.float32),
+            columns=self.index,
+            index = pd.Index(['wd_test_0218'], dtype='object'),            
+            ).T
+            
+        assert_frame_equal(true_df, res_df, check_dtype=False)
         
-        
+    def test_zonal_max(self):
+        res_df = self.studyArea.get_rsamps(method='zonal', prec=self.prec, zonal_stats=[6])
+ 
+        true_df = pd.DataFrame(
+            np.array([[0.04, 0.  , 0.29, 0.07, 0.  , 0.  , 0.08, 0.  , 0.08, 0.29, 0.5 ,
+                    0.47, 0.44, 0.76, 0.22, 0.14, 0.  , 0.  , 0.01, 0.  , 0.  , 0.35,
+                    0.52, 0.37, 0.75, 0.46, 0.42, 0.38, 0.06, 0.07, 0.  , 0.11, 0.12]],
+                  dtype=np.float32),
+            columns=self.index,
+            index = pd.Index(['wd_test_0218'], dtype='object'),            
+            ).T
+            
+        assert_frame_equal(true_df, res_df, check_dtype=False)
+
+    def test_zonal_min(self):
+        res_df = self.studyArea.get_rsamps(method='zonal', prec=self.prec, zonal_stats=[5])
+ 
+        true_df = pd.DataFrame(
+            np.array([[0.04, 0.  , 0.15, 0.  , 0.  , 0.  , 0.01, 0.  , 0.06, 0.05, 0.1 ,
+                    0.43, 0.18, 0.33, 0.  , 0.08, 0.  , 0.  , 0.01, 0.  , 0.  , 0.22,
+                    0.22, 0.17, 0.45, 0.25, 0.22, 0.24, 0.  , 0.01, 0.  , 0.07, 0.08]],
+                  dtype=float32),
+            columns=self.index,
+            index = pd.Index(['wd_test_0218'], dtype='object'),            
+            ).T
+            
+        assert_frame_equal(true_df, res_df, check_dtype=False)
         
 #==============================================================================
 # suties-------
@@ -165,8 +251,9 @@ class Test_get_rsamps1(Project1, StudyArea):
  
 def get_suite():
     test_cases = [
-        #Test_p1_finvgpoly,
-        Test_get_rsamps1
+        Test_p1_finvgpoly,
+        Test_get_rsamps1,
+        Test_get_rsamps2
         ]
     
     suite = unittest.TestSuite()
