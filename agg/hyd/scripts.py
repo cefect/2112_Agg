@@ -33,7 +33,10 @@ from agg.coms.scripts import Session as agSession
 import matplotlib
 
 
-class Session(agSession):
+class Model(agSession): #single model run
+    """
+    
+    """
     
     gcn = 'gid'
     scale_cn = 'scale'
@@ -45,16 +48,11 @@ class Session(agSession):
                  name='hyd',
                  proj_lib={},
                  trim=True, #whether to apply aois
+                 aggType='none',
                  **kwargs):
         
-        self.mindex_dtypes={
-                 'studyArea':np.dtype('object'),
-                 'id':np.dtype('int64'),
-                 self.gcn:np.dtype('int64'), #both ids are valid
-                 'grid_size':np.dtype('int64'), 
-                 'event':np.dtype('O'),
-                 self.scale_cn:np.dtype('int64'),           
-                         }
+        
+
         
         #===========================================================================
         # HANDLES-----------
@@ -62,26 +60,18 @@ class Session(agSession):
         #configure handles
         data_retrieve_hndls = {
 
-            
-            'finv_agg':{ #lib of aggrtevated finv vlays
+            #aggregating inventories
+            'finv_agg_lib':{ #lib of aggrtevated finv vlays
                 'compiled':lambda **kwargs:self.load_finv_lib(**kwargs), #vlays need additional loading
                 'build':lambda **kwargs: self.build_finv_agg(**kwargs),
                 },
             
-            'fgdir_dxind':{ #map of aggregated keys to true keys
+            'finv_keys_serx':{ #map of aggregated keys to true keys
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_finv_agg(**kwargs),
                 },
             
-            #gridded aggregation
-            'finv_gPoly':{ #finv gridded polygons
-                'compiled':lambda **kwargs:self.load_finv_lib(**kwargs),
-                'build':lambda **kwargs: self.build_finv_gridPoly(**kwargs),
-                },
-            'finv_gPoly_id_dxind':{ #map of aggregated keys to true keys
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.build_finv_gridPoly(**kwargs),
-                },
+ 
             
             'finv_sg_agg':{ #sampling geometry
                 'compiled':lambda **kwargs:self.load_finv_lib(**kwargs), #vlays need additional loading
@@ -122,6 +112,18 @@ class Session(agSession):
         #=======================================================================
         self.proj_lib=proj_lib
         self.trim=trim
+        self.aggType=aggType
+        
+        
+        #checking container
+        self.mindex_dtypes={
+                 'studyArea':np.dtype('object'),
+                 'id':np.dtype('int64'),
+                 self.gcn:np.dtype('int64'), #both ids are valid
+                 'grid_size':np.dtype('int64'), 
+                 'event':np.dtype('O'),
+                 self.scale_cn:np.dtype('int64'),           
+                         }
         
     
     #===========================================================================
@@ -134,6 +136,7 @@ class Session(agSession):
                     plot_rown = 'grid_size', 
                     plot_coln = 'event',                    
                     plot_zeros=False,
+                    serx=None,
                     
                     #style control
                     xlims = (0,2),
@@ -148,11 +151,12 @@ class Session(agSession):
         #=======================================================================
         log = self.logger.getChild('plot_depths')
         if out_dir is None: out_dir = self.out_dir
+        if serx is None: serx = self.retrieve('rsamps')
         #=======================================================================
         # #retrieve child data
         #=======================================================================
  
-        serx = self.retrieve('rsamps')
+        
         
         
         
@@ -1679,7 +1683,7 @@ class Session(agSession):
         tl_dxind = self.retrieve('tloss')
         
         #geometry
-        finv_agg_lib = self.retrieve('finv_agg')
+        finv_agg_lib = self.retrieve('finv_agg_lib')
         
         #=======================================================================
         # prep data
@@ -1910,7 +1914,7 @@ class Session(agSession):
         
         tlnames_d= {lvlName:i for i, lvlName in enumerate(tl_dx.index.names)}
  
-        fgdir_dxind = self.retrieve('fgdir_dxind')
+        fgdir_dxind = self.retrieve('finv_keys_serx')
         
         fgdir_dxind[0] = fgdir_dxind.index.get_level_values('id') #set for consistency
  
@@ -2220,8 +2224,8 @@ class Session(agSession):
         # retriever
         #=======================================================================
         
-        #fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
-        finv_agg_lib = self.retrieve('finv_agg')
+        #fgdir_dxind = self.retrieve('finv_keys_serx') #studyArea, id : grid_size : corresponding gid
+        finv_agg_lib = self.retrieve('finv_agg_lib')
         #dxser = self.retrieve('rsamps')
  
         
@@ -2323,7 +2327,7 @@ class Session(agSession):
         # defaults
         #=======================================================================
         log = self.logger.getChild('tvals_uni')
-        #fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
+        #fgdir_dxind = self.retrieve('finv_keys_serx') #studyArea, id : grid_size : corresponding gid
         #gcn = self.gcn
         scale_cn = self.scale_cn
         
@@ -2359,7 +2363,7 @@ class Session(agSession):
         #=======================================================================
         if logger is None: logger=self.logger
         log = self.logger.getChild('agg_from_true')
-        fgdir_dxind = self.retrieve('fgdir_dxind') #studyArea, id : grid_size : corresponding gid
+        fgdir_dxind = self.retrieve('finv_keys_serx') #studyArea, id : grid_size : corresponding gid
         gcn = self.gcn
         scale_cn = self.scale_cn
         #=======================================================================
@@ -2501,8 +2505,9 @@ class Session(agSession):
                        dkey=None,
                        
                        #control aggregated finv type 
-                       aggType='gridded',
-
+                       aggType=None,
+                       aggLevel=None,
+                       write=True,
                        **kwargs):
         """
         wrapper for calling more specific aggregated finvs (and their indexer)
@@ -2517,8 +2522,8 @@ class Session(agSession):
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_finv_agg')
-        assert dkey in ['finv_agg', 'fgdir_dxind']
-        
+        assert dkey in ['finv_agg_lib', 'finv_keys_serx']
+        if aggType is None: aggType=self.aggType
         log.info('building \'%s\' '%(aggType))
         
         #=======================================================================
@@ -2526,68 +2531,65 @@ class Session(agSession):
         #=======================================================================
         """these should always be polygons"""
         
-        #=======================================================================
-        # select approriate dkeys
-        #=======================================================================
-        if aggType == 'gridded':
-            finv_poly_dkey = 'finv_gPoly'
-            finv_id_dxind = 'finv_gPoly_id_dxind'
-            
+        finv_agg_lib, finv_gkey_df_d = dict(), dict()
+        
+        if aggType == 'none':
+            assert aggLevel is None
+            res_d = self.sa_get(meth='get_finv_clean', write=False, dkey=dkey, get_lookup=True, **kwargs)
+ 
+        elif aggType == 'gridded':
+            assert isinstance(aggLevel, int)
+            res_d = self.sa_get(meth='get_finv_gridPoly', write=False, dkey=dkey,aggLevel=aggLevel, **kwargs)
  
         else:
             raise Error('not implemented')
         
+        #unzip
+        for studyArea, d in res_d.items():
+            finv_gkey_df_d[studyArea], finv_agg_lib[studyArea] = d
         
         #=======================================================================
-        # retrieve data        
+        # handle layers----
         #=======================================================================
-        finv_agg_lib = self.retrieve(finv_poly_dkey)
-        fgdir_dxind = self.retrieve(finv_id_dxind)
+        dkey1 = 'finv_agg_lib'
+        if write:
+            self.store_finv_lib(finv_agg_lib, dkey1,logger=log)
         
-        
-        #=======================================================================
-        # #get ofp_d
-        #=======================================================================
-        """special retrival to carry forward the data storage"""
-        if finv_poly_dkey in self.ofp_d:
-            pick_fp = self.ofp_d[finv_poly_dkey]
-        else:
-            pick_fp = self.compiled_fp_d[finv_poly_dkey]
-            
-        ofp_d = self.load_pick(fp=pick_fp)
-
-        
-        #=======================================================================
-        # store results-------
-        #=======================================================================
-        #=======================================================================
-        # finvs
-        #=======================================================================
-        dkey1 = 'finv_agg'
-        self.ofp_d[dkey1] = self.write_pick(ofp_d, 
-                           os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey1, self.longname)),logger=log)
-        
-        #save to data
         self.data_d[dkey1] = finv_agg_lib
+        #=======================================================================
+        # handle dxcol-------
+        #=======================================================================
+        assert len(finv_gkey_df_d)>0
         
-        #=======================================================================
-        # lookoup
-        #=======================================================================
-        dkey1 = 'fgdir_dxind'
-        self.ofp_d[dkey1] = self.write_pick(fgdir_dxind, 
+ 
+        
+        dkey1 = 'finv_keys_serx'
+        serx = pd.concat(finv_gkey_df_d, verify_integrity=True).iloc[:,0]
+ 
+        serx.index.set_names('studyArea', level=0, inplace=True)
+        
+ 
+        self.check_mindex(serx.index)
+
+        #save the pickle
+        if write:
+            self.ofp_d[dkey1] = self.write_pick(serx, 
                            os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey1, self.longname)),logger=log)
         
         #save to data
-        self.data_d[dkey1] = copy.deepcopy(fgdir_dxind)
+        self.data_d[dkey1] = copy.deepcopy(serx)
         
-        
+ 
         #=======================================================================
-        # select result
+        # return requested data
         #=======================================================================
-        if dkey == 'finv_agg':
+        """while we build two results here... we need to return the one specified by the user
+        the other can still be retrieved from the data_d"""
+ 
+        if dkey == 'finv_agg_lib':
             result = finv_agg_lib
-        elif dkey == 'fgdir_dxind':
-            result = fgdir_dxind
+        elif dkey == 'finv_keys_serx':
+            result = serx
 
         
         return result
@@ -2603,7 +2605,7 @@ class Session(agSession):
         # defaults
         #=======================================================================
         log = self.logger.getChild('load_finv_lib.%s'%dkey)
-        assert dkey in ['finv_agg',  'finv_gPoly', 'finv_sg_agg']
+        assert dkey in ['finv_agg_lib',  'finv_agg_lib', 'finv_sg_agg']
         
         
         vlay_fp_lib = self.load_pick(fp=fp) #{study area: aggLevel : vlay filepath}}
@@ -2646,18 +2648,19 @@ class Session(agSession):
         #=======================================================================
         ofp_d = dict()
         cnt = 0
-        for studyArea, finv_grid_d in finv_grid_lib.items():
+        for studyArea, poly_vlay in finv_grid_lib.items():
             #setup directory
             od = os.path.join(out_dir, studyArea)
             if not os.path.exists(od):
                 os.makedirs(od)
+                
             #write each sstudy area
-            ofp_d[studyArea] = dict()
-            for grid_size, poly_vlay in finv_grid_d.items():
-                ofp_d[studyArea][grid_size] = self.vlay_write(poly_vlay, 
+ 
+ 
+            ofp_d[studyArea] = self.vlay_write(poly_vlay, 
                     os.path.join(od, poly_vlay.name() + '.gpkg'), 
                     logger=log)
-                cnt += 1
+            cnt += 1
         
         log.debug('wrote %i layers' % cnt)
         #=======================================================================
@@ -2671,9 +2674,13 @@ class Session(agSession):
         #save to data
         self.data_d[dkey] = finv_grid_lib
         return ofp_d
+    
+ 
+        
 
-    def build_finv_gridPoly(self, #build polygon grids for each study area (and each grid_size)
-                 dkey='finv_gPoly',
+    def finv_gridded(self, #build polygon grids for each study area (and each grid_size)
+
+                 aggLevel=None,
                  out_dir=None,
                  **kwargs):
         
@@ -2687,10 +2694,11 @@ class Session(agSession):
         #=======================================================================
         # defaults
         #=======================================================================
-        dkeys_l = ['finv_gPoly', 'finv_gPoly_id_dxind']
+        dkeys_l = ['finv_agg_lib', 'finv_keys_serx']
         log = self.logger.getChild('build_finv_gridPoly')
         
         if out_dir is None: out_dir=os.path.join(self.wrk_dir, dkey)
+        if aggLevel is None: aggLevel=self.aggLevel
         
         #=======================================================================
         # prechecks
@@ -2705,7 +2713,7 @@ class Session(agSession):
         #=======================================================================
         # #run the method on all the studyAreas
         #=======================================================================
-        res_d = self.sa_get(meth='get_finvs_gridPoly', write=False, dkey=dkey, **kwargs)
+        res_d = self.sa_get(meth='get_finvs_gridPoly', write=False, dkey=dkey,aggLevel=aggLevel, **kwargs)
         
         #unzip results
         finv_gkey_df_d, finv_grid_lib = dict(), dict() 
@@ -2717,48 +2725,7 @@ class Session(agSession):
                 k, finv_gkey_df_d[k].columns)
             
  
-        #=======================================================================
-        # handle layers----
-        #=======================================================================
-        dkey1 = 'finv_gPoly'
-        self.store_finv_lib(finv_grid_lib, dkey1, out_dir = out_dir, logger=log)
-        
-        if dkey1 == dkey: result = finv_grid_lib
-        
-        #=======================================================================
-        # handle dxcol-------
-        #=======================================================================
-        assert len(finv_gkey_df_d)>0
-        
- 
-        
-        dkey1 = 'finv_gPoly_id_dxind'
-        dxind = pd.concat(finv_gkey_df_d)
-        
-        #check index
-        assert dxind.columns.is_unique, 'bad columns on %s \n    %s'%(dkey1, dxind.columns)
-        
-        dxind.index.set_names('studyArea', level=0, inplace=True)
-        dxind.columns.name = 'grid_size'
-        self.check_mindex(dxind.index)
 
-        #save the pickle
-        self.ofp_d[dkey1] = self.write_pick(dxind, 
-                           os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey1, self.longname)),logger=log)
-        
-        #save to data
-        self.data_d[dkey1] = copy.deepcopy(dxind)
-        
-        if dkey1 == dkey: result = copy.deepcopy(dxind)
-        #=======================================================================
-        # return requested data
-        #=======================================================================
-        """while we build two results here... we need to return the one specified by the user
-        the other can still be retrieved from the data_d"""
-        
-        
-        
-        return result
     
 
         
@@ -2776,7 +2743,7 @@ class Session(agSession):
         log = self.logger.getChild('build_sampGeo')
  
         
-        finv_agg_lib = self.retrieve('finv_agg')
+        finv_agg_lib = self.retrieve('finv_agg_lib')
         
         #=======================================================================
         # loop each polygon layer and build sampling geometry
@@ -2944,7 +2911,7 @@ class Session(agSession):
         #===================================================================
         # get means
         #===================================================================
-        fgdir_dxind = self.retrieve('fgdir_dxind')
+        fgdir_dxind = self.retrieve('finv_keys_serx')
         res_d = dict()
         for studyArea, lay_d in finv_aggS_lib.items():
             res_df = None
@@ -3018,7 +2985,7 @@ class Session(agSession):
         log.info('on %i \n    %s'%(len(proj_lib), list(proj_lib.keys())))
         
         
-        #assert dkey in ['rsamps', 'finv_gPoly'], 'bad dkey %s'%dkey
+        #assert dkey in ['rsamps', 'finv_agg_lib'], 'bad dkey %s'%dkey
         
         #=======================================================================
         # loop and load
@@ -3089,7 +3056,7 @@ class Session(agSession):
  
 
         
-class StudyArea(Session, Qproj): #spatial work on study areas
+class StudyArea(Model, Qproj): #spatial work on study areas
     
     
     finv_fnl = [] #allowable fieldnames for the finv
@@ -3184,15 +3151,66 @@ class StudyArea(Session, Qproj): #spatial work on study areas
                 
         return rname
         
+    
+    def get_finv_clean(self,
+                       finv_vlay_raw=None,
+                       idfn=None,
+                       get_lookup=False,
+                       gcn=None,
+                      ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('get_finvs_gridPoly')
+        
+        if finv_vlay_raw is None: finv_vlay_raw=self.finv_vlay
+        if idfn is None: idfn=self.idfn
+ 
+        #=======================================================================
+        # clean finv
+        #=======================================================================
+        """general pre-cleaning of the finv happens in __init__"""
+        
+        drop_fnl = set([f.name() for f in finv_vlay_raw.fields()]).difference([idfn])
+ 
+        if len(drop_fnl)>0:
+            finv_vlay = self.deletecolumn(finv_vlay_raw, list(drop_fnl), logger=log)
+            self.mstore.addMapLayer(finv_vlay_raw)  
+        else:
+            finv_vlay = finv_vlay_raw
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        fnl = [f.name() for f in finv_vlay.fields()]
+        assert len(fnl)==1
+        assert idfn in fnl
+        
+        finv_vlay.setName('%s_clean'%finv_vlay_raw.name())
+        log.debug('finished on %s'%finv_vlay.name())
+            
+        if not get_lookup:
+            return finv_vlay
+ 
+        #=======================================================================
+        # #build a dummy lookup for consistency w/ get_finv_gridPoly
+        #=======================================================================
+        if gcn is None: gcn=self.gcn
+        
+        df = vlay_get_fdf(finv_vlay)
+        df[gcn] = df[idfn]
+        return df.set_index(idfn), finv_vlay
+            
         
         
-    def get_finvs_gridPoly(self, #get a set of polygon grid finvs (for each grid_size)
-                  finv_vlay_raw=None,
-                  grid_sizes = [5, 20, 100], #resolution in meters
+    def get_finv_gridPoly(self, #get a set of polygon grid finvs (for each grid_size)
+                  
+                  aggLevel=10,
                   idfn=None,
  
                   overwrite=None,
-                  ):
+                  **kwargs):
         """
         
         how do we store an intermitten here?
@@ -3208,215 +3226,158 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         log = self.logger.getChild('get_finvs_gridPoly')
         gcn = self.gcn
         if overwrite is None: overwrite=self.overwrite
-        if finv_vlay_raw is None: finv_vlay_raw=self.finv_vlay
+        
         if idfn is None: idfn=self.idfn
-        
+        grid_size=aggLevel
         #=======================================================================
-        # clean finv
+        # retrieve
         #=======================================================================
-        """general pre-cleaning of the finv happens in __init__"""
-        
-        drop_fnl = set([f.name() for f in finv_vlay_raw.fields()]).difference([idfn])
- 
-        if len(drop_fnl)>0:
-            finv_vlay = self.deletecolumn(finv_vlay_raw, list(drop_fnl), logger=log)
-            self.mstore.addMapLayer(finv_vlay) #keep the raw alive
-        else:
-            finv_vlay = finv_vlay_raw
+        finv_vlay = self.get_finv_clean(idfn=idfn, **kwargs)
  
         #=======================================================================
         # loop and aggregate
         #=======================================================================
-        finv_grid_d = dict() #container for resulting finv points layers
-        groups_d = dict()
-        meta_d = dict()
  
-        log.info('on \'%s\' w/ %i: %s'%(finv_vlay.name(), len(grid_sizes), grid_sizes))
+ 
+        log.info('on \'%s\' w/ grid_size=%i'%(finv_vlay.name(),grid_size))
+ 
         
-        for i, grid_size in enumerate(grid_sizes):
-            log.info('%i/%i grid w/ %.1f'%(i+1, len(grid_sizes), grid_size))
-            
-            #===================================================================
-            # raw grid
-            #===================================================================
-            
-            gvlay1 = self.creategrid(finv_vlay, spacing=grid_size, logger=log)
-            self.mstore.addMapLayer(gvlay1)
-            log.info('    built grid w/ %i'%gvlay1.dataProvider().featureCount())
-            
- 
-            #===================================================================
-            # active grid cells only
-            #===================================================================
-
-            
-            #select those w/ some assets
-            gvlay1.removeSelection()
-            self.createspatialindex(gvlay1)
-            log.info('    selecting from grid based on intersect w/ \'%s\''%(finv_vlay.name()))
-            self.selectbylocation(gvlay1, finv_vlay, logger=log)
-            
-            #save these
-            gvlay2 = self.saveselectedfeatures(gvlay1, logger=log, output='TEMPORARY_OUTPUT')
- 
-            #===================================================================
-            # populate/clean fields            
-            #===================================================================
-            #rename id field
-            gvlay3 = self.renameField(gvlay2, 'id', gcn, logger=log)
-            self.mstore.addMapLayer(gvlay3)
-            log.info('    renamed field \'id\':\'%s\''%gcn)
-            
-            
-            #delete grid dimension fields
-            fnl = set([f.name() for f in gvlay3.fields()]).difference([gcn])
-            gvlay3b = self.deletecolumn(gvlay3, list(fnl),  logger=log)
-            self.mstore.addMapLayer(gvlay3b)
-            
-            #add the grid_size
-            gvlay4 = self.fieldcalculator(gvlay3b, grid_size, fieldName='grid_size', 
-                                           fieldType='Integer', logger=log)
-            
- 
-            
-            #===================================================================
-            # build refecrence dictionary to true assets
-            #===================================================================
-            jd = self.joinattributesbylocation(finv_vlay, gvlay4, jvlay_fnl=gcn, 
-                                               method=1, logger=log,
-                                               #predicate='touches',
-                     output_nom=os.path.join(self.temp_dir, 'finv_grid_noMatch_%i_%s.gpkg'%(
-                                                 grid_size, self.longname)))
-            
-            #check match
-            noMatch_cnt = finv_vlay.dataProvider().featureCount() - jd['JOINED_COUNT']
-            if not noMatch_cnt==0:
-                """gid lookup wont work"""
-                raise Error('for \'%s\' grid_size=%i failed to join  %i/%i assets... wrote non matcherse to \n    %s'%(
-                    self.name, grid_size, noMatch_cnt, finv_vlay.dataProvider().featureCount(), jd['NON_MATCHING']))
-                    
-            jvlay = jd['OUTPUT']
-            self.mstore.addMapLayer(jvlay)
-            
-            df = vlay_get_fdf(jvlay, logger=log).set_index(idfn)
-            
-            #===================================================================
-            # check against grid points
-            #===================================================================
-            """
-            this is an artifact of doing selectbylocation then joinattributesbylocation
-                sometimes 1 or 2 grid cells are erroneously joined
-                here we just delete them
-            """
-            gpts_ser = vlay_get_fdf(gvlay4)[gcn]
-            
-            set_d = set_info(gpts_ser.values, df[gcn].values)
-
-            
-            if not len(set_d['symmetric_difference'])==0:
-                del set_d['union']
-                del set_d['intersection']
-                log.warning('%s.%i got %i mismatched values... deleteing these grid cells\n   %s'%(
-                    self.name, grid_size, len(set_d['symmetric_difference']), set_d))
-                
-                assert len(set_d['diff_right'])==0
-                
-                #get matching ids
-                fid_l = gpts_ser.index[gpts_ser.isin(set_d['diff_left'])].tolist()
-                gvlay4.removeSelection()
-                gvlay4.selectByIds(fid_l)
-                assert gvlay4.selectedFeatureCount()==len(set_d['diff_left'])
-                
-                #delete these
-                gvlay4.invertSelection()
-                gvlay4 = self.saveselectedfeatures(gvlay4, logger=log)
-                
-            #===================================================================
-            # write
-            #===================================================================
-            
-            gvlay4.setName('finv_gPoly_%i_%s'%(grid_size, self.longname.replace('_', '')))
-            """moved onto the session
-            if write_grids:
-                self.vlay_write(gvlay4, os.path.join(od, gvlay4.name() + '.gpkg'),
-                                logger=log)"""
- 
-            #===================================================================
-            # wrap
-            #===================================================================
-            finv_grid_d[grid_size]=gvlay4
-            groups_d[grid_size] = df.copy()
- 
-            #===================================================================
-            # #meta
-            #===================================================================
-            mcnt_ser = df[gcn].groupby(df[gcn]).count()
-            meta_d[grid_size] = {
-                'total_cells':gvlay1.dataProvider().featureCount(), 
-                'active_cells':gvlay1.selectedFeatureCount(),
-                'max_member_cnt':mcnt_ser.max()
-                }
-            
- 
-            log.info('    joined w/ %s'%meta_d[grid_size])
-            
-        #=======================================================================
-        # add trues
-        #=======================================================================
- 
-        grid_size = 0
-        if not 'Polygon' in QgsWkbTypes().displayString(finv_vlay.wkbType()):
-            log.warning('mixed types in finv_lib')
-            
-            """consider using a common function for this and the above"""
-            
-            
-        #rename the id field
-        tgvlay1 = self.renameField(finv_vlay, idfn, gcn, logger=log)
-        self.mstore.addMapLayer(tgvlay1)
+        #===================================================================
+        # raw grid
+        #===================================================================
         
-        #remove other fields
-        fnl = set([f.name() for f in tgvlay1.fields()]).difference([gcn])
-        assert len(fnl)==0
-        #tgvlay2 = self.deletecolumn(tgvlay1, list(fnl),  logger=log)
-        #self.mstore.addMapLayer(tgvlay2)
+        gvlay1 = self.creategrid(finv_vlay, spacing=grid_size, logger=log)
+        self.mstore.addMapLayer(gvlay1)
+        log.info('    built grid w/ %i'%gvlay1.dataProvider().featureCount())
         
+ 
+        #===================================================================
+        # active grid cells only
+        #===================================================================
+ 
+        #select those w/ some assets
+        gvlay1.removeSelection()
+        self.createspatialindex(gvlay1)
+        log.info('    selecting from grid based on intersect w/ \'%s\''%(finv_vlay.name()))
+        self.selectbylocation(gvlay1, finv_vlay, logger=log)
+        
+        #save these
+        gvlay2 = self.saveselectedfeatures(gvlay1, logger=log, output='TEMPORARY_OUTPUT')
+        
+        #===================================================================
+        # populate/clean fields            
+        #===================================================================
+        #rename id field
+        gvlay3 = self.renameField(gvlay2, 'id', gcn, logger=log)
+        self.mstore.addMapLayer(gvlay3)
+        log.info('    renamed field \'id\':\'%s\''%gcn)
+        
+        
+        #delete grid dimension fields
+        fnl = set([f.name() for f in gvlay3.fields()]).difference([gcn])
+        gvlay3b = self.deletecolumn(gvlay3, list(fnl),  logger=log)
+        #self.mstore.addMapLayer(gvlay3b)
         
         #add the grid_size
-        tgvlay3 = self.fieldcalculator(tgvlay1, grid_size, fieldName='grid_size', 
-                                       fieldType='Integer', logger=log)
+        #=======================================================================
+        # gvlay4 = self.fieldcalculator(gvlay3b, grid_size, fieldName='grid_size', 
+        #                                fieldType='Integer', logger=log)
+        #=======================================================================
+        gvlay4 = gvlay3b
+        
+ 
+        #===================================================================
+        # build refecrence dictionary to true assets
+        #===================================================================
+        jd = self.joinattributesbylocation(finv_vlay, gvlay4, jvlay_fnl=gcn, 
+                                           method=1, logger=log,
+                                           #predicate='touches',
+                 output_nom=os.path.join(self.temp_dir, 'finv_grid_noMatch_%i_%s.gpkg'%(
+                                             grid_size, self.longname)))
+        
+        #check match
+        noMatch_cnt = finv_vlay.dataProvider().featureCount() - jd['JOINED_COUNT']
+        if not noMatch_cnt==0:
+            """gid lookup wont work"""
+            raise Error('for \'%s\' grid_size=%i failed to join  %i/%i assets... wrote non matcherse to \n    %s'%(
+                self.name, grid_size, noMatch_cnt, finv_vlay.dataProvider().featureCount(), jd['NON_MATCHING']))
+                
+        jvlay = jd['OUTPUT']
+        self.mstore.addMapLayer(jvlay)
+        
+        df = vlay_get_fdf(jvlay, logger=log).set_index(idfn)
+        
+        #===================================================================
+        # check against grid points
+        #===================================================================
+        """
+        this is an artifact of doing selectbylocation then joinattributesbylocation
+            sometimes 1 or 2 grid cells are erroneously joined
+            here we just delete them
+        """
+        gpts_ser = vlay_get_fdf(gvlay4)[gcn]
+        
+        set_d = set_info(gpts_ser.values, df[gcn].values)
         
         
-        tgvlay3.setName('finv_gPoly_%i_%s'%(grid_size, self.longname.replace('_', '')))
+        if not len(set_d['symmetric_difference'])==0:
+            del set_d['union']
+            del set_d['intersection']
+            log.warning('%s.%i got %i mismatched values... deleteing these grid cells\n   %s'%(
+                self.name, grid_size, len(set_d['symmetric_difference']), set_d))
+            
+            assert len(set_d['diff_right'])==0
+            
+            #get matching ids
+            fid_l = gpts_ser.index[gpts_ser.isin(set_d['diff_left'])].tolist()
+            gvlay4.removeSelection()
+            gvlay4.selectByIds(fid_l)
+            assert gvlay4.selectedFeatureCount()==len(set_d['diff_left'])
+            
+            #delete these
+            gvlay4.invertSelection()
+            gvlay4 = self.saveselectedfeatures(gvlay4, logger=log)
+            
+        #===================================================================
+        # write
+        #===================================================================
         
-        finv_grid_d[grid_size]=tgvlay3
+        gvlay4.setName('finv_gPoly_%i_%s'%(grid_size, self.longname.replace('_', '')))
+        """moved onto the session
+        if write_grids:
+            self.vlay_write(gvlay4, os.path.join(od, gvlay4.name() + '.gpkg'),
+                            logger=log)"""
         
-        meta_d[grid_size] = {
-            'total_cells':tgvlay3.dataProvider().featureCount(), 
-            'active_cells':tgvlay3.dataProvider().featureCount(),
-            'max_member_cnt':1
+        #===================================================================
+        # wrap
+        #===================================================================
+ 
+        
+        #===================================================================
+        # #meta
+        #===================================================================
+        mcnt_ser = df[gcn].groupby(df[gcn]).count()
+        meta_d = {
+            'total_cells':gvlay1.dataProvider().featureCount(), 
+            'active_cells':gvlay1.selectedFeatureCount(),
+            'max_member_cnt':mcnt_ser.max()
             }
+        
+        
+        log.info('    joined w/ %s'%meta_d)
+            
+ 
  
         #=======================================================================
         # wrap
         #=======================================================================
         
-        log.info('finished on %i'%len(groups_d))
+        log.info('finished on %i'%len(df))
  
-        #assemble the grid id per raw asset
-        finv_gkey_df = pd.concat(groups_d, axis=1).droplevel(axis=1, level=1)
-        
-        #=======================================================================
-        # #checks
-        #=======================================================================
-        miss_l = set(finv_gkey_df.columns).symmetric_difference(grid_sizes)
-        assert len(miss_l)==0, 'grid_sizes dont match on output'
-        
-        assert finv_gkey_df.columns.is_unique
         
  
         
-        return finv_gkey_df, finv_grid_d
+        return df, gvlay4
     
 
         

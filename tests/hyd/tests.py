@@ -14,13 +14,13 @@ from numpy.testing import assert_equal
 from numpy import array, int32, float32, int64
 
 import pandas as pd
-from pandas import Index, Int64Index
-from pandas.testing import assert_frame_equal
+from pandas import Index, Int64Index, RangeIndex
+from pandas.testing import assert_frame_equal, assert_series_equal
 
 from qgis.core import QgsVectorLayer
 
 
-from agg.hyd.scripts import Session as CalcSession
+from agg.hyd.scripts import Model as CalcSession
 from agg.hyd.scripts import StudyArea as CalcStudyArea
 
 from agg.hyd.scripts import vlay_get_fdf
@@ -86,54 +86,40 @@ class Dkey(Basic): #dkey based test methods
     def setUpClass(cls):
         assert isinstance(cls.dkey, str) 
         super(Dkey, cls).setUpClass(bk_lib={cls.dkey:cls.bk_lib})
-        cls.result = cls.ses.retrieve(cls.dkey) #calls build_finv_gridPoly then sa_get
+        cls.result = cls.ses.retrieve(cls.dkey, write=False) #calls build_finv_gridPoly then sa_get
         
 class Dkey_finv_gPoly(Dkey):
-    dkey = 'finv_gPoly'
+    dkey = 'finv_agg_lib'
     
-    bk_lib = dict(grid_sizes=[50])
+    bk_lib = dict(aggType='gridded', aggLevel=50)
 
-        
-    def test_keys(self):
-        res_d = self.result
-        
-        #check grid size keys
-        for studyArea, g_v_d in res_d.items():
-            miss_l = set(g_v_d.keys()).symmetric_difference(self.bk_lib['grid_sizes'] + [0])
-        
-            self.assertEqual(len(miss_l), 0, msg='bad grid_sizes keys: %s'%miss_l)
- 
-                
+          
     def test_data(self):
         res_d = self.result
         true_d = self.true_lib['test_data']
- 
         
-        for studyArea, g_v_d in res_d.items():
-            self.assertEqual(set(g_v_d.keys()), set(true_d.keys()))
+        for studyArea, vlay in res_d.items():
  
  
-            for grid_size, vlay in g_v_d.items():
-                
-                self.assertTrue(isinstance(vlay, QgsVectorLayer))
-                
-                df = vlay_get_fdf(vlay).set_index('gid').sort_index()
-                
-                #check grid_size
-                self.assertEqual(len(df['grid_size'].unique()), 1)
-                
-                #asset count
-                true_df = true_d[grid_size]
-                
-                assert_frame_equal(true_df, df, check_dtype=False)
+            self.assertTrue(isinstance(vlay, QgsVectorLayer))
+            
+            ser = vlay_get_fdf(vlay)['gid'].sort_values().reset_index(drop=True)
+            
+            true_ser = true_d[studyArea]
+            
+            
+            
+            assert_series_equal(true_ser, ser, check_dtype=False)
  
                 
-                """
-                np.version.version
-                df.T.values
-                df.index
-                df.columns
-                """
+            """
+            ser.values
+            ser.index
+            np.version.version
+            df.T.values
+            df.index
+            df.columns
+            """
                 
 
                 
@@ -145,21 +131,11 @@ class Dkey_finv_gPoly(Dkey):
 class Test_p1_finvgpoly(Project1, Dkey_finv_gPoly):
     tag='Test_p1_finvgpoly'
     true_lib = {
-        'test_data':
-            {50:pd.DataFrame(
-                np.array([[50, 50, 50, 50, 50, 50]], dtype=np.int64),
-                columns=pd.Int64Index([1, 2, 3, 4, 5, 6], dtype='int64', name='gid'),
-                index = pd.Index(['grid_size'], dtype='object')
-                
-                ).T,
-            0:pd.DataFrame(
-                np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0]], dtype=int64),
-                columns=Int64Index([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907, 10908, 11250, 11251,
-                    11252, 11254, 14376, 14377, 14378, 23029, 23030, 23032, 23084, 23086, 23087, 23088,23089],
-                   dtype='int64', name='gid'),
-                index=Index(['grid_size'], dtype='object'),                
-                ).T}
-        }
+        'test_data':{
+            'test1':pd.Series(
+                array([1, 2, 3, 4, 5, 6], dtype=int64), name='gid',
+                index=RangeIndex(start=0, stop=6, step=1)                
+                )}}
  
 class Test_get_rsamps1(Project1, StudyArea):
     tag='Test_get_rsamps1'
@@ -251,9 +227,9 @@ class Test_get_rsamps2(Project2, StudyArea):
  
 def get_suite():
     test_cases = [
-        Test_p1_finvgpoly,
+        #Test_p1_finvgpoly,
         Test_get_rsamps1,
-        Test_get_rsamps2
+        #Test_get_rsamps2
         ]
     
     suite = unittest.TestSuite()

@@ -65,6 +65,9 @@ class Session(Session, Qproj, Plotr):
                 'build':lambda **kwargs:self.build_vf_d(**kwargs)
                 
                 },
+            'vfunc':{ #retrieve a single vfunc
+                'build':lambda **kwargs:self.build_vfunc(**kwargs)
+                }
             })
         
         super().__init__(work_dir = r'C:\LS\10_OUT\2112_Agg',
