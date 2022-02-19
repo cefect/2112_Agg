@@ -2843,13 +2843,11 @@ class Session(agSession):
         #=======================================================================
         # simple point-raster sampling
         #=======================================================================
-        if method == 'points':
+        if method in ['points', 'zonal']:
             res_d = self.sa_get(meth='get_rsamps_lib', logger=log, dkey=dkey, write=False, 
-                                finv_lib=finv_aggS_lib, idfn=gcn, **kwargs)
+                                finv_lib=finv_aggS_lib, idfn=gcn,method=method, **kwargs)
             
-        elif method == 'zonal':
-            res_d = self.sa_get(meth='get_zonal_lib', logger=log, dkey=dkey, write=False, 
-                                finv_lib=finv_aggS_lib, idfn=gcn, **kwargs)
+ 
         
 
         #=======================================================================
@@ -3394,19 +3392,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         
         return finv_gkey_df, finv_grid_d
     
-    def get_zonal_lib(self,
-                      finv_lib=None,
-                      **kwargs):
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('get_zonal_lib')
-        
-        #pull your layers from the session
-        finv_vlay_d = finv_lib[self.name]
-        
-        raise Error('stopped here... need polygons on finvs')
+
         
  
     def get_rsamps_lib(self, #get samples for a set of layers
@@ -3460,11 +3446,17 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         return dxind
                        
         
-    def get_rsamps(self, #raster samples on a single finv
+
+
+
+    def get_rsamps(self, #sample a set of rastsers withon a single finv
                    wd_dir = None,
                    finv_vlay=None,
                    idfn=None,
                    logger=None,
+                   method='points',
+                   zonal_stats = [2], #stats to use for zonal. 2=mean
+                   prec=None,
                    ):
         #=======================================================================
         # defaults
@@ -3474,9 +3466,18 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         if wd_dir is None: wd_dir = self.wd_dir
         if finv_vlay is None: finv_vlay=self.finv_vlay
         if idfn is None: idfn=self.idfn
+        if prec is None: prec=self.prec
         
+        #=======================================================================
+        # precheck
+        #=======================================================================
         assert os.path.exists(wd_dir)
-        assert 'Point' in QgsWkbTypes().displayString(finv_vlay.wkbType())
+        if method=='points':
+            assert 'Point' in QgsWkbTypes().displayString(finv_vlay.wkbType())
+        elif method=='zonal':
+            assert 'Polygon' in QgsWkbTypes().displayString(finv_vlay.wkbType())
+            assert isinstance(zonal_stats ,list)
+            assert len(zonal_stats)==1
         #=======================================================================
         # retrieve
         #=======================================================================
@@ -3484,19 +3485,34 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         
         log.info('on %i rlays \n    %s'%(len(fns), fns))
         
+        #=======================================================================
+        # loop and sample
+        #=======================================================================
         res_df = None
         for i, fn in enumerate(fns):
             rname = fn.replace('.tif', '')
             log.debug('%i %s'%(i, fn))
             
-            vlay_samps = self.rastersampling(finv_vlay, os.path.join(wd_dir, fn), logger=log, pfx='samp_')
+            rlay_fp = os.path.join(wd_dir, fn)
+            
+            
+            #===================================================================
+            # sample
+            #===================================================================
+            if method=='points':
+                vlay_samps = self.rastersampling(finv_vlay, rlay_fp, logger=log, pfx='samp_')
+                df = vlay_get_fdf(vlay_samps, logger=log).rename(columns={'samp_1':rname})
+ 
+            
+            elif method=='zonal':
+                vlay_samps = self.zonalstatistics(finv_vlay, rlay_fp, logger=log, pfx='samp_', stats=zonal_stats)
+                
+                df = vlay_get_fdf(vlay_samps, logger=log).rename(columns={'samp_1':rname})
+            
             self.mstore.addMapLayer(vlay_samps)
-            
-            #retrive and clean
-            df = vlay_get_fdf(vlay_samps, logger=log).drop('fid', axis=1, errors='ignore').rename(columns={'samp_1':rname})
-            
-            
-            
+            #===================================================================
+            # post           
+            #===================================================================
             #force type
             assert idfn in df.columns, 'missing key \'%s\' on %s'%(idfn, finv_vlay.name())
             df.loc[:, idfn] = df[idfn].astype(np.int64)
@@ -3504,7 +3520,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             assert df[idfn].is_unique, finv_vlay.name()
 
             
-            rdf = df.set_index(idfn).drop('grid_size', axis=1)
+            rdf = df.set_index(idfn).drop('grid_size', axis=1, errors='ignore')
             if res_df is None:
                 res_df = rdf
             else:
@@ -3519,22 +3535,16 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         # wrap
         #=======================================================================
- 
-        #res_df = pd.concat(res_d.values(), axis=0).sort_index()
+
         assert res_df.index.is_unique
         
         
         log.info('finished on %s and %i rasters w/ %i/%i dry'%(
             finv_vlay.name(), len(fns), res_df.isna().sum().sum(), res_df.size))
-        #=======================================================================
-        # try:
-        #     self.session.check_mindex(dxind.index)
-        # except Exception as e:
-        #     raise Error('%s failed index check \n    %s'%(self.name, e))
-        #=======================================================================
-            
+
         
-        return res_df1.sort_index()
+        return res_df1.round(prec).astype(np.float32).sort_index()
     
+ 
  
         

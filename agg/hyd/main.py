@@ -254,12 +254,12 @@ def dev():
         tag='dev',
         compiled_fp_d = {
  
-    #'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_gPoly_hyd_dev_0219.pickle',
-    #===========================================================================
-    # 'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_gPoly_id_dxind_hyd_dev_0219.pickle',
-    # 'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_agg_hyd_dev_0219.pickle',
-    #===========================================================================
-    #'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\fgdir_dxind_hyd_dev_0219.pickle',
+    'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_gPoly_hyd_dev_0219.pickle',
+    'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_gPoly_id_dxind_hyd_dev_0219.pickle',
+    'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_agg_hyd_dev_0219.pickle',
+    'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\fgdir_dxind_hyd_dev_0219.pickle',
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\tvals_hyd_dev_0219.pickle',
+    'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_sg_agg_hyd_dev_0219.pickle',
             },
         
         proj_lib =     {
