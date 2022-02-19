@@ -61,7 +61,7 @@ class Model(agSession): #single model run
         data_retrieve_hndls = {
 
             #aggregating inventories
-            'finv_agg_lib':{ #lib of aggrtevated finv vlays
+            'finv_agg_d':{ #lib of aggrtevated finv vlays
                 'compiled':lambda **kwargs:self.load_finv_lib(**kwargs), #vlays need additional loading
                 'build':lambda **kwargs: self.build_finv_agg(**kwargs),
                 },
@@ -73,7 +73,7 @@ class Model(agSession): #single model run
             
  
             
-            'finv_sg_agg':{ #sampling geometry
+            'finv_sg_d':{ #sampling geometry
                 'compiled':lambda **kwargs:self.load_finv_lib(**kwargs), #vlays need additional loading
                 'build':lambda **kwargs: self.build_sampGeo(**kwargs),
                 },
@@ -1683,7 +1683,7 @@ class Model(agSession): #single model run
         tl_dxind = self.retrieve('tloss')
         
         #geometry
-        finv_agg_lib = self.retrieve('finv_agg_lib')
+        finv_agg_lib = self.retrieve('finv_agg_d')
         
         #=======================================================================
         # prep data
@@ -2225,7 +2225,7 @@ class Model(agSession): #single model run
         #=======================================================================
         
         #fgdir_dxind = self.retrieve('finv_keys_serx') #studyArea, id : grid_size : corresponding gid
-        finv_agg_lib = self.retrieve('finv_agg_lib')
+        finv_agg_lib = self.retrieve('finv_agg_d')
         #dxser = self.retrieve('rsamps')
  
         
@@ -2522,7 +2522,7 @@ class Model(agSession): #single model run
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_finv_agg')
-        assert dkey in ['finv_agg_lib', 'finv_keys_serx']
+        assert dkey in ['finv_agg_d', 'finv_keys_serx']
         if aggType is None: aggType=self.aggType
         log.info('building \'%s\' '%(aggType))
         
@@ -2551,7 +2551,7 @@ class Model(agSession): #single model run
         #=======================================================================
         # handle layers----
         #=======================================================================
-        dkey1 = 'finv_agg_lib'
+        dkey1 = 'finv_agg_d'
         if write:
             self.store_finv_lib(finv_agg_lib, dkey1,logger=log)
         
@@ -2586,7 +2586,7 @@ class Model(agSession): #single model run
         """while we build two results here... we need to return the one specified by the user
         the other can still be retrieved from the data_d"""
  
-        if dkey == 'finv_agg_lib':
+        if dkey == 'finv_agg_d':
             result = finv_agg_lib
         elif dkey == 'finv_keys_serx':
             result = serx
@@ -2605,7 +2605,7 @@ class Model(agSession): #single model run
         # defaults
         #=======================================================================
         log = self.logger.getChild('load_finv_lib.%s'%dkey)
-        assert dkey in ['finv_agg_lib',  'finv_agg_lib', 'finv_sg_agg']
+        assert dkey in ['finv_agg_d',  'finv_agg_d', 'finv_sg_d']
         
         
         vlay_fp_lib = self.load_pick(fp=fp) #{study area: aggLevel : vlay filepath}}
@@ -2694,7 +2694,7 @@ class Model(agSession): #single model run
         #=======================================================================
         # defaults
         #=======================================================================
-        dkeys_l = ['finv_agg_lib', 'finv_keys_serx']
+        dkeys_l = ['finv_agg_d', 'finv_keys_serx']
         log = self.logger.getChild('build_finv_gridPoly')
         
         if out_dir is None: out_dir=os.path.join(self.wrk_dir, dkey)
@@ -2731,58 +2731,58 @@ class Model(agSession): #single model run
         
 
     def build_sampGeo(self, #get raster samples for all finvs
-                     dkey='finv_sg_agg',
+                     dkey='finv_sg_d',
                      sgType = 'centroids',
- 
-                     **kwargs):
+                     write=True,
+                     finv_agg_lib=None,
+                     ):
         
         #=======================================================================
         # defauts
         #=======================================================================
-        assert dkey == 'finv_sg_agg'
+        assert dkey == 'finv_sg_d'
         log = self.logger.getChild('build_sampGeo')
  
         
-        finv_agg_lib = self.retrieve('finv_agg_lib')
+        if finv_agg_lib is None: finv_agg_lib = self.retrieve('finv_agg_d', write=write)
         
         #=======================================================================
         # loop each polygon layer and build sampling geometry
         #=======================================================================
         log.info('on %i w/ %s'%(len(finv_agg_lib), sgType))
-        res_vlay_lib = dict()
-        for studyArea, vlay_d in finv_agg_lib.items():
-            res_vlay_lib[studyArea] = dict()
-            for aggLevel, poly_vlay in vlay_d.items():
-                log.info('on %s.%s w/ %i feats'%(studyArea, aggLevel, poly_vlay.dataProvider().featureCount()))
+        res_d = dict()
+        for studyArea, poly_vlay in finv_agg_lib.items():
+ 
+            log.info('on %s w/ %i feats'%(studyArea, poly_vlay.dataProvider().featureCount()))
+            
+            if sgType == 'centroids':
+                """works on point layers"""
+                sg_vlay = self.centroids(poly_vlay, logger=log)
                 
-                if sgType == 'centroids':
-                    """works on point layers"""
-                    sg_vlay = self.centroids(poly_vlay, logger=log)
-                    
-                elif sgType == 'poly':
-                    assert 'Polygon' in QgsWkbTypes().displayString(poly_vlay.wkbType()), 'bad type on %s.%s'%(studyArea, aggLevel)
-                    poly_vlay.selectAll()
-                    
-                    sg_vlay = self.saveselectedfeatures(poly_vlay, logger=log) #just get a copy
-                    
-                else:
-                    raise Error('not implemented')
+            elif sgType == 'poly':
+                assert 'Polygon' in QgsWkbTypes().displayString(poly_vlay.wkbType()), 'bad type on %s'%(studyArea)
+                poly_vlay.selectAll()
                 
-                #===============================================================
-                # wrap
-                #===============================================================
-                sg_vlay.setName('%s_%s'%(poly_vlay.name(), sgType))
+                sg_vlay = self.saveselectedfeatures(poly_vlay, logger=log) #just get a copy
                 
-                
-                res_vlay_lib[studyArea][aggLevel] = sg_vlay
+            else:
+                raise Error('not implemented')
+            
+            #===============================================================
+            # wrap
+            #===============================================================
+            sg_vlay.setName('%s_%s'%(poly_vlay.name(), sgType))
+            
+            
+            res_d[studyArea] = sg_vlay
                 
         
         #=======================================================================
         # store layers
         #=======================================================================
-        ofp_d = self.store_finv_lib(res_vlay_lib, dkey,logger=log)
+        if write: ofp_d = self.store_finv_lib(res_d, dkey,logger=log)
         
-        return res_vlay_lib
+        return res_d
                 
         
  
@@ -2807,7 +2807,7 @@ class Model(agSession): #single model run
         # child data
         #=======================================================================
         
-        finv_aggS_lib = self.retrieve('finv_sg_agg')
+        finv_aggS_lib = self.retrieve('finv_sg_d')
 
         #=======================================================================
         # generate depths------
@@ -2985,7 +2985,7 @@ class Model(agSession): #single model run
         log.info('on %i \n    %s'%(len(proj_lib), list(proj_lib.keys())))
         
         
-        #assert dkey in ['rsamps', 'finv_agg_lib'], 'bad dkey %s'%dkey
+        #assert dkey in ['rsamps', 'finv_agg_d'], 'bad dkey %s'%dkey
         
         #=======================================================================
         # loop and load
@@ -3197,6 +3197,9 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         # #build a dummy lookup for consistency w/ get_finv_gridPoly
         #=======================================================================
         if gcn is None: gcn=self.gcn
+        
+        raise Error('need to rename indexer field to gid for consistency')
+        
         
         df = vlay_get_fdf(finv_vlay)
         df[gcn] = df[idfn]

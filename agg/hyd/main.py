@@ -160,11 +160,11 @@ def run( #run a basic model configuration
     with Model(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim,transparent=transparent,
                aggType=aggType,
                  bk_lib = {
-                     'finv_agg_lib':dict(aggLevel=aggLevel),
+                     'finv_agg_d':dict(aggLevel=aggLevel),
                      'vfunc':dict(vid=vid),
  
                      
-                     'finv_sg_agg':dict(sgType=sample_geo_type),
+                     'finv_sg_d':dict(sgType=sample_geo_type),
                      
  
                      

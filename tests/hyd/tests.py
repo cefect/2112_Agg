@@ -32,9 +32,10 @@ from agg.hyd.scripts import vlay_get_fdf
 class Basic(unittest.TestCase): #session level tester
     prec=3
     @classmethod
-    def setUpClass(cls, bk_lib={}):
+    def setUpClass(cls, bk_lib={}, compiled_fp_d={}):
         cls.ses = CalcSession(out_dir = tempfile.gettempdir(), proj_lib=cls.proj_lib,
-                              bk_lib = bk_lib, overwrite=True, tag=cls.tag
+                              bk_lib = bk_lib, compiled_fp_d=compiled_fp_d, 
+                              overwrite=True, tag=cls.tag
                               )
  
     @classmethod
@@ -79,21 +80,19 @@ class Project2(object): #poly finv
 #===============================================================================
 # COMPONENTS: DKEY--------
 #===============================================================================
+"""not so good to use these for unit tests... could trigger lots of unexpected intputs"""
 class Dkey(Basic): #dkey based test methods
     dkey = None #overwrite with subclass
-    
+    compiled_fp_d = dict() #overwrite to load precompileds
     @classmethod
     def setUpClass(cls):
         assert isinstance(cls.dkey, str) 
-        super(Dkey, cls).setUpClass(bk_lib={cls.dkey:cls.bk_lib})
-        cls.result = cls.ses.retrieve(cls.dkey, write=False) #calls build_finv_gridPoly then sa_get
+        super(Dkey, cls).setUpClass(bk_lib={cls.dkey:cls.bk_lib}, compiled_fp_d=cls.compiled_fp_d)
+        cls.result = cls.ses.retrieve(cls.dkey, write=True) #calls build_finv_gridPoly then sa_get
         
-class Dkey_finv_gPoly(Dkey):
-    dkey = 'finv_agg_lib'
-    
-    bk_lib = dict(aggType='gridded', aggLevel=50)
-
-          
+class Dkey_finv_agg(Dkey):
+    dkey = 'finv_agg_d'
+ 
     def test_data(self):
         res_d = self.result
         true_d = self.true_lib['test_data']
@@ -107,20 +106,11 @@ class Dkey_finv_gPoly(Dkey):
             
             true_ser = true_d[studyArea]
             
-            
-            
+ 
             assert_series_equal(true_ser, ser, check_dtype=False)
  
-                
-            """
-            ser.values
-            ser.index
-            np.version.version
-            df.T.values
-            df.index
-            df.columns
-            """
-                
+ 
+          
 
                 
 
@@ -128,15 +118,60 @@ class Dkey_finv_gPoly(Dkey):
 #===============================================================================
 # test cases--------
 #===============================================================================
-class Test_p1_finvgpoly(Project1, Dkey_finv_gPoly):
-    tag='Test_p1_finvgpoly'
+class Test_p1_finv_gridded(Project1, Dkey_finv_agg):
+    tag='Test_p1_finv_gridded'
+    bk_lib = dict(aggType='gridded', aggLevel=50)
     true_lib = {
         'test_data':{
             'test1':pd.Series(
                 array([1, 2, 3, 4, 5, 6], dtype=int64), name='gid',
                 index=RangeIndex(start=0, stop=6, step=1)                
                 )}}
- 
+
+class Test_p1_finv_none(Project1, Dkey_finv_agg):
+    tag='Test_p1_finv_gridded'
+    bk_lib = dict(aggType='none', aggLevel=None)
+    true_lib = {
+        #need to finish this
+            }
+    
+class Test_p1_sampGeo(Project1, Basic):
+    tag = 'Test_p1_sampGeo'
+    input_fp = { #input files generated from precurser steps
+        'Test_p1_finv_gridded':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\sampGeo\finv_gPoly_50_test1Testp1finvgridded0219.geojson',
+        }
+        
+    true_lib = {
+        'test_data':{
+            'test1':pd.Series(
+                array([1, 2, 3, 4, 5, 6], dtype=int64), name='gid',
+                index=RangeIndex(start=0, stop=6, step=1)                
+                )}}
+    
+    def setUp(self):
+
+        
+        self.ses.build_sampGeo()
+    
+    def test_data(self):
+        #=======================================================================
+        # #load finv_agg_d
+        # vlay = self.ses.vlay_load(
+        # 
+        # for k in self.proj_lib.keys():
+        #     finv_agg_lib = {k:vlay}
+        #=======================================================================
+            
+            
+        res_d = self.result
+        true_d = self.true_lib['test_data']
+        
+        for studyArea, vlay in res_d.items():
+            self.assertTrue(isinstance(vlay, QgsVectorLayer))
+            vlay_get_fdf(vlay)
+            
+            
+
 class Test_get_rsamps1(Project1, StudyArea):
     tag='Test_get_rsamps1'
     #===========================================================================
@@ -227,8 +262,10 @@ class Test_get_rsamps2(Project2, StudyArea):
  
 def get_suite():
     test_cases = [
-        #Test_p1_finvgpoly,
-        Test_get_rsamps1,
+        #Test_p1_finv_gridded,
+        Test_p1_finv_none,
+        #Test_p1_sampGeo,
+        #Test_get_rsamps1,
         #Test_get_rsamps2
         ]
     
