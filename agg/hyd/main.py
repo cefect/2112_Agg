@@ -204,7 +204,7 @@ def run(
         
  
         ses.plot_tvals()
-        #ses.plot_depths()
+        ses.plot_depths(calc_str=rsamps_method)
         
         #summary of total loss
         #ses.write_loss_smry()
@@ -253,13 +253,15 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
- 
     'finv_gPoly':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_gPoly_hyd_dev_0219.pickle',
     'finv_gPoly_id_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_gPoly_id_dxind_hyd_dev_0219.pickle',
     'finv_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_agg_hyd_dev_0219.pickle',
     'fgdir_dxind':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\fgdir_dxind_hyd_dev_0219.pickle',
     'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\tvals_hyd_dev_0219.pickle',
     'finv_sg_agg':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\finv_sg_agg_hyd_dev_0219.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\rsamps_hyd_dev_0219.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\rloss_hyd_dev_0219.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220219\working\tloss_hyd_dev_0219.pickle',
             },
         
         proj_lib =     {

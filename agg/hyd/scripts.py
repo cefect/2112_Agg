@@ -9,7 +9,7 @@ Created on Jan. 18, 2022
 #===============================================================================
 # imports--------
 #===============================================================================
-import os, datetime, math, pickle, copy, random
+import os, datetime, math, pickle, copy, random, pprint
 import pandas as pd
 import numpy as np
 
@@ -23,7 +23,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     QgsWkbTypes
 
  
-from hp.basic import set_info
+from hp.basic import set_info, get_dict_str
 
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -129,14 +129,16 @@ class Session(agSession):
     #===========================================================================
     
     def plot_depths(self,
+                    #data control
                     plot_fign = 'studyArea',
                     plot_rown = 'grid_size', 
-                    plot_coln = 'event',
- 
-                    
+                    plot_coln = 'event',                    
                     plot_zeros=False,
+                    
+                    #style control
                     xlims = (0,2),
                     ylims=(0,2.5),
+                    calc_str = 'points',
                     
                     out_dir=None,
                     
@@ -157,6 +159,7 @@ class Session(agSession):
         assert serx.notna().all().all(), 'drys should be zeros'
 
         """
+        plt.show()
         self.retrieve('tvals')
         view(serx)
         """
@@ -208,12 +211,19 @@ class Session(agSession):
                 ax = ax_d[row_key][col_key]
                 ax.hist(ar, color='blue', alpha=0.3, label=row_key, density=True, bins=30, range=xlims)
                 
-                #label
-                meta_d = {
-                    plot_rown:row_key,
-                    'wet':len(ar), 'dry':(gsx2<=0.0).sum(), 'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
+                #===============================================================
+                # #label
+                #===============================================================
+                #get float labels
+                meta_d = {'calc_method':calc_str, plot_rown:row_key,'wet':len(ar), 'dry':(gsx2<=0.0).sum(),
+                           'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
                 
-                txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
+
+                
+
+                txt = get_dict_str(meta_d)
+                
+                #txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
                 ax.text(0.5, 0.9, txt, transform=ax.transAxes, va='top', fontsize=8, color='blue')
                 
 
@@ -2860,7 +2870,7 @@ class Session(agSession):
         #=======================================================================
         # shape into dxind
         #=======================================================================
-        dxind1 = pd.concat(res_d)
+        dxind1 = pd.concat(res_d, verify_integrity=True)
         dxind1.index.set_names('studyArea', level=0, inplace=True)
         
         """this will have some nulls as weve mashed all the events together
@@ -2881,17 +2891,18 @@ class Session(agSession):
         #=======================================================================
         # clean event names
         #=======================================================================
-        """TODO: make a metatable for all the events then populate the names with something pretty and consistent"""
-        idf = dxser.index.to_frame().reset_index(drop=True)
-        idf['event'] = idf['event'].str.slice(start=5, stop=25).str.replace('_', '')
-        
-        dxser.index = pd.MultiIndex.from_frame(idf)
+        #=======================================================================
+        # """TODO: make a metatable for all the events then populate the names with something pretty and consistent"""
+        # idf = dxser.index.to_frame().reset_index(drop=True)
+        # idf['event'] = idf['event'].str.slice(start=5, stop=25).str.replace('_', '')
+        # 
+        # dxser.index = pd.MultiIndex.from_frame(idf)
+        #=======================================================================
         #=======================================================================
         # #re-org
         #=======================================================================
         dxser = dxser.swaplevel().swaplevel(i=1,j=0).sort_index(axis=0, level=0, sort_remaining=True)
-        
-        dxser = dxser.sort_index(level=0, axis=0, sort_remaining=True)
+ 
         
         #=======================================================================
         # checks
@@ -3080,7 +3091,7 @@ class Session(agSession):
             
         
  
-                
+ 
 
         
 class StudyArea(Session, Qproj): #spatial work on study areas
@@ -3159,6 +3170,26 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         self.finv_vlay = finv2
         self.wd_dir=wd_dir
  
+    def get_clean_rasterName(self, raster_fn,
+                             conv_lib = {
+                                'LMFRA':{
+                                    'AG4_Fr_0050_dep_0116_cmp.tif':'0050yr',
+                                    'AG4_Fr_0100_dep_0116_cmp.tif':'0100yr',
+                                    'AG4_Fr_0500_dep_0116_cmp.tif':'0500yr',
+                                    'AG4_Fr_1000_dep_0116_cmp.tif':'1000yr',
+                                        },
+    
+                                        }   
+                             ):
+        
+        rname = raster_fn.replace('.tif', '')
+        if self.name in conv_lib:
+            if raster_fn in conv_lib[self.name]:
+                rname = conv_lib[self.name][raster_fn]
+                
+        return rname
+        
+        
         
     def get_finvs_gridPoly(self, #get a set of polygon grid finvs (for each grid_size)
                   finv_vlay_raw=None,
@@ -3190,10 +3221,10 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         """general pre-cleaning of the finv happens in __init__"""
         
-        drop_fnl = set([idfn]).difference([f.name() for f in finv_vlay_raw.fields()])
+        drop_fnl = set([f.name() for f in finv_vlay_raw.fields()]).difference([idfn])
  
         if len(drop_fnl)>0:
-            finv_vlay = self.deletecolumn(finv_vlay_raw, drop_fnl, logger=log)
+            finv_vlay = self.deletecolumn(finv_vlay_raw, list(drop_fnl), logger=log)
             self.mstore.addMapLayer(finv_vlay) #keep the raw alive
         else:
             finv_vlay = finv_vlay_raw
@@ -3419,15 +3450,20 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         
         res_d = dict()
         for aggLevel, finv_vlay in finv_vlay_d.items():
-            res_d[aggLevel] = self.get_rsamps(finv_vlay=finv_vlay, logger=self.logger.getChild('aL%i'%aggLevel),
+            res_d[aggLevel] = self.get_rsamps(finv_vlay_raw=finv_vlay, logger=self.logger.getChild('aL%i'%aggLevel),
                             **kwargs)
             
         #=======================================================================
         # combine
         #=======================================================================
-        dxind = pd.concat(res_d)
+        dxind = pd.concat(res_d, verify_integrity=True).sort_index()
         dxind.index.set_names('grid_size', level=0, inplace=True)
- 
+        
+        """
+        view(dxind)
+        """
+        #check
+        self.session.check_mindex(dxind.index)
         assert dxind.notna().all().all(), 'zeros replaced at lowset level'
         
         dry_bx = dxind<=0
@@ -3438,10 +3474,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         log.info('finished on %i vlays and %i rasters w/ %i/%i dry'%(
             len(finv_vlay_d), len(dxind.columns), dry_bx.sum().sum(), dxind.size))
         
-        try:
-            self.session.check_mindex(dxind.index)
-        except Exception as e:
-            raise Error('%s failed w/ %s'%(self.name, e))
+ 
         
         return dxind
                        
@@ -3451,7 +3484,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
 
     def get_rsamps(self, #sample a set of rastsers withon a single finv
                    wd_dir = None,
-                   finv_vlay=None,
+                   finv_vlay_raw=None,
                    idfn=None,
                    logger=None,
                    method='points',
@@ -3464,7 +3497,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         if logger is None: logger=self.logger
         log = logger.getChild('get_rsamps')
         if wd_dir is None: wd_dir = self.wd_dir
-        if finv_vlay is None: finv_vlay=self.finv_vlay
+        if finv_vlay_raw is None: finv_vlay_raw=self.finv_vlay
         if idfn is None: idfn=self.idfn
         if prec is None: prec=self.prec
         
@@ -3473,11 +3506,27 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         assert os.path.exists(wd_dir)
         if method=='points':
-            assert 'Point' in QgsWkbTypes().displayString(finv_vlay.wkbType())
+            assert 'Point' in QgsWkbTypes().displayString(finv_vlay_raw.wkbType())
         elif method=='zonal':
-            assert 'Polygon' in QgsWkbTypes().displayString(finv_vlay.wkbType())
+            assert 'Polygon' in QgsWkbTypes().displayString(finv_vlay_raw.wkbType())
             assert isinstance(zonal_stats ,list)
             assert len(zonal_stats)==1
+            
+            
+        #=======================================================================
+        # clean finv
+        #=======================================================================
+        """general pre-cleaning of the finv happens in __init__"""
+        
+        drop_fnl = set([f.name() for f in finv_vlay_raw.fields()]).difference([idfn])
+ 
+        if len(drop_fnl)>0:
+            finv_vlay = self.deletecolumn(finv_vlay_raw, list(drop_fnl), logger=log)
+            self.mstore.addMapLayer(finv_vlay) #keep the raw alive
+        else:
+            finv_vlay = finv_vlay_raw
+            
+            
         #=======================================================================
         # retrieve
         #=======================================================================
@@ -3490,7 +3539,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         res_df = None
         for i, fn in enumerate(fns):
-            rname = fn.replace('.tif', '')
+            rname = self.get_clean_rasterName(fn)
             log.debug('%i %s'%(i, fn))
             
             rlay_fp = os.path.join(wd_dir, fn)
@@ -3501,18 +3550,23 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             #===================================================================
             if method=='points':
                 vlay_samps = self.rastersampling(finv_vlay, rlay_fp, logger=log, pfx='samp_')
-                df = vlay_get_fdf(vlay_samps, logger=log).rename(columns={'samp_1':rname})
+ 
  
             
             elif method=='zonal':
                 vlay_samps = self.zonalstatistics(finv_vlay, rlay_fp, logger=log, pfx='samp_', stats=zonal_stats)
                 
-                df = vlay_get_fdf(vlay_samps, logger=log).rename(columns={'samp_1':rname})
-            
-            self.mstore.addMapLayer(vlay_samps)
+
             #===================================================================
             # post           
             #===================================================================
+            self.mstore.addMapLayer(vlay_samps)
+            #change column names
+            df = vlay_get_fdf(vlay_samps, logger=log)
+            df = df.rename(columns={df.columns[1]:rname})
+            
+            
+            
             #force type
             assert idfn in df.columns, 'missing key \'%s\' on %s'%(idfn, finv_vlay.name())
             df.loc[:, idfn] = df[idfn].astype(np.int64)
