@@ -2376,7 +2376,8 @@ class Session(agSession):
             #===================================================================
             else:
                 #get lookups
-                id_lookuop_serx = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']].rename(gcn).sort_index()
+                id_lookuop_serx = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']]
+                id_lookuop_serx = id_lookuop_serx.rename(gcn).sort_index()
                 
                 #get trues
                 t_serx = serx.loc[idx[keys[0], [0], :]].droplevel(1)
@@ -2702,10 +2703,13 @@ class Session(agSession):
         res_d = self.sa_get(meth='get_finvs_gridPoly', write=False, dkey=dkey, **kwargs)
         
         #unzip results
-        #finv_gkey_df, finv_grid_d
         finv_gkey_df_d, finv_grid_lib = dict(), dict() 
         for k,v in res_d.items():
             finv_gkey_df_d[k], finv_grid_lib[k]  = v
+            
+            #simple checks
+            assert finv_gkey_df_d[k].columns.is_unique, 'got bad columns on \'%s\' \n    %s'%(
+                k, finv_gkey_df_d[k].columns)
             
  
         #=======================================================================
@@ -2720,10 +2724,15 @@ class Session(agSession):
         # handle dxcol-------
         #=======================================================================
         assert len(finv_gkey_df_d)>0
+        
+ 
+        
         dkey1 = 'finv_gPoly_id_dxind'
         dxind = pd.concat(finv_gkey_df_d)
         
         #check index
+        assert dxind.columns.is_unique, 'bad columns on %s \n    %s'%(dkey1, dxind.columns)
+        
         dxind.index.set_names('studyArea', level=0, inplace=True)
         dxind.columns.name = 'grid_size'
         self.check_mindex(dxind.index)
@@ -3079,6 +3088,7 @@ class Session(agSession):
 class StudyArea(Session, Qproj): #spatial work on study areas
     
     
+    finv_fnl = [] #allowable fieldnames for the finv
     def __init__(self, 
                  
                  #pars_lib kwargs
@@ -3107,6 +3117,8 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         # simple attach
         #=======================================================================
         self.idfn=idfn
+        
+        self.finv_fnl.append(idfn)
         #=======================================================================
         # load aoi
         #=======================================================================
@@ -3118,35 +3130,40 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         #=======================================================================
         finv_raw = self.vlay_load(finv_fp, dropZ=True, reproj=True)
         
-        if not self.aoi_vlay is None:
-            finv = self.slice_aoi(finv_raw)
+        #field slice
+        fnl = [f.name() for f in finv_raw.fields()]
+        drop_l =  list(set(fnl).difference(self.finv_fnl))
+        if len(drop_l)>0:
+            finv1 = self.deletecolumn(finv_raw, drop_l)
             self.mstore.addMapLayer(finv_raw)
+        else:
+            finv1 = finv_raw
+        
+        #spatial slice
+        if not self.aoi_vlay is None:
+            finv2 = self.slice_aoi(finv1)
+            self.mstore.addMapLayer(finv1)
         
         else:
-            finv = finv_raw
-            
+            finv2 = finv1
+        
+        finv2.setName(finv_raw.name())
  
             
         #check
-        assert self.idfn in [f.name() for f in finv.fields()], 'finv \'%s\' missing idfn \"%s\''%(finv.name(), self.idfn)
-            
-        self.mstore.addMapLayer(finv_raw)
-        self.finv_vlay = finv
-            
-        
-            
-            
-            
-            
-            
+        miss_l = set(self.finv_fnl).symmetric_difference([f.name() for f in finv2.fields()])
+        assert len(miss_l)==0, 'unexpected fieldnames on \'%s\' :\n %s'%(miss_l, finv2.name())
+ 
+  
         #=======================================================================
         # attachments
         #=======================================================================
+        self.finv_vlay = finv2
         self.wd_dir=wd_dir
  
         
     def get_finvs_gridPoly(self, #get a set of polygon grid finvs (for each grid_size)
-                  finv_vlay=None,
+                  finv_vlay_raw=None,
                   grid_sizes = [5, 20, 100], #resolution in meters
                   idfn=None,
  
@@ -3167,9 +3184,21 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         log = self.logger.getChild('get_finvs_gridPoly')
         gcn = self.gcn
         if overwrite is None: overwrite=self.overwrite
-        if finv_vlay is None: finv_vlay=self.finv_vlay
+        if finv_vlay_raw is None: finv_vlay_raw=self.finv_vlay
         if idfn is None: idfn=self.idfn
         
+        #=======================================================================
+        # clean finv
+        #=======================================================================
+        """general pre-cleaning of the finv happens in __init__"""
+        
+        drop_fnl = set([idfn]).difference([f.name() for f in finv_vlay_raw.fields()])
+ 
+        if len(drop_fnl)>0:
+            finv_vlay = self.deletecolumn(finv_vlay_raw, drop_fnl, logger=log)
+            self.mstore.addMapLayer(finv_vlay) #keep the raw alive
+        else:
+            finv_vlay = finv_vlay_raw
  
         #=======================================================================
         # loop and aggregate
@@ -3245,7 +3274,7 @@ class StudyArea(Session, Qproj): #spatial work on study areas
             jvlay = jd['OUTPUT']
             self.mstore.addMapLayer(jvlay)
             
-            df = vlay_get_fdf(jvlay, logger=log).drop('fid', axis=1).set_index(idfn)
+            df = vlay_get_fdf(jvlay, logger=log).set_index(idfn)
             
             #===================================================================
             # check against grid points
@@ -3324,12 +3353,13 @@ class StudyArea(Session, Qproj): #spatial work on study areas
         
         #remove other fields
         fnl = set([f.name() for f in tgvlay1.fields()]).difference([gcn])
-        tgvlay2 = self.deletecolumn(tgvlay1, list(fnl),  logger=log)
-        self.mstore.addMapLayer(tgvlay2)
+        assert len(fnl)==0
+        #tgvlay2 = self.deletecolumn(tgvlay1, list(fnl),  logger=log)
+        #self.mstore.addMapLayer(tgvlay2)
         
         
         #add the grid_size
-        tgvlay3 = self.fieldcalculator(tgvlay2, grid_size, fieldName='grid_size', 
+        tgvlay3 = self.fieldcalculator(tgvlay1, grid_size, fieldName='grid_size', 
                                        fieldType='Integer', logger=log)
         
         
@@ -3351,6 +3381,14 @@ class StudyArea(Session, Qproj): #spatial work on study areas
  
         #assemble the grid id per raw asset
         finv_gkey_df = pd.concat(groups_d, axis=1).droplevel(axis=1, level=1)
+        
+        #=======================================================================
+        # #checks
+        #=======================================================================
+        miss_l = set(finv_gkey_df.columns).symmetric_difference(grid_sizes)
+        assert len(miss_l)==0, 'grid_sizes dont match on output'
+        
+        assert finv_gkey_df.columns.is_unique
         
  
         
