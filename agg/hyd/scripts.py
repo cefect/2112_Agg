@@ -218,13 +218,8 @@ class Session(agSession):
                 meta_d = {'calc_method':calc_str, plot_rown:row_key,'wet':len(ar), 'dry':(gsx2<=0.0).sum(),
                            'min':ar.min(), 'max':ar.max(), 'mean':ar.mean()}
                 
-
-                
-
-                txt = get_dict_str(meta_d)
-                
-                #txt = '\n'.join(['%s=%.2f'%(k,v) for k,v in meta_d.items()])
-                ax.text(0.5, 0.9, txt, transform=ax.transAxes, va='top', fontsize=8, color='blue')
+ 
+                ax.text(0.5, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='blue')
                 
 
                 #===============================================================
