@@ -4,7 +4,7 @@ Created on Feb. 20, 2022
 @author: cefect
 '''
 
-write=False
+write=True
 if write:
     print('WARNING!!! runnig in write mode')
 
@@ -101,11 +101,11 @@ def search_fp(dirpath, ext, pattern): #get a matching file with extension and be
 #===============================================================================
 # tests------
 #===============================================================================
-
+ 
 @pytest.mark.parametrize('aggLevel',[10, 50], indirect=False)  
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True)     
 def test_finv_gridPoly(studyAreaWrkr, aggLevel):
-    """NOTE: this function is also tested in test_finv_agg"""
+    #NOTE: this function is also tested in test_finv_agg
     finv_vlay = studyAreaWrkr.get_finv_clean()
     df, finv_agg_vlay = studyAreaWrkr.get_finv_gridPoly(aggLevel=aggLevel, finv_vlay=finv_vlay)
      
@@ -162,23 +162,37 @@ def test_finv_agg(session, aggType, aggLevel, tmp_path):
                 
         elif dkey=='finv_agg_mindex':
             assert_frame_equal(test.to_frame(), true.to_frame())
-            
+ 
 @pytest.mark.parametrize('tval_type',['uniform', 'rand'], indirect=False)
-@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False) 
-def test_tvals(session,tval_type, finv_agg_fn):
+@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
+def test_tvals(session,tval_type, finv_agg_fn, tmp_path):
     #===========================================================================
     # load inputs   
     #===========================================================================
-    dkey = 'finv_agg_d'
-    input_fp = search_fp(os.path.join(base_dir, finv_agg_fn), '.pickle', dkey) #find the data file.
-    assert os.path.exists(input_fp), 'failed to find match for %s'%finv_agg_fn
-    finv_agg_d = retrieve_data(dkey, input_fp, session)
+    d= dict()
+    for dkey in ['finv_agg_d', 'finv_agg_mindex']:
+ 
+        input_fp = search_fp(os.path.join(base_dir, finv_agg_fn), '.pickle', dkey) #find the data file.
+        assert os.path.exists(input_fp), 'failed to find match for %s'%finv_agg_fn
+        d[dkey] = retrieve_data(dkey, input_fp, session)
     
     #===========================================================================
     # execute
     #===========================================================================
     dkey='tvals'
-    session.build_tvals(dkey=dkey, tval_type=tval_type, finv_agg_d=finv_agg_d)
+    finv_agg_serx = session.build_tvals(dkey=dkey, tval_type=tval_type, 
+                            finv_agg_d=d['finv_agg_d'], mindex = d['finv_agg_mindex'])
+    
+    #===========================================================================
+    # retrieve true
+    #===========================================================================
+    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true = retrieve_data(dkey, true_fp, session)
+    
+    #===========================================================================
+    # compare
+    #===========================================================================
+    assert_series_equal(finv_agg_serx, true)
     
         
 #===============================================================================
