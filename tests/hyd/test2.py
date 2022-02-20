@@ -202,7 +202,7 @@ def test_sampGeo(session, sgType, finv_agg_fn, tmp_path):
                            ['zonal','test_sampGeo_poly_test_finv_ag1'], 
                            ['true_mean', 'test_sampGeo_poly_test_finv_ag1']], indirect=False) 
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0'], indirect=False)  #see test_finv_agg. only needed by method=true_mean
-def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method):
+def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path):
     #===========================================================================
     # load inputs   
     #===========================================================================
@@ -220,6 +220,18 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method):
 
     dkey='rsamps'
     rsamps_serx = session.build_rsamps(dkey=dkey, method=method, finv_sg_d=finv_sg_d, write=write, mindex=finv_agg_mindex)
+    
+    #===========================================================================
+    # retrieve trues    
+    #===========================================================================
+    
+    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true = retrieve_data(dkey, true_fp, session)
+    
+    #===========================================================================
+    # compare
+    #===========================================================================
+    assert_series_equal(rsamps_serx, true)
 
         
 #===============================================================================

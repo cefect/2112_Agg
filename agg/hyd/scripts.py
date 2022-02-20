@@ -2499,6 +2499,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         # checks
         #=======================================================================
+        assert isinstance(res_serx, pd.Series)
         bx = res_serx < 0.0
         if bx.any().any():
             raise Error('got some negative depths')
@@ -2557,20 +2558,21 @@ class Model(agSession):  # single model run
         true_serx = self.build_rsamps(dkey='rsamps', finv_sg_d = finv_sg_true_d, write=False, method=methodTrue, 
                                       idfn='id')        
         
+        true_serx.index.set_names('id', level=2, inplace=True)
         #=======================================================================
         # group-----
         #=======================================================================
         #=======================================================================
         # join the gid keys
         #=======================================================================
-        true_serx1 = true_serx.to_frame().join(pd.DataFrame(index=mindex
-                                    ).reset_index(drop=False, level=1)).swaplevel().sort_index().set_index('gid', append=True)
+        jdf = pd.DataFrame(index=mindex).reset_index(drop=False, level=1)
+        true_serx1 = true_serx.to_frame().join(jdf, how='left').swaplevel().sort_index().set_index('gid', append=True).swaplevel()
  
         #=======================================================================
         # group
         #=======================================================================
         #group a series by two levels
-        agg_serx = true_serx1.groupby(level=mindex.names[0:2]).mean()
+        agg_serx = true_serx1.groupby(level=true_serx1.index.names[0:3]).mean().iloc[:,0]
         
         log.info('finished on %i'%len(agg_serx))
  
