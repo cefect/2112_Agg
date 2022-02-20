@@ -176,9 +176,9 @@ def run( #run a basic model configuration
         
         ses.plt = plt  #attach local matplotlib init
         
- 
+        ses.write_lib()
         #ses.plot_tvals()
-        ses.plot_depths(calc_str=rsamps_method)
+        #ses.plot_depths(calc_str=rsamps_method)
         
         #summary of total loss
         #ses.write_loss_smry()
@@ -227,7 +227,8 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
- 
+    #'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_agg_d_hyd_dev_0220.pickle',
+    #'finv_keys_serx':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_keys_serx_hyd_dev_0220.pickle',
             },
         
         proj_lib =     {

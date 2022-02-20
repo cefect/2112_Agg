@@ -1464,6 +1464,12 @@ class Model(agSession): #single model run
     #===========================================================================
     # ANALYSIS WRITERS---------
     #===========================================================================
+    def write_lib(self,
+                  ):
+        
+        
+        tl_dx = self.retrieve('tloss')
+        
     def write_loss_smry(self, #write statistcs on total loss grouped by grid_size, studyArea, and event
                     
                    #data control   
@@ -2208,7 +2214,7 @@ class Model(agSession): #single model run
                     dkey=None,
                     prec=2,
                     tval_type='uniform', #type for total values
-                    
+                    finv_agg_d=None,
                     **kwargs):
         
         #=======================================================================
@@ -2220,16 +2226,8 @@ class Model(agSession): #single model run
         gcn = self.gcn
         scale_cn = self.scale_cn
         
-        #=======================================================================
-        # retriever
-        #=======================================================================
-        
-        #fgdir_dxind = self.retrieve('finv_keys_serx') #studyArea, id : grid_size : corresponding gid
-        finv_agg_lib = self.retrieve('finv_agg_d')
-        #dxser = self.retrieve('rsamps')
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d')
  
-        
-
         
         """
         view(dxser)
@@ -2241,16 +2239,16 @@ class Model(agSession): #single model run
         #=======================================================================
         """cleaner to build this in the shape/form expected by later functions
         contains ALL assets (even those without children or exposure)"""
-        res_lib = dict()
-        for studyArea, d1 in finv_agg_lib.items():
-            res_d = dict()
-            for grid_size, vlay in d1.items():
-                df_raw = vlay_get_fdf(vlay)
-                res_d[grid_size] = df_raw.set_index(gcn).iloc[:,0]
-                
-            res_lib[studyArea] = pd.concat(res_d)
+        res_d = dict()
+        for studyArea, vlay in finv_agg_d.items():
             
-        mindex = pd.concat(res_lib, names =['studyArea','grid_size', gcn], verify_integrity=True).sort_index().index
+ 
+            df_raw = vlay_get_fdf(vlay)
+            res_d[studyArea] = pd.Series(np.nan, index = df_raw.set_index(gcn).index)
+ 
+ 
+            
+        mindex = pd.concat(res_d, names =['studyArea','grid_size', gcn], verify_integrity=True).sort_index().index
         
         """no... this is missing nulls. best to construct from layers
         #prepaer index (to match rsamps)
@@ -2611,17 +2609,16 @@ class Model(agSession): #single model run
         vlay_fp_lib = self.load_pick(fp=fp) #{study area: aggLevel : vlay filepath}}
         
         #load layers
-        finv_agg_lib = dict()
+        finv_agg_d = dict()
         
-        for studyArea, vlay_fp_d in vlay_fp_lib.items():
-            finv_agg_lib[studyArea] = dict()
-            for aggLevel, fp in vlay_fp_d.items():
-                log.info('loading %s.%s from %s'%(studyArea, aggLevel, fp))
-                
-                """will throw crs warning"""
-                finv_agg_lib[studyArea][aggLevel] = self.vlay_load(fp, logger=log, **kwargs)
+        for studyArea, fp in vlay_fp_lib.items():
+ 
+            log.info('loading %s from %s'%(studyArea, fp))
+            
+            """will throw crs warning"""
+            finv_agg_d[studyArea] = self.vlay_load(fp, logger=log, **kwargs)
         
-        return finv_agg_lib
+        return finv_agg_d
  
  
                     
@@ -3198,12 +3195,14 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         #=======================================================================
         if gcn is None: gcn=self.gcn
         
-        raise Error('need to rename indexer field to gid for consistency')
+        #rename indexer to match
+        finv_vlay1 = self.renameField(finv_vlay, idfn, gcn, logger=log)
+        finv_vlay1.setName(finv_vlay.name())
         
         
         df = vlay_get_fdf(finv_vlay)
         df[gcn] = df[idfn]
-        return df.set_index(idfn), finv_vlay
+        return df.set_index(idfn), finv_vlay1
             
         
         
