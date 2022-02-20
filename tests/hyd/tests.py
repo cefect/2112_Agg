@@ -170,7 +170,12 @@ class Test_p1_sampGeo(Project1, Basic):
             self.assertTrue(isinstance(vlay, QgsVectorLayer))
             vlay_get_fdf(vlay)
             
-            
+class Test_tvals(unittest.TestCase):
+    tag = 'Test_tvals'
+    
+    def setUp(self):
+        self.mindex = 0
+    
 
 class Test_get_rsamps1(Project1, StudyArea):
     tag='Test_get_rsamps1'

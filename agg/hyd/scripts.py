@@ -66,7 +66,7 @@ class Model(agSession): #single model run
                 'build':lambda **kwargs: self.build_finv_agg(**kwargs),
                 },
             
-            'finv_keys_serx':{ #map of aggregated keys to true keys
+            'finv_agg_mindex':{ #map of aggregated keys to true keys
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_finv_agg(**kwargs),
                 },
@@ -1920,7 +1920,7 @@ class Model(agSession): #single model run
         
         tlnames_d= {lvlName:i for i, lvlName in enumerate(tl_dx.index.names)}
  
-        fgdir_dxind = self.retrieve('finv_keys_serx')
+        fgdir_dxind = self.retrieve('finv_agg_mindex')
         
         fgdir_dxind[0] = fgdir_dxind.index.get_level_values('id') #set for consistency
  
@@ -2223,217 +2223,50 @@ class Model(agSession): #single model run
         log = self.logger.getChild('build_tvals')
         assert dkey=='tvals'
         if prec is None: prec=self.prec
-        gcn = self.gcn
+ 
         scale_cn = self.scale_cn
         
         if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d')
  
-        
-        """
-        view(dxser)
-        view(finv_agg)
-        view(fgdir_dxind)
-        """
         #=======================================================================
         # build combined index from layers
         #=======================================================================
-        """cleaner to build this in the shape/form expected by later functions
-        contains ALL assets (even those without children or exposure)"""
-        res_d = dict()
-        for studyArea, vlay in finv_agg_d.items():
-            
- 
-            df_raw = vlay_get_fdf(vlay)
-            res_d[studyArea] = pd.Series(np.nan, index = df_raw.set_index(gcn).index)
  
  
-            
-        mindex = pd.concat(res_d, names =['studyArea','grid_size', gcn], verify_integrity=True).sort_index().index
+        #=======================================================================
+        # get trues
+        #=======================================================================
+        mindex = self.retrieve('finv_agg_mindex') #studyArea, id : corresponding gid
         
-        """no... this is missing nulls. best to construct from layers
-        #prepaer index (to match rsamps)
-        fgdir_dxind[0] = fgdir_dxind.index.get_level_values('id') #add the un-gridded for consistency
-        fg_dxind = fgdir_dxind.droplevel(1).stack().rename(gcn)
-        mdf = fg_dxind.to_frame().set_index(gcn, append=True, drop=False).sort_index().index.to_frame().reset_index(drop=True).drop_duplicates(gcn)
-        mdf = mdf.loc[:, ['grid_size', 'studyArea', gcn]] #reorder to match rsamps
+        #finv_true_serx = pd.Series(np.nan, index=finv_keys_serx.index) #use index
         
-        rser_dx = pd.Series(index=pd.MultiIndex.from_frame(mdf), name=scale_cn)"""
+        #rserx = getattr(self, 'tvals_' + tval_type)(mindex, **kwargs)
+        if tval_type=='uniform':
+            vals = np.full(len(mindex), 1.0)
+        elif tval_type == 'rand':
+            vals = np.random.random(len(mindex))
  
-        #=======================================================================
-        # calculate the asset scalers
-        #=======================================================================
-        rserx = getattr(self, 'tvals_' + tval_type)(mindex, **kwargs)
- 
+            
+        else:
+            raise Error('unrecognized')
 
+        finv_true_serx = pd.Series(vals, index=mindex, name=scale_cn)
  
+        self.check_mindex(finv_true_serx.index)
+        
         #=======================================================================
-        # check
+        # aggregate trues
         #=======================================================================
-        assert rserx.name == scale_cn
-        self.check_mindex(rserx.index)
+        finv_agg_serx = finv_true_serx.groupby(level=mindex.names[0:2]).sum()
+        
  
- 
-
-        self.ofp_d[dkey] = self.write_pick(rserx,
+        self.ofp_d[dkey] = self.write_pick(finv_agg_serx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey, self.longname)),
                                    logger=log)
 
-        return rserx
+        return finv_agg_serx
     
-    def tvals_rand(self,
-                    mindex,
-                    **kwargs):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('tvals_pnorm')
  
-        scale_cn = self.scale_cn
-        
-        
-        
-        #=======================================================================
-        # loop and calc true scales randomly
-        #=======================================================================
-        rserx = pd.Series(np.nan, index=mindex, name=scale_cn)
-        levelNames = mindex.names[0:2]
-        for keys, gser in pd.Series(index=mindex).groupby(level=levelNames):
-            keys_d = dict(zip(levelNames, keys))
-            
-            if not keys_d['grid_size'] == 0: continue
-            
-            rser = pd.Series(np.random.random(len(gser)), index=gser.index, name=scale_cn)
-            
-            #set these
-            rserx.loc[rser.index] = rser
- 
-                
-        #=======================================================================
-        # get aggregated scales
-        #=======================================================================
-        return self.agg_from_true(rserx, gfunc='sum', logger=log, **kwargs)
-    
-
-        
-        
-    def tvals_uniform(self, #get uniform tvals
-                  mindex, #index for grouping results
- 
-                  **kwargs):
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('tvals_uni')
-        #fgdir_dxind = self.retrieve('finv_keys_serx') #studyArea, id : grid_size : corresponding gid
-        #gcn = self.gcn
-        scale_cn = self.scale_cn
-        
-        #=======================================================================
-        # loop and calc true scales randomly
-        #=======================================================================
-        rserx = pd.Series(np.nan, index=mindex, name=scale_cn)
-        levelNames = mindex.names[0:2]
-        for keys, gser in pd.Series(index=mindex).groupby(level=levelNames):
-            keys_d = dict(zip(levelNames, keys))
-            
-            if not keys_d['grid_size'] == 0: continue
-            
-            rser = pd.Series(1, index=gser.index, name=scale_cn)
-            
-            #set these
-            rserx.loc[rser.index] = rser
- 
-                
-        #=======================================================================
-        # get aggregated scales
-        #=======================================================================
-        return self.agg_from_true(rserx, gfunc='sum', logger=log, **kwargs)
-            
-        
-    def agg_from_true(self, #aggregating grid values from true (grid_size=0) values
-                      serx,
-                      gfunc='sum', #groupby method to apply
-                      logger=None,
-                      ):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if logger is None: logger=self.logger
-        log = self.logger.getChild('agg_from_true')
-        fgdir_dxind = self.retrieve('finv_keys_serx') #studyArea, id : grid_size : corresponding gid
-        gcn = self.gcn
-        scale_cn = self.scale_cn
-        #=======================================================================
-        # loop and calc uinform scalers
-        #=======================================================================
-        rserx = None
-        levelNames = serx.index.names[0:2]
-        for keys, gser in serx.groupby(level=levelNames):
-            keys_d = dict(zip(levelNames, keys))
-            
-            #===================================================================
-            # un-gridded
-            #===================================================================
-            if keys_d['grid_size'] == 0:
-                rser = gser.copy()
-            
-            #===================================================================
-            # gridded
-            #===================================================================
-            else:
-                #get lookups
-                id_lookuop_serx = fgdir_dxind.loc[idx[keys_d['studyArea'], :], keys_d['grid_size']]
-                id_lookuop_serx = id_lookuop_serx.rename(gcn).sort_index()
-                
-                #get trues
-                t_serx = serx.loc[idx[keys[0], [0], :]].droplevel(1)
-                t_serx.index.set_names('id', level=1, inplace=True) #rename the true gid to id
-                
-                #join true values to lookuop
-                dxind1 = id_lookuop_serx.to_frame().join(t_serx)
-                
-                #collapse/group by gid
-                gb = dxind1.groupby('gid')
-                agg_df = getattr(gb, gfunc)()
-                
- 
-                #get matching index
-                for name in levelNames:
-                    agg_df[name] = keys_d[name]
-                    
-                rser_raw = agg_df.set_index(levelNames, append=True).reorder_levels(gser.index.names).iloc[:,0]
-            
-                #update with these
-                rser = gser.fillna(0).astype(int)
-                rser.loc[rser_raw.index] = rser_raw
-                
-                
-            #===================================================================
-            # check
-            #===================================================================
-            assert rser.notna().all()
-            rser = rser.sort_index()
-            if not np.array_equal(gser.index.values, rser.index.values):
-                raise Error('failed to get matching indicies on %s'%keys_d)
-            assert isinstance(rser, pd.Series), keys_d
-                
-            #===================================================================
-            # collect
-            #===================================================================
-            if rserx is None:
-                rserx = rser
-            else:
-                rserx = rserx.append(rser)
-        
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.debug('finished on %i'%len(rserx))
-        
-        return rserx   
-
-    
     def build_rloss(self, #calculate relative loss from rsamps on each vfunc
                     dkey=None,
                     prec=None, #precision for RL
@@ -2520,8 +2353,9 @@ class Model(agSession): #single model run
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_finv_agg')
-        assert dkey in ['finv_agg_d', 'finv_keys_serx']
+        assert dkey in ['finv_agg_d', 'finv_agg_mindex']
         if aggType is None: aggType=self.aggType
+        gcn = self.gcn
         log.info('building \'%s\' '%(aggType))
         
         #=======================================================================
@@ -2555,27 +2389,32 @@ class Model(agSession): #single model run
         
         self.data_d[dkey1] = finv_agg_lib
         #=======================================================================
-        # handle dxcol-------
+        # handle mindex-------
         #=======================================================================
+        """creating a index that maps gridded assets (gid) to their children (id)
+        seems nicer to store this as an index
+        
+        """
         assert len(finv_gkey_df_d)>0
         
  
         
-        dkey1 = 'finv_keys_serx'
-        serx = pd.concat(finv_gkey_df_d, verify_integrity=True).iloc[:,0]
+        dkey1 = 'finv_agg_mindex'
+        serx = pd.concat(finv_gkey_df_d, verify_integrity=True).iloc[:,0].sort_index()
  
         serx.index.set_names('studyArea', level=0, inplace=True)
+        agg_mindex = serx.to_frame().set_index(gcn, append=True).swaplevel().sort_index().index
         
  
-        self.check_mindex(serx.index)
+        self.check_mindex(agg_mindex)
 
         #save the pickle
         if write:
-            self.ofp_d[dkey1] = self.write_pick(serx, 
+            self.ofp_d[dkey1] = self.write_pick(agg_mindex, 
                            os.path.join(self.wrk_dir, '%s_%s.pickle'%(dkey1, self.longname)),logger=log)
         
         #save to data
-        self.data_d[dkey1] = copy.deepcopy(serx)
+        self.data_d[dkey1] = copy.deepcopy(agg_mindex)
         
  
         #=======================================================================
@@ -2586,8 +2425,8 @@ class Model(agSession): #single model run
  
         if dkey == 'finv_agg_d':
             result = finv_agg_lib
-        elif dkey == 'finv_keys_serx':
-            result = serx
+        elif dkey == 'finv_agg_mindex':
+            result = agg_mindex
 
         
         return result
@@ -2675,7 +2514,7 @@ class Model(agSession): #single model run
  
         
 
-    def finv_gridded(self, #build polygon grids for each study area (and each grid_size)
+    def xxxfinv_gridded(self, #build polygon grids for each study area (and each grid_size)
 
                  aggLevel=None,
                  out_dir=None,
@@ -2691,7 +2530,7 @@ class Model(agSession): #single model run
         #=======================================================================
         # defaults
         #=======================================================================
-        dkeys_l = ['finv_agg_d', 'finv_keys_serx']
+        dkeys_l = ['finv_agg_d', 'finv_agg_mindex']
         log = self.logger.getChild('build_finv_gridPoly')
         
         if out_dir is None: out_dir=os.path.join(self.wrk_dir, dkey)
@@ -2908,7 +2747,7 @@ class Model(agSession): #single model run
         #===================================================================
         # get means
         #===================================================================
-        fgdir_dxind = self.retrieve('finv_keys_serx')
+        fgdir_dxind = self.retrieve('finv_agg_mindex')
         res_d = dict()
         for studyArea, lay_d in finv_aggS_lib.items():
             res_df = None

@@ -227,8 +227,7 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-    #'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_agg_d_hyd_dev_0220.pickle',
-    #'finv_keys_serx':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_keys_serx_hyd_dev_0220.pickle',
+ 
             },
         
         proj_lib =     {
@@ -248,9 +247,10 @@ def dev():
                     }, 
             },
                 
-        aggType = 'none', aggLevel = None,
-        #aggType = 'gridded', aggLevel = 50,
-
+        #aggType = 'none', aggLevel = None,
+        aggType = 'gridded', aggLevel = 50,
+        tval_type = 'uniform',
+        
         rsamps_method = 'zonal', sample_geo_type='poly',
         trim=True,
         overwrite=True,
