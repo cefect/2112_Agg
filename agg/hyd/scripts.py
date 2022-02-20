@@ -1872,9 +1872,245 @@ class Model(agSession):  # single model run
         
         return result
 
+    def build_tvals(self,  # get the total values on each asset
+                    dkey=None,
+                    prec=2,
+                    tval_type='uniform',  # type for total values
+                    finv_agg_d=None,
+                    mindex=None,
+                    **kwargs):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_tvals')
+        assert dkey == 'tvals'
+        if prec is None: prec = self.prec
  
+        scale_cn = self.scale_cn
+        
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', **kwargs)
+        if mindex is None: mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
+ 
+        #=======================================================================
+        # get trues
+        #=======================================================================
+ 
+        if tval_type == 'uniform':
+            vals = np.full(len(mindex), 1.0)
+        elif tval_type == 'rand':
+            vals = np.random.random(len(mindex))
+            
+        else:
+            raise Error('unrecognized')
+
+        finv_true_serx = pd.Series(vals, index=mindex, name=scale_cn)
+ 
+        self.check_mindex(finv_true_serx.index)
+        
+        #=======================================================================
+        # aggregate trues
+        #=======================================================================
+        finv_agg_serx = finv_true_serx.groupby(level=mindex.names[0:2]).sum()
+ 
+        self.ofp_d[dkey] = self.write_pick(finv_agg_serx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+
+        return finv_agg_serx
   
+    def build_sampGeo(self,  # get raster samples for all finvs
+                     dkey='finv_sg_d',
+                     sgType='centroids',
+                     write=True,
+                     finv_agg_d=None,
+                     ):
+        """
+        see test_sampGeo
+        """
+        #=======================================================================
+        # defauts
+        #=======================================================================
+        assert dkey == 'finv_sg_d'
+        log = self.logger.getChild('build_sampGeo')
+        
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', write=write)
+ 
+        #=======================================================================
+        # loop each polygon layer and build sampling geometry
+        #=======================================================================
+        log.info('on %i w/ %s' % (len(finv_agg_d), sgType))
+        res_d = dict()
+        for studyArea, poly_vlay in finv_agg_d.items():
+ 
+            log.info('on %s w/ %i feats' % (studyArea, poly_vlay.dataProvider().featureCount()))
+            
+            if sgType == 'centroids':
+                """works on point layers"""
+                sg_vlay = self.centroids(poly_vlay, logger=log)
+                
+            elif sgType == 'poly':
+                assert 'Polygon' in QgsWkbTypes().displayString(poly_vlay.wkbType()), 'bad type on %s' % (studyArea)
+                poly_vlay.selectAll()
+                
+                sg_vlay = self.saveselectedfeatures(poly_vlay, logger=log)  # just get a copy
+                
+            else:
+                raise Error('not implemented')
+            
+            #===============================================================
+            # wrap
+            #===============================================================
+            sg_vlay.setName('%s_%s' % (poly_vlay.name(), sgType))
+            
+            res_d[studyArea] = sg_vlay
+        
+        #=======================================================================
+        # store layers
+        #=======================================================================
+        if write: ofp_d = self.store_finv_lib(res_d, dkey, logger=log)
+        
+        return res_d
+    
+    def build_rsamps(self,  # get raster samples for all finvs
+                     dkey=None,
+                     method='points',  # method for raster sampling
+                     finv_sg_d=None,
+                     write=True,
+                     mindex=None, #special catch for test consitency
+                     idfn=None,
+                     **kwargs):
+        """
+        keeping these as a dict because each studyArea/event is unique
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        assert dkey == 'rsamps', dkey
+        log = self.logger.getChild('build_rsamps')
+ 
+        gcn = self.gcn
+        
+        if finv_sg_d is None: finv_sg_d = self.retrieve('finv_sg_d')
+        #=======================================================================
+        # child data
+        #=======================================================================
+
+        #=======================================================================
+        # generate depths------
+        #=======================================================================
+        #=======================================================================
+        # simple point-raster sampling
+        #=======================================================================
+        if method in ['points', 'zonal']:
+            if idfn is None: idfn=gcn
+            res_d = self.sa_get(meth='get_rsamps', logger=log, dkey=dkey, write=False,
+                                finv_sg_d=finv_sg_d, idfn=idfn, method=method, **kwargs)
+            
+            dxind1 = pd.concat(res_d, verify_integrity=True)
+ 
+            res_serx = dxind1.stack(
+                dropna=True,  # zero values need to be set per-study area
+                ).rename('depth').swaplevel().sort_index(axis=0, level=0, sort_remaining=True) 
+                
+            res_serx.index.set_names(['studyArea', 'event', gcn], inplace=True)
+ 
+            
+
+        #=======================================================================
+        # use mean depths from true assets (for error isolation only)
+        #=======================================================================
+        elif method == 'true_mean':
+            res_serx = self.rsamp_trueMean(dkey,  logger=log, mindex=mindex, **kwargs)
+ 
+        
+        #=======================================================================
+        # checks
+        #=======================================================================
+        assert isinstance(res_serx, pd.Series)
+        bx = res_serx < 0.0
+        if bx.any().any():
+            raise Error('got some negative depths')
+        
+        self.check_mindex(res_serx.index)
+ 
+        #=======================================================================
+        # write
+        #=======================================================================
+        if write:
+            self.ofp_d[dkey] = self.write_pick(res_serx, os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                            logger=log)
+        
+        return res_serx
+    
+    def build_rloss(self,  # calculate relative loss from rsamps on each vfunc
+                    dkey=None,
+                    prec=None,  # precision for RL
+                    ** kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_rloss')
+        assert dkey == 'rloss'
+        if prec is None: prec = self.prec
+        
+        #=======================================================================
+        # #retrieve child data
+        #=======================================================================
+        # depths
+        # fgm_ofp_d, fgdir_dxind = self.get_finvg()
+        dxser = self.retrieve('rsamps')
+ 
+        log.debug('loaded %i rsamps' % len(dxser))
+        
+        # vfuncs
+        vf_d = self.retrieve('vf_d')
+        
+        #=======================================================================
+        # loop and calc
+        #=======================================================================
+        log.info('getting impacts from %i vfuncs and %i depths' % (
+            len(vf_d), len(dxser)))
+            
+        res_d = dict()
+        for i, (vid, vfunc) in enumerate(vf_d.items()):
+            log.info('%i/%i on %s' % (i + 1, len(vf_d), vfunc.name))
+            
+            ar = vfunc.get_rloss(dxser.values)
+            
+            assert ar.max() <= 100, '%s returned some RLs above 100' % vfunc.name
+            
+            res_d[vid] = ar 
+        
+        #=======================================================================
+        # combine
+        #=======================================================================
+        
+        rdf = pd.DataFrame.from_dict(res_d).round(prec)
+        
+        rdf.index = dxser.index
+        
+        res_dxind = dxser.to_frame().join(rdf)
+        
+        log.info('finished on %s' % str(rdf.shape))
+        
+        self.check_mindex(res_dxind.index)
+ 
+        #=======================================================================
+        # write
+        #=======================================================================
+        self.ofp_d[dkey] = self.write_pick(res_dxind,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+        
+        return res_dxind
+    
+
+
+
+    
   
+    
     def build_errs(self,  # get the errors (gridded - true)
                     dkey=None,
                      prec=None,
@@ -2168,116 +2404,11 @@ class Model(agSession):  # single model run
 
         return dx2
     
-    def build_tvals(self,  # get the total values on each asset
-                    dkey=None,
-                    prec=2,
-                    tval_type='uniform',  # type for total values
-                    finv_agg_d=None,
-                    mindex=None,
-                    **kwargs):
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('build_tvals')
-        assert dkey == 'tvals'
-        if prec is None: prec = self.prec
  
-        scale_cn = self.scale_cn
-        
-        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', **kwargs)
-        if mindex is None: mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
- 
-        #=======================================================================
-        # get trues
-        #=======================================================================
- 
-        if tval_type == 'uniform':
-            vals = np.full(len(mindex), 1.0)
-        elif tval_type == 'rand':
-            vals = np.random.random(len(mindex))
-            
-        else:
-            raise Error('unrecognized')
+#===========================================================================
+# HELPERS--------
+#===========================================================================
 
-        finv_true_serx = pd.Series(vals, index=mindex, name=scale_cn)
- 
-        self.check_mindex(finv_true_serx.index)
-        
-        #=======================================================================
-        # aggregate trues
-        #=======================================================================
-        finv_agg_serx = finv_true_serx.groupby(level=mindex.names[0:2]).sum()
- 
-        self.ofp_d[dkey] = self.write_pick(finv_agg_serx,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
-                                   logger=log)
-
-        return finv_agg_serx
- 
-    def build_rloss(self,  # calculate relative loss from rsamps on each vfunc
-                    dkey=None,
-                    prec=None,  # precision for RL
-                    ** kwargs):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('build_rloss')
-        assert dkey == 'rloss'
-        if prec is None: prec = self.prec
-        
-        #=======================================================================
-        # #retrieve child data
-        #=======================================================================
-        # depths
-        # fgm_ofp_d, fgdir_dxind = self.get_finvg()
-        dxser = self.retrieve('rsamps')
- 
-        log.debug('loaded %i rsamps' % len(dxser))
-        
-        # vfuncs
-        vf_d = self.retrieve('vf_d')
-        
-        #=======================================================================
-        # loop and calc
-        #=======================================================================
-        log.info('getting impacts from %i vfuncs and %i depths' % (
-            len(vf_d), len(dxser)))
-            
-        res_d = dict()
-        for i, (vid, vfunc) in enumerate(vf_d.items()):
-            log.info('%i/%i on %s' % (i + 1, len(vf_d), vfunc.name))
-            
-            ar = vfunc.get_rloss(dxser.values)
-            
-            assert ar.max() <= 100, '%s returned some RLs above 100' % vfunc.name
-            
-            res_d[vid] = ar 
-        
-        #=======================================================================
-        # combine
-        #=======================================================================
-        
-        rdf = pd.DataFrame.from_dict(res_d).round(prec)
-        
-        rdf.index = dxser.index
-        
-        res_dxind = dxser.to_frame().join(rdf)
-        
-        log.info('finished on %s' % str(rdf.shape))
-        
-        self.check_mindex(res_dxind.index)
- 
-        #=======================================================================
-        # write
-        #=======================================================================
-        self.ofp_d[dkey] = self.write_pick(res_dxind,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
-                                   logger=log)
-        
-        return res_dxind
-    
-  
     def load_finv_lib(self,  # generic retrival for finv type intermediaries
                   fp=None, dkey=None,
                   **kwargs):
@@ -2345,175 +2476,6 @@ class Model(agSession):  # single model run
         # save to data
         self.data_d[dkey] = finv_grid_lib
         return ofp_d
-
-    def xxxfinv_gridded(self,  # build polygon grids for each study area (and each grid_size)
-
-                 aggLevel=None,
-                 out_dir=None,
-                 **kwargs):
-        
-        """this function constructs/stores two results:
-            finv_gPoly: filepaths to merged grouped finvs {name:fp}
-            fgdir_dxind: directory of finv keys from raw to grouped for each studyArea
-            
-        calling build on either will build both.. but only the result requsted will be returned
-            (the other can be retrieved from data_d)
-            """
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        dkeys_l = ['finv_agg_d', 'finv_agg_mindex']
-        log = self.logger.getChild('build_finv_gridPoly')
-        
-        if out_dir is None: out_dir = os.path.join(self.wrk_dir, dkey)
-        if aggLevel is None: aggLevel = self.aggLevel
-        
-        #=======================================================================
-        # prechecks
-        #=======================================================================
-        assert dkey in dkeys_l
-        for dkey_chk in dkeys_l:
-            if dkey_chk in self.data_d:
-                log.warning('triggred reload on \'%s\'' % dkey_chk)
-                assert not dkey_chk == dkey, 'shouldnt reload any secondaries'
-        
-        #=======================================================================
-        # #run the method on all the studyAreas
-        #=======================================================================
-        res_d = self.sa_get(meth='get_finvs_gridPoly', write=False, dkey=dkey, aggLevel=aggLevel, **kwargs)
-        
-        # unzip results
-        finv_gkey_df_d, finv_grid_lib = dict(), dict() 
-        for k, v in res_d.items():
-            finv_gkey_df_d[k], finv_grid_lib[k] = v
-            
-            # simple checks
-            assert finv_gkey_df_d[k].columns.is_unique, 'got bad columns on \'%s\' \n    %s' % (
-                k, finv_gkey_df_d[k].columns)
-
-    def build_sampGeo(self,  # get raster samples for all finvs
-                     dkey='finv_sg_d',
-                     sgType='centroids',
-                     write=True,
-                     finv_agg_d=None,
-                     ):
-        """
-        see test_sampGeo
-        """
-        #=======================================================================
-        # defauts
-        #=======================================================================
-        assert dkey == 'finv_sg_d'
-        log = self.logger.getChild('build_sampGeo')
-        
-        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', write=write)
- 
-        #=======================================================================
-        # loop each polygon layer and build sampling geometry
-        #=======================================================================
-        log.info('on %i w/ %s' % (len(finv_agg_d), sgType))
-        res_d = dict()
-        for studyArea, poly_vlay in finv_agg_d.items():
- 
-            log.info('on %s w/ %i feats' % (studyArea, poly_vlay.dataProvider().featureCount()))
-            
-            if sgType == 'centroids':
-                """works on point layers"""
-                sg_vlay = self.centroids(poly_vlay, logger=log)
-                
-            elif sgType == 'poly':
-                assert 'Polygon' in QgsWkbTypes().displayString(poly_vlay.wkbType()), 'bad type on %s' % (studyArea)
-                poly_vlay.selectAll()
-                
-                sg_vlay = self.saveselectedfeatures(poly_vlay, logger=log)  # just get a copy
-                
-            else:
-                raise Error('not implemented')
-            
-            #===============================================================
-            # wrap
-            #===============================================================
-            sg_vlay.setName('%s_%s' % (poly_vlay.name(), sgType))
-            
-            res_d[studyArea] = sg_vlay
-        
-        #=======================================================================
-        # store layers
-        #=======================================================================
-        if write: ofp_d = self.store_finv_lib(res_d, dkey, logger=log)
-        
-        return res_d
-
-    def build_rsamps(self,  # get raster samples for all finvs
-                     dkey=None,
-                     method='points',  # method for raster sampling
-                     finv_sg_d=None,
-                     write=True,
-                     mindex=None, #special catch for test consitency
-                     idfn=None,
-                     **kwargs):
-        """
-        keeping these as a dict because each studyArea/event is unique
-        """
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        assert dkey == 'rsamps', dkey
-        log = self.logger.getChild('build_rsamps')
- 
-        gcn = self.gcn
-        
-        if finv_sg_d is None: finv_sg_d = self.retrieve('finv_sg_d')
-        #=======================================================================
-        # child data
-        #=======================================================================
-
-        #=======================================================================
-        # generate depths------
-        #=======================================================================
-        #=======================================================================
-        # simple point-raster sampling
-        #=======================================================================
-        if method in ['points', 'zonal']:
-            if idfn is None: idfn=gcn
-            res_d = self.sa_get(meth='get_rsamps', logger=log, dkey=dkey, write=False,
-                                finv_sg_d=finv_sg_d, idfn=idfn, method=method, **kwargs)
-            
-            dxind1 = pd.concat(res_d, verify_integrity=True)
- 
-            res_serx = dxind1.stack(
-                dropna=True,  # zero values need to be set per-study area
-                ).rename('depth').swaplevel().sort_index(axis=0, level=0, sort_remaining=True) 
-                
-            res_serx.index.set_names(['studyArea', 'event', gcn], inplace=True)
- 
-            
-
-        #=======================================================================
-        # use mean depths from true assets (for error isolation only)
-        #=======================================================================
-        elif method == 'true_mean':
-            res_serx = self.rsamp_trueMean(dkey,  logger=log, mindex=mindex, **kwargs)
- 
-        
-        #=======================================================================
-        # checks
-        #=======================================================================
-        assert isinstance(res_serx, pd.Series)
-        bx = res_serx < 0.0
-        if bx.any().any():
-            raise Error('got some negative depths')
-        
-        self.check_mindex(res_serx.index)
- 
-        #=======================================================================
-        # write
-        #=======================================================================
-        if write:
-            self.ofp_d[dkey] = self.write_pick(res_serx, os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
-                            logger=log)
-        
-        return res_serx
     
     def rsamp_trueMean(self,
                        dkey,
@@ -2577,10 +2539,6 @@ class Model(agSession):  # single model run
         log.info('finished on %i'%len(agg_serx))
  
         return agg_serx
-    
-    #===========================================================================
-    # HELPERS--------
-    #===========================================================================
 
     def sa_get(self,  # spatial tasks on each study area
                        proj_lib=None,
