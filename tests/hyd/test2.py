@@ -4,7 +4,7 @@ Created on Feb. 20, 2022
 @author: cefect
 '''
 
-write=True
+write=False
 if write:
     print('WARNING!!! runnig in write mode')
 
@@ -25,7 +25,7 @@ from qgis.core import QgsVectorLayer, QgsWkbTypes
 
 from agg.hyd.scripts import Model as CalcSession
 from agg.hyd.scripts import StudyArea as CalcStudyArea
-
+from agg.hyd.scripts import vlay_get_fdf
 
 #===============================================================================
 # fixture-----
@@ -78,23 +78,7 @@ def studyAreaWrkr(session, request):
 
  
 
-def retrieve_data(dkey, fp, ses):
-    assert dkey in ses.data_retrieve_hndls
-    hndl_d = ses.data_retrieve_hndls[dkey]
-    
-    return hndl_d['compiled'](fp=fp, dkey=dkey)
-    
 
-def search_fp(dirpath, ext, pattern): #get a matching file with extension and beginning
-    fns = [e for e in os.listdir(dirpath) if e.endswith(ext)]
-    
-    result= None
-    for fn in fns:
-        if fn.startswith(pattern):
-            result = os.path.join(dirpath, fn)
-            break
-        
-    return result
             
     
     
@@ -153,12 +137,8 @@ def test_finv_agg(session, aggType, aggLevel, tmp_path):
         assert type(test)==type(true)
         
         if dkey=='finv_agg_d':
-            assert test.keys()==true.keys()
-            for setName, vlay_test in test.items():
-                vlay_true = true[setName]
-                
-                assert vlay_true.dataProvider().featureCount()==vlay_test.dataProvider().featureCount(), \
-                'fcount mismatch (test=%i, true=%i)'%(vlay_test.dataProvider().featureCount(), vlay_true.dataProvider().featureCount())
+            check_layer_d(test, true, test_data=False)
+ 
                 
         elif dkey=='finv_agg_mindex':
             assert_frame_equal(test.to_frame(), true.to_frame())
@@ -169,19 +149,14 @@ def test_tvals(session,tval_type, finv_agg_fn, tmp_path):
     #===========================================================================
     # load inputs   
     #===========================================================================
-    d= dict()
-    for dkey in ['finv_agg_d', 'finv_agg_mindex']:
- 
-        input_fp = search_fp(os.path.join(base_dir, finv_agg_fn), '.pickle', dkey) #find the data file.
-        assert os.path.exists(input_fp), 'failed to find match for %s'%finv_agg_fn
-        d[dkey] = retrieve_data(dkey, input_fp, session)
+    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
     
     #===========================================================================
     # execute
     #===========================================================================
     dkey='tvals'
     finv_agg_serx = session.build_tvals(dkey=dkey, tval_type=tval_type, 
-                            finv_agg_d=d['finv_agg_d'], mindex = d['finv_agg_mindex'])
+                            finv_agg_d=finv_agg_d, mindex =finv_agg_mindex)
     
     #===========================================================================
     # retrieve true
@@ -194,11 +169,90 @@ def test_tvals(session,tval_type, finv_agg_fn, tmp_path):
     #===========================================================================
     assert_series_equal(finv_agg_serx, true)
     
+@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
+@pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
+def test_sampGeo(session, sgType, finv_agg_fn, tmp_path):
+    #===========================================================================
+    # load inputs   
+    #===========================================================================
+    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
+        
+    #===========================================================================
+    # execute
+    #===========================================================================
+    dkey='finv_sg_d'
+    vlay_d = session.build_sampGeo(dkey = dkey, sgType=sgType, finv_agg_d=finv_agg_d, write=write)
+    
+    #===========================================================================
+    # retrieve trues    
+    #===========================================================================
+    
+    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true = retrieve_data(dkey, true_fp, session)
+    
+    #===========================================================================
+    # check
+    #===========================================================================
+    check_layer_d(vlay_d, true)
+
         
 #===============================================================================
-# @pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
-# def test_sampGeo(session, sgType):
-#     res_d = session.build_sampGeo(sgType=sgType, write=False)    
+# helpers-----------
 #===============================================================================
+def retrieve_finv_d(finv_agg_fn, session):
+    d= dict()
+    for dkey in ['finv_agg_d', 'finv_agg_mindex']:
+ 
+        input_fp = search_fp(os.path.join(base_dir, finv_agg_fn), '.pickle', dkey) #find the data file.
+        assert os.path.exists(input_fp), 'failed to find match for %s'%finv_agg_fn
+        d[dkey] = retrieve_data(dkey, input_fp, session)
         
-     
+    return d.values()
+
+def retrieve_data(dkey, fp, ses):
+    assert dkey in ses.data_retrieve_hndls
+    hndl_d = ses.data_retrieve_hndls[dkey]
+    
+    return hndl_d['compiled'](fp=fp, dkey=dkey)
+    
+
+def search_fp(dirpath, ext, pattern): #get a matching file with extension and beginning
+    fns = [e for e in os.listdir(dirpath) if e.endswith(ext)]
+    
+    result= None
+    for fn in fns:
+        if fn.startswith(pattern):
+            result = os.path.join(dirpath, fn)
+            break
+        
+    return result
+
+def check_layer_d(d1, d2,
+                   test_data=True,):
+    
+    assert d1.keys()==d2.keys()
+    
+    for k, vtest in d1.items():
+        vtrue = d2[k]
+        
+        dptest, dptrue = vtest.dataProvider(), vtrue.dataProvider()
+        
+        assert type(vtest)==type(vtrue)
+        
+        #=======================================================================
+        # vectorlayer checks
+        #=======================================================================
+        if isinstance(vtest, QgsVectorLayer):
+            assert dptest.featureCount()==dptrue.featureCount()
+            assert vtest.wkbType() == dptrue.wkbType()
+            
+            #data checks
+            if test_data:
+                true_df, test_df = vlay_get_fdf(vtrue).reset_index(drop=True), vlay_get_fdf(vtest).reset_index(drop=True)
+                
+                assert_frame_equal(true_df, test_df)
+ 
+            
+            
+            
+    

@@ -2567,9 +2567,11 @@ class Model(agSession): #single model run
                      dkey='finv_sg_d',
                      sgType = 'centroids',
                      write=True,
-                     finv_agg_lib=None,
+                     finv_agg_d=None,
                      ):
-        
+        """
+        see test_sampGeo
+        """
         #=======================================================================
         # defauts
         #=======================================================================
@@ -2577,14 +2579,14 @@ class Model(agSession): #single model run
         log = self.logger.getChild('build_sampGeo')
  
         
-        if finv_agg_lib is None: finv_agg_lib = self.retrieve('finv_agg_d', write=write)
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', write=write)
  
         #=======================================================================
         # loop each polygon layer and build sampling geometry
         #=======================================================================
-        log.info('on %i w/ %s'%(len(finv_agg_lib), sgType))
+        log.info('on %i w/ %s'%(len(finv_agg_d), sgType))
         res_d = dict()
-        for studyArea, poly_vlay in finv_agg_lib.items():
+        for studyArea, poly_vlay in finv_agg_d.items():
  
             log.info('on %s w/ %i feats'%(studyArea, poly_vlay.dataProvider().featureCount()))
             
