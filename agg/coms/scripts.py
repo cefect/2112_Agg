@@ -361,6 +361,25 @@ class Session(Session, Qproj, Plotr):
         
         return vf_d
     
+    
+    def build_vfunc(self,
+                    dkey=None,
+                    vid=1,
+                    ):
+        """
+        not very nice... original setup was meant for bulk loading vfuncs
+            while preserving the format of the csvs
+        would be much nicer to pre-compile this into some database then just query the info needed
+            (although I think this was the original format)
+        """
+        
+        vid_df = self.build_vid_df(vid_l = [vid])
+        
+        vf_d = self.build_vf_d(dkey='vf_d', vid_df = vid_df)
+ 
+        
+        return vf_d[vid]
+    
     #===========================================================================
     # PLOTTING-----------
     #===========================================================================

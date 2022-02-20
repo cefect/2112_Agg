@@ -2046,7 +2046,9 @@ class Model(agSession):  # single model run
     def build_rloss(self,  # calculate relative loss from rsamps on each vfunc
                     dkey=None,
                     prec=None,  # precision for RL
-                    ** kwargs):
+                    dxser=None,
+                    vid=798,
+                    **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
@@ -2054,18 +2056,16 @@ class Model(agSession):  # single model run
         assert dkey == 'rloss'
         if prec is None: prec = self.prec
         
+        
+        if dxser is None: dxser = self.retrieve('rsamps')
+        log.debug('loaded %i rsamps' % len(dxser))
         #=======================================================================
         # #retrieve child data
         #=======================================================================
-        # depths
-        # fgm_ofp_d, fgdir_dxind = self.get_finvg()
-        dxser = self.retrieve('rsamps')
  
-        log.debug('loaded %i rsamps' % len(dxser))
-        
         # vfuncs
-        vf_d = self.retrieve('vf_d')
-        
+        vfunc = self.retrieve('vfunc', vid=vid)
+        raise Error('stopped here')
         #=======================================================================
         # loop and calc
         #=======================================================================

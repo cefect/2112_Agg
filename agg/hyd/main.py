@@ -232,6 +232,7 @@ def dev():
     'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_agg_mindex_hyd_dev_0220.pickle',
     'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\tvals_hyd_dev_0220.pickle',
     'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_sg_d_hyd_dev_0220.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\rsamps_hyd_dev_0220.pickle',
  
             },
         
