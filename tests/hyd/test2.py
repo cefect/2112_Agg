@@ -4,7 +4,7 @@ Created on Feb. 20, 2022
 @author: cefect
 '''
 
-write=False
+write=True
 if write:
     print('WARNING!!! runnig in write mode')
 
@@ -194,6 +194,32 @@ def test_sampGeo(session, sgType, finv_agg_fn, tmp_path):
     # check
     #===========================================================================
     check_layer_d(vlay_d, true)
+
+#@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
+#rsamps methods are only applicable for certain geometry types  
+@pytest.mark.parametrize('method, finv_sg_d_fn',#see test_sampGeo
+                         [['points', 'test_sampGeo_centroids_test_fi1'],
+                           ['zonal','test_sampGeo_poly_test_finv_ag1'], 
+                           ['true_mean', 'test_sampGeo_poly_test_finv_ag1']], indirect=False) 
+@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0'], indirect=False)  #see test_finv_agg. only needed by method=true_mean
+def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method):
+    #===========================================================================
+    # load inputs   
+    #===========================================================================
+    dkey = 'finv_sg_d'
+    input_fp = search_fp(os.path.join(base_dir, finv_sg_d_fn), '.pickle', dkey) #find the data file.
+    finv_sg_d = retrieve_data(dkey, input_fp, session)
+    
+    if method == 'true_mean': 
+        finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
+    else:
+        finv_agg_mindex = None
+    #===========================================================================
+    # execute
+    #===========================================================================
+
+    dkey='rsamps'
+    rsamps_serx = session.build_rsamps(dkey=dkey, method=method, finv_sg_d=finv_sg_d, write=write, mindex=finv_agg_mindex)
 
         
 #===============================================================================
