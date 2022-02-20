@@ -6,7 +6,8 @@ Created on Feb. 18, 2022
 import unittest
 import tempfile
 import numpy as np
-
+import pytest
+print('pytest.__version__:' + pytest.__version__)
 np.set_printoptions(precision=4)
 np.set_printoptions(suppress=True)
  
@@ -31,6 +32,7 @@ from agg.hyd.scripts import vlay_get_fdf
 #===============================================================================
 class Basic(unittest.TestCase): #session level tester
     prec=3
+    write=False
     @classmethod
     def setUpClass(cls, bk_lib={}, compiled_fp_d={}):
         cls.ses = CalcSession(out_dir = tempfile.gettempdir(), proj_lib=cls.proj_lib,
@@ -43,15 +45,38 @@ class Basic(unittest.TestCase): #session level tester
         cls.ses.__exit__()
         
 class StudyArea(Basic):
+    studyArea = 'point'
     @classmethod
-    def setUpClass(cls, name='test1', **kwargs):
+    def setUpClass(cls,  **kwargs):
         #setup the session
         super(StudyArea, cls).setUpClass(**kwargs)
         
         #setup the study area
         kwargs = {k:getattr(cls.ses, k) for k in ['tag', 'prec', 'trim', 'out_dir', 'overwrite']}
-        cls.studyArea= CalcStudyArea(session=cls.ses, name=name, **cls.proj_lib[name], **kwargs)
+        cls.studyArea= CalcStudyArea(session=cls.ses, name=self.studyArea, **cls.proj_lib[self.studyArea], **kwargs)
         print('setup studyArea %s'%cls.studyArea.name)
+       
+    @classmethod 
+    def tearDownClass(cls):
+        super(StudyArea, cls).__exit__()
+        cls.studyArea.__exit__()
+        
+        
+class StudyAreaZ(Basic):
+    
+ 
+    def test_all(self):
+        
+        #=======================================================================
+        # #loop on each
+        #=======================================================================
+        kwargs = {k:getattr(self.ses, k) for k in ['tag', 'prec', 'trim', 'out_dir', 'overwrite']}
+        for studyAreaName, pars_d in self.proj_lib.items():
+            
+            #init the study area
+            with CalcStudyArea(session=self.ses, name=studyAreaName, **pars_d) as studyArea:
+                pass
+                
 
         
 #===============================================================================
@@ -59,17 +84,14 @@ class StudyArea(Basic):
 #===============================================================================
 class Project1(object): #point finv
     proj_lib =     {
-        'test1':{
+        'point':{
           'EPSG': 2955, 
          'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0218.geojson', 
          'dem': 'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
          'wd_dir': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd',
          #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
             }, 
-            }
-class Project2(object): #poly finv
-    proj_lib =     {
-        'test1':{
+        'poly':{
           'EPSG': 2955, 
          'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
          'dem': 'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
@@ -77,6 +99,7 @@ class Project2(object): #poly finv
          #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
             }, 
             }
+ 
 #===============================================================================
 # COMPONENTS: DKEY--------
 #===============================================================================
@@ -88,7 +111,7 @@ class Dkey(Basic): #dkey based test methods
     def setUpClass(cls):
         assert isinstance(cls.dkey, str) 
         super(Dkey, cls).setUpClass(bk_lib={cls.dkey:cls.bk_lib}, compiled_fp_d=cls.compiled_fp_d)
-        cls.result = cls.ses.retrieve(cls.dkey, write=True) #calls build_finv_gridPoly then sa_get
+        cls.result = cls.ses.retrieve(cls.dkey, write=cls.write) #calls build_finv_gridPoly then sa_get
         
 class Dkey_finv_agg(Dkey):
     dkey = 'finv_agg_d'
@@ -98,29 +121,32 @@ class Dkey_finv_agg(Dkey):
         true_d = self.true_lib['test_data']
         
         for studyArea, vlay in res_d.items():
- 
- 
+
             self.assertTrue(isinstance(vlay, QgsVectorLayer))
             
             ser = vlay_get_fdf(vlay)['gid'].sort_values().reset_index(drop=True)
             
-            true_ser = true_d[studyArea]
+            true_index = true_d[studyArea]
             
+            self.assertEqual(len(ser), len(true_index))
+            assert_equal(ser.index, true_index)
+            
+            """
+            self.tag
+            ser.values
+            ser.index
+            """
  
-            assert_series_equal(true_ser, ser, check_dtype=False)
- 
- 
-          
-
-                
-
-
+class Get_finv_gridPoly(StudyArea):
+    def test_data(self):
+        finv_vlay = cls.ses.vlay_load()
+    
 #===============================================================================
 # test cases--------
 #===============================================================================
-class Test_p1_finv_gridded(Project1, Dkey_finv_agg):
+class Test_p1_finv_gridded(Project1, StudyArea):
     tag='Test_p1_finv_gridded'
-    bk_lib = dict(aggType='gridded', aggLevel=50)
+    #bk_lib = dict(aggType='gridded', aggLevel=50)
     true_lib = {
         'test_data':{
             'test1':pd.Series(
@@ -129,12 +155,44 @@ class Test_p1_finv_gridded(Project1, Dkey_finv_agg):
                 )}}
 
 class Test_p1_finv_none(Project1, Dkey_finv_agg):
+    write=False
     tag='Test_p1_finv_gridded'
     bk_lib = dict(aggType='none', aggLevel=None)
     true_lib = {
-        #need to finish this
+        'test_data':{
+            'test1':pd.Series(
+                array([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907,
+                       10908, 11250, 11251, 11252, 11254, 14376, 14377, 14378, 23029,
+                       23030, 23032, 23084, 23086, 23087, 23088, 23089], dtype=int64),
+                index=RangeIndex(start=0, stop=25, step=1), name='gid',
+                )},
+        
             }
     
+
+class Test_p2_finv_gridded(Project1, Get_finv_gridPoly):
+    write=True
+    tag='Test_p2_finv_gridded'
+    bk_lib = dict(aggType='gridded', aggLevel=50)
+    true_lib = {
+        'test_data':{
+            'test1':RangeIndex(start=0, stop=10, step=1),
+            }}
+
+class Test_p2_finv_none(Project1, Dkey_finv_agg):
+    write=True
+    tag='Test_p2_finv_none'
+    bk_lib = dict(aggType='none', aggLevel=None)
+    true_lib = {
+        'test_data':{
+            'test1':pd.Series(
+                array([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907,
+                       10908, 11250, 11251, 11252, 11254, 14376, 14377, 14378, 23029,
+                       23030, 23032, 23084, 23086, 23087, 23088, 23089], dtype=int64),
+                index=RangeIndex(start=0, stop=25, step=1), name='gid',
+                )},
+        
+            }
 class Test_p1_sampGeo(Project1, Basic):
     tag = 'Test_p1_sampGeo'
     input_fp = { #input files generated from precurser steps
@@ -154,14 +212,7 @@ class Test_p1_sampGeo(Project1, Basic):
         self.ses.build_sampGeo()
     
     def test_data(self):
-        #=======================================================================
-        # #load finv_agg_d
-        # vlay = self.ses.vlay_load(
-        # 
-        # for k in self.proj_lib.keys():
-        #     finv_agg_lib = {k:vlay}
-        #=======================================================================
-            
+   
             
         res_d = self.result
         true_d = self.true_lib['test_data']
@@ -206,7 +257,7 @@ class Test_get_rsamps1(Project1, StudyArea):
         assert_frame_equal(true_df, res_df, check_dtype=False)
             
         
-class Test_get_rsamps2(Project2, StudyArea):
+class Test_get_rsamps2(Project1, StudyArea):
     tag='Test_get_rsamps2'
     
     index = pd.Int64Index([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907, 10908, 10910, 10911,
@@ -268,9 +319,11 @@ class Test_get_rsamps2(Project2, StudyArea):
 def get_suite():
     test_cases = [
         #Test_p1_finv_gridded,
-        Test_p1_finv_none,
+        #Test_p1_finv_none,
+        #Test_p2_finv_gridded,
+        #Test_p1_finv_none,
         #Test_p1_sampGeo,
-        #Test_get_rsamps1,
+        Test_get_rsamps1,
         #Test_get_rsamps2
         ]
     

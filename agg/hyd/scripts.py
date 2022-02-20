@@ -2363,13 +2363,13 @@ class Model(agSession): #single model run
         #=======================================================================
         """these should always be polygons"""
         
-        finv_agg_lib, finv_gkey_df_d = dict(), dict()
+        finv_agg_d, finv_gkey_df_d = dict(), dict()
         
-        if aggType == 'none':
+        if aggType == 'none': # see Test_p1_finv_none
             assert aggLevel is None
             res_d = self.sa_get(meth='get_finv_clean', write=False, dkey=dkey, get_lookup=True, **kwargs)
  
-        elif aggType == 'gridded':
+        elif aggType == 'gridded': #see Test_p1_finv_gridded
             assert isinstance(aggLevel, int)
             res_d = self.sa_get(meth='get_finv_gridPoly', write=False, dkey=dkey,aggLevel=aggLevel, **kwargs)
  
@@ -2378,16 +2378,22 @@ class Model(agSession): #single model run
         
         #unzip
         for studyArea, d in res_d.items():
-            finv_gkey_df_d[studyArea], finv_agg_lib[studyArea] = d
+            finv_gkey_df_d[studyArea], finv_agg_d[studyArea] = d
+            
+        #=======================================================================
+        # check
+        #=======================================================================
+        for studyArea, vlay in finv_agg_d.items():
+            assert 'Polygon' in QgsWkbTypes().displayString(vlay.wkbType())
         
         #=======================================================================
         # handle layers----
         #=======================================================================
         dkey1 = 'finv_agg_d'
         if write:
-            self.store_finv_lib(finv_agg_lib, dkey1,logger=log)
+            self.store_finv_lib(finv_agg_d, dkey1,logger=log)
         
-        self.data_d[dkey1] = finv_agg_lib
+        self.data_d[dkey1] = finv_agg_d
         #=======================================================================
         # handle mindex-------
         #=======================================================================
@@ -2424,7 +2430,7 @@ class Model(agSession): #single model run
         the other can still be retrieved from the data_d"""
  
         if dkey == 'finv_agg_d':
-            result = finv_agg_lib
+            result = finv_agg_d
         elif dkey == 'finv_agg_mindex':
             result = agg_mindex
 
@@ -2491,8 +2497,6 @@ class Model(agSession): #single model run
                 os.makedirs(od)
                 
             #write each sstudy area
- 
- 
             ofp_d[studyArea] = self.vlay_write(poly_vlay, 
                     os.path.join(od, poly_vlay.name() + '.gpkg'), 
                     logger=log)
@@ -3051,6 +3055,7 @@ class StudyArea(Model, Qproj): #spatial work on study areas
                   idfn=None,
  
                   overwrite=None,
+                  finv_vlay=None,
                   **kwargs):
         """
         
@@ -3070,22 +3075,14 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         
         if idfn is None: idfn=self.idfn
         grid_size=aggLevel
-        #=======================================================================
-        # retrieve
-        #=======================================================================
-        finv_vlay = self.get_finv_clean(idfn=idfn, **kwargs)
- 
-        #=======================================================================
-        # loop and aggregate
-        #=======================================================================
- 
- 
-        log.info('on \'%s\' w/ grid_size=%i'%(finv_vlay.name(),grid_size))
+        
+        if finv_vlay is None: finv_vlay = self.get_finv_clean(idfn=idfn, **kwargs)
  
         
         #===================================================================
         # raw grid
         #===================================================================
+        log.info('on \'%s\' w/ grid_size=%i'%(finv_vlay.name(),grid_size))
         
         gvlay1 = self.creategrid(finv_vlay, spacing=grid_size, logger=log)
         self.mstore.addMapLayer(gvlay1)
@@ -3215,9 +3212,7 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         
         log.info('finished on %i'%len(df))
  
-        
  
-        
         return df, gvlay4
     
 
