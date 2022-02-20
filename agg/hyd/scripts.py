@@ -2215,6 +2215,7 @@ class Model(agSession): #single model run
                     prec=2,
                     tval_type='uniform', #type for total values
                     finv_agg_d=None,
+                    mindex = None,
                     **kwargs):
         
         #=======================================================================
@@ -2226,21 +2227,13 @@ class Model(agSession): #single model run
  
         scale_cn = self.scale_cn
         
-        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d')
- 
-        #=======================================================================
-        # build combined index from layers
-        #=======================================================================
- 
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', **kwargs)
+        if mindex is None: mindex = self.retrieve('finv_agg_mindex') #studyArea, id : corresponding gid
  
         #=======================================================================
         # get trues
         #=======================================================================
-        mindex = self.retrieve('finv_agg_mindex') #studyArea, id : corresponding gid
-        
-        #finv_true_serx = pd.Series(np.nan, index=finv_keys_serx.index) #use index
-        
-        #rserx = getattr(self, 'tvals_' + tval_type)(mindex, **kwargs)
+ 
         if tval_type=='uniform':
             vals = np.full(len(mindex), 1.0)
         elif tval_type == 'rand':
@@ -2498,7 +2491,7 @@ class Model(agSession): #single model run
                 
             #write each sstudy area
             ofp_d[studyArea] = self.vlay_write(poly_vlay, 
-                    os.path.join(od, poly_vlay.name() + '.gpkg'), 
+                    os.path.join(od, poly_vlay.name()), 
                     logger=log)
             cnt += 1
         
@@ -2585,7 +2578,7 @@ class Model(agSession): #single model run
  
         
         if finv_agg_lib is None: finv_agg_lib = self.retrieve('finv_agg_d', write=write)
-        
+ 
         #=======================================================================
         # loop each polygon layer and build sampling geometry
         #=======================================================================
@@ -2971,6 +2964,7 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         #=======================================================================
         self.finv_vlay = finv2
         self.wd_dir=wd_dir
+        self.logger.info('StudyArea \'%s\' init'%(self.name))
  
     def get_clean_rasterName(self, raster_fn,
                              conv_lib = {
@@ -3077,6 +3071,16 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         grid_size=aggLevel
         
         if finv_vlay is None: finv_vlay = self.get_finv_clean(idfn=idfn, **kwargs)
+        
+        #=======================================================================
+        # get points on finv_vlay
+        #=======================================================================
+        """for clean grid membership.. just using centroids"""
+        if not 'Point' in QgsWkbTypes().displayString(finv_vlay.wkbType()):
+            finv_pts = self.centroids(finv_vlay, logger=log)
+            self.mstore.addMapLayer(finv_pts)
+        else:
+            finv_pts = finv_vlay
  
         
         #===================================================================
@@ -3089,6 +3093,7 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         log.info('    built grid w/ %i'%gvlay1.dataProvider().featureCount())
         
  
+        """causing some inconsitent behavior
         #===================================================================
         # active grid cells only
         #===================================================================
@@ -3100,8 +3105,9 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         self.selectbylocation(gvlay1, finv_vlay, logger=log)
         
         #save these
-        gvlay2 = self.saveselectedfeatures(gvlay1, logger=log, output='TEMPORARY_OUTPUT')
+        gvlay2 = self.saveselectedfeatures(gvlay1, logger=log, output='TEMPORARY_OUTPUT')"""
         
+        gvlay2 = gvlay1
         #===================================================================
         # populate/clean fields            
         #===================================================================
@@ -3127,7 +3133,7 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         #===================================================================
         # build refecrence dictionary to true assets
         #===================================================================
-        jd = self.joinattributesbylocation(finv_vlay, gvlay4, jvlay_fnl=gcn, 
+        jd = self.joinattributesbylocation(finv_pts, gvlay4, jvlay_fnl=gcn, 
                                            method=1, logger=log,
                                            #predicate='touches',
                  output_nom=os.path.join(self.temp_dir, 'finv_grid_noMatch_%i_%s.gpkg'%(
@@ -3145,66 +3151,79 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         
         df = vlay_get_fdf(jvlay, logger=log).set_index(idfn)
         
+        #=======================================================================
+        # clear non-matchers
+        #=======================================================================
+        """3rd time around with this one... I think this approach is cleanest though"""
+        
+        grid_df = vlay_get_fdf(gvlay4)
+        
+        bx = grid_df[gcn].isin(df[gcn].unique()) #just those matching the raws
+        
+        assert bx.any()
+ 
+        gvlay4.removeSelection()
+        gvlay4.selectByIds(grid_df[bx].index.tolist())
+        assert gvlay4.selectedFeatureCount()==bx.sum()
+        
+        gvlay5 = self.saveselectedfeatures(gvlay4, logger=log)
+        self.mstore.addMapLayer(gvlay4)
         #===================================================================
         # check against grid points
         #===================================================================
-        """
-        this is an artifact of doing selectbylocation then joinattributesbylocation
-            sometimes 1 or 2 grid cells are erroneously joined
-            here we just delete them
-        """
-        gpts_ser = vlay_get_fdf(gvlay4)[gcn]
+        #=======================================================================
+        # """
+        # this is an artifact of doing selectbylocation then joinattributesbylocation
+        #     sometimes 1 or 2 grid cells are erroneously joined
+        #     here we just delete them
+        # """
+        # gpts_ser = vlay_get_fdf(gvlay4)[gcn]
+        #=======================================================================
         
-        set_d = set_info(gpts_ser.values, df[gcn].values)
-        
-        
-        if not len(set_d['symmetric_difference'])==0:
-            del set_d['union']
-            del set_d['intersection']
-            log.warning('%s.%i got %i mismatched values... deleteing these grid cells\n   %s'%(
-                self.name, grid_size, len(set_d['symmetric_difference']), set_d))
-            
-            assert len(set_d['diff_right'])==0
-            
-            #get matching ids
-            fid_l = gpts_ser.index[gpts_ser.isin(set_d['diff_left'])].tolist()
-            gvlay4.removeSelection()
-            gvlay4.selectByIds(fid_l)
-            assert gvlay4.selectedFeatureCount()==len(set_d['diff_left'])
-            
-            #delete these
-            gvlay4.invertSelection()
-            gvlay4 = self.saveselectedfeatures(gvlay4, logger=log)
+        #=======================================================================
+        # set_d = set_info(gpts_ser.values, df[gcn].values)
+        # 
+        # 
+        # if not len(set_d['symmetric_difference'])==0:
+        #     del set_d['union']
+        #     del set_d['intersection']
+        #     log.warning('%s.%i got %i mismatched values... deleteing these grid cells\n   %s'%(
+        #         self.name, grid_size, len(set_d['symmetric_difference']), set_d))
+        #     
+        #     assert len(set_d['diff_right'])==0
+        #     
+        #     #get matching ids
+        #     fid_l = gpts_ser.index[gpts_ser.isin(set_d['diff_left'])].tolist()
+        #     gvlay4.removeSelection()
+        #     gvlay4.selectByIds(fid_l)
+        #     assert gvlay4.selectedFeatureCount()==len(set_d['diff_left'])
+        #     
+        #     #delete these
+        #     gvlay4.invertSelection()
+        #     gvlay4 = self.saveselectedfeatures(gvlay4, logger=log)
+        #=======================================================================
             
         #===================================================================
         # write
         #===================================================================
         
-        gvlay4.setName('finv_gPoly_%i_%s'%(grid_size, self.longname.replace('_', '')))
+        gvlay5.setName('finv_gPoly_%i_%s'%(grid_size, self.longname.replace('_', '')))
         """moved onto the session
         if write_grids:
             self.vlay_write(gvlay4, os.path.join(od, gvlay4.name() + '.gpkg'),
                             logger=log)"""
         
-        #===================================================================
-        # wrap
-        #===================================================================
  
-        
         #===================================================================
         # #meta
         #===================================================================
         mcnt_ser = df[gcn].groupby(df[gcn]).count()
         meta_d = {
             'total_cells':gvlay1.dataProvider().featureCount(), 
-            'active_cells':gvlay1.selectedFeatureCount(),
+            'active_cells':gvlay5.dataProvider().featureCount(),
             'max_member_cnt':mcnt_ser.max()
             }
         
-        
-        log.info('    joined w/ %s'%meta_d)
-            
- 
  
         #=======================================================================
         # wrap
@@ -3213,7 +3232,7 @@ class StudyArea(Model, Qproj): #spatial work on study areas
         log.info('finished on %i'%len(df))
  
  
-        return df, gvlay4
+        return df, gvlay5
     
 
         
@@ -3390,6 +3409,14 @@ class StudyArea(Model, Qproj): #spatial work on study areas
 
         
         return res_df1.round(prec).astype(np.float32).sort_index()
+    
+    
+    def __exit__(self, #destructor
+                 *args,**kwargs):
+        
+        print('__exit__ on studyArea')
+        super().__exit__(*args,**kwargs) #initilzie teh baseclass
+        
     
  
  
