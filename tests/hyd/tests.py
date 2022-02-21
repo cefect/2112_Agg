@@ -208,7 +208,7 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
 
 #@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
 #rsamps methods are only applicable for certain geometry types  
-@pytest.mark.dev  
+
 @pytest.mark.parametrize('method, finv_sg_d_fn',#see test_sampGeo
                          [['points', 'test_sampGeo_centroids_test_fi1'],
                            ['zonal','test_sampGeo_poly_test_finv_ag1'], 
@@ -255,7 +255,7 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, true_dir, write, bas
 
 
 
-
+@pytest.mark.dev  
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
 @pytest.mark.parametrize('vid', [49, 798,811])

@@ -529,7 +529,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         # combine
         #=======================================================================
-        rdxind = dxser.to_frame().join(pd.Series(ar, index=dxser.index, name='rl', dtype=float).round(prec))
+        rdxind = dxser.to_frame().join(pd.Series(ar, index=dxser.index, name='rl', dtype=float).round(prec)).astype(float)
         
  
         
