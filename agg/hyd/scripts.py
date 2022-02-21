@@ -3109,10 +3109,12 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         return res_df1.round(prec).astype(np.float32).sort_index()
     
-    def __exit__(self,  # destructor
-                 * args, **kwargs):
-        
-        print('__exit__ on studyArea')
-        super().__exit__(*args, **kwargs)  # initilzie teh baseclass
+    #===========================================================================
+    # def __exit__(self,  # destructor
+    #              * args, **kwargs):
+    #     
+    #     print('__exit__ on studyArea')
+    #     super().__exit__(*args, **kwargs)  # initilzie teh baseclass
+    #===========================================================================
  
         

@@ -2,11 +2,11 @@
 Created on Feb. 20, 2022
 
 @author: cefect
+
+tests for hyd model
 '''
 
-write=True
-if write:
-    print('WARNING!!! runnig in write mode')
+
 
 
 import os, copy
@@ -30,13 +30,11 @@ from agg.hyd.scripts import vlay_get_fdf
 #===============================================================================
 # fixture-----
 #===============================================================================
-base_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\compiled'
-assert os.path.exists(base_dir)
 
 @pytest.fixture
 def session(tmp_path,
             #wrk_base_dir=None,
-            wrk_base_dir=base_dir,
+            base_dir, write, #see conftest.py
             proj_lib =     {
                     #===========================================================
                     # 'point':{
@@ -60,12 +58,15 @@ def session(tmp_path,
     #get working directory
     wrk_dir = None
     if write:
-        wrk_dir = os.path.join(wrk_base_dir, os.path.basename(tmp_path))
+        wrk_dir = os.path.join(base_dir, os.path.basename(tmp_path))
     
     with CalcSession(out_dir = tmp_path, proj_lib=proj_lib, wrk_dir=wrk_dir, overwrite=write,
                      driverName='GeoJSON', #nicer for writing small test datasets
                      ) as ses:
         yield ses
+
+
+
 
 @pytest.fixture
 def studyAreaWrkr(session, request):
@@ -106,9 +107,9 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
     
 
 
- 
+
 @pytest.mark.parametrize('aggType,aggLevel',[['none',None], ['gridded',20], ['gridded',50]], indirect=False) 
-def test_finv_agg(session, aggType, aggLevel, tmp_path):
+def test_finv_agg(session, aggType, aggLevel, tmp_path, base_dir, write):
     #===========================================================================
     # #execute the functions to be tested
     #===========================================================================
@@ -145,11 +146,11 @@ def test_finv_agg(session, aggType, aggLevel, tmp_path):
  
 @pytest.mark.parametrize('tval_type',['uniform', 'rand'], indirect=False)
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
-def test_tvals(session,tval_type, finv_agg_fn, tmp_path):
+def test_tvals(session,tval_type, finv_agg_fn, tmp_path, base_dir):
     #===========================================================================
     # load inputs   
     #===========================================================================
-    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
+    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
     
     #===========================================================================
     # execute
@@ -171,11 +172,11 @@ def test_tvals(session,tval_type, finv_agg_fn, tmp_path):
     
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
-def test_sampGeo(session, sgType, finv_agg_fn, tmp_path):
+def test_sampGeo(session, sgType, finv_agg_fn, tmp_path, write, base_dir):
     #===========================================================================
     # load inputs   
     #===========================================================================
-    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
+    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
         
     #===========================================================================
     # execute
@@ -197,12 +198,13 @@ def test_sampGeo(session, sgType, finv_agg_fn, tmp_path):
 
 #@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
 #rsamps methods are only applicable for certain geometry types  
+@pytest.mark.dev
 @pytest.mark.parametrize('method, finv_sg_d_fn',#see test_sampGeo
                          [['points', 'test_sampGeo_centroids_test_fi1'],
                            ['zonal','test_sampGeo_poly_test_finv_ag1'], 
                            ['true_mean', 'test_sampGeo_poly_test_finv_ag1']], indirect=False) 
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0'], indirect=False)  #see test_finv_agg. only needed by method=true_mean
-def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path):
+def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path, write, base_dir):
     #===========================================================================
     # load inputs   
     #===========================================================================
@@ -211,7 +213,7 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path):
     finv_sg_d = retrieve_data(dkey, input_fp, session)
     
     if method == 'true_mean': 
-        finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
+        finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
     else:
         finv_agg_mindex = None
     #===========================================================================
@@ -237,7 +239,7 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path):
 #===============================================================================
 # helpers-----------
 #===============================================================================
-def retrieve_finv_d(finv_agg_fn, session):
+def retrieve_finv_d(finv_agg_fn, session, base_dir):
     d= dict()
     for dkey in ['finv_agg_d', 'finv_agg_mindex']:
  
@@ -255,6 +257,7 @@ def retrieve_data(dkey, fp, ses):
     
 
 def search_fp(dirpath, ext, pattern): #get a matching file with extension and beginning
+    assert os.path.exists(dirpath), dirpath
     fns = [e for e in os.listdir(dirpath) if e.endswith(ext)]
     
     result= None
