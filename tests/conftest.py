@@ -3,7 +3,7 @@ Created on Feb. 21, 2022
 
 @author: cefect
 '''
-import os
+import os, shutil
 import pytest
 
     
@@ -23,4 +23,14 @@ def write():
         print('WARNING!!! runnig in write mode')
     return write
 
-
+@pytest.fixture
+def true_dir(write, tmp_path, base_dir):
+    true_dir = os.path.join(base_dir, os.path.basename(tmp_path))
+    if write:
+        if os.path.exists(true_dir): 
+            shutil.rmtree(true_dir)
+            os.makedirs(true_dir) #add back an empty folder
+            
+    return true_dir
+    
+    

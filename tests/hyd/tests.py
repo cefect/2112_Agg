@@ -9,9 +9,9 @@ tests for hyd model
 
 
 
-import os, copy
+import os, copy, shutil
 import pytest
-import tempfile
+ 
 
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
@@ -59,7 +59,7 @@ def session(tmp_path,
                           'EPSG': 2955, 
                          'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
                          'dem': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
-                         'wd_dir': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd',
+                         'wd_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_test_0218.tif',
                          #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                             }, 
                         },
@@ -119,7 +119,7 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
 
 
 @pytest.mark.parametrize('aggType,aggLevel',[['none',None], ['gridded',20], ['gridded',50]], indirect=False) 
-def test_finv_agg(session, aggType, aggLevel, tmp_path, base_dir, write):
+def test_finv_agg(session, aggType, aggLevel, true_dir, base_dir, write):
     #===========================================================================
     # #execute the functions to be tested
     #===========================================================================
@@ -136,7 +136,7 @@ def test_finv_agg(session, aggType, aggLevel, tmp_path, base_dir, write):
         #=======================================================================
         # get the pickle corresponding to this test
         #=======================================================================
-        true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+        true_fp = search_fp(true_dir, '.pickle', dkey) #find the data file.
         assert os.path.exists(true_fp), 'failed to find match for %s'%dkey
         true = retrieve_data(dkey, true_fp, session)
         
@@ -156,7 +156,7 @@ def test_finv_agg(session, aggType, aggLevel, tmp_path, base_dir, write):
  
 @pytest.mark.parametrize('tval_type',['uniform', 'rand'], indirect=False)
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
-def test_tvals(session,tval_type, finv_agg_fn, tmp_path, base_dir):
+def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir):
     #===========================================================================
     # load inputs   
     #===========================================================================
@@ -172,7 +172,7 @@ def test_tvals(session,tval_type, finv_agg_fn, tmp_path, base_dir):
     #===========================================================================
     # retrieve true
     #===========================================================================
-    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true_fp = search_fp(true_dir, '.pickle', dkey) #find the data file.
     true = retrieve_data(dkey, true_fp, session)
     
     #===========================================================================
@@ -182,7 +182,7 @@ def test_tvals(session,tval_type, finv_agg_fn, tmp_path, base_dir):
     
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
-def test_sampGeo(session, sgType, finv_agg_fn, tmp_path, write, base_dir):
+def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
     #===========================================================================
     # load inputs   
     #===========================================================================
@@ -198,7 +198,7 @@ def test_sampGeo(session, sgType, finv_agg_fn, tmp_path, write, base_dir):
     # retrieve trues    
     #===========================================================================
     
-    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true_fp = search_fp(true_dir, '.pickle', dkey) #find the data file.
     true = retrieve_data(dkey, true_fp, session)
     
     #===========================================================================
@@ -208,13 +208,13 @@ def test_sampGeo(session, sgType, finv_agg_fn, tmp_path, write, base_dir):
 
 #@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
 #rsamps methods are only applicable for certain geometry types  
-
+@pytest.mark.dev  
 @pytest.mark.parametrize('method, finv_sg_d_fn',#see test_sampGeo
                          [['points', 'test_sampGeo_centroids_test_fi1'],
                            ['zonal','test_sampGeo_poly_test_finv_ag1'], 
                            ['true_mean', 'test_sampGeo_poly_test_finv_ag1']], indirect=False) 
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0'], indirect=False)  #see test_finv_agg. only needed by method=true_mean
-def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path, write, base_dir):
+def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, true_dir, write, base_dir):
     #===========================================================================
     # load inputs   
     #===========================================================================
@@ -226,6 +226,12 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path, write, bas
         finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
     else:
         finv_agg_mindex = None
+        
+    #===========================================================================
+    # clean old trues
+    #===========================================================================
+
+        
     #===========================================================================
     # execute
     #===========================================================================
@@ -237,7 +243,8 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path, write, bas
     # retrieve trues    
     #===========================================================================
     
-    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    
+    true_fp = search_fp(true_dir, '.pickle', dkey) #find the data file.
     true = retrieve_data(dkey, true_fp, session)
     
     #===========================================================================
@@ -252,7 +259,7 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path, write, bas
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
 @pytest.mark.parametrize('vid', [49, 798,811])
-def test_rloss(session, rsamp_fn, vid, base_dir, tmp_path, df_d):
+def test_rloss(session, rsamp_fn, vid, base_dir, true_dir, df_d):
  
     #===========================================================================
     # load inputs
@@ -278,7 +285,7 @@ def test_rloss(session, rsamp_fn, vid, base_dir, tmp_path, df_d):
     #===========================================================================
     # retrieve trues
     #===========================================================================
-    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true_fp = search_fp(true_dir, '.pickle', dkey) #find the data file.
     true = retrieve_data(dkey, true_fp, session)
     
     #===========================================================================
@@ -289,7 +296,7 @@ def test_rloss(session, rsamp_fn, vid, base_dir, tmp_path, df_d):
 rloss_fn_l = ['test_rloss_49_test_rsamps_test0','test_rloss_49_test_rsamps_test1','test_rloss_49_test_rsamps_test2',
               'test_rloss_798_test_rsamps_tes0','test_rloss_798_test_rsamps_tes1','test_rloss_798_test_rsamps_tes2',
               'test_rloss_811_test_rsamps_tes0','test_rloss_811_test_rsamps_tes1','test_rloss_811_test_rsamps_tes2']
-@pytest.mark.dev   
+ 
 @pytest.mark.parametrize('rloss_fn', rloss_fn_l) #see test_rloss
 def test_tloss(session, base_dir, rloss_fn):
     scale_cn = session.scale_cn

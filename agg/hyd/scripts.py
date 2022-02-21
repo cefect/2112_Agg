@@ -129,7 +129,8 @@ class Model(agSession):  # single model run
         log = self.logger.getChild('write_lib')
         if overwrite is None: overwrite=self.overwrite
         if lib_dir is None:
-            lib_dir = os.path.join(os.path.dirname(self.out_dir), 'lib')
+            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
+ 
         assert os.path.exists(lib_dir), lib_dir
         
         catalog_fp = os.path.join(lib_dir, 'catalog.csv')
@@ -342,6 +343,7 @@ class Model(agSession):  # single model run
             vals = np.full(len(mindex), 1.0)
         elif tval_type == 'rand':
             vals = np.random.random(len(mindex))
+            raise Error('need to implement somekind of simulation here')
             
         else:
             raise Error('unrecognized')
@@ -421,6 +423,7 @@ class Model(agSession):  # single model run
                      write=True,
                      mindex=None, #special catch for test consitency
                      idfn=None,
+                     prec=None,
                      **kwargs):
         """
         keeping these as a dict because each studyArea/event is unique
@@ -431,6 +434,7 @@ class Model(agSession):  # single model run
         assert dkey == 'rsamps', dkey
         log = self.logger.getChild('build_rsamps')
  
+        if prec is None: prec=self.prec
         gcn = self.gcn
         
         if finv_sg_d is None: finv_sg_d = self.retrieve('finv_sg_d')
@@ -465,7 +469,7 @@ class Model(agSession):  # single model run
         elif method == 'true_mean':
             res_serx = self.rsamp_trueMean(dkey,  logger=log, mindex=mindex, **kwargs)
  
-        
+        res_serx = res_serx.round(prec).astype(float)
         #=======================================================================
         # checks
         #=======================================================================
@@ -933,7 +937,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                  EPSG=None,
                  finv_fp=None,
                  dem=None,
-                 wd_dir=None,
+                 #wd_dir=None,
+                 wd_fp = None,
                  aoi=None,
                  
                  # control
@@ -995,7 +1000,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # attachments
         #=======================================================================
         self.finv_vlay = finv2
-        self.wd_dir = wd_dir
+        #self.wd_dir = wd_dir
+        self.wd_fp=wd_fp
         self.logger.info('StudyArea \'%s\' init' % (self.name))
  
     def get_clean_rasterName(self, raster_fn,
@@ -1255,56 +1261,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
         return df, gvlay5
  
-    def get_rsamps_lib(self,  # get samples for a set of layers
-                       finv_lib=None,
  
-                       **kwargs):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('get_rsamps_lib')
-        
-        #=======================================================================
-        # retrieve
-        #=======================================================================
-        # pull your layers from the session
-        finv_vlay_d = finv_lib[self.name]
-        
-        #=======================================================================
-        # loop and sample each
-        #=======================================================================
-        log.info('sampling on %i finvs' % len(finv_vlay_d))
-        
-        res_d = dict()
-        for aggLevel, finv_vlay in finv_vlay_d.items():
-            res_d[aggLevel] = self.get_rsamps(finv_vlay_raw=finv_vlay, logger=self.logger.getChild('aL%i' % aggLevel),
-                            **kwargs)
-            
-        #=======================================================================
-        # combine
-        #=======================================================================
-        dxind = pd.concat(res_d, verify_integrity=True).sort_index()
-        dxind.index.set_names('grid_size', level=0, inplace=True)
-        
-        """
-        view(dxind)
-        """
-        # check
-        self.session.check_mindex(dxind.index)
-        assert dxind.notna().all().all(), 'zeros replaced at lowset level'
-        
-        dry_bx = dxind <= 0
-        
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info('finished on %i vlays and %i rasters w/ %i/%i dry' % (
-            len(finv_vlay_d), len(dxind.columns), dry_bx.sum().sum(), dxind.size))
-        
-        return dxind
 
     def get_rsamps(self,  # sample a set of rastsers withon a single finv
-                   wd_dir=None,
+                   wd_fp=None,
                    finv_sg_d=None,
                    idfn=None,
                    logger=None,
@@ -1317,7 +1277,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         if logger is None: logger = self.logger
         log = logger.getChild('get_rsamps')
-        if wd_dir is None: wd_dir = self.wd_dir
+        if wd_fp is None: wd_fp = self.wd_fp
         # if finv_vlay_raw is None: finv_vlay_raw=self.finv_vlay
         if idfn is None: idfn = self.idfn
         if prec is None: prec = self.prec
@@ -1328,7 +1288,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         finv_vlay_raw = finv_sg_d[self.name]
         
-        assert os.path.exists(wd_dir)
+        assert os.path.exists(wd_fp)
         if method == 'points':
             assert 'Point' in QgsWkbTypes().displayString(finv_vlay_raw.wkbType())
         elif method == 'zonal':
@@ -1351,57 +1311,44 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             finv_vlay = finv_vlay_raw
             
         assert [f.name() for f in finv_vlay.fields()] == [idfn]
-        #=======================================================================
-        # retrieve
-        #=======================================================================
-        fns = [e for e in os.listdir(wd_dir) if e.endswith('.tif')]
-        
-        log.info('on %i rlays \n    %s' % (len(fns), fns))
+
         
         #=======================================================================
         # loop and sample
         #=======================================================================
-        res_df = None
-        for i, fn in enumerate(fns):
-            rname = self.get_clean_rasterName(fn)
-            log.debug('%i %s' % (i, fn))
-            
-            rlay_fp = os.path.join(wd_dir, fn)
-            
-            #===================================================================
-            # sample
-            #===================================================================
-            if method == 'points':
-                vlay_samps = self.rastersampling(finv_vlay, rlay_fp, logger=log, pfx='samp_')
-            
-            elif method == 'zonal':
-                vlay_samps = self.zonalstatistics(finv_vlay, rlay_fp, logger=log, pfx='samp_', stats=zonal_stats)
-            else:
-                raise Error('not impleented')
-            #===================================================================
-            # post           
-            #===================================================================
-            self.mstore.addMapLayer(vlay_samps)
-            # change column names
-            df = vlay_get_fdf(vlay_samps, logger=log)
-            df = df.rename(columns={df.columns[1]:rname})
-            
-            # force type
-            assert idfn in df.columns, 'missing key \'%s\' on %s' % (idfn, finv_vlay.name())
-            df.loc[:, idfn] = df[idfn].astype(np.int64)
-            
-            assert df[idfn].is_unique, finv_vlay.name()
-            
-            rdf = df.set_index(idfn).drop('grid_size', axis=1, errors='ignore')
-            if res_df is None:
-                res_df = rdf
-            else:
-                res_df = res_df.join(rdf, how='outer')
+ 
+        rname = self.get_clean_rasterName(os.path.basename(wd_fp))
+ 
         
+        #===================================================================
+        # sample
+        #===================================================================
+        if method == 'points':
+            vlay_samps = self.rastersampling(finv_vlay, wd_fp, logger=log, pfx='samp_')
+        
+        elif method == 'zonal':
+            vlay_samps = self.zonalstatistics(finv_vlay, wd_fp, logger=log, pfx='samp_', stats=zonal_stats)
+        else:
+            raise Error('not impleented')
+        #===================================================================
+        # post           
+        #===================================================================
+        self.mstore.addMapLayer(vlay_samps)
+        # change column names
+        df = vlay_get_fdf(vlay_samps, logger=log)
+        df = df.rename(columns={df.columns[1]:rname})
+        
+        # force type
+        assert idfn in df.columns, 'missing key \'%s\' on %s' % (idfn, finv_vlay.name())
+        df.loc[:, idfn] = df[idfn].astype(np.int64)
+        
+        assert df[idfn].is_unique, finv_vlay.name()
+ 
+        df = df.set_index(idfn).sort_index()
         #=======================================================================
         # fill zeros
         #=======================================================================
-        res_df1 = res_df.fillna(0.0)
+        res_df = df.fillna(0.0)
         #=======================================================================
         # wrap
         #=======================================================================
@@ -1409,9 +1356,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert res_df.index.is_unique
         
         log.info('finished on %s and %i rasters w/ %i/%i dry' % (
-            finv_vlay.name(), len(fns), res_df.isna().sum().sum(), res_df.size))
+            finv_vlay.name(), 1, res_df.isna().sum().sum(), res_df.size))
         
-        return res_df1.round(prec).astype(np.float32).sort_index()
+        return res_df
     
     #===========================================================================
     # def __exit__(self,  # destructor
