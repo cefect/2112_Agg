@@ -116,14 +116,11 @@ def run( #run a basic model configuration
         
         #vfunc selection
         vid = 798, 
-        #=======================================================================
-        # plot control
-        #=======================================================================
-        transparent=False,
+ 
         
         **kwargs):
     
-    with Model(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim,transparent=transparent,
+    with Model(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, 
                aggType=aggType,
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel),

@@ -29,6 +29,23 @@ from hp.plot import Plotr
 #     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
 #     QgsWkbTypes
 #===============================================================================
+
+
+def get_ax(
+        figNumber=0,
+        figsize=(4,4),
+        tight_layout=False,
+        constrained_layout=True,
+        ):
+    
+    if figNumber in plt.get_fignums():
+        plt.close()
+    
+    fig = plt.figure(figNumber,figsize=figsize,
+                tight_layout=tight_layout,constrained_layout=constrained_layout,
+                )
+            
+    return fig.add_subplot(111)
  
 class ModelAnalysis(Plotr): #analysis of model results
     def __init__(self,

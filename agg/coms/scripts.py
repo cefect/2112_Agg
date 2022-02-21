@@ -11,8 +11,7 @@ import os, datetime, math, pickle, copy
 import pandas as pd
 import numpy as np
 
-import matplotlib.pyplot as plt
-import matplotlib
+
 
 from hp.oop import Basic, Session, Error
 from hp.Q import Qproj
@@ -20,21 +19,7 @@ from hp.pd import view, get_bx_multiVal
 from hp.plot import Plotr
 
 
-def get_ax(
-        figNumber=0,
-        figsize=(4,4),
-        tight_layout=False,
-        constrained_layout=True,
-        ):
-    
-    if figNumber in plt.get_fignums():
-        plt.close()
-    
-    fig = plt.figure(figNumber,figsize=figsize,
-                tight_layout=tight_layout,constrained_layout=constrained_layout,
-                )
-            
-    return fig.add_subplot(111)
+
 
 class Session(Session, Qproj):
     
@@ -73,7 +58,7 @@ class Session(Session, Qproj):
         
         super().__init__(work_dir = r'C:\LS\10_OUT\2112_Agg',
                          data_retrieve_hndls=data_retrieve_hndls,prec=prec,
-                         init_plt_d=None, #dont initilize the plot child
+                         #init_plt_d=None, #dont initilize the plot child
                          **kwargs)
         
         self.write=write
