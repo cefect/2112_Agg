@@ -1,341 +1,296 @@
 '''
-Created on Feb. 18, 2022
+Created on Feb. 20, 2022
 
 @author: cefect
 '''
-import unittest
-import tempfile
-import numpy as np
+
+write=True
+if write:
+    print('WARNING!!! runnig in write mode')
+
+
+import os, copy
 import pytest
-print('pytest.__version__:' + pytest.__version__)
-np.set_printoptions(precision=4)
-np.set_printoptions(suppress=True)
- 
-from numpy.testing import assert_equal  
-from numpy import array, int32, float32, int64
+import tempfile
 
 import pandas as pd
-from pandas import Index, Int64Index, RangeIndex
 from pandas.testing import assert_frame_equal, assert_series_equal
 
-from qgis.core import QgsVectorLayer
+import numpy as np
+np.random.seed(100)
+from numpy.testing import assert_equal
+
+from qgis.core import QgsVectorLayer, QgsWkbTypes
 
 
 from agg.hyd.scripts import Model as CalcSession
 from agg.hyd.scripts import StudyArea as CalcStudyArea
-
 from agg.hyd.scripts import vlay_get_fdf
 
+#===============================================================================
+# fixture-----
+#===============================================================================
+base_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\compiled'
+assert os.path.exists(base_dir)
 
-#===============================================================================
-#COMPONENETS-------
-#===============================================================================
-class Basic(unittest.TestCase): #session level tester
-    prec=3
-    write=False
-    @classmethod
-    def setUpClass(cls, bk_lib={}, compiled_fp_d={}):
-        cls.ses = CalcSession(out_dir = tempfile.gettempdir(), proj_lib=cls.proj_lib,
-                              bk_lib = bk_lib, compiled_fp_d=compiled_fp_d, 
-                              overwrite=True, tag=cls.tag
-                              )
+@pytest.fixture
+def session(tmp_path,
+            #wrk_base_dir=None,
+            wrk_base_dir=base_dir,
+            proj_lib =     {
+                    #===========================================================
+                    # 'point':{
+                    #       'EPSG': 2955, 
+                    #      'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0218.geojson', 
+                    #      'dem': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
+                    #      'wd_dir': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd',
+                    #      #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
+                    #         }, 
+                    #===========================================================
+                    'testSet1':{
+                          'EPSG': 2955, 
+                         'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
+                         'dem': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
+                         'wd_dir': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd',
+                         #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
+                            }, 
+                        },
+                    ):
+    
+    #get working directory
+    wrk_dir = None
+    if write:
+        wrk_dir = os.path.join(wrk_base_dir, os.path.basename(tmp_path))
+    
+    with CalcSession(out_dir = tmp_path, proj_lib=proj_lib, wrk_dir=wrk_dir, overwrite=write,
+                     driverName='GeoJSON', #nicer for writing small test datasets
+                     ) as ses:
+        yield ses
+
+@pytest.fixture
+def studyAreaWrkr(session, request):
+    
+    name = request.param
+        
+    kwargs = {k:getattr(session, k) for k in ['tag', 'prec', 'trim', 'out_dir', 'overwrite']}
+    with CalcStudyArea(session=session, name=name, **session.proj_lib[name]) as sa:
+        yield sa
+
  
-    @classmethod
-    def tearDownClass(cls):
-        cls.ses.__exit__()
-        
-class StudyArea(Basic):
-    studyArea = 'point'
-    @classmethod
-    def setUpClass(cls,  **kwargs):
-        #setup the session
-        super(StudyArea, cls).setUpClass(**kwargs)
-        
-        #setup the study area
-        kwargs = {k:getattr(cls.ses, k) for k in ['tag', 'prec', 'trim', 'out_dir', 'overwrite']}
-        cls.studyArea= CalcStudyArea(session=cls.ses, name=self.studyArea, **cls.proj_lib[self.studyArea], **kwargs)
-        print('setup studyArea %s'%cls.studyArea.name)
-       
-    @classmethod 
-    def tearDownClass(cls):
-        super(StudyArea, cls).__exit__()
-        cls.studyArea.__exit__()
-        
-        
-class StudyAreaZ(Basic):
+
+
+            
+    
+    
+#===============================================================================
+# tests------
+#===============================================================================
+ 
+@pytest.mark.parametrize('aggLevel',[10, 50], indirect=False)  
+@pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True)     
+def test_finv_gridPoly(studyAreaWrkr, aggLevel):
+    #NOTE: this function is also tested in test_finv_agg
+    finv_vlay = studyAreaWrkr.get_finv_clean()
+    df, finv_agg_vlay = studyAreaWrkr.get_finv_gridPoly(aggLevel=aggLevel, finv_vlay=finv_vlay)
+     
+    assert isinstance(finv_agg_vlay, QgsVectorLayer)
+    assert isinstance(df, pd.DataFrame)
+     
+     
+    assert finv_vlay.dataProvider().featureCount() == len(df)
+    assert finv_agg_vlay.dataProvider().featureCount() <= len(df)
+     
+    assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
+    
+
+    
+
+
+ 
+@pytest.mark.parametrize('aggType,aggLevel',[['none',None], ['gridded',20], ['gridded',50]], indirect=False) 
+def test_finv_agg(session, aggType, aggLevel, tmp_path):
+    #===========================================================================
+    # #execute the functions to be tested
+    #===========================================================================
+    test_d = dict()
+    dkey1 = 'finv_agg_d'
+    test_d[dkey1] = session.build_finv_agg(dkey=dkey1, aggType=aggType, aggLevel=aggLevel, write=write)
+    
+    dkey2 = 'finv_agg_mindex'
+    test_d[dkey2] =session.data_d[dkey2]
     
  
-    def test_all(self):
+    
+    for dkey, test in test_d.items():
+        #=======================================================================
+        # get the pickle corresponding to this test
+        #=======================================================================
+        true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+        assert os.path.exists(true_fp), 'failed to find match for %s'%dkey
+        true = retrieve_data(dkey, true_fp, session)
         
+
         #=======================================================================
-        # #loop on each
+        # compare
         #=======================================================================
-        kwargs = {k:getattr(self.ses, k) for k in ['tag', 'prec', 'trim', 'out_dir', 'overwrite']}
-        for studyAreaName, pars_d in self.proj_lib.items():
-            
-            #init the study area
-            with CalcStudyArea(session=self.ses, name=studyAreaName, **pars_d) as studyArea:
-                pass
+        assert len(test)==len(true)
+        assert type(test)==type(true)
+        
+        if dkey=='finv_agg_d':
+            check_layer_d(test, true, test_data=False)
+ 
                 
-
-        
-#===============================================================================
-# COMPONENETS: PROJECTS--------
-#===============================================================================
-class Project1(object): #point finv
-    proj_lib =     {
-        'point':{
-          'EPSG': 2955, 
-         'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0218.geojson', 
-         'dem': 'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
-         'wd_dir': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd',
-         #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
-            }, 
-        'poly':{
-          'EPSG': 2955, 
-         'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
-         'dem': 'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
-         'wd_dir': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd',
-         #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
-            }, 
-            }
+        elif dkey=='finv_agg_mindex':
+            assert_frame_equal(test.to_frame(), true.to_frame())
  
-#===============================================================================
-# COMPONENTS: DKEY--------
-#===============================================================================
-"""not so good to use these for unit tests... could trigger lots of unexpected intputs"""
-class Dkey(Basic): #dkey based test methods
-    dkey = None #overwrite with subclass
-    compiled_fp_d = dict() #overwrite to load precompileds
-    @classmethod
-    def setUpClass(cls):
-        assert isinstance(cls.dkey, str) 
-        super(Dkey, cls).setUpClass(bk_lib={cls.dkey:cls.bk_lib}, compiled_fp_d=cls.compiled_fp_d)
-        cls.result = cls.ses.retrieve(cls.dkey, write=cls.write) #calls build_finv_gridPoly then sa_get
-        
-class Dkey_finv_agg(Dkey):
-    dkey = 'finv_agg_d'
- 
-    def test_data(self):
-        res_d = self.result
-        true_d = self.true_lib['test_data']
-        
-        for studyArea, vlay in res_d.items():
-
-            self.assertTrue(isinstance(vlay, QgsVectorLayer))
-            
-            ser = vlay_get_fdf(vlay)['gid'].sort_values().reset_index(drop=True)
-            
-            true_index = true_d[studyArea]
-            
-            self.assertEqual(len(ser), len(true_index))
-            assert_equal(ser.index, true_index)
-            
-            """
-            self.tag
-            ser.values
-            ser.index
-            """
- 
-class Get_finv_gridPoly(StudyArea):
-    def test_data(self):
-        finv_vlay = cls.ses.vlay_load()
-    
-#===============================================================================
-# test cases--------
-#===============================================================================
-class Test_p1_finv_gridded(Project1, StudyArea):
-    tag='Test_p1_finv_gridded'
-    #bk_lib = dict(aggType='gridded', aggLevel=50)
-    true_lib = {
-        'test_data':{
-            'test1':pd.Series(
-                array([1, 2, 3, 4, 5, 6], dtype=int64), name='gid',
-                index=RangeIndex(start=0, stop=6, step=1)                
-                )}}
-
-class Test_p1_finv_none(Project1, Dkey_finv_agg):
-    write=False
-    tag='Test_p1_finv_gridded'
-    bk_lib = dict(aggType='none', aggLevel=None)
-    true_lib = {
-        'test_data':{
-            'test1':pd.Series(
-                array([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907,
-                       10908, 11250, 11251, 11252, 11254, 14376, 14377, 14378, 23029,
-                       23030, 23032, 23084, 23086, 23087, 23088, 23089], dtype=int64),
-                index=RangeIndex(start=0, stop=25, step=1), name='gid',
-                )},
-        
-            }
-    
-
-class Test_p2_finv_gridded(Project1, Get_finv_gridPoly):
-    write=True
-    tag='Test_p2_finv_gridded'
-    bk_lib = dict(aggType='gridded', aggLevel=50)
-    true_lib = {
-        'test_data':{
-            'test1':RangeIndex(start=0, stop=10, step=1),
-            }}
-
-class Test_p2_finv_none(Project1, Dkey_finv_agg):
-    write=True
-    tag='Test_p2_finv_none'
-    bk_lib = dict(aggType='none', aggLevel=None)
-    true_lib = {
-        'test_data':{
-            'test1':pd.Series(
-                array([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907,
-                       10908, 11250, 11251, 11252, 11254, 14376, 14377, 14378, 23029,
-                       23030, 23032, 23084, 23086, 23087, 23088, 23089], dtype=int64),
-                index=RangeIndex(start=0, stop=25, step=1), name='gid',
-                )},
-        
-            }
-class Test_p1_sampGeo(Project1, Basic):
-    tag = 'Test_p1_sampGeo'
-    input_fp = { #input files generated from precurser steps
-        'Test_p1_finv_gridded':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\sampGeo\finv_gPoly_50_test1Testp1finvgridded0219.geojson',
-        }
-        
-    true_lib = {
-        'test_data':{
-            'test1':pd.Series(
-                array([1, 2, 3, 4, 5, 6], dtype=int64), name='gid',
-                index=RangeIndex(start=0, stop=6, step=1)                
-                )}}
-    
-    def setUp(self):
-
-        
-        self.ses.build_sampGeo()
-    
-    def test_data(self):
-   
-            
-        res_d = self.result
-        true_d = self.true_lib['test_data']
-        
-        for studyArea, vlay in res_d.items():
-            self.assertTrue(isinstance(vlay, QgsVectorLayer))
-            vlay_get_fdf(vlay)
-            
-class Test_tvals(unittest.TestCase):
-    tag = 'Test_tvals'
-    
-    def setUp(self):
-        self.mindex = 0
-    
-
-class Test_get_rsamps1(Project1, StudyArea):
-    tag='Test_get_rsamps1'
+@pytest.mark.parametrize('tval_type',['uniform', 'rand'], indirect=False)
+@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
+def test_tvals(session,tval_type, finv_agg_fn, tmp_path):
     #===========================================================================
-    # @classmethod
-    # def setUpClass(cls):
-    #     super(Test_get_rsamps2, cls).setUpClass()
+    # load inputs   
+    #===========================================================================
+    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
+    
+    #===========================================================================
+    # execute
+    #===========================================================================
+    dkey='tvals'
+    finv_agg_serx = session.build_tvals(dkey=dkey, tval_type=tval_type, 
+                            finv_agg_d=finv_agg_d, mindex =finv_agg_mindex)
+    
+    #===========================================================================
+    # retrieve true
+    #===========================================================================
+    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true = retrieve_data(dkey, true_fp, session)
+    
+    #===========================================================================
+    # compare
+    #===========================================================================
+    assert_series_equal(finv_agg_serx, true)
+    
+@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
+@pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
+def test_sampGeo(session, sgType, finv_agg_fn, tmp_path):
+    #===========================================================================
+    # load inputs   
+    #===========================================================================
+    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
+        
+    #===========================================================================
+    # execute
+    #===========================================================================
+    dkey='finv_sg_d'
+    vlay_d = session.build_sampGeo(dkey = dkey, sgType=sgType, finv_agg_d=finv_agg_d, write=write)
+    
+    #===========================================================================
+    # retrieve trues    
+    #===========================================================================
+    
+    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true = retrieve_data(dkey, true_fp, session)
+    
+    #===========================================================================
+    # check
+    #===========================================================================
+    check_layer_d(vlay_d, true)
+
+#@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
+#rsamps methods are only applicable for certain geometry types  
+@pytest.mark.parametrize('method, finv_sg_d_fn',#see test_sampGeo
+                         [['points', 'test_sampGeo_centroids_test_fi1'],
+                           ['zonal','test_sampGeo_poly_test_finv_ag1'], 
+                           ['true_mean', 'test_sampGeo_poly_test_finv_ag1']], indirect=False) 
+@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0'], indirect=False)  #see test_finv_agg. only needed by method=true_mean
+def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path):
+    #===========================================================================
+    # load inputs   
+    #===========================================================================
+    dkey = 'finv_sg_d'
+    input_fp = search_fp(os.path.join(base_dir, finv_sg_d_fn), '.pickle', dkey) #find the data file.
+    finv_sg_d = retrieve_data(dkey, input_fp, session)
+    
+    if method == 'true_mean': 
+        finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session)
+    else:
+        finv_agg_mindex = None
+    #===========================================================================
+    # execute
     #===========================================================================
 
-    def test_points(self):
-        res_df = self.studyArea.get_rsamps(method='points', prec=self.prec)
-        
-        """
-        res_df.columns
-        res_df.T.values
-        res_df.index
-        """
-        true_df = pd.DataFrame(
-            np.array([[0.  , 0.  , 0.  , 0.  , 0.  , 0.  , 0.  , 0.  , 0.  , 0.2 , 0.  ,
-                    0.08, 0.  , 0.  , 0.  , 0.  , 0.  , 0.35, 0.42, 0.26, 0.36, 0.  ,
-                    0.  , 0.  , 0.12]], dtype=np.float32),
-            columns=pd.Int64Index([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907, 10908, 11250, 11251,
-                11252, 11254, 14376, 14377, 14378, 23029, 23030, 23032, 23084, 23086, 23087, 23088,
-                23089],dtype='int64', name='id'),
-            index = pd.Index(['wd_test_0218'], dtype='object'),            
-            ).T
-            
-        assert_frame_equal(true_df, res_df, check_dtype=False)
-            
-        
-class Test_get_rsamps2(Project1, StudyArea):
-    tag='Test_get_rsamps2'
+    dkey='rsamps'
+    rsamps_serx = session.build_rsamps(dkey=dkey, method=method, finv_sg_d=finv_sg_d, write=write, mindex=finv_agg_mindex)
     
-    index = pd.Int64Index([10899, 10900, 10901, 10902, 10903, 10904, 10905, 10906, 10907, 10908, 10910, 10911,
-                    10912, 10913, 11250, 11251, 11252, 11254, 14376, 14377, 14378, 23029, 23030, 23032,
-                    23034, 23035, 23036, 23084, 23085, 23086, 23087, 23088, 23089],
-                   dtype='int64', name='id')
- 
-    def test_zonal_mean(self):
-        res_df = self.studyArea.get_rsamps(method='zonal', prec=self.prec, zonal_stats=[2])
-        
-        """
-        res_df.columns
-        res_df.T.values
-        res_df.index
-        """
-        true_df = pd.DataFrame(
-            np.array([[0.04 , 0.   , 0.242, 0.033, 0.   , 0.   , 0.042, 0.   , 0.06 ,
-                0.195, 0.215, 0.452, 0.29 , 0.556, 0.068, 0.113, 0.   , 0.   ,
-                0.01 , 0.   , 0.   , 0.273, 0.343, 0.238, 0.568, 0.307, 0.322,
-                0.338, 0.023, 0.045, 0.   , 0.07 , 0.093]], dtype=np.float32),
-            columns=self.index,
-            index = pd.Index(['wd_test_0218'], dtype='object'),            
-            ).T
-            
-        assert_frame_equal(true_df, res_df, check_dtype=False)
-        
-    def test_zonal_max(self):
-        res_df = self.studyArea.get_rsamps(method='zonal', prec=self.prec, zonal_stats=[6])
- 
-        true_df = pd.DataFrame(
-            np.array([[0.04, 0.  , 0.29, 0.07, 0.  , 0.  , 0.08, 0.  , 0.08, 0.29, 0.5 ,
-                    0.47, 0.44, 0.76, 0.22, 0.14, 0.  , 0.  , 0.01, 0.  , 0.  , 0.35,
-                    0.52, 0.37, 0.75, 0.46, 0.42, 0.38, 0.06, 0.07, 0.  , 0.11, 0.12]],
-                  dtype=np.float32),
-            columns=self.index,
-            index = pd.Index(['wd_test_0218'], dtype='object'),            
-            ).T
-            
-        assert_frame_equal(true_df, res_df, check_dtype=False)
+    #===========================================================================
+    # retrieve trues    
+    #===========================================================================
+    
+    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true = retrieve_data(dkey, true_fp, session)
+    
+    #===========================================================================
+    # compare
+    #===========================================================================
+    assert_series_equal(rsamps_serx, true)
 
-    def test_zonal_min(self):
-        res_df = self.studyArea.get_rsamps(method='zonal', prec=self.prec, zonal_stats=[5])
- 
-        true_df = pd.DataFrame(
-            np.array([[0.04, 0.  , 0.15, 0.  , 0.  , 0.  , 0.01, 0.  , 0.06, 0.05, 0.1 ,
-                    0.43, 0.18, 0.33, 0.  , 0.08, 0.  , 0.  , 0.01, 0.  , 0.  , 0.22,
-                    0.22, 0.17, 0.45, 0.25, 0.22, 0.24, 0.  , 0.01, 0.  , 0.07, 0.08]],
-                  dtype=float32),
-            columns=self.index,
-            index = pd.Index(['wd_test_0218'], dtype='object'),            
-            ).T
-            
-        assert_frame_equal(true_df, res_df, check_dtype=False)
         
-#==============================================================================
-# suties-------
-#==============================================================================
+#===============================================================================
+# helpers-----------
+#===============================================================================
+def retrieve_finv_d(finv_agg_fn, session):
+    d= dict()
+    for dkey in ['finv_agg_d', 'finv_agg_mindex']:
  
-def get_suite():
-    test_cases = [
-        #Test_p1_finv_gridded,
-        #Test_p1_finv_none,
-        #Test_p2_finv_gridded,
-        #Test_p1_finv_none,
-        #Test_p1_sampGeo,
-        Test_get_rsamps1,
-        #Test_get_rsamps2
-        ]
+        input_fp = search_fp(os.path.join(base_dir, finv_agg_fn), '.pickle', dkey) #find the data file.
+        assert os.path.exists(input_fp), 'failed to find match for %s'%finv_agg_fn
+        d[dkey] = retrieve_data(dkey, input_fp, session)
+        
+    return d.values()
+
+def retrieve_data(dkey, fp, ses):
+    assert dkey in ses.data_retrieve_hndls
+    hndl_d = ses.data_retrieve_hndls[dkey]
     
-    suite = unittest.TestSuite()
+    return hndl_d['compiled'](fp=fp, dkey=dkey)
     
-    #make suite from list of testCases
-    for testCase in test_cases:
-        suite.addTest(unittest.makeSuite(testCase))
-         
-    print('built suite w/ %i'%suite.countTestCases())
-    return suite
+
+def search_fp(dirpath, ext, pattern): #get a matching file with extension and beginning
+    fns = [e for e in os.listdir(dirpath) if e.endswith(ext)]
     
-if __name__ == '__main__':
-    runner = unittest.TextTestRunner()
-    runner.run(get_suite())
+    result= None
+    for fn in fns:
+        if fn.startswith(pattern):
+            result = os.path.join(dirpath, fn)
+            break
+        
+    return result
+
+def check_layer_d(d1, d2,
+                   test_data=True,):
+    
+    assert d1.keys()==d2.keys()
+    
+    for k, vtest in d1.items():
+        vtrue = d2[k]
+        
+        dptest, dptrue = vtest.dataProvider(), vtrue.dataProvider()
+        
+        assert type(vtest)==type(vtrue)
+        
+        #=======================================================================
+        # vectorlayer checks
+        #=======================================================================
+        if isinstance(vtest, QgsVectorLayer):
+            assert dptest.featureCount()==dptrue.featureCount()
+            assert vtest.wkbType() == dptrue.wkbType()
+            
+            #data checks
+            if test_data:
+                true_df, test_df = vlay_get_fdf(vtrue).reset_index(drop=True), vlay_get_fdf(vtest).reset_index(drop=True)
+                
+                assert_frame_equal(true_df, test_df)
+ 
+            
+            
+            
+    
