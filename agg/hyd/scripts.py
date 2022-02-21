@@ -2108,7 +2108,7 @@ class Model(agSession):  # single model run
                     rl_dxind = None,
                     
                     #control
-                    prec=2,
+                    write=None,
                     
                     ):
         
@@ -2118,7 +2118,7 @@ class Model(agSession):  # single model run
         scale_cn = self.scale_cn
         log = self.logger.getChild('build_tloss')
         assert dkey == 'tloss'
-        
+        if write is None: write=self.write
         #=======================================================================
         # retriever
         #=======================================================================
@@ -2132,20 +2132,13 @@ class Model(agSession):  # single model run
         #=======================================================================
         # join tval and rloss
         #=======================================================================
- 
         dxind1 = rl_dxind.join(tv_serx, on=tv_serx.index.names)
         
         assert dxind1[scale_cn].notna().all()
-        
- 
         #=======================================================================
-        # calc total loss
+        # calc total loss (loss x scale)
         #=======================================================================
-        # relative loss x scale
- 
-            
         dxind1['tl'] = dxind1['rl'].multiply(dxind1[scale_cn])
- 
         
         #=======================================================================
         # check
@@ -2169,7 +2162,8 @@ class Model(agSession):  # single model run
             mdf
             ))
 
-        self.ofp_d[dkey] = self.write_pick(dxind1,
+        if write: 
+            self.ofp_d[dkey] = self.write_pick(dxind1,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
 

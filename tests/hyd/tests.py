@@ -243,14 +243,12 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path, write, bas
 
 
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
 @pytest.mark.parametrize('vid', [49, 798,811])
 def test_rloss(session, rsamp_fn, vid, base_dir, tmp_path, df_d):
-    """
-    todo: promote df_d to session scope to speed things up
-    """
+ 
     #===========================================================================
     # load inputs
     #===========================================================================
@@ -282,6 +280,41 @@ def test_rloss(session, rsamp_fn, vid, base_dir, tmp_path, df_d):
     # compare
     #===========================================================================
     assert_frame_equal(rdxind, true)
+
+rloss_fn_l = ['test_rloss_49_test_rsamps_test0','test_rloss_49_test_rsamps_test1','test_rloss_49_test_rsamps_test2',
+              'test_rloss_798_test_rsamps_tes0','test_rloss_798_test_rsamps_tes1','test_rloss_798_test_rsamps_tes2',
+              'test_rloss_811_test_rsamps_tes0','test_rloss_811_test_rsamps_tes1','test_rloss_811_test_rsamps_tes2']
+@pytest.mark.dev   
+@pytest.mark.parametrize('rloss_fn', rloss_fn_l) #see test_rloss
+def test_tloss(session, base_dir, rloss_fn):
+    scale_cn = session.scale_cn
+    #===========================================================================
+    # load inputs
+    #===========================================================================
+    dkey = 'rloss'
+    input_fp = search_fp(os.path.join(base_dir, rloss_fn), '.pickle', dkey) #find the data file.
+    rl_dxind = retrieve_data(dkey, input_fp, session)
+    
+    #build total vals
+    """easier (and broader) to use random total vals than to select the matching"""
+    
+    tv_serx = pd.Series(np.random.random(len(rl_dxind)), index=rl_dxind.droplevel(1).index, name=scale_cn)
+    
+    #===========================================================================
+    # execute
+    #===========================================================================
+    dkey='tloss'
+    tl_dxind = session.build_tloss(dkey=dkey, tv_serx=tv_serx, rl_dxind=rl_dxind)
+    
+    #===========================================================================
+    # check
+    #===========================================================================
+    assert_series_equal(tl_dxind[scale_cn].droplevel(1), tv_serx)
+    
+    assert_series_equal(tl_dxind['tl'].divide(tl_dxind[scale_cn]).rename('rl'), tl_dxind['rl'])
+
+    
+    
         
 #===============================================================================
 # helpers-----------
