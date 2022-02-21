@@ -111,8 +111,52 @@ class Model(agSession):  # single model run
                  self.scale_cn:np.dtype('int64'),
                          }
     
-   
-    
+    #===========================================================================
+    # WRITERS---------
+    #===========================================================================
+    def write_lib(self, #writing pickle w/ metadata
+                  lib_dir = None, #library directory
+                  overwrite=None,
+                  ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('write_lib')
+        if overwrite is None: overwrite=self.overwrite
+        if lib_dir is None:
+            lib_dir = os.path.join(os.path.dirname(self.out_dir), 'lib')
+        assert os.path.exists(lib_dir), lib_dir
+        
+        catalog_fp = os.path.join(lib_dir, 'catalog.csv')
+        #=======================================================================
+        # pull the total loss data
+        #=======================================================================
+        tl_dx = self.retrieve('tloss')
+        
+        #=======================================================================
+        # build meta
+        #=======================================================================
+        meta_d = self._get_meta()
+        #=======================================================================
+        # add to library
+        #=======================================================================
+        out_fp = os.path.join(lib_dir, '%s.pickle'%self.longname)
+        
+        d = {'name':self.name, 'tag':self.tag, 'date':self.start.strftime('%Y-%m-%d %H.%M.%S'), 'out_fp':out_fp, 'meta':meta_d, 'tloss':tl_dx}
+        
+        self.write_pick(d, out_fp, overwrite=overwrite, logger=log)
+        
+        
+        #=======================================================================
+        # update catalog
+        #=======================================================================
+        df = pd.Series({k:d[k] for k in ['name', 'tag', 'date', 'out_fp']}).to_frame().T
+        
+        df.to_csv(catalog_fp, mode='a', header = not os.path.exists(catalog_fp), index=False)
+        
+        log.info('updated catalog %s'%catalog_fp)
+        
+        return catalog_fp
 
     
     #===========================================================================
