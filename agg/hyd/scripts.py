@@ -2101,9 +2101,79 @@ class Model(agSession):  # single model run
         
         return rdxind
     
+    def build_tloss(self,  # get the total loss
+                    #data retrieval
+                    dkey=None,
+                    tv_serx = None,
+                    rl_dxind = None,
+                    
+                    #control
+                    prec=2,
+                    
+                    ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        scale_cn = self.scale_cn
+        log = self.logger.getChild('build_tloss')
+        assert dkey == 'tloss'
+        
+        #=======================================================================
+        # retriever
+        #=======================================================================
+        
+        if tv_serx is None: tv_serx = self.retrieve('tvals')  # studyArea, id : grid_size : corresponding gid
+        
+        if rl_dxind is None: rl_dxind = self.retrieve('rloss')
+        
+        #rlnames_d = {lvlName:i for i, lvlName in enumerate(rl_dxind.index.names)}
+        
+        #=======================================================================
+        # join tval and rloss
+        #=======================================================================
+ 
+        dxind1 = rl_dxind.join(tv_serx, on=tv_serx.index.names)
+        
+        assert dxind1[scale_cn].notna().all()
+        
+ 
+        #=======================================================================
+        # calc total loss
+        #=======================================================================
+        # relative loss x scale
+ 
+            
+        dxind1['tl'] = dxind1['rl'].multiply(dxind1[scale_cn])
+ 
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        self.check_mindex(dxind1.index)
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        # reporting
+        serx1 = dxind1['tl']
+        mdf = pd.concat({
+            'max':serx1.groupby(level='event').max(),
+            'count':serx1.groupby(level='event').count(),
+            'sum':serx1.groupby(level='event').sum(),
+            }, axis=1)
+        
+        log.info('finished w/ %s and totalLoss: \n%s' % (
+            str(dxind1.shape),
+            # dxind3.loc[:,tval_colns].sum().astype(np.float32).round(1).to_dict(),
+            mdf
+            ))
 
+        self.ofp_d[dkey] = self.write_pick(dxind1,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
 
-
+        return dxind1
     
   
     
@@ -2317,93 +2387,12 @@ class Model(agSession):  # single model run
 
         return res_dx3
  
-    def build_tloss(self,  # get the total loss
-                    dkey=None,
-                    prec=2,
-                    ):
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        scale_cn = self.scale_cn
-        log = self.logger.getChild('build_tloss')
-        assert dkey == 'tloss'
-        
-        #=======================================================================
-        # retriever
-        #=======================================================================
-        
-        tv_serx = self.retrieve('tvals')  # studyArea, id : grid_size : corresponding gid
-        
-        rl_dxind = self.retrieve('rloss')
-        
-        rlnames_d = {lvlName:i for i, lvlName in enumerate(rl_dxind.index.names)}
-        
-        #=======================================================================
-        # join tval and rloss
-        #=======================================================================
- 
-        dxind1 = rl_dxind.join(tv_serx, on=tv_serx.index.names)
-        
-        assert dxind1[scale_cn].notna().all()
-        
-        # re-org columns
-        
-        dx1 = pd.concat({
-            'expo':dxind1.loc[:, ['depth', scale_cn]],
-            'rl':dxind1.loc[:, rl_dxind.drop('depth', axis=1).columns]},
-            axis=1, verify_integrity=True)
-        
-        #=======================================================================
-        # calc total loss
-        #=======================================================================
-        # relative loss x scale
-        tl_dx = dx1.loc[:, idx['rl',:]].multiply(
-            dx1.loc[:, idx['expo', scale_cn]], axis=0
-            ).round(prec)
-            
-        # rename the only level0 value        
-        tl_dx.columns = tl_dx.columns.remove_unused_levels().set_levels(levels=['tl'], level=0)
-        
-        # join these in 
-        dx2 = dx1.join(tl_dx)
- 
-        # set the names
-        """these dont actually apply to the meta group.. but still nicer to have the names"""
-        dx2.columns.set_names(['lossType', 'vid'], inplace=True)
-        
-        #=======================================================================
-        # check
-        #=======================================================================
-        self.check_mindex(dx2.index)
- 
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        # reporting
-        rdxind = dx2.loc[:, idx['tl',:]].droplevel(0, axis=1)
-        mdf = pd.concat({
-            'max':rdxind.groupby(level='grid_size').max(),
-            'count':rdxind.groupby(level='grid_size').count(),
-            'sum':rdxind.groupby(level='grid_size').sum(),
-            }, axis=1)
-        
-        log.info('finished w/ %s and totalLoss: \n%s' % (
-            str(dx2.shape),
-            # dxind3.loc[:,tval_colns].sum().astype(np.float32).round(1).to_dict(),
-            mdf
-            ))
 
-        self.ofp_d[dkey] = self.write_pick(dx2,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
-                                   logger=log)
-
-        return dx2
     
  
-#===========================================================================
-# HELPERS--------
-#===========================================================================
+    #===========================================================================
+    # HELPERS--------
+    #===========================================================================
 
     def load_finv_lib(self,  # generic retrival for finv type intermediaries
                   fp=None, dkey=None,
