@@ -365,6 +365,7 @@ class Session(Session, Qproj, Plotr):
     def build_vfunc(self,
                     dkey=None,
                     vid=1,
+                    vf_d=None,
                     ):
         """
         not very nice... original setup was meant for bulk loading vfuncs
@@ -372,10 +373,10 @@ class Session(Session, Qproj, Plotr):
         would be much nicer to pre-compile this into some database then just query the info needed
             (although I think this was the original format)
         """
-        
-        vid_df = self.build_vid_df(vid_l = [vid])
-        
-        vf_d = self.build_vf_d(dkey='vf_d', vid_df = vid_df)
+        if vf_d is None:
+            vid_df = self.build_vid_df(vid_l = [vid])
+            
+            vf_d = self.build_vf_d(dkey='vf_d', vid_df = vid_df)
  
         
         return vf_d[vid]
@@ -505,8 +506,17 @@ class Vfunc(object):
         
     def set_ddf(self,
                 df_raw,
+                
+                relative=None,
+                
+                #data correction
+                set_loss_intercept=True,
+                set_loss_zero=True,
+                set_wd_indep=True,
+                allow_rl_exceed=True, #for relative loss funtions, allow them to exceed 100
+                
+ 
                 logger=None,
-                allow_rel_exceed=True, #for relative loss funtions, allow them to exceed 100
                 ):
         
         #=======================================================================
@@ -514,6 +524,8 @@ class Vfunc(object):
         #=======================================================================
         if logger is None: logger=self.logger
         log=logger.getChild('set_ddf')
+        
+        if relative is None: relative=self.relative
         
         ycn = self.ycn
         xcn = self.xcn
@@ -526,24 +538,67 @@ class Vfunc(object):
         l = set(df_raw.columns).symmetric_difference([ycn, xcn])
         assert len(l)==0, l
         
+        
+        
         #=======================================================================
         # clean
         #=======================================================================
         
         df1 = df_raw.copy().sort_values(xcn).loc[:, [xcn, ycn]]
         
+        
+        #=======================================================================
+        # duplicate xvalues
+        #=======================================================================
+        """these violate the independence assumption"""
+        if not df1[xcn].is_unique:
+            bx = df1[xcn].duplicated(keep='first')
+            msg = 'got %i duplicated xvals. set_wd_indep=%s'%(bx.sum(), set_wd_indep)
+            if set_wd_indep:
+                df1 = df1.loc[~bx, :]
+            else:
+                """these are not functions"""
+                raise Error(msg)
+        
+        #=======================================================================
+        # tables where rl[wd=0]=!0
+        #=======================================================================
+        if df1['wd'][0]==0:
+            if df1.iloc[0, 1]>0:
+                msg = 'rl[wd=0]!=0 and set_loss_zero=%s'%set_loss_zero
+                if set_loss_zero:
+                    df1.iloc[0,0] = 0.001
+                    log.debug(msg + '  added 0.001 to wd')
+                else:
+                    log.warning(msg)
+        
+        #=======================================================================
+        # tablees w/o wd=0
+        #=======================================================================
+        """because some tables dont extend to zero"""
+        if df1['wd'].min()>0:
+            msg = 'min(wd) >0 and set_loss_intercept=%s'%set_loss_intercept
+
+            #add a dummy zerozero value for extrapolation
+            if set_loss_intercept:
+                df1 = df1.append(pd.Series(0.0, index=df1.columns), ignore_index=True).sort_values(xcn)
+                log.debug(msg)
+            else:
+                log.warning(msg)
+                
+ 
         #=======================================================================
         # post check
         #=======================================================================
         #check relative loss constraint
-        if self.relative:
+        if relative:
             """
             quite a few functions violate this
             """
             bx =  df1[ycn] > 100
             if bx.any():
                 msg = 'got %i/%i RL values exceeding 100 (%s)'%(bx.sum(), len(bx), self.name)
-                if not allow_rel_exceed:
+                if not allow_rl_exceed:
                     raise Error(msg)
                 else:
                     log.warning(msg)
@@ -553,12 +608,12 @@ class Vfunc(object):
             assert np.all(np.diff(row.values)>=0), '%s got non mono-tonic %s vals \n %s'%(
                 self.name, coln, df1)
         
+        #=======================================================================
+        # attach
+        #=======================================================================
         self.ddf = df1
         self.dd_ar = df1.T.values
-        #self.ddf_big = df1.copy()
-        
-        
-        #log.info('attached %s'%str(df1.shape))
+ 
         
         return self
     
@@ -573,14 +628,14 @@ class Vfunc(object):
         """
         if prec is None: prec=self.prec
         assert isinstance(xar, np.ndarray)
-        dd_ar = self.dd_ar
-        #clean i tups
+        dd_ar = self.dd_ar.copy()
+        
+        #=======================================================================
+        # prep xvals
+        #=======================================================================
         """using a frame to preserve order and resolution"""
         rdf = pd.Series(xar, name='wd_raw').to_frame().sort_values('wd_raw')
         rdf['wd_round'] = rdf['wd_raw'].round(prec)
-        
-
-        
  
         
         #=======================================================================
@@ -599,17 +654,13 @@ class Vfunc(object):
         #=======================================================================
         
         #filter thoe out of bounds
-        
         bool_ar = np.full(len(xuq), True)
         xuq1 = xuq[bool_ar]
         #=======================================================================
         # interploate
         #=======================================================================
         dep_ar, dmg_ar = dd_ar[0], dd_ar[1]
-        #=======================================================================
-        # def get_dmg(x):
-        #     return np.interp(x, 
-        #=======================================================================
+ 
         
         res_ar = np.apply_along_axis(lambda x:np.interp(x,
                                     dep_ar, #depths (xcoords)
