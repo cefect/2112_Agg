@@ -38,7 +38,6 @@ class Model(agSession):  # single model run
     
     gcn = 'gid'
     scale_cn = 'scale'
-    
     colorMap = 'cool'
     
     def __init__(self,
@@ -1377,10 +1376,55 @@ class Model(agSession):  # single model run
     #===========================================================================
     # ANALYSIS WRITERS---------
     #===========================================================================
-    def write_lib(self,
+    def write_lib(self, #writing pickle w/ metadata
+                  lib_dir = None, #library directory
+                  overwrite=None,
                   ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('write_lib')
+        if overwrite is None: overwrite=self.overwrite
+        if lib_dir is None:
+            lib_dir = os.path.join(os.path.dirname(self.out_dir), 'lib')
+        assert os.path.exists(lib_dir), lib_dir
         
+        catalog_fp = os.path.join(lib_dir, 'catalog.csv')
+        #=======================================================================
+        # pull the total loss data
+        #=======================================================================
         tl_dx = self.retrieve('tloss')
+        
+        #=======================================================================
+        # build meta
+        #=======================================================================
+        meta_d = self._get_meta()
+        #=======================================================================
+        # add to library
+        #=======================================================================
+        out_fp = os.path.join(lib_dir, '%s.pickle'%self.longname)
+        
+        d = {'name':self.name, 'tag':self.tag, 'date':self.start.strftime('%Y-%m-%d %H.%M.%S'), 'out_fp':out_fp, 'meta':meta_d, 'tloss':tl_dx}
+        
+        self.write_pick(d, out_fp, overwrite=overwrite, logger=log)
+        
+        
+        #=======================================================================
+        # update catalog
+        #=======================================================================
+        df = pd.Series({k:d[k] for k in ['name', 'tag', 'date', 'out_fp']}).to_frame().T
+        
+        df.to_csv(catalog_fp, mode='a', header = not os.path.exists(catalog_fp), index=False)
+        
+        log.info('updated catalog %s'%catalog_fp)
+        
+        return catalog_fp
+ 
+        
+ 
+
+        
+        
         
     def write_loss_smry(self,  # write statistcs on total loss grouped by grid_size, studyArea, and event
                     
@@ -2596,6 +2640,22 @@ class Model(agSession):  # single model run
             bx.sum(), len(bx), len(names_d), names_d)
         
         return
+    
+    def _get_meta(self, #get a dictoinary of metadat for this model
+                 ):
+        
+        d = super()._get_meta()
+        
+        attns = ['gcn', 'scale_cn']
+        
+        d = {**d, **{k:getattr(self, k) for k in attns}}
+        
+        #add project info
+        for studyArea, lib in self.proj_lib.items():
+            d[studyArea] = lib
+ 
+        
+        return d
 
         
 class StudyArea(Model, Qproj):  # spatial work on study areas

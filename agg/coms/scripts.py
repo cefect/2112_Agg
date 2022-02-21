@@ -471,6 +471,11 @@ class Session(Session, Qproj, Plotr):
         
         return df2, pd.DataFrame.from_dict(meta_d).T
     
+    def _get_meta(self):
+        d = super()._get_meta()
+        
+        return d
+    
     
 
 
