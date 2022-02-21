@@ -27,6 +27,20 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
 from agg.coms.scripts import Session as agSession
 
 
+def serx_smry(serx):
+ 
+    d = dict()
+    
+    for stat in ['count', 'min', 'mean', 'max', 'sum']:
+        f = getattr(serx, stat)
+        d['%s_%s'%(serx.name, stat)] = f() 
+    return d
+ 
+def get_all_pars(): #generate a matrix of all possible parameter combinations
+    pars_lib = Model.pars_lib
+    raise Error('create a multindex from multiplication')
+
+    
 
 class Model(agSession):  # single model run
     """
@@ -36,6 +50,16 @@ class Model(agSession):  # single model run
     gcn = 'gid'
     scale_cn = 'scale'
     colorMap = 'cool'
+    
+    #supported parameter values
+    pars_lib = {
+        'tval_type':['uniform', 'rand'],
+        'severity':['hi', 'lo'],
+        'aggType':['none', 'gridded'],
+        'aggLevel':[50, 200],
+        
+        
+        }
     
     def __init__(self,
                  name='hyd',
@@ -122,6 +146,7 @@ class Model(agSession):  # single model run
                   lib_dir = None, #library directory
                   mindex = None,
                   overwrite=None,
+                  dkey='tloss',
                   ):
         #=======================================================================
         # defaults
@@ -137,7 +162,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         # retrieve
         #=======================================================================
-        tl_dx = self.retrieve('tloss') #best to call this before finv_agg_mindex
+        tl_dx = self.retrieve(dkey) #best to call this before finv_agg_mindex
         if mindex is None: mindex = self.retrieve('finv_agg_mindex')
         
         
@@ -146,7 +171,11 @@ class Model(agSession):  # single model run
         """no! this is disaggrigation which is ambigious
         best to levave this for the analysis phase (and just pass the index)
         self.reindex_to_raw(tl_dx)"""
-        
+        #=======================================================================
+        # write to csv
+        #=======================================================================
+        out_fp = os.path.join(self.out_dir, '%s_tloss.csv'%self.longname)
+        tl_dx.to_csv(out_fp)
         #=======================================================================
         # write vectors
         #=======================================================================
@@ -168,17 +197,8 @@ class Model(agSession):  # single model run
         # build meta
         #=======================================================================
         meta_d = self._get_meta()
+        res_meta_d = serx_smry(tl_dx['rl'])
         
-        meta_d['date'] = self.start.strftime('%Y-%m-%d %H.%M.%S')
-        meta_d['runtime_mins'] = round((datetime.datetime.now() - self.start).total_seconds()/60.0, 3)
-        
-        #add results meta
-        res_meta_d = dict()
-        coln = 'rl'
-        for stat in ['count', 'min', 'mean', 'max', 'sum']:
-            f = getattr(tl_dx[coln], stat)
-            res_meta_d['%s_%s'%(coln, stat)] = f() 
-            
         meta_d = {**meta_d, **res_meta_d}
         #=======================================================================
         # add to library
@@ -205,9 +225,106 @@ class Model(agSession):  # single model run
         
         df.to_csv(catalog_fp, mode='a', header = not os.path.exists(catalog_fp), index=False)
         
+        #=======================================================================
+        # write sumary frame
+        #=======================================================================
+ 
+        
         log.info('updated catalog %s'%catalog_fp)
         
         return catalog_fp
+    
+    def write_summary(self, #write a nice model run summary 
+                      dkey_l=['tloss', 'rloss', 'rsamps'],
+                      out_fp=None,
+                      ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('write_summary')
+        if out_fp is None: out_fp = os.path.join(self.out_dir, 'summary_%s.xls'%self.longname)
+        
+        smry_lib = dict()
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        
+        
+        meta_d = self._get_meta()
+        
+        #=======================================================================
+        # summary page
+        #=======================================================================
+        #clean out
+        del meta_d['bk_lib']
+        
+        for studyArea in self.proj_lib.keys():
+            del meta_d[studyArea]
+        
+        meta_d['dkey_l'] = dkey_l
+        
+        #force to strings
+        d = {k:str(v) for k,v in meta_d.items()}
+        
+        smry_lib['smry'] = pd.Series(d).rename('').to_frame()
+        
+        #=======================================================================
+        # parameter page
+        #=======================================================================
+        
+        smry_lib['bk_lib'] = pd.DataFrame.from_dict(self.bk_lib).T.stack().to_frame()
+        
+        #=======================================================================
+        # study Areas page
+        #=======================================================================
+        
+        smry_lib['proj_lib'] = pd.DataFrame.from_dict(self.proj_lib).T
+        
+        #=======================================================================
+        # data/results summary
+        #=======================================================================
+        d = dict()
+ 
+        for dkey in dkey_l:
+            data = self.retrieve(dkey) #best to call this before finv_agg_mindex
+            if isinstance(data, pd.DataFrame):
+                serx = data.iloc[:, -1] #last one is usually total loss
+            else:
+                serx=data
+            res_meta_d = dict()
+            
+            for stat in ['count', 'min', 'mean', 'max', 'sum']:
+                f = getattr(serx, stat)
+                res_meta_d[stat] = f() 
+            
+            d[dkey] = res_meta_d
+        
+ 
+            
+        smry_lib['data_smry'] = pd.DataFrame.from_dict(d).T
+        
+        #=======================================================================
+        # complete datasets
+        #=======================================================================
+        """only worth writing tloss as this holds all the data"""
+        smry_lib = {**smry_lib, **{'tloss':self.retrieve('tloss')}}
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        #write a dictionary of dfs
+        with pd.ExcelWriter(out_fp) as writer:
+            for tabnm, df in smry_lib.items():
+                df.to_excel(writer, sheet_name=tabnm, index=True, header=True)
+                
+        log.info('wrote %i tabs to %s'%(len(smry_lib), out_fp))
+        
+        return smry_lib
+        
+ 
+
+        
 
     
     #===========================================================================
@@ -922,6 +1039,10 @@ class Model(agSession):  # single model run
         #add project info
         for studyArea, lib in self.proj_lib.items():
             d[studyArea] = lib
+            
+        #add r un info
+        d['date'] = self.start.strftime('%Y-%m-%d %H.%M.%S')
+        d['runtime_mins'] = round((datetime.datetime.now() - self.start).total_seconds()/60.0, 3)
  
         
         return d

@@ -126,14 +126,14 @@ def run( #run a basic model configuration
         #hazard raster selection
         severity = 'low',
         #aggregation
-        aggType = 'none', aggLevel = 'none',
+        aggType = 'none', aggLevel = None,
         
         #asset values
         tval_type = 'rand',
         
         #sampling
         sample_geo_type = 'centroids',
-        rsamps_method = 'points',
+        rsamps_method = 'points', zonal_stats=[2],  # stats to use for zonal. 2=mean
         
         #vfunc selection
         vid = 798, 
@@ -149,6 +149,7 @@ def run( #run a basic model configuration
         if not 'wd_fp' in proj_lib[k]:
             proj_lib[k]['wd_fp'] = wd_fp_d[k]
     
+    if aggType == 'none': assert aggLevel is None
     #===========================================================================
     # execute
     #===========================================================================
@@ -158,7 +159,7 @@ def run( #run a basic model configuration
                      'finv_agg_d':dict(aggLevel=aggLevel),
                      'finv_agg_mindex':dict(aggLevel=aggLevel),
                      'vfunc':dict(vid=vid),
-                     'rsamps':dict(method=rsamps_method),
+                     'rsamps':dict(method=rsamps_method, zonal_stats=zonal_stats),
  
                      
                      'finv_sg_d':dict(sgType=sample_geo_type),
@@ -176,6 +177,7 @@ def run( #run a basic model configuration
         else:
             lib_dir = None
         
+        ses.write_summary()
         ses.write_lib(lib_dir=lib_dir)
  
         
@@ -195,8 +197,12 @@ def dev():
         compiled_fp_d = {
     'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_agg_d_hyd_dev_0221.pickle',
     'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_agg_mindex_hyd_dev_0221.pickle',
-    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\tvals_hyd_dev_0221.pickle',
+ 
     'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_sg_d_hyd_dev_0221.pickle',
+        'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220221\working\tvals_hyd2_dev_0221.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220221\working\rsamps_hyd2_dev_0221.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220221\working\rloss_hyd2_dev_0221.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220221\working\tloss_hyd2_dev_0221.pickle',
  
             },
         
@@ -230,6 +236,11 @@ def dev():
 def r2():
     return run(
         tval_type='uniform',
+        severity='hi',
+        aggType='none', aggLevel=None,
+        sample_geo_type='poly', rsamps_method='zonal', zonal_stats=[2],
+        vid=798,
+        
         )
         
 
