@@ -2048,6 +2048,7 @@ class Model(agSession):  # single model run
                     prec=None,  # precision for RL
                     dxser=None,
                     vid=798,
+                    write=None,
                     **kwargs):
         #=======================================================================
         # defaults
@@ -2055,6 +2056,7 @@ class Model(agSession):  # single model run
         log = self.logger.getChild('build_rloss')
         assert dkey == 'rloss'
         if prec is None: prec = self.prec
+        if write is None: write=self.write
         
         
         if dxser is None: dxser = self.retrieve('rsamps')
@@ -2064,46 +2066,40 @@ class Model(agSession):  # single model run
         #=======================================================================
  
         # vfuncs
-        vfunc = self.retrieve('vfunc', vid=vid)
-        raise Error('stopped here')
+        vfunc = self.build_vfunc(vid=vid, **kwargs)
+ 
         #=======================================================================
         # loop and calc
         #=======================================================================
-        log.info('getting impacts from %i vfuncs and %i depths' % (
-            len(vf_d), len(dxser)))
-            
-        res_d = dict()
-        for i, (vid, vfunc) in enumerate(vf_d.items()):
-            log.info('%i/%i on %s' % (i + 1, len(vf_d), vfunc.name))
-            
-            ar = vfunc.get_rloss(dxser.values)
-            
-            assert ar.max() <= 100, '%s returned some RLs above 100' % vfunc.name
-            
-            res_d[vid] = ar 
+        log.info('getting impacts from vfunc %i and %i depths' % (
+            vfunc.vid, len(dxser)))
+ 
+ 
+        ar = vfunc.get_rloss(dxser.values)
+        
+        assert ar.max() <= 100, '%s returned some RLs above 100' % vfunc.name
+ 
         
         #=======================================================================
         # combine
         #=======================================================================
+        rdxind = dxser.to_frame().join(pd.Series(ar, index=dxser.index, name='rl', dtype=float).round(prec))
         
-        rdf = pd.DataFrame.from_dict(res_d).round(prec)
+ 
         
-        rdf.index = dxser.index
+        log.info('finished on %s' % str(rdxind.shape))
         
-        res_dxind = dxser.to_frame().join(rdf)
-        
-        log.info('finished on %s' % str(rdf.shape))
-        
-        self.check_mindex(res_dxind.index)
+        self.check_mindex(rdxind.index)
  
         #=======================================================================
         # write
         #=======================================================================
-        self.ofp_d[dkey] = self.write_pick(res_dxind,
+        if write:
+            self.ofp_d[dkey] = self.write_pick(rdxind,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
         
-        return res_dxind
+        return rdxind
     
 
 

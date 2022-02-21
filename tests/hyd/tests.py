@@ -60,7 +60,7 @@ def session(tmp_path,
     if write:
         wrk_dir = os.path.join(base_dir, os.path.basename(tmp_path))
     
-    with CalcSession(out_dir = tmp_path, proj_lib=proj_lib, wrk_dir=wrk_dir, overwrite=write,
+    with CalcSession(out_dir = tmp_path, proj_lib=proj_lib, wrk_dir=wrk_dir, overwrite=write,write=write,
                      driverName='GeoJSON', #nicer for writing small test datasets
                      ) as ses:
         yield ses
@@ -78,8 +78,13 @@ def studyAreaWrkr(session, request):
         yield sa
 
  
-
-
+@pytest.fixture(scope='module')
+def df_d():
+    """this is an expensive collecting of csvs (database dump) used to build vfuncs
+    keeping this alive for the whole module"""
+    with CalcSession() as ses:
+        df_d = ses.build_df_d(dkey='df_d')
+    return df_d
             
     
     
@@ -198,7 +203,7 @@ def test_sampGeo(session, sgType, finv_agg_fn, tmp_path, write, base_dir):
 
 #@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
 #rsamps methods are only applicable for certain geometry types  
-@pytest.mark.dev
+
 @pytest.mark.parametrize('method, finv_sg_d_fn',#see test_sampGeo
                          [['points', 'test_sampGeo_centroids_test_fi1'],
                            ['zonal','test_sampGeo_poly_test_finv_ag1'], 
@@ -235,6 +240,48 @@ def test_rsamps(session, finv_sg_d_fn, finv_agg_fn, method, tmp_path, write, bas
     #===========================================================================
     assert_series_equal(rsamps_serx, true)
 
+
+
+
+@pytest.mark.dev
+@pytest.mark.parametrize('rsamp_fn', #see test_rsamps
+             ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
+@pytest.mark.parametrize('vid', [49, 798,811])
+def test_rloss(session, rsamp_fn, vid, base_dir, tmp_path, df_d):
+    """
+    todo: promote df_d to session scope to speed things up
+    """
+    #===========================================================================
+    # load inputs
+    #===========================================================================
+    dkey = 'rsamps'
+    input_fp = search_fp(os.path.join(base_dir, rsamp_fn), '.pickle', dkey) #find the data file.
+    dxser = retrieve_data(dkey, input_fp, session)
+    
+    #===========================================================================
+    # execute
+    #===========================================================================
+    dkey='rloss'
+    rdxind = session.build_rloss(dkey=dkey, vid=vid, dxser=dxser, df_d=df_d)
+    
+    #===========================================================================
+    # check
+    #===========================================================================
+    rserx = rdxind['rl']
+    assert rserx.notna().all()
+    assert rserx.min()>=0
+    assert rserx.max()<=100
+    
+    #===========================================================================
+    # retrieve trues
+    #===========================================================================
+    true_fp = search_fp(os.path.join(base_dir, os.path.basename(tmp_path)), '.pickle', dkey) #find the data file.
+    true = retrieve_data(dkey, true_fp, session)
+    
+    #===========================================================================
+    # compare
+    #===========================================================================
+    assert_frame_equal(rdxind, true)
         
 #===============================================================================
 # helpers-----------

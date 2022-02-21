@@ -45,6 +45,7 @@ class Session(Session, Qproj, Plotr):
     def __init__(self, 
                  data_retrieve_hndls={},
                  prec=2,
+                 write=True,
                  **kwargs):
     
         #add generic handles
@@ -74,6 +75,8 @@ class Session(Session, Qproj, Plotr):
                          data_retrieve_hndls=data_retrieve_hndls,prec=prec,
                          init_plt_d=None, #dont initilize the plot child
                          **kwargs)
+        
+        self.write=write
                 
     #===========================================================================
     # BUILDERS---------------
@@ -363,10 +366,10 @@ class Session(Session, Qproj, Plotr):
     
     
     def build_vfunc(self,
-                    dkey=None,
+ 
                     vid=1,
                     vf_d=None,
-                    ):
+                    **kwargs):
         """
         not very nice... original setup was meant for bulk loading vfuncs
             while preserving the format of the csvs
@@ -374,16 +377,13 @@ class Session(Session, Qproj, Plotr):
             (although I think this was the original format)
         """
         if vf_d is None:
-            vid_df = self.build_vid_df(vid_l = [vid])
+            vid_df = self.build_vid_df(vid_l = [vid], **kwargs)
             
             vf_d = self.build_vf_d(dkey='vf_d', vid_df = vid_df)
  
         
         return vf_d[vid]
     
-    #===========================================================================
-    # PLOTTING-----------
-    #===========================================================================
  
     
     #===========================================================================
