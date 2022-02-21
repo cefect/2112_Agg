@@ -28,8 +28,18 @@ from agg.hyd.scripts import StudyArea as CalcStudyArea
 from agg.hyd.scripts import vlay_get_fdf
 
 #===============================================================================
-# fixture-----
+# fixtures-----
 #===============================================================================
+
+@pytest.fixture(scope='module')
+def df_d():
+    """this is an expensive collecting of csvs (database dump) used to build vfuncs
+    keeping this alive for the whole module"""
+    with CalcSession() as ses:
+        df_d = ses.build_df_d(dkey='df_d')
+    return df_d
+
+
 
 @pytest.fixture
 def session(tmp_path,
@@ -54,6 +64,9 @@ def session(tmp_path,
                             }, 
                         },
                     ):
+    """
+    TODO: get module scoped logger
+    """
     
     #get working directory
     wrk_dir = None
@@ -65,9 +78,7 @@ def session(tmp_path,
                      ) as ses:
         yield ses
 
-
-
-
+ 
 @pytest.fixture
 def studyAreaWrkr(session, request):
     
@@ -78,13 +89,7 @@ def studyAreaWrkr(session, request):
         yield sa
 
  
-@pytest.fixture(scope='module')
-def df_d():
-    """this is an expensive collecting of csvs (database dump) used to build vfuncs
-    keeping this alive for the whole module"""
-    with CalcSession() as ses:
-        df_d = ses.build_df_d(dkey='df_d')
-    return df_d
+
             
     
     
