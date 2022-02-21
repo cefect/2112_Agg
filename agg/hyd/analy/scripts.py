@@ -14,11 +14,13 @@ idx = pd.IndexSlice
 
 
 from hp.basic import set_info, get_dict_str
+from hp.exceptions import Error
 
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-from hp.oop import Basic
+ 
+from hp.plot import Plotr
 
 #===============================================================================
 # from agg.coms.scripts import Session as agSession
@@ -28,8 +30,13 @@ from hp.oop import Basic
 #     QgsWkbTypes
 #===============================================================================
  
-class ModelAnalysis(Basic): #analysis of model results
-    
+class ModelAnalysis(Plotr): #analysis of model results
+    def __init__(self,
+                 plt=None,
+                 **kwargs):
+        
+        super().__init__(**kwargs)
+        self.plt=plt
     
     #===========================================================================
     # DATA ANALYSIS---------

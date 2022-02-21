@@ -36,7 +36,7 @@ def get_ax(
             
     return fig.add_subplot(111)
 
-class Session(Session, Qproj, Plotr):
+class Session(Session, Qproj):
     
     vidnm = 'df_id' #indexer for damage functions
     ycn = 'rl'
