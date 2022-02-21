@@ -15,12 +15,13 @@ import numpy as np
 
 idx = pd.IndexSlice
 
-
+from hp.basic import set_info
 
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
     QgsWkbTypes
- 
+
+
 
 
 from agg.coms.scripts import Session as agSession
@@ -110,12 +111,16 @@ class Model(agSession):  # single model run
                  'event':np.dtype('O'),
                  self.scale_cn:np.dtype('int64'),
                          }
+        
+ 
+
     
     #===========================================================================
     # WRITERS---------
     #===========================================================================
     def write_lib(self, #writing pickle w/ metadata
                   lib_dir = None, #library directory
+                  mindex = None,
                   overwrite=None,
                   ):
         #=======================================================================
@@ -129,28 +134,73 @@ class Model(agSession):  # single model run
         
         catalog_fp = os.path.join(lib_dir, 'catalog.csv')
         #=======================================================================
-        # pull the total loss data
+        # retrieve
         #=======================================================================
-        tl_dx = self.retrieve('tloss')
+        tl_dx = self.retrieve('tloss') #best to call this before finv_agg_mindex
+        if mindex is None: mindex = self.retrieve('finv_agg_mindex')
+        
+        
+        
+        
+        """no! this is disaggrigation which is ambigious
+        best to levave this for the analysis phase (and just pass the index)
+        self.reindex_to_raw(tl_dx)"""
+        
+        #=======================================================================
+        # write vectors
+        #=======================================================================
+        """here we copy each aggregated vector layer into a special directory in the libary
+        these filepaths are then stored in teh model pickle"""
+        #setup
+        dkey = 'finv_agg_d'
+        vlay_dir = os.path.join(lib_dir, 'vlays', self.longname)
+        if not os.path.exists(vlay_dir):os.makedirs(vlay_dir)
+        
+        #retrieve
+        finv_agg_d = self.retrieve(dkey)
+        
+        #write each layer into the directory
+        ofp_d = self.store_finv_lib(finv_agg_d, dkey, out_dir=vlay_dir, logger=log, write_pick=False)
+ 
         
         #=======================================================================
         # build meta
         #=======================================================================
         meta_d = self._get_meta()
+        
+        meta_d['date'] = self.start.strftime('%Y-%m-%d %H.%M.%S')
+        meta_d['runtime_mins'] = round((datetime.datetime.now() - self.start).total_seconds()/60.0, 3)
+        
+        #add results meta
+        res_meta_d = dict()
+        coln = 'rl'
+        for stat in ['count', 'min', 'mean', 'max', 'sum']:
+            f = getattr(tl_dx[coln], stat)
+            res_meta_d['%s_%s'%(coln, stat)] = f() 
+            
+        meta_d = {**meta_d, **res_meta_d}
         #=======================================================================
         # add to library
         #=======================================================================
         out_fp = os.path.join(lib_dir, '%s.pickle'%self.longname)
         
-        d = {'name':self.name, 'tag':self.tag, 'date':self.start.strftime('%Y-%m-%d %H.%M.%S'), 'out_fp':out_fp, 'meta':meta_d, 'tloss':tl_dx}
+        meta_d = {**meta_d, **{'pick_fp':out_fp, 'vlay_dir':vlay_dir}}
+        
+        d = {'name':self.name, 'tag':self.tag,  
+             'meta_d':meta_d, 'tloss':tl_dx, 'finv_agg_mindex':mindex, 'finv_agg_d':ofp_d, 'vlay_dir':vlay_dir}
         
         self.write_pick(d, out_fp, overwrite=overwrite, logger=log)
+        
         
         
         #=======================================================================
         # update catalog
         #=======================================================================
-        df = pd.Series({k:d[k] for k in ['name', 'tag', 'date', 'out_fp']}).to_frame().T
+        cat_d = {k:meta_d[k] for k in ['name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins', 'out_dir']}
+        cat_d = {**cat_d, **res_meta_d}
+        cat_d['pick_keys'] = str(list(d.keys()))
+        
+        df = pd.Series(cat_d).to_frame().T
         
         df.to_csv(catalog_fp, mode='a', header = not os.path.exists(catalog_fp), index=False)
         
@@ -183,7 +233,9 @@ class Model(agSession):  # single model run
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_finv_agg')
-        assert dkey in ['finv_agg_d', 'finv_agg_mindex']
+        assert dkey in ['finv_agg_d',
+                        #'finv_agg_mindex', #makes specifycing keys tricky... 
+                        ]
         if aggType is None: aggType = self.aggType
         gcn = self.gcn
         log.info('building \'%s\' ' % (aggType))
@@ -560,12 +612,87 @@ class Model(agSession):  # single model run
         return dxind1
     
   
+ 
+        
     
 
  
     #===========================================================================
     # HELPERS--------
     #===========================================================================
+    
+    def vectorize(self, #attach tabular results to vectors
+                  dxind,
+                  finv_agg_d=None,
+                  logger=None):
+        """
+        creating 1 layer per event
+            this means a lot of redundancy on geometry
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('vectorize')
+        
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', write=False)
+        gcn = self.gcn
+        
+        log.info('on %i in %i studyAreas'%(len(dxind), len(finv_agg_d)))
+        
+        assert gcn in dxind.index.names
+        #=======================================================================
+        # loop and join for each studyArea+event
+        #=======================================================================
+        cnt = 0
+        res_lib = {k:dict() for k in dxind.index.unique('studyArea')}
+        
+        keyNames = dxind.index.names[0:2]
+        for keys, gdf_raw in dxind.groupby(level=keyNames):
+            #setup group 
+            keys_d = dict(zip(keyNames, keys))
+            log.debug(keys_d)
+            gdf = gdf_raw.droplevel(keyNames) #drop grouping keys
+            assert gdf.index.name==gcn
+            
+            #get the layer for this
+            finv_agg_vlay = finv_agg_d[keys_d['studyArea']]
+            df_raw = vlay_get_fdf(finv_agg_vlay).sort_values(gcn).loc[:, [gcn]]
+            
+            #check key match
+            d = set_info(df_raw[gcn], gdf.index)
+            assert len(d['diff_left'])==0, 'some results keys not on the layer \n    %s'%d
+            
+            #join results
+            res_df = df_raw.join(gdf, on=gcn).dropna(subset=['tl'], axis=0)
+            assert len(res_df)==len(gdf)
+            
+            #create the layer
+            finv_agg_vlay.removeSelection() 
+            finv_agg_vlay.selectByIds(res_df.index.tolist()) #select just those with data
+            geo_d = vlay_get_geo(finv_agg_vlay, selected=True, logger=log)
+            res_vlay= self.vlay_new_df(res_df, geo_d=geo_d, logger=log, 
+                                layname='%s_%s_res'%(finv_agg_vlay.name().replace('_', ''), keys_d['event']))
+            
+            #===================================================================
+            # wrap
+            #===================================================================
+            res_lib[keys[0]][keys[1]]=res_vlay
+            cnt+=1
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished on %i layers'%cnt)
+        
+        return res_lib
+            
+        
+            
+ 
+        
+        
+
 
     def load_finv_lib(self,  # generic retrival for finv type intermediaries
                   fp=None, dkey=None,
@@ -594,7 +721,9 @@ class Model(agSession):  # single model run
                        finv_grid_lib,
                        dkey,
                        out_dir=None,
-                       logger=None):
+                       logger=None,
+                       write_pick=True,
+                       ):
         
         #=======================================================================
         # defaults
@@ -628,9 +757,10 @@ class Model(agSession):  # single model run
         #=======================================================================
         
         # save the pickle
-        """cant pickle vlays... so pickling the filepath"""
-        self.ofp_d[dkey] = self.write_pick(ofp_d,
-            os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+        if write_pick:
+            """cant pickle vlays... so pickling the filepath"""
+            self.ofp_d[dkey] = self.write_pick(ofp_d,
+                os.path.join(out_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
         # save to data
         self.data_d[dkey] = finv_grid_lib
         return ofp_d

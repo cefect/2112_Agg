@@ -116,6 +116,11 @@ def run( #run a basic model configuration
         
         #vfunc selection
         vid = 798, 
+        
+        #=======================================================================
+        # filepaths
+        #=======================================================================
+        lib_dir = None, 
  
         
         **kwargs):
@@ -124,6 +129,7 @@ def run( #run a basic model configuration
                aggType=aggType,
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel),
+                     'finv_agg_mindex':dict(aggLevel=aggLevel),
                      'vfunc':dict(vid=vid),
                      'rsamps':dict(method=rsamps_method),
  
@@ -139,7 +145,7 @@ def run( #run a basic model configuration
         
  
         
-        ses.write_lib()
+        ses.write_lib(lib_dir=lib_dir)
  
         
         out_dir = ses.out_dir
@@ -156,13 +162,13 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-     'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_agg_d_hyd_dev_0220.pickle',
-    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_agg_mindex_hyd_dev_0220.pickle',
-    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\tvals_hyd_dev_0220.pickle',
-    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\finv_sg_d_hyd_dev_0220.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220220\working\rsamps_hyd_dev_0220.pickle',
+    'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_agg_d_hyd_dev_0221.pickle',
+    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_agg_mindex_hyd_dev_0221.pickle',
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\tvals_hyd_dev_0221.pickle',
+    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_sg_d_hyd_dev_0221.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\rsamps_hyd_dev_0221.pickle',
     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\rloss_hyd_dev_0221.pickle',
- 
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\tloss_hyd_dev_0221.pickle',
             },
         
         proj_lib =     {
@@ -189,6 +195,7 @@ def dev():
         rsamps_method = 'zonal', sample_geo_type='poly',
         trim=True,
         overwrite=True,
+        lib_dir=None,
         )
     
 
