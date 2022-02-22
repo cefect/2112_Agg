@@ -59,6 +59,7 @@ class Model(agSession):  # single model run
         'aggLevel':[50, 200],
         
         
+        
         }
     
     def __init__(self,
@@ -535,7 +536,7 @@ class Model(agSession):  # single model run
     
     def build_rsamps(self,  # get raster samples for all finvs
                      dkey=None,
-                     method='points',  # method for raster sampling
+                     samp_method='points',  # method for raster sampling
                      finv_sg_d=None,
                      write=True,
                      mindex=None, #special catch for test consitency
@@ -565,10 +566,10 @@ class Model(agSession):  # single model run
         #=======================================================================
         # simple point-raster sampling
         #=======================================================================
-        if method in ['points', 'zonal']:
+        if samp_method in ['points', 'zonal']:
             if idfn is None: idfn=gcn
             res_d = self.sa_get(meth='get_rsamps', logger=log, dkey=dkey, write=False,
-                                finv_sg_d=finv_sg_d, idfn=idfn, method=method, **kwargs)
+                                finv_sg_d=finv_sg_d, idfn=idfn, samp_method=samp_method, **kwargs)
             
             dxind1 = pd.concat(res_d, verify_integrity=True)
  
@@ -583,8 +584,9 @@ class Model(agSession):  # single model run
         #=======================================================================
         # use mean depths from true assets (for error isolation only)
         #=======================================================================
-        elif method == 'true_mean':
+        elif samp_method == 'true_mean':
             res_serx = self.rsamp_trueMean(dkey,  logger=log, mindex=mindex, **kwargs)
+        else:raise Error('bad key')
  
         res_serx = res_serx.round(prec).astype(float)
         #=======================================================================
@@ -892,7 +894,7 @@ class Model(agSession):  # single model run
                        mindex=None,
                        
                        #true controls
-                       methodTrue = 'points',
+                       samp_methodTrue = 'points',
                        finv_sg_true_d=None,
                        sampGeoTrueKwargs = {},
                            logger=None,
@@ -926,7 +928,8 @@ class Model(agSession):  # single model run
         # sample
         #=======================================================================
  
-        true_serx = self.build_rsamps(dkey='rsamps', finv_sg_d = finv_sg_true_d, write=False, method=methodTrue, 
+        true_serx = self.build_rsamps(dkey='rsamps', finv_sg_d = finv_sg_true_d, 
+                                      write=False, samp_method=samp_methodTrue, 
                                       idfn='id')        
         
         true_serx.index.set_names('id', level=2, inplace=True)
@@ -937,7 +940,8 @@ class Model(agSession):  # single model run
         # join the gid keys
         #=======================================================================
         jdf = pd.DataFrame(index=mindex).reset_index(drop=False, level=1)
-        true_serx1 = true_serx.to_frame().join(jdf, how='left').swaplevel().sort_index().set_index('gid', append=True).swaplevel()
+        true_serx1 = true_serx.to_frame().join(jdf, how='left').swaplevel(
+            ).sort_index().set_index('gid', append=True).swaplevel()
  
         #=======================================================================
         # group
@@ -945,6 +949,9 @@ class Model(agSession):  # single model run
         #group a series by two levels
         agg_serx = true_serx1.groupby(level=true_serx1.index.names[0:3]).mean().iloc[:,0]
         
+        #=======================================================================
+        # wrap
+        #=======================================================================
         log.info('finished on %i'%len(agg_serx))
  
         return agg_serx
@@ -1396,7 +1403,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    idfn=None,
                    logger=None,
                    severity='hi',
-                   method='points',
+                   samp_method='points',
                    zonal_stats=[2],  # stats to use for zonal. 2=mean
                    prec=None,
                    ):
@@ -1421,12 +1428,13 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         finv_vlay_raw = finv_sg_d[self.name]
         
         assert os.path.exists(wd_fp)
-        if method == 'points':
+        if samp_method == 'points':
             assert 'Point' in QgsWkbTypes().displayString(finv_vlay_raw.wkbType())
-        elif method == 'zonal':
+        elif samp_method == 'zonal':
             assert 'Polygon' in QgsWkbTypes().displayString(finv_vlay_raw.wkbType())
             assert isinstance(zonal_stats , list)
             assert len(zonal_stats) == 1
+        else:raise Error('bad key')
             
         assert idfn in [f.name() for f in finv_vlay_raw.fields()], 'missing \'%s\' in %s'%(idfn, finv_vlay_raw.name())
         #=======================================================================
@@ -1455,10 +1463,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #===================================================================
         # sample
         #===================================================================
-        if method == 'points':
+        if samp_method == 'points':
             vlay_samps = self.rastersampling(finv_vlay, wd_fp, logger=log, pfx='samp_')
         
-        elif method == 'zonal':
+        elif samp_method == 'zonal':
             vlay_samps = self.zonalstatistics(finv_vlay, wd_fp, logger=log, pfx='samp_', stats=zonal_stats)
         else:
             raise Error('not impleented')

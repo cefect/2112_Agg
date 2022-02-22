@@ -133,7 +133,7 @@ def run( #run a basic model configuration
         #sampling
         severity = 'low', #hazard raster selection
         sample_geo_type = 'centroids',
-        rsamps_method = 'points', zonal_stats=[2],  # stats to use for zonal. 2=mean
+        samp_method = 'points', zonal_stats=[2],  # stats to use for zonal. 2=mean
         
         #vfunc selection
         vid = 798, 
@@ -156,7 +156,7 @@ def run( #run a basic model configuration
                      'finv_agg_d':dict(aggLevel=aggLevel),
                      'finv_agg_mindex':dict(aggLevel=aggLevel),
                      'vfunc':dict(vid=vid),
-                     'rsamps':dict(method=rsamps_method, zonal_stats=zonal_stats, severity=severity),
+                     'rsamps':dict(samp_method=samp_method, zonal_stats=zonal_stats, severity=severity),
  
                      
                      'finv_sg_d':dict(sgType=sample_geo_type),
@@ -226,7 +226,7 @@ def dev():
         aggType = 'gridded', aggLevel = 50,
         tval_type = 'uniform', #see build_tvals()
         
-        rsamps_method = 'zonal', sample_geo_type='poly',
+        samp_method = 'zonal', sample_geo_type='poly',
         trim=True,
         overwrite=True,
  
@@ -237,7 +237,7 @@ def r2():
         tval_type='uniform',
         severity='hi',
         aggType='none', aggLevel=None,
-        sample_geo_type='poly', rsamps_method='zonal', zonal_stats=[2],
+        sample_geo_type='poly', samp_method='zonal', zonal_stats=[2],
         vid=798,
         
         )
