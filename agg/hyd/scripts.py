@@ -1058,8 +1058,13 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                  EPSG=None,
                  finv_fp=None,
                  dem=None,
+                 
+                 #depth rasters
                  #wd_dir=None,
-                 wd_fp = None,
+                 #wd_fp = None,
+                 wd_fp_d = None, #{raster tag:fp}
+                 
+                 
                  aoi=None,
                  
                  # control
@@ -1122,7 +1127,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         self.finv_vlay = finv2
         #self.wd_dir = wd_dir
-        self.wd_fp=wd_fp
+        #self.wd_fp=wd_fp
+        self.wd_fp_d = copy.deepcopy(wd_fp_d)
         self.logger.info('StudyArea \'%s\' init' % (self.name))
  
     def get_clean_rasterName(self, raster_fn,
@@ -1385,10 +1391,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
 
     def get_rsamps(self,  # sample a set of rastsers withon a single finv
-                   wd_fp=None,
+                   wd_fp_d=None,
                    finv_sg_d=None,
                    idfn=None,
                    logger=None,
+                   severity='hi',
                    method='points',
                    zonal_stats=[2],  # stats to use for zonal. 2=mean
                    prec=None,
@@ -1398,10 +1405,14 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         if logger is None: logger = self.logger
         log = logger.getChild('get_rsamps')
-        if wd_fp is None: wd_fp = self.wd_fp
+        if wd_fp_d is None: wd_fp_d = self.wd_fp_d
         # if finv_vlay_raw is None: finv_vlay_raw=self.finv_vlay
         if idfn is None: idfn = self.idfn
         if prec is None: prec = self.prec
+        
+        #select raster filepath
+        assert severity in wd_fp_d
+        wd_fp = wd_fp_d[severity]
         
         #=======================================================================
         # precheck

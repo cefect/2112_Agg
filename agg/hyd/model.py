@@ -50,20 +50,7 @@ def get_pars_from_xls(
     
     print('finished on %i \n    %s\n'%(len(d), d))
     
-def get_wd_fp(severity):
-    return {
-        'low':{
-            'obwb':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0100_1218.tif',
-            'LMFRA':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0100_dep_0116_cmp.tif',
-            'Calgary':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116\IBI_2017CoC_s0_0100_170729_dep_0116.tif',
-            },
-        'hi':{
-            'obwb':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0500_1218.tif',
-            'LMFRA':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0500_dep_0116_cmp.tif',
-            'Calgary':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116\IBI_2017CoC_s0_0500_170729_dep_0116.tif',
-            
-            },
-        }[severity]
+ 
     
  
 
@@ -85,6 +72,10 @@ def run( #run a basic model configuration
                   'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
                   #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218',
                   'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
+                  'wd_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0500_1218.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0100_1218.tif',
+                      },
                      }, 
             'LMFRA': {
                 'EPSG': 3005, 
@@ -92,6 +83,10 @@ def run( #run a basic model configuration
                 'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\dem\\LMFRA_NHC2019_dtm_5x5_aoi08.tif', 
                 #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
+                'wd_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0500_dep_0116_cmp.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0100_dep_0116_cmp.tif',
+                      },
                     }, 
             #===================================================================
             # 'SaintJohn': {
@@ -108,6 +103,10 @@ def run( #run a basic model configuration
                 'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\dem\\CoC_WR_DEM_170815_5x5_0126.tif', 
                 #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\DEV0116',
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
+                 'wd_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116\IBI_2017CoC_s0_0500_170729_dep_0116.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116\IBI_2017CoC_s0_0100_170729_dep_0116.tif',
+                      },
                         }, 
             #===================================================================
             # 'dP': {
@@ -123,8 +122,8 @@ def run( #run a basic model configuration
         #=======================================================================
         # #parameters
         #=======================================================================
-        #hazard raster selection
-        severity = 'low',
+        
+        
         #aggregation
         aggType = 'none', aggLevel = None,
         
@@ -132,6 +131,7 @@ def run( #run a basic model configuration
         tval_type = 'rand',
         
         #sampling
+        severity = 'low', #hazard raster selection
         sample_geo_type = 'centroids',
         rsamps_method = 'points', zonal_stats=[2],  # stats to use for zonal. 2=mean
         
@@ -144,10 +144,7 @@ def run( #run a basic model configuration
     #===========================================================================
     # update depth rastsers
     #===========================================================================
-    wd_fp_d = get_wd_fp(severity)
-    for k in proj_lib.keys():
-        if not 'wd_fp' in proj_lib[k]:
-            proj_lib[k]['wd_fp'] = wd_fp_d[k]
+ 
     
     if aggType == 'none': assert aggLevel is None
     #===========================================================================
@@ -159,7 +156,7 @@ def run( #run a basic model configuration
                      'finv_agg_d':dict(aggLevel=aggLevel),
                      'finv_agg_mindex':dict(aggLevel=aggLevel),
                      'vfunc':dict(vid=vid),
-                     'rsamps':dict(method=rsamps_method, zonal_stats=zonal_stats),
+                     'rsamps':dict(method=rsamps_method, zonal_stats=zonal_stats, severity=severity),
  
                      
                      'finv_sg_d':dict(sgType=sample_geo_type),
@@ -198,12 +195,6 @@ def dev():
     'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_agg_d_hyd_dev_0221.pickle',
     'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_agg_mindex_hyd_dev_0221.pickle',
  
-    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_sg_d_hyd_dev_0221.pickle',
-        'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220221\working\tvals_hyd2_dev_0221.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220221\working\rsamps_hyd2_dev_0221.pickle',
-    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220221\working\rloss_hyd2_dev_0221.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220221\working\tloss_hyd2_dev_0221.pickle',
- 
             },
         
         proj_lib =     {
@@ -213,6 +204,10 @@ def dev():
                  'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
                  #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218',
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
+                  'wd_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0500_1218.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0100_1218.tif',
+                      },
                     }, 
             'LMFRA': {
                 'EPSG': 3005, 
@@ -220,6 +215,10 @@ def dev():
                 'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\dem\\LMFRA_NHC2019_dtm_5x5_aoi08.tif', 
                 #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
+                'wd_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0500_dep_0116_cmp.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0100_dep_0116_cmp.tif',
+                      },
                     }, 
             },
                 
