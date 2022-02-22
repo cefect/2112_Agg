@@ -483,7 +483,7 @@ class Model(agSession):  # single model run
                     prec=2,
                     tval_type='uniform',  # type for total values
                     finv_agg_d=None,
-                    mindex=None,
+                    mindex=None,write=None,
                     **kwargs):
         
         #=======================================================================
@@ -492,6 +492,7 @@ class Model(agSession):  # single model run
         log = self.logger.getChild('build_tvals')
         assert dkey == 'tvals'
         if prec is None: prec = self.prec
+        if write is None: write=self.write
  
         scale_cn = self.scale_cn
         
@@ -520,7 +521,8 @@ class Model(agSession):  # single model run
         #=======================================================================
         finv_agg_serx = finv_true_serx.groupby(level=mindex.names[0:2]).sum()
  
-        self.ofp_d[dkey] = self.write_pick(finv_agg_serx,
+        if write:
+            self.ofp_d[dkey] = self.write_pick(finv_agg_serx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
 
@@ -867,13 +869,7 @@ class Model(agSession):  # single model run
         
         return res_lib
             
-        
-            
  
-        
-        
-
-
     def load_finv_lib(self,  # generic retrival for finv type intermediaries
                   fp=None, dkey=None,
                   **kwargs):
@@ -893,7 +889,9 @@ class Model(agSession):  # single model run
             log.info('loading %s from %s' % (studyArea, fp))
             
             """will throw crs warning"""
-            finv_agg_d[studyArea] = self.vlay_load(fp, logger=log, **kwargs)
+            finv_agg_d[studyArea] = self.vlay_load(fp, logger=log, 
+                                           set_proj_crs=False, #these usually have different crs's
+                                                   **kwargs)
         
         return finv_agg_d
 
