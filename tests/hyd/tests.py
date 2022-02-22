@@ -164,7 +164,7 @@ def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir):
     #===========================================================================
     dkey='tvals'
     finv_agg_serx = session.build_tvals(dkey=dkey, tval_type=tval_type, 
-                            finv_agg_d=finv_agg_d, mindex =finv_agg_mindex)
+                            finv_agg_d=finv_agg_d, mindex =finv_agg_mindex, write=write)
     
     #===========================================================================
     # retrieve true

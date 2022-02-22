@@ -135,7 +135,7 @@ def run( #run a basic model configuration
         
         #sampling (method). see Model.build_rsamps()
         severity = 'low', #hazard raster selection        
-        samp_method = 'points', zonal_stats=[2],  # stats to use for zonal. 2=mean
+        samp_method = 'points', zonal_stat='Mean',  # stats to use for zonal. 2=mean
         
         #vfunc selection
         vid = 798, 
@@ -157,7 +157,7 @@ def run( #run a basic model configuration
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
 
-                     'rsamps':dict(samp_method=samp_method, zonal_stats=zonal_stats, severity=severity),
+                     'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat, severity=severity),
                      
                      'finv_sg_d':dict(sgType=sgType),
 
@@ -192,8 +192,6 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-    'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_agg_d_hyd_dev_0221.pickle',
-    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd\dev\20220221\working\finv_agg_mindex_hyd_dev_0221.pickle',
  
             },
         
@@ -226,7 +224,7 @@ def dev():
         aggType = 'gridded', aggLevel = 50,
         tval_type = 'uniform', #see build_tvals()
         
-        samp_method = 'zonal', sgType='poly',
+        samp_method = 'zonal', sgType='poly', zonal_stat='Mean',
         trim=True,
         overwrite=True,
  
@@ -237,7 +235,7 @@ def r2():
         tval_type='uniform',
         severity='hi',
         aggType='none', aggLevel=None,
-        sample_geo_type='poly', samp_method='zonal', zonal_stats=[2],
+        sgType='poly', samp_method='zonal', zonal_stat='Mean',
         vid=798,
         
         )
