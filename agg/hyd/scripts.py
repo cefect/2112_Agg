@@ -37,7 +37,7 @@ def serx_smry(serx):
     return d
  
 def get_all_pars(): #generate a matrix of all possible parameter combinations
-    pars_lib = copy.deepcopy(ModelSession.pars_lib)
+    pars_lib = copy.deepcopy(Model.pars_lib)
     
     #separate values
     par_vals_d, par_dkey_d = dict(), dict()
@@ -763,9 +763,12 @@ class Model(agSession):  # single model run
         
         #assert isinstance(tv_data, pd.Series)
         if isinstance(tv_data, pd.Series):
+            """reshaping tval data into multindex for backwards compatability w/ Model runs"""
             tv_data = tv_data.to_frame()
+            tv_data = pd.concat({'tvals':tv_data}, axis=1, names=['dkey', 'iter'])
             
-        assert 'dkey' in tv_data.columns.names
+        assert np.array_equal(np.array(tv_data.columns.names), np.array(['dkey', 'iter']))
+ 
         #=======================================================================
         # join tval and rloss
         #=======================================================================

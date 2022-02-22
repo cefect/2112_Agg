@@ -15,6 +15,7 @@ import pytest
 
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
+idx = pd.IndexSlice
 
 import numpy as np
 np.random.seed(100)
@@ -153,7 +154,7 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, base_dir, write):
  
 @pytest.mark.parametrize('tval_type',['uniform', 'rand'], indirect=False)
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
-def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir):
+def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write):
     #===========================================================================
     # load inputs   
     #===========================================================================
@@ -327,7 +328,7 @@ rloss_fn_l = ['test_rloss_49_test_rsamps_test0','test_rloss_49_test_rsamps_test1
  
 @pytest.mark.parametrize('rloss_fn', rloss_fn_l) #see test_rloss
 def test_tloss(session, base_dir, rloss_fn):
-    scale_cn = session.scale_cn
+    #scale_cn = session.scale_cn
     #===========================================================================
     # load inputs
     #===========================================================================
@@ -338,20 +339,28 @@ def test_tloss(session, base_dir, rloss_fn):
     #build total vals
     """easier (and broader) to use random total vals than to select the matching"""
     
-    tv_serx = pd.Series(np.random.random(len(rl_dxind)), index=rl_dxind.droplevel(1).index, name=scale_cn)
-    
+    tv_dx1 = pd.Series(np.random.random(len(rl_dxind)), index=rl_dxind.droplevel(1).index, name='0').to_frame()
+    tv_dx2 = pd.concat({'tvals':tv_dx1}, axis=1, names=['dkey', 'iter'])
     #===========================================================================
     # execute
     #===========================================================================
     dkey='tloss'
-    tl_dxind = session.build_tloss(dkey=dkey, tv_serx=tv_serx, rl_dxind=rl_dxind)
+    tl_dxind = session.build_tloss(dkey=dkey, tv_data=tv_dx2, rl_dxind=rl_dxind)
     
     #===========================================================================
     # check
     #===========================================================================
-    assert_series_equal(tl_dxind[scale_cn].droplevel(1), tv_serx)
+    assert_frame_equal(tl_dxind.loc[:, idx['tvals', :]].droplevel(1, axis=0), tv_dx2, check_index_type=False)
     
-    assert_series_equal(tl_dxind['tl'].divide(tl_dxind[scale_cn]).rename('rl'), tl_dxind['rl'])
+    #check relative loss
+    rl_dx_chk = tl_dxind.loc[idx[:, 'tloss']].droplevel(1, axis=0).divide(tv_dx2.loc[idx[:, 'tvals']])
+    rl_dx_chk.columns = pd.Index(range(len(rl_dx_chk.columns)))
+    
+    rl_dx_chk2 = tl_dxind.loc[idx[:, 'rloss']].droplevel(1, axis=0)
+    rl_dx_chk2.columns = pd.Index(range(len(rl_dx_chk2.columns)))
+    assert_frame_equal(rl_dx_chk, rl_dx_chk2)
+ 
+ 
 
     
     
