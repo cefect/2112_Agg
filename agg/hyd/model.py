@@ -153,18 +153,16 @@ def run( #run a basic model configuration
     # execute
     #===========================================================================
     with Model(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
-               aggType=aggType,
-                 bk_lib = {
-                     'finv_agg_d':dict(aggLevel=aggLevel),
-                     'finv_agg_mindex':dict(aggLevel=aggLevel),
-                     'vfunc':dict(vid=vid),
-                     'rsamps':dict(samp_method=samp_method, zonal_stats=zonal_stats, severity=severity),
  
+                 bk_lib = {
+                     'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
+
+                     'rsamps':dict(samp_method=samp_method, zonal_stats=zonal_stats, severity=severity),
                      
                      'finv_sg_d':dict(sgType=sgType),
-                     
 
                      'tvals':dict(tval_type=tval_type),
+                     'vfunc':dict(vid=vid),
                                           
                      },
                  **kwargs) as ses:

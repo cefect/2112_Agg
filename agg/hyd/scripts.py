@@ -37,8 +37,29 @@ def serx_smry(serx):
     return d
  
 def get_all_pars(): #generate a matrix of all possible parameter combinations
-    pars_lib = Model.pars_lib
-    raise Error('create a multindex from multiplication')
+    pars_lib = copy.deepcopy(Model.pars_lib)
+    
+    #separate values
+    par_vals_d, par_dkey_d = dict(), dict()
+    for varnm, d in pars_lib.items():
+        par_vals_d[varnm] = d['vals']
+        par_dkey_d[varnm] = d['dkey']
+        
+    
+    df = pd.MultiIndex.from_product(par_vals_d.values(), names=par_vals_d.keys()).to_frame().reset_index(drop=True)
+    
+    lkp_ser = pd.Series({k:par_dkey_d[k] for k in df.columns}, name='dkey')
+    lkp_ser.index.name = 'varnm'
+    
+    """assuming order matches"""
+    df.columns = pd.MultiIndex.from_frame(lkp_ser.to_frame().reset_index())
+ 
+    return df.swaplevel(axis=1).sort_index(axis=1)
+    """
+    view(df)
+    """
+        
+ 
 
     
 
@@ -53,25 +74,24 @@ class Model(agSession):  # single model run
     
     #supported parameter values
     pars_lib = {
-        'tval_type':['uniform', 'rand'],
-        'severity':['hi', 'lo'],
-        'aggType':['none', 'gridded'],
-        'aggLevel':[50, 200],
-        'sgType':['point', 'poly'],
-        'samp_method':['points', 'zonal', 'true_mean'],
-        'zonal_stats':['Mean', 'Minimum', 'Maximum'],
-        'vid':[49, 798,811, 0],
-                
-        
-        
-        
+        'tval_type':{'vals':['uniform', 'rand'],                    'dkey':'tvals'},
+        'severity':{'vals':['hi', 'lo'],                            'dkey':'rsamps'},
+        'aggType':{'vals':['none', 'gridded'],                      'dkey':'finv_agg_d'},
+        'aggLevel':{'vals':[50, 200],                               'dkey':'finv_agg_d'},
+        'sgType':{'vals':['point', 'poly'],                         'dkey':'finv_sg_d'},
+        'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
+        'zonal_stats':{'vals':['Mean', 'Minimum', 'Maximum'],       'dkey':'rsamps'},
+        'vid':{'vals':[49, 798,811, 0],                             'dkey':'vfunc'},
+
         }
+    
+
     
     def __init__(self,
                  name='hyd',
                  proj_lib={},
                  trim=True,  # whether to apply aois
-                 aggType='none',
+ 
                  **kwargs):
         
         #===========================================================================
@@ -132,7 +152,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         self.proj_lib = proj_lib
         self.trim = trim
-        self.aggType = aggType
+ 
         
         # checking container
         self.mindex_dtypes = {
@@ -1556,3 +1576,6 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
     #     print('__exit__ on studyArea')
     #     super().__exit__(*args, **kwargs)  # initilzie teh baseclass
     #===========================================================================
+    
+if __name__ == "__main__": 
+    get_all_pars()
