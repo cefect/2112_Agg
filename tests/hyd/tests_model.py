@@ -9,7 +9,7 @@ tests for hyd model
 
 
 
-import os, copy, shutil
+import os  
 import pytest
  
 
@@ -28,6 +28,7 @@ from agg.hyd.scripts import Model as CalcSession
 from agg.hyd.scripts import StudyArea as CalcStudyArea
 from agg.hyd.scripts import vlay_get_fdf
 
+from tests.conftest import retrieve_finv_d, retrieve_data, search_fp
 #===============================================================================
 # fixtures-----
 #===============================================================================
@@ -152,7 +153,7 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, base_dir, write):
         elif dkey=='finv_agg_mindex':
             assert_frame_equal(test.to_frame(), true.to_frame())
  
-@pytest.mark.parametrize('tval_type',['uniform', 'rand'], indirect=False)
+@pytest.mark.parametrize('tval_type',['rand'], indirect=False)
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write):
     #===========================================================================
@@ -368,40 +369,10 @@ def test_tloss(session, base_dir, rloss_fn):
 #===============================================================================
 # helpers-----------
 #===============================================================================
-def retrieve_finv_d(finv_agg_fn, session, base_dir):
-    d= dict()
-    for dkey in ['finv_agg_d', 'finv_agg_mindex']:
- 
-        input_fp = search_fp(os.path.join(base_dir, finv_agg_fn), '.pickle', dkey) #find the data file.
-        assert os.path.exists(input_fp), 'failed to find match for %s'%finv_agg_fn
-        d[dkey] = retrieve_data(dkey, input_fp, session)
-        
-    return d.values()
 
-def retrieve_data(dkey, fp, ses):
-    assert dkey in ses.data_retrieve_hndls
-    hndl_d = ses.data_retrieve_hndls[dkey]
-    
-    return hndl_d['compiled'](fp=fp, dkey=dkey)
     
 
-def search_fp(dirpath, ext, pattern): #get a matching file with extension and beginning
-    assert os.path.exists(dirpath), 'searchpath does not exist: %s'%dirpath
-    fns = [e for e in os.listdir(dirpath) if e.endswith(ext)]
-    
-    result= None
-    for fn in fns:
-        if fn.startswith(pattern):
-            result = os.path.join(dirpath, fn)
-            break
-        
-    if result is None:
-        raise IOError('failed to find a match for \'%s\' in %s'%(pattern, dirpath))
-    
-    assert os.path.exists(result), result
-        
-        
-    return result
+
 
 def check_layer_d(d1, d2,
                    test_data=True,):

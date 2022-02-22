@@ -1633,7 +1633,7 @@ class ModelStoch(Model):
     def build_tvals(self, #stochastic calculation of tvals
                     dkey='tvals',
                     mindex=None, finv_agg_d=None,
-                    tval_type='uniform',  # type for total values
+                    tval_type='rand',  # type for total values
                     iters=None, write=None,
                     **kwargs): 
         

@@ -53,3 +53,39 @@ def true_dir(write, tmp_path, base_dir):
     return true_dir
     
     
+#===============================================================================
+# helpers-------
+#===============================================================================
+def retrieve_finv_d(finv_agg_fn, session, base_dir):
+    d= dict()
+    for dkey in ['finv_agg_d', 'finv_agg_mindex']:
+ 
+        input_fp = search_fp(os.path.join(base_dir, finv_agg_fn), '.pickle', dkey) #find the data file.
+        assert os.path.exists(input_fp), 'failed to find match for %s'%finv_agg_fn
+        d[dkey] = retrieve_data(dkey, input_fp, session)
+        
+    return d.values()
+
+def retrieve_data(dkey, fp, ses):
+    assert dkey in ses.data_retrieve_hndls
+    hndl_d = ses.data_retrieve_hndls[dkey]
+    
+    return hndl_d['compiled'](fp=fp, dkey=dkey)
+
+def search_fp(dirpath, ext, pattern): #get a matching file with extension and beginning
+    assert os.path.exists(dirpath), 'searchpath does not exist: %s'%dirpath
+    fns = [e for e in os.listdir(dirpath) if e.endswith(ext)]
+    
+    result= None
+    for fn in fns:
+        if fn.startswith(pattern):
+            result = os.path.join(dirpath, fn)
+            break
+        
+    if result is None:
+        raise IOError('failed to find a match for \'%s\' in %s'%(pattern, dirpath))
+    
+    assert os.path.exists(result), result
+        
+        
+    return result
