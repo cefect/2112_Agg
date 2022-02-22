@@ -34,7 +34,8 @@ class Session(Session, Qproj):
                  **kwargs):
     
         #add generic handles
-        data_retrieve_hndls.update({
+        """issues with chid instaancing when .update() is used"""
+        data_retrieve_hndls = {**data_retrieve_hndls, **{
             'df_d':{ #csv dump of postgres vuln funcs
                 #'compiled':lambda x:self.build_df_d(fp=x), #no compiled version
                 'build':lambda **kwargs:self.build_df_d(**kwargs),
@@ -54,7 +55,7 @@ class Session(Session, Qproj):
             'vfunc':{ #retrieve a single vfunc
                 'build':lambda **kwargs:self.build_vfunc(**kwargs)
                 }
-            })
+            }}
         
         super().__init__(work_dir = r'C:\LS\10_OUT\2112_Agg',
                          data_retrieve_hndls=data_retrieve_hndls,prec=prec,

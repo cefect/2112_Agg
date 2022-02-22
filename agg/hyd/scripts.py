@@ -37,7 +37,7 @@ def serx_smry(serx):
     return d
  
 def get_all_pars(): #generate a matrix of all possible parameter combinations
-    pars_lib = copy.deepcopy(Model.pars_lib)
+    pars_lib = copy.deepcopy(ModelSession.pars_lib)
     
     #separate values
     par_vals_d, par_dkey_d = dict(), dict()
@@ -91,14 +91,14 @@ class Model(agSession):  # single model run
                  name='hyd',
                  proj_lib={},
                  trim=True,  # whether to apply aois
- 
+                 data_retrieve_hndls={},
                  **kwargs):
         
         #===========================================================================
         # HANDLES-----------
         #===========================================================================
         # configure handles
-        data_retrieve_hndls = {
+        data_retrieve_hndls = {**data_retrieve_hndls, **{
 
             # aggregating inventories
             'finv_agg_d':{  # lib of aggrtevated finv vlays
@@ -141,7 +141,7 @@ class Model(agSession):  # single model run
                 'build':lambda **kwargs:self.build_errs(**kwargs),
                 }
             
-            }
+            }}
         
         super().__init__(
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
@@ -210,22 +210,22 @@ class Model(agSession):  # single model run
         """here we copy each aggregated vector layer into a special directory in the libary
         these filepaths are then stored in teh model pickle"""
         #setup
-        dkey = 'finv_agg_d'
+ 
         vlay_dir = os.path.join(lib_dir, 'vlays', self.longname)
         if not os.path.exists(vlay_dir):os.makedirs(vlay_dir)
         
         #retrieve
-        finv_agg_d = self.retrieve(dkey)
+        finv_agg_d = self.retrieve('finv_agg_d')
         
         #write each layer into the directory
-        ofp_d = self.store_finv_lib(finv_agg_d, dkey, out_dir=vlay_dir, logger=log, write_pick=False)
+        ofp_d = self.store_finv_lib(finv_agg_d, 'finv_agg_d', out_dir=vlay_dir, logger=log, write_pick=False)
  
         
         #=======================================================================
         # build meta
         #=======================================================================
         meta_d = self._get_meta()
-        res_meta_d = serx_smry(tl_dx['rl'])
+        res_meta_d = serx_smry(tl_dx.loc[:, idx[dkey, :]].mean(axis=1).rename(dkey))
         
         meta_d = {**meta_d, **res_meta_d}
         #=======================================================================
@@ -383,7 +383,7 @@ class Model(agSession):  # single model run
         assert dkey in ['finv_agg_d',
                         #'finv_agg_mindex', #makes specifycing keys tricky... 
                         ], 'bad dkey: \'%s\''%dkey
-        if aggType is None: aggType = self.aggType
+ 
         gcn = self.gcn
         log.info('building \'%s\' ' % (aggType))
         
@@ -496,8 +496,10 @@ class Model(agSession):  # single model run
  
         scale_cn = self.scale_cn
         
-        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', **kwargs)
-        if mindex is None: mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
+        if finv_agg_d is None: 
+            finv_agg_d = self.retrieve('finv_agg_d', **kwargs)
+        if mindex is None: 
+            mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
  
         #=======================================================================
         # get trues
@@ -507,7 +509,7 @@ class Model(agSession):  # single model run
             vals = np.full(len(mindex), 1.0)
         elif tval_type == 'rand':
             vals = np.random.random(len(mindex))
-            raise Error('need to implement somekind of simulation here')
+            #raise Error('need to implement somekind of simulation here')
             
         else:
             raise Error('unrecognized')
@@ -728,8 +730,11 @@ class Model(agSession):  # single model run
     def build_tloss(self,  # get the total loss
                     #data retrieval
                     dkey=None,
-                    tv_serx = None,
+                    tv_data = None,
                     rl_dxind = None,
+                    
+                    
+                    #stochastic stats
                     
                     #control
                     write=None,
@@ -747,33 +752,66 @@ class Model(agSession):  # single model run
         # retriever
         #=======================================================================
         
-        if tv_serx is None: tv_serx = self.retrieve('tvals')  # studyArea, id : grid_size : corresponding gid
+        if tv_data is None: 
+            tv_data = self.retrieve('tvals')  # studyArea, id : grid_size : corresponding gid
         
-        if rl_dxind is None: rl_dxind = self.retrieve('rloss')
+        if rl_dxind is None: 
+            #raise Error('the instancing in model_get() is corrupting the data_retrieve_hndls... self is now an empty Model isntance?')
+            rl_dxind = self.retrieve('rloss')
         
         #rlnames_d = {lvlName:i for i, lvlName in enumerate(rl_dxind.index.names)}
         
+        #assert isinstance(tv_data, pd.Series)
+        if isinstance(tv_data, pd.Series):
+            tv_data = tv_data.to_frame()
+            
+        assert 'dkey' in tv_data.columns.names
         #=======================================================================
         # join tval and rloss
         #=======================================================================
-        dxind1 = rl_dxind.join(tv_serx, on=tv_serx.index.names)
+        #promote the rloss into dkeys
+        rl_dx = pd.concat(
+            {'rloss':rl_dxind.loc[:, ['rl']],
+             'rsamps':rl_dxind.loc[:, ['depth']],
+             }, axis=1, names = tv_data.columns.names) 
         
-        assert dxind1[scale_cn].notna().all()
+        dxind1 = rl_dx.join(tv_data, on=tv_data.index.names)
+        
+        #assert dxind1[scale_cn].notna().all()
         #=======================================================================
         # calc total loss (loss x scale)
         #=======================================================================
-        dxind1['tl'] = dxind1['rl'].multiply(dxind1[scale_cn])
+        tl_dxind = dxind1.loc[:, idx['tvals', :]].multiply(dxind1.loc[:, idx['rloss', :]].values, axis=0)
+        
+        #relable
+        tl_dxind.columns = tl_dxind.columns.remove_unused_levels()
+        tl_dxind.columns.set_levels([dkey], level=0, inplace=True)
+ 
+        #=======================================================================
+        # join back
+        #=======================================================================
+        #drop the scale to a singiel columns
+        #=======================================================================
+        # if not scale_cn in dxind1.columns:
+        #     dxind1[scale_cn] = dxind1.loc[:, tv_data.columns].mean(axis=1)
+        #     dxind1 = dxind1.drop(tv_data.columns, axis=1)
+        #=======================================================================
+            
+        dxind2 = dxind1.join(tl_dxind)
+ 
+
         
         #=======================================================================
         # check
         #=======================================================================
-        self.check_mindex(dxind1.index)
+        self.check_mindex(dxind2.index)
  
         #=======================================================================
         # wrap
         #=======================================================================
-        # reporting
-        serx1 = dxind1['tl']
+ 
+        serx1 = dxind2.loc[:, idx['tloss', :]].mean(axis=1).rename('tloss')
+            
         mdf = pd.concat({
             'max':serx1.groupby(level='event').max(),
             'count':serx1.groupby(level='event').count(),
@@ -781,17 +819,17 @@ class Model(agSession):  # single model run
             }, axis=1)
         
         log.info('finished w/ %s and totalLoss: \n%s' % (
-            str(dxind1.shape),
+            str(dxind2.shape),
             # dxind3.loc[:,tval_colns].sum().astype(np.float32).round(1).to_dict(),
             mdf
             ))
 
         if write: 
-            self.ofp_d[dkey] = self.write_pick(dxind1,
+            self.ofp_d[dkey] = self.write_pick(dxind2,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
 
-        return dxind1
+        return dxind2
     
   
  
@@ -1048,13 +1086,18 @@ class Model(agSession):  # single model run
         #=======================================================================
         # loop and load
         #=======================================================================
+        """pass Q handles?
+            no.. these are automatically scraped from teh session already"""
+        init_kwargs = {k:getattr(self,k) for k in [
+            'prec', 'trim', 'out_dir', 'overwrite', 'tag', 'temp_dir',  
+            #'logger', automatically scraped from the session
+             ]}
         res_d = dict()
         for i, (name, pars_d) in enumerate(proj_lib.items()):
             log.info('%i/%i on %s' % (i + 1, len(proj_lib), name))
             
-            with StudyArea(session=self, name=name, tag=self.tag, prec=self.prec,
-                           trim=self.trim, out_dir=self.out_dir, overwrite=self.overwrite,
-                           **pars_d) as wrkr:
+            with StudyArea(session=self, name=name, 
+                           **pars_d, **init_kwargs) as wrkr:
                 
                 # raw raster samples
                 f = getattr(wrkr, meth)
@@ -1065,7 +1108,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         if write:
             """frames between study areas dont have any relation to each other... keeping as dict"""
-
+            raise Error('do we use this?')
             self.ofp_d[dkey] = self.write_pick(res_d, os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
         
         return res_d
@@ -1574,6 +1617,146 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
     #     print('__exit__ on studyArea')
     #     super().__exit__(*args, **kwargs)  # initilzie teh baseclass
     #===========================================================================
+    
+class ModelStoch(Model):
+    def __init__(self,
+                 iters=10, #number of stochastic iterations
+                 **kwargs):
+        
+        super().__init__(**kwargs)
+        
+        self.iters=iters
+        
+    def build_tvals(self, #stochastic calculation of tvals
+                    dkey='tvals',
+                    mindex=None, finv_agg_d=None,
+                    tval_type='uniform',  # type for total values
+                    iters=None, write=None,
+                    **kwargs): 
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if write is None: write=self.write
+        log=self.logger.getChild('build_tvals')
+        if mindex is None: 
+            mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
+        
+        if finv_agg_d is None: 
+            finv_agg_d = self.retrieve('finv_agg_d')
+        if iters is None: iters=self.iters
+        
+        assert dkey=='tvals'
+        #=======================================================================
+        # setup pars
+        #=======================================================================
+        if tval_type == 'uniform':
+            iters = 1
+ 
+        #=======================================================================
+        # execute children
+        #=======================================================================
+        res_d = self.model_get(meth='build_tvals', tval_type=tval_type, dkey=dkey,
+                               mindex=mindex,iters=iters,
+                               finv_agg_d=finv_agg_d, logger=log, **kwargs)
+        
+        #=======================================================================
+        # assemble and collapse
+        #=======================================================================
+        dxind = pd.concat(res_d, axis=1)
+        
+        dx = pd.concat({dkey:dxind},axis=1, names=['dkey', 'iter']) 
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        log.info('finished w/ %s'%str(dx.shape))
+        if write:
+            self.ofp_d[dkey] = self.write_pick(dx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+            
+        return dx
+    
+ 
+    #===========================================================================
+    # def build_tloss(self,  #total loss for stochastic runs
+    #                 #data retrieval
+    #                 dkey=None,
+    #                 tv_dxind = None,
+    #                 rl_dxind = None,
+    #                 
+    #                 #control
+    #                 write=None,
+    #                 
+    #                 ):
+    #     
+    #     #=======================================================================
+    #     # defaults
+    #     #=======================================================================
+    #     scale_cn = self.scale_cn
+    #     log = self.logger.getChild('build_tloss')
+    #     assert dkey == 'tloss'
+    #     if write is None: write=self.write
+    #     #=======================================================================
+    #     # retriever
+    #     #=======================================================================
+    #     
+    #     if tv_dxind is None: 
+    #         tv_dxind = self.retrieve('tvals')  # studyArea, id : grid_size : corresponding gid
+    #     
+    #     if rl_dxind is None: 
+    #         #raise Error('the instancing in model_get() is corrupting the data_retrieve_hndls... self is now an empty Model isntance?')
+    #         rl_dxind = self.retrieve('rloss')
+    #         
+    #     assert isinstance(tv_dxind, pd.DataFrame)
+    #     #=======================================================================
+    #     # join tval and rloss
+    #     #=======================================================================
+    #     
+    #     dxind1 = rl_dxind.join(tv_dxind, on=tv_dxind.index.names)
+    #     
+    #     assert dxind1[scale_cn].notna().all()
+    #     #=======================================================================
+    #     # calc total loss (loss x scale)
+    #     #=======================================================================
+    #     dxind1['tl'] = dxind1['rl'].multiply(dxind1[scale_cn])
+    #===========================================================================
+        
+    
+    def model_get(self,
+                       meth='build_tvals',  # method to run
+ 
+                       iters=None,
+                       logger=None,
+                       **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger = self.logger
+        log = logger.getChild('model_get')
+        if iters is None: iters=self.iters
+ 
+        
+        log.info('calling \'%s\' on %i' %(meth, iters))
+ 
+        #=======================================================================
+        # loop and load
+        #=======================================================================
+
+        init_kwargs = {k:getattr(self,k) for k in [
+            'name', 'prec', 'trim', 'out_dir', 'overwrite', 'temp_dir', 'bk_lib']}
+        res_d = dict()
+        for i in range(iters):
+            log.info('%i/%i' % (i + 1, iters))
+            
+            with Model(session=self, tag='%s_%i'%(self.tag, i),  **init_kwargs) as wrkr:
+                f = getattr(wrkr, meth)
+                res_d[i] = f(write=False, **kwargs)
+                
+ 
+        
+        return res_d
     
 if __name__ == "__main__": 
     get_all_pars()

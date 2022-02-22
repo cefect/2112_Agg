@@ -35,7 +35,7 @@ print('start at %s' % start)
 #===============================================================================
 # custom imports--------
 #===============================================================================
-from agg.hyd.scripts import Model
+from agg.hyd.scripts import Model, ModelStoch
 #===============================================================================
 # FUNCTIONS-------
 #===============================================================================
@@ -122,6 +122,8 @@ def run( #run a basic model configuration
         #=======================================================================
         # #parameters
         #=======================================================================
+        #stochasticity
+        iters=3,
         
         
         #aggregation
@@ -152,8 +154,8 @@ def run( #run a basic model configuration
     #===========================================================================
     # execute
     #===========================================================================
-    with Model(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
- 
+    with ModelStoch(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
+                    iters=iters,
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
 
@@ -192,7 +194,10 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
- 
+    'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\finv_agg_d\finv_agg_d_hyd2_dev_0222.pickle',
+    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\finv_agg_mindex_hyd2_dev_0222.pickle',
+    #'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\tvals_hyd2_dev_0222.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\rloss_hyd2_dev_0222.pickle',
             },
         
         proj_lib =     {
@@ -221,8 +226,8 @@ def dev():
             },
                 
         #aggType = 'none', aggLevel = None,
-        aggType = 'gridded', aggLevel = 50,
-        tval_type = 'uniform', #see build_tvals()
+        aggType = 'none', aggLevel = None,
+        tval_type = 'rand', #see build_tvals()
         
         samp_method = 'zonal', sgType='poly', zonal_stat='Mean',
         trim=True,
@@ -238,6 +243,15 @@ def r2():
         sgType='poly', samp_method='zonal', zonal_stat='Mean',
         vid=798,
         
+        compiled_fp_d = {
+                'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\finv_agg_d\finv_agg_d_hyd2_r2_0222.pickle',
+                'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\finv_agg_mindex_hyd2_r2_0222.pickle',
+                #'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\tvals_hyd2_r2_0222.pickle',
+                'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\finv_sg_d\finv_sg_d_hyd2_r2_0222.pickle',
+                'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\rsamps_hyd2_r2_0222.pickle',
+                'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\rloss_hyd2_r2_0222.pickle',
+                'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\tloss_hyd2_r2_0222.pickle',
+            }
         )
         
 
