@@ -123,7 +123,7 @@ def run( #run a basic model configuration
         # #parameters
         #=======================================================================
         #stochasticity
-        iters=3,
+        iters=10,
         
         
         #aggregation
@@ -196,8 +196,12 @@ def dev():
         compiled_fp_d = {
     'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\finv_agg_d\finv_agg_d_hyd2_dev_0222.pickle',
     'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\finv_agg_mindex_hyd2_dev_0222.pickle',
-    #'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\tvals_hyd2_dev_0222.pickle',
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\tvals_hyd2_dev_0222.pickle',
+    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\finv_sg_d\finv_sg_d_hyd2_dev_0222.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\rsamps_hyd2_dev_0222.pickle',
     'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\rloss_hyd2_dev_0222.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\tloss_hyd2_dev_0222.pickle',
+
             },
         
         proj_lib =     {
@@ -224,7 +228,7 @@ def dev():
                       },
                     }, 
             },
-                
+        iters=3,
         #aggType = 'none', aggLevel = None,
         aggType = 'none', aggLevel = None,
         tval_type = 'rand', #see build_tvals()
@@ -237,7 +241,8 @@ def dev():
     
 def r2():
     return run(
-        tval_type='uniform',
+        iters=10,
+        tval_type='rand',
         severity='hi',
         aggType='none', aggLevel=None,
         sgType='poly', samp_method='zonal', zonal_stat='Mean',

@@ -9,7 +9,7 @@ Created on Jan. 18, 2022
 #===============================================================================
 # imports--------
 #===============================================================================
-import os, datetime, math, pickle, copy, random, pprint
+import os, datetime, math, pickle, copy, random, pprint, shutil
 import pandas as pd
 import numpy as np
 
@@ -60,8 +60,152 @@ def get_all_pars(): #generate a matrix of all possible parameter combinations
     """
         
  
-
+class Catalog(object): #handling the simulation index and library
+    df=None
+ 
     
+    keys = ['modelID', 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins',
+             'out_dir', 'tloss_count', 'tloss_min', 'tloss_mean', 'tloss_max', 'tloss_sum', 
+             'pick_keys', 'iters']
+    
+    def __init__(self, 
+                 catalog_fp='fp', 
+                 logger=None,
+                 overwrite=True,
+                 ):
+        
+        if os.path.exists(catalog_fp):
+            self.df = pd.read_csv(catalog_fp)
+            self.df_raw = self.df.copy() #for checking
+        else:
+            self.df_raw=pd.DataFrame()
+        
+        if logger is None:
+            import logging
+            logger = logging.getLogger()
+            
+        self.logger = logger.getChild('cat')
+        self.overwrite=overwrite
+        self.catalog_fp = catalog_fp
+        
+    def clean(self):
+        raise Error('check consitency between index and library contents')
+ 
+    def remove_model(self,
+                        modelID,
+                        df=None,
+                        logger=None,
+                        overwrite=None,
+                        ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if df is None: df=self.df.copy()
+        if logger is None: logger=self.logger
+        log=logger.getChild('remove_model')
+        if overwrite is None: overwrite=self.overwrite
+        
+        
+        bx = df['modelID']==modelID
+        if bx.any():
+            log.warning('found %i/%i entries with matching modelID=%s'%(bx.sum(), len(bx), modelID))
+            assert overwrite
+            
+            #delete records
+            for fp in df.loc[bx, 'pick_fp']:
+                log.info('removing %s'%fp)
+                if os.path.exists(fp): 
+                    os.remove(fp)
+                
+            for dirpath in df.loc[bx, 'vlay_dir']:
+                log.info('removing all files from %s'%dirpath)
+                if os.path.exists(dirpath): 
+                    shutil.rmtree(dirpath)
+                
+            #delete index
+            df1 = df.loc[~bx, :].copy()
+ 
+        else:
+            log.debug('no entry found')
+            df1 = df.copy()
+            
+        #=======================================================================
+        # set
+        #=======================================================================
+        self.df = df1
+        
+        return
+    
+    def add_entry(self,
+                  cat_d):
+        """
+        cat_d.keys()
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log=self.logger.getChild('add_entry')
+        cat_df = self.df
+        
+        #=======================================================================
+        # prepare new 
+        #=======================================================================
+        #check
+        """only allowing these columns for now"""
+        miss_l = set(self.keys).difference(cat_d.keys())
+        assert len(miss_l)==0, 'got %i unrecognized keys: %s'%(len(miss_l), miss_l)
+        
+        
+        new_df = pd.Series(cat_d ).to_frame().T
+        
+        #=======================================================================
+        # append
+        #=======================================================================
+        if cat_df is None:
+            cat_df = new_df
+        else:
+            cat_df = cat_df.append(new_df)
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        self.df = cat_df
+ 
+        
+        log.info('added %i'%len(new_df))
+                                
+        
+
+ 
+        
+        
+    def __enter__(self):
+        return self
+    def __exit__(self, *args, **kwargs):
+        #=======================================================================
+        # write if there was a change
+        #=======================================================================
+        if not np.array_equal(self.df, self.df_raw):
+            log = self.logger.getChild('__exit__')
+            df = self.df
+            
+            #===================================================================
+            # delete the old for empties
+            #===================================================================
+            if len(df)==0:
+                try:
+                    os.remove(self.catalog_fp)
+                    log.warning('got empty catalog... deleteing file')
+                except Exception as e:
+                    raise Error(e)
+            else:
+                #===============================================================
+                # write the new
+                #===============================================================
+ 
+                df.to_csv(self.catalog_fp, mode='w', header = True, index=False)
+                self.logger.info('wrote %s to %s'%(str(df.shape, self.catalog_fp)))
 
 class Model(agSession):  # single model run
     """
@@ -170,97 +314,7 @@ class Model(agSession):  # single model run
     #===========================================================================
     # WRITERS---------
     #===========================================================================
-    def write_lib(self, #writing pickle w/ metadata
-                  lib_dir = None, #library directory
-                  mindex = None,
-                  overwrite=None,
-                  dkey='tloss',
-                  ):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('write_lib')
-        if overwrite is None: overwrite=self.overwrite
-        if lib_dir is None:
-            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
- 
-        assert os.path.exists(lib_dir), lib_dir
-        
-        catalog_fp = os.path.join(lib_dir, 'catalog.csv')
-        #=======================================================================
-        # retrieve
-        #=======================================================================
-        tl_dx = self.retrieve(dkey) #best to call this before finv_agg_mindex
-        if mindex is None: mindex = self.retrieve('finv_agg_mindex')
-        
-        
-        
-        
-        """no! this is disaggrigation which is ambigious
-        best to levave this for the analysis phase (and just pass the index)
-        self.reindex_to_raw(tl_dx)"""
-        #=======================================================================
-        # write to csv
-        #=======================================================================
-        out_fp = os.path.join(self.out_dir, '%s_tloss.csv'%self.longname)
-        tl_dx.to_csv(out_fp)
-        #=======================================================================
-        # write vectors
-        #=======================================================================
-        """here we copy each aggregated vector layer into a special directory in the libary
-        these filepaths are then stored in teh model pickle"""
-        #setup
- 
-        vlay_dir = os.path.join(lib_dir, 'vlays', self.longname)
-        if not os.path.exists(vlay_dir):os.makedirs(vlay_dir)
-        
-        #retrieve
-        finv_agg_d = self.retrieve('finv_agg_d')
-        
-        #write each layer into the directory
-        ofp_d = self.store_finv_lib(finv_agg_d, 'finv_agg_d', out_dir=vlay_dir, logger=log, write_pick=False)
- 
-        
-        #=======================================================================
-        # build meta
-        #=======================================================================
-        meta_d = self._get_meta()
-        res_meta_d = serx_smry(tl_dx.loc[:, idx[dkey, :]].mean(axis=1).rename(dkey))
-        
-        meta_d = {**meta_d, **res_meta_d}
-        #=======================================================================
-        # add to library
-        #=======================================================================
-        out_fp = os.path.join(lib_dir, '%s.pickle'%self.longname)
-        
-        meta_d = {**meta_d, **{'pick_fp':out_fp, 'vlay_dir':vlay_dir}}
-        
-        d = {'name':self.name, 'tag':self.tag,  
-             'meta_d':meta_d, 'tloss':tl_dx, 'finv_agg_mindex':mindex, 'finv_agg_d':ofp_d, 'vlay_dir':vlay_dir}
-        
-        self.write_pick(d, out_fp, overwrite=overwrite, logger=log)
-        
-        
-        
-        #=======================================================================
-        # update catalog
-        #=======================================================================
-        cat_d = {k:meta_d[k] for k in ['name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins', 'out_dir']}
-        cat_d = {**cat_d, **res_meta_d}
-        cat_d['pick_keys'] = str(list(d.keys()))
-        
-        df = pd.Series(cat_d).to_frame().T
-        
-        df.to_csv(catalog_fp, mode='a', header = not os.path.exists(catalog_fp), index=False)
-        
-        #=======================================================================
-        # write sumary frame
-        #=======================================================================
- 
-        
-        log.info('updated catalog %s'%catalog_fp)
-        
-        return catalog_fp
+
     
     def write_summary(self, #write a nice model run summary 
                       dkey_l=['tloss', 'rloss', 'rsamps'],
@@ -1623,12 +1677,118 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
     
 class ModelStoch(Model):
     def __init__(self,
+                 modelID = 0, #unique model ID for the catalog
                  iters=10, #number of stochastic iterations
                  **kwargs):
         
         super().__init__(**kwargs)
         
+        self.modelID=modelID
         self.iters=iters
+        
+    def write_lib(self, #writing pickle w/ metadata
+                  lib_dir = None, #library directory
+                  mindex = None,
+                  overwrite=None,
+                  modelID=None,
+                  dkey='tloss',
+                  ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('write_lib')
+        if overwrite is None: overwrite=self.overwrite
+        if lib_dir is None:
+            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
+ 
+        assert os.path.exists(lib_dir), lib_dir
+        if modelID is None: modelID=self.modelID
+        #=======================================================================
+        # setup filepaths4
+        #=======================================================================
+        catalog_fp = os.path.join(lib_dir, 'index.csv')
+        vlay_dir = os.path.join(lib_dir, 'vlays', self.longname)
+        
+ 
+                
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        tl_dx = self.retrieve(dkey) #best to call this before finv_agg_mindex
+        if mindex is None: mindex = self.retrieve('finv_agg_mindex')
+        
+        
+        
+        
+        """no! this is disaggrigation which is ambigious
+        best to levave this for the analysis phase (and just pass the index)
+        self.reindex_to_raw(tl_dx)"""
+        #=======================================================================
+        # write to csv
+        #=======================================================================
+        out_fp = os.path.join(self.out_dir, '%s_tloss.csv'%self.longname)
+        tl_dx.to_csv(out_fp)
+
+        
+        #=======================================================================
+        # write vectors
+        #=======================================================================
+        """here we copy each aggregated vector layer into a special directory in the libary
+        these filepaths are then stored in teh model pickle"""
+        #setup
+ 
+        
+        if not os.path.exists(vlay_dir):os.makedirs(vlay_dir)
+        
+        #retrieve
+        finv_agg_d = self.retrieve('finv_agg_d')
+        
+        #write each layer into the directory
+        ofp_d = self.store_finv_lib(finv_agg_d, 'finv_agg_d', out_dir=vlay_dir, logger=log, write_pick=False)
+        
+        #=======================================================================
+        # build meta
+        #=======================================================================
+        meta_d = self._get_meta()
+        res_meta_d = serx_smry(tl_dx.loc[:, idx[dkey, :]].mean(axis=1).rename(dkey))
+        
+        meta_d = {**meta_d, **res_meta_d}
+        #=======================================================================
+        # add to library
+        #=======================================================================
+        out_fp = os.path.join(lib_dir, '%s.pickle'%self.longname)
+        
+        meta_d = {**meta_d, **{'pick_fp':out_fp, 'vlay_dir':vlay_dir}}
+        
+        d = {'name':self.name, 'tag':self.tag,  
+             'meta_d':meta_d, 'tloss':tl_dx, 'finv_agg_mindex':mindex, 'finv_agg_d':ofp_d, 'vlay_dir':vlay_dir}
+        
+        self.write_pick(d, out_fp, overwrite=overwrite, logger=log)
+        
+        
+        
+        #=======================================================================
+        # update catalog
+        #=======================================================================
+        cat_d = {k:meta_d[k] for k in ['modelID', 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins', 'out_dir', 'iters']}
+        cat_d = {**cat_d, **res_meta_d}
+        cat_d['pick_keys'] = str(list(d.keys()))
+        
+        with Catalog(catalog_fp) as wrkr:
+            if os.path.exists(catalog_fp):
+                wrkr.remove_model(modelID)
+            wrkr.add_entry(cat_d)
+        
+
+        
+        #=======================================================================
+        # write sumary frame
+        #=======================================================================
+ 
+        
+        log.info('updated catalog %s'%catalog_fp)
+        
+        return catalog_fp
         
     def build_tvals(self, #stochastic calculation of tvals
                     dkey='tvals',
@@ -1682,49 +1842,7 @@ class ModelStoch(Model):
         return dx
     
  
-    #===========================================================================
-    # def build_tloss(self,  #total loss for stochastic runs
-    #                 #data retrieval
-    #                 dkey=None,
-    #                 tv_dxind = None,
-    #                 rl_dxind = None,
-    #                 
-    #                 #control
-    #                 write=None,
-    #                 
-    #                 ):
-    #     
-    #     #=======================================================================
-    #     # defaults
-    #     #=======================================================================
-    #     scale_cn = self.scale_cn
-    #     log = self.logger.getChild('build_tloss')
-    #     assert dkey == 'tloss'
-    #     if write is None: write=self.write
-    #     #=======================================================================
-    #     # retriever
-    #     #=======================================================================
-    #     
-    #     if tv_dxind is None: 
-    #         tv_dxind = self.retrieve('tvals')  # studyArea, id : grid_size : corresponding gid
-    #     
-    #     if rl_dxind is None: 
-    #         #raise Error('the instancing in model_get() is corrupting the data_retrieve_hndls... self is now an empty Model isntance?')
-    #         rl_dxind = self.retrieve('rloss')
-    #         
-    #     assert isinstance(tv_dxind, pd.DataFrame)
-    #     #=======================================================================
-    #     # join tval and rloss
-    #     #=======================================================================
-    #     
-    #     dxind1 = rl_dxind.join(tv_dxind, on=tv_dxind.index.names)
-    #     
-    #     assert dxind1[scale_cn].notna().all()
-    #     #=======================================================================
-    #     # calc total loss (loss x scale)
-    #     #=======================================================================
-    #     dxind1['tl'] = dxind1['rl'].multiply(dxind1[scale_cn])
-    #===========================================================================
+ 
         
     
     def model_get(self,
@@ -1760,6 +1878,17 @@ class ModelStoch(Model):
  
         
         return res_d
+    
+    def _get_meta(self, #get a dictoinary of metadat for this model
+                 ):
+        
+        d = super()._get_meta()
+ 
+        
+        attns = ['iters', 'modelID']
+        
+ 
+        return {**d, **{k:getattr(self, k) for k in attns}}
     
 if __name__ == "__main__": 
     get_all_pars()
