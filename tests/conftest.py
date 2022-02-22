@@ -11,6 +11,22 @@ import pytest
 # fixture-----
 #===============================================================================
 @pytest.fixture(scope='session')
+def logger():
+    os.chdir(r'C:\LS\10_OUT\2112_Agg\outs\tests') #set this to the working directory
+    print('working directory set to \"%s\''%os.getcwd())
+
+    from hp.logr import BuildLogr
+    lwrkr = BuildLogr()
+    return lwrkr.logger
+
+@pytest.fixture(scope='session')
+def feedback(logger):
+    from hp.Q import MyFeedBackQ
+    return MyFeedBackQ(logger=logger)
+    
+ 
+    
+@pytest.fixture(scope='session')
 def write():
     write=False
     if write:

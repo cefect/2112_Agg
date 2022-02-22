@@ -44,7 +44,7 @@ def df_d():
 @pytest.fixture
 def session(tmp_path,
             #wrk_base_dir=None,
-            base_dir, write, #see conftest.py
+            base_dir, write,logger, feedback,#see conftest.py
             proj_lib =     {
                     #===========================================================
                     # 'point':{
@@ -73,7 +73,8 @@ def session(tmp_path,
     if write:
         wrk_dir = os.path.join(base_dir, os.path.basename(tmp_path))
     
-    with CalcSession(out_dir = tmp_path, proj_lib=proj_lib, wrk_dir=wrk_dir, overwrite=write,write=write,
+    with CalcSession(out_dir = tmp_path, proj_lib=proj_lib, wrk_dir=wrk_dir, 
+                     overwrite=write,write=write, logger=logger,feedback=feedback,
                      driverName='GeoJSON', #nicer for writing small test datasets
                      ) as ses:
         yield ses
