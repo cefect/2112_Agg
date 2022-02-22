@@ -58,6 +58,10 @@ class Model(agSession):  # single model run
         'aggType':['none', 'gridded'],
         'aggLevel':[50, 200],
         'sgType':['point', 'poly'],
+        'samp_method':['points', 'zonal', 'true_mean'],
+        'zonal_stats':['Mean', 'Minimum', 'Maximum'],
+        'vid':[49, 798,811, 0],
+                
         
         
         

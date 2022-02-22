@@ -43,8 +43,8 @@ def df_d():
 
 @pytest.fixture
 def session(tmp_path,
-            #wrk_base_dir=None,
-            base_dir, write,logger, feedback,#see conftest.py
+            #wrk_base_dir=None, 
+            base_dir, write,logger, feedback,#see conftest.py (scope=session)
             proj_lib =     {
                     #===========================================================
                     # 'point':{
@@ -205,7 +205,7 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
 
 #@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
 #rsamps methods are only applicable for certain geometry types  
-@pytest.mark.dev
+
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
 @pytest.mark.parametrize('samp_method',['zonal'], indirect=False)
@@ -282,10 +282,11 @@ def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, **k
     # compare
     #===========================================================================
     assert_series_equal(rsamps_serx, true)
-  
+
+@pytest.mark.dev
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
-@pytest.mark.parametrize('vid', [49, 798,811])
+@pytest.mark.parametrize('vid', [49, 798,811, 0])
 def test_rloss(session, rsamp_fn, vid, base_dir, true_dir, df_d):
  
     #===========================================================================

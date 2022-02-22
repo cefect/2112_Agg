@@ -361,6 +361,27 @@ class Session(Session, Qproj):
         would be much nicer to pre-compile this into some database then just query the info needed
             (although I think this was the original format)
         """
+        #=======================================================================
+        # special linear testing func
+        #=======================================================================
+        if vid==0:
+            max_depth=50
+            ddf = pd.DataFrame({'rl':{0:0, 1:100},'wd':{0:0, 1:max_depth}})
+ 
+            vf_d = {vid:Vfunc(
+                vid=vid, 
+                model_id=0,
+                model_name='linear test',
+                name='linear test',
+                logger=self.logger, 
+                session=self,
+                meta_d = {}, 
+                ).set_ddf(ddf)}
+            
+            
+        #=======================================================================
+        # retrieve from database
+        #=======================================================================
         if vf_d is None:
             vid_df = self.build_vid_df(vid_l = [vid], **kwargs)
             
