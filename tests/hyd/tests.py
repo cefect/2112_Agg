@@ -204,13 +204,14 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
 
 #@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
 #rsamps methods are only applicable for certain geometry types  
-
+@pytest.mark.dev
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
-@pytest.mark.parametrize('samp_method',['zonal'], indirect=False) 
-def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir):
+@pytest.mark.parametrize('samp_method',['zonal'], indirect=False)
+@pytest.mark.parametrize('zonal_stat',['Mean','Minimum', 'Maximum'])  
+def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir, zonal_stat):
  
-    rsamps_runr(base_dir, true_dir, session, 
+    rsamps_runr(base_dir, true_dir, session, zonal_stat=zonal_stat,
                 samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn)
     
 
@@ -225,7 +226,7 @@ def test_rsamps_point(session, finv_sg_d_fn,samp_method, true_dir, write, base_d
     
 
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
 @pytest.mark.parametrize('samp_method',['true_mean'], indirect=False) 
@@ -374,7 +375,7 @@ def retrieve_data(dkey, fp, ses):
     
 
 def search_fp(dirpath, ext, pattern): #get a matching file with extension and beginning
-    assert os.path.exists(dirpath), dirpath
+    assert os.path.exists(dirpath), 'searchpath does not exist: %s'%dirpath
     fns = [e for e in os.listdir(dirpath) if e.endswith(ext)]
     
     result= None

@@ -57,6 +57,7 @@ class Model(agSession):  # single model run
         'severity':['hi', 'lo'],
         'aggType':['none', 'gridded'],
         'aggLevel':[50, 200],
+        'sgType':['point', 'poly'],
         
         
         
@@ -534,7 +535,6 @@ class Model(agSession):  # single model run
             elif sgType == 'poly':
                 assert 'Polygon' in QgsWkbTypes().displayString(poly_vlay.wkbType()), 'bad type on %s' % (studyArea)
                 poly_vlay.selectAll()
-                
                 sg_vlay = self.saveselectedfeatures(poly_vlay, logger=log)  # just get a copy
                 
             else:
@@ -573,12 +573,7 @@ class Model(agSession):  # single model run
         log = self.logger.getChild('build_rsamps')
  
         if prec is None: prec=self.prec
-        gcn = self.gcn
-        
-        if finv_sg_d is None: finv_sg_d = self.retrieve('finv_sg_d')
-        #=======================================================================
-        # child data
-        #=======================================================================
+ 
 
         #=======================================================================
         # generate depths------
@@ -587,10 +582,17 @@ class Model(agSession):  # single model run
         # simple point-raster sampling
         #=======================================================================
         if samp_method in ['points', 'zonal']:
+            #deefaults
+            gcn = self.gcn
             if idfn is None: idfn=gcn
+            
+            if finv_sg_d is None: finv_sg_d = self.retrieve('finv_sg_d')
+            
+            #execute
             res_d = self.sa_get(meth='get_rsamps', logger=log, dkey=dkey, write=False,
                                 finv_sg_d=finv_sg_d, idfn=idfn, samp_method=samp_method, **kwargs)
             
+            #post
             dxind1 = pd.concat(res_d, verify_integrity=True)
  
             res_serx = dxind1.stack(
@@ -607,7 +609,10 @@ class Model(agSession):  # single model run
         elif samp_method == 'true_mean':
             res_serx = self.rsamp_trueMean(dkey,  logger=log, mindex=mindex, **kwargs)
         else:raise Error('bad key')
- 
+        
+        #=======================================================================
+        # post clean
+        #=======================================================================
         res_serx = res_serx.round(prec).astype(float)
         #=======================================================================
         # checks
@@ -1437,8 +1442,6 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log.info('finished on %i' % len(df))
  
         return df, gvlay5
- 
- 
 
     def get_rsamps(self,  # sample a set of rastsers withon a single finv
                    wd_fp_d=None,
@@ -1447,7 +1450,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    logger=None,
                    severity='hi',
                    samp_method='points',
-                   zonal_stats=[2],  # stats to use for zonal. 2=mean
+                   zonal_stat='Mean',  # stats to use for zonal. 2=mean
                    prec=None,
                    ):
         #=======================================================================
@@ -1475,8 +1478,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             assert 'Point' in QgsWkbTypes().displayString(finv_vlay_raw.wkbType())
         elif samp_method == 'zonal':
             assert 'Polygon' in QgsWkbTypes().displayString(finv_vlay_raw.wkbType())
-            assert isinstance(zonal_stats , list)
-            assert len(zonal_stats) == 1
+
         else:raise Error('bad key')
             
         assert idfn in [f.name() for f in finv_vlay_raw.fields()], 'missing \'%s\' in %s'%(idfn, finv_vlay_raw.name())
@@ -1510,7 +1512,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             vlay_samps = self.rastersampling(finv_vlay, wd_fp, logger=log, pfx='samp_')
         
         elif samp_method == 'zonal':
-            vlay_samps = self.zonalstatistics(finv_vlay, wd_fp, logger=log, pfx='samp_', stats=zonal_stats)
+            vlay_samps = self.zonalstatistics(finv_vlay, wd_fp, logger=log, pfx='samp_', stat=zonal_stat)
         else:
             raise Error('not impleented')
         #===================================================================

@@ -130,9 +130,11 @@ def run( #run a basic model configuration
         #asset values
         tval_type = 'rand',
         
-        #sampling
-        severity = 'low', #hazard raster selection
-        sample_geo_type = 'centroids',
+        #sampling (geo). see Model.build_sampGeo()
+        sgType = 'centroids',
+        
+        #sampling (method). see Model.build_rsamps()
+        severity = 'low', #hazard raster selection        
         samp_method = 'points', zonal_stats=[2],  # stats to use for zonal. 2=mean
         
         #vfunc selection
@@ -159,7 +161,7 @@ def run( #run a basic model configuration
                      'rsamps':dict(samp_method=samp_method, zonal_stats=zonal_stats, severity=severity),
  
                      
-                     'finv_sg_d':dict(sgType=sample_geo_type),
+                     'finv_sg_d':dict(sgType=sgType),
                      
 
                      'tvals':dict(tval_type=tval_type),
@@ -226,7 +228,7 @@ def dev():
         aggType = 'gridded', aggLevel = 50,
         tval_type = 'uniform', #see build_tvals()
         
-        samp_method = 'zonal', sample_geo_type='poly',
+        samp_method = 'zonal', sgType='poly',
         trim=True,
         overwrite=True,
  
