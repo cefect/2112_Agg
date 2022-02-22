@@ -114,10 +114,6 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
     
 
-    
-
-
-
 @pytest.mark.parametrize('aggType,aggLevel',[['none',None], ['gridded',20], ['gridded',50]], indirect=False) 
 def test_finv_agg(session, aggType, aggLevel, true_dir, base_dir, write):
     #===========================================================================
@@ -213,29 +209,53 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
 @pytest.mark.parametrize('samp_method',['zonal'], indirect=False) 
 def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir):
-    """
-    testing the basic rsamp config (doesnt require the true finv)
-    """
-    rsamps_runr(base_dir, finv_sg_d_fn,true_dir, session, samp_method=samp_method, write=write)
+ 
+    rsamps_runr(base_dir, true_dir, session, 
+                samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn)
     
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_centroids_test_fi1','test_sampGeo_centroids_test_fi0'])
 @pytest.mark.parametrize('samp_method',['points'], indirect=False) 
 def test_rsamps_point(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir):
-    """
-    testing the basic rsamp config (doesnt require the true finv)
-    """
-    rsamps_runr(base_dir, finv_sg_d_fn,true_dir,session, samp_method=samp_method, write=write)
+ 
+    rsamps_runr(base_dir, true_dir,session, 
+                samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn)
     
-def rsamps_runr(base_dir, finv_sg_d_fn,true_dir,session, **kwargs):
+
+
+@pytest.mark.dev
+@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
+@pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
+@pytest.mark.parametrize('samp_method',['true_mean'], indirect=False) 
+def test_rsamps_trueMean(session, finv_agg_fn, samp_method, true_dir, write, base_dir, sgType):
+    #===========================================================================
+    # build the sample geometry
+    #===========================================================================
+    """because true_mean requires the raw inventory.. 
+        for this test we perform the previous calc (sample geometry) as well
+        to simplify the inputs"""
+    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
+    
+    finv_sg_d = session.build_sampGeo(dkey = 'finv_sg_d', sgType=sgType, finv_agg_d=finv_agg_d, write=False)
+ 
+    #===========================================================================
+    # execute
+    #===========================================================================        
+ 
+    rsamps_runr(base_dir, true_dir,session, samp_method=samp_method, write=write, 
+                finv_sg_d=finv_sg_d, mindex=finv_agg_mindex)
+
+def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, **kwargs):
+    """because kwarg combinations are complex for rsamps... its easier to split out the tests"""
     #===========================================================================
     # load inputs   
     #===========================================================================
-    dkey = 'finv_sg_d'
-    input_fp = search_fp(os.path.join(base_dir, finv_sg_d_fn), '.pickle', dkey) #find the data file.
-    finv_sg_d = retrieve_data(dkey, input_fp, session)
+    if finv_sg_d is None:
+        dkey = 'finv_sg_d'
+        input_fp = search_fp(os.path.join(base_dir, finv_sg_d_fn), '.pickle', dkey) #find the data file.
+        finv_sg_d = retrieve_data(dkey, input_fp, session)
  
     #===========================================================================
     # execute
@@ -245,42 +265,10 @@ def rsamps_runr(base_dir, finv_sg_d_fn,true_dir,session, **kwargs):
     rsamps_serx = session.build_rsamps(dkey=dkey, finv_sg_d=finv_sg_d, **kwargs)
     
     #===========================================================================
-    # retrieve trues    
+    # basic checks
     #===========================================================================
-    true_fp = search_fp(true_dir, '.pickle', dkey) #find the data file.
-    true = retrieve_data(dkey, true_fp, session)
-    
-    #===========================================================================
-    # compare
-    #===========================================================================
-    assert_series_equal(rsamps_serx, true)
-
  
-@pytest.mark.parametrize('samp_method, finv_sg_d_fn',#see test_sampGeo
-                         [['points', 'test_sampGeo_centroids_test_fi1'],
-                           ['zonal','test_sampGeo_poly_test_finv_ag1'], 
-                           ['true_mean', 'test_sampGeo_poly_test_finv_ag1']], indirect=False) 
-@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0'], indirect=False)  #see test_finv_agg. only needed by method=true_mean
-def test_rsamps_trueMean(session, finv_sg_d_fn, finv_agg_fn, samp_method, true_dir, write, base_dir):
-    #===========================================================================
-    # load inputs   
-    #===========================================================================
-    dkey = 'finv_sg_d'
-    input_fp = search_fp(os.path.join(base_dir, finv_sg_d_fn), '.pickle', dkey) #find the data file.
-    finv_sg_d = retrieve_data(dkey, input_fp, session)
-    
-    if samp_method == 'true_mean': 
-        finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
-    else:
-        finv_agg_mindex = None
-        
- 
-    #===========================================================================
-    # execute
-    #===========================================================================
 
-    dkey='rsamps'
-    rsamps_serx = session.build_rsamps(dkey=dkey, samp_method=samp_method, finv_sg_d=finv_sg_d, write=write, mindex=finv_agg_mindex)
     
     #===========================================================================
     # retrieve trues    
@@ -292,8 +280,6 @@ def test_rsamps_trueMean(session, finv_sg_d_fn, finv_agg_fn, samp_method, true_d
     # compare
     #===========================================================================
     assert_series_equal(rsamps_serx, true)
-
-
   
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
@@ -396,6 +382,12 @@ def search_fp(dirpath, ext, pattern): #get a matching file with extension and be
         if fn.startswith(pattern):
             result = os.path.join(dirpath, fn)
             break
+        
+    if result is None:
+        raise IOError('failed to find a match for \'%s\' in %s'%(pattern, dirpath))
+    
+    assert os.path.exists(result), result
+        
         
     return result
 

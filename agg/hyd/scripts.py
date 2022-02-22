@@ -83,7 +83,9 @@ class Model(agSession):  # single model run
             
             'finv_agg_mindex':{  # map of aggregated keys to true keys
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.build_finv_agg(**kwargs),
+                'build':lambda **kwargs:self.build_finv_agg_mindex(**kwargs),
+                #'build':lambda **kwargs: self.build_finv_agg(**kwargs), 
+                    #this function does build.. but calling it with this key makes for ambigious parameterization
                 },
             
             'finv_sg_d':{  # sampling geometry
@@ -352,9 +354,10 @@ class Model(agSession):  # single model run
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_finv_agg')
+ 
         assert dkey in ['finv_agg_d',
                         #'finv_agg_mindex', #makes specifycing keys tricky... 
-                        ]
+                        ], 'bad dkey: \'%s\''%dkey
         if aggType is None: aggType = self.aggType
         gcn = self.gcn
         log.info('building \'%s\' ' % (aggType))
@@ -432,6 +435,23 @@ class Model(agSession):  # single model run
             result = agg_mindex
         
         return result
+    
+    def build_finv_agg_mindex(self, #special wrapper for finv_agg_mindex requests
+                              dkey=None,
+                              **kwargs):
+        """to force consistent variable handling on these siblings,
+        here we just call the other"""
+        
+        assert dkey=='finv_agg_mindex'
+        assert len(kwargs)==0, 'specify kwargs on dkey=finv_agg_d'
+        
+        #call the sibling
+        self.retrieve('finv_agg_d')
+        
+        return self.data_d[dkey]
+        
+        
+        
 
     def build_tvals(self,  # get the total values on each asset
                     dkey=None,
@@ -592,12 +612,20 @@ class Model(agSession):  # single model run
         #=======================================================================
         # checks
         #=======================================================================
+        #type checks
         assert isinstance(res_serx, pd.Series)
+        self.check_mindex(res_serx.index)
+        
+        #value checks
+        assert res_serx.notna().all()
         bx = res_serx < 0.0
         if bx.any().any():
             raise Error('got some negative depths')
         
-        self.check_mindex(res_serx.index)
+ 
+        assert res_serx.max()<=100
+        
+        
  
         #=======================================================================
         # write
@@ -905,6 +933,11 @@ class Model(agSession):  # single model run
         #=======================================================================
         if logger is None: logger = self.logger
         log = logger.getChild('get_rsamp_trueMean')
+        
+        #=======================================================================
+        # retrival
+        #=======================================================================
+        
  
         if mindex is None: mindex = self.retrieve('finv_agg_mindex')
         #===================================================================
@@ -943,16 +976,26 @@ class Model(agSession):  # single model run
         true_serx1 = true_serx.to_frame().join(jdf, how='left').swaplevel(
             ).sort_index().set_index('gid', append=True).swaplevel()
  
-        #=======================================================================
-        # group
-        #=======================================================================
+ 
         #group a series by two levels
         agg_serx = true_serx1.groupby(level=true_serx1.index.names[0:3]).mean().iloc[:,0]
+        
+        #=======================================================================
+        # checks
+        #=======================================================================
+        #extremes (aggreegated should always be less extreme than raws)
+        assert true_serx1.max()[0]>=agg_serx.max()
+        assert true_serx1.min()[0]<=agg_serx.min()
+        
+        #dimensions
+        assert len(true_serx1)>=len(agg_serx)
+        
         
         #=======================================================================
         # wrap
         #=======================================================================
         log.info('finished on %i'%len(agg_serx))
+        
  
         return agg_serx
 
