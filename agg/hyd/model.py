@@ -35,20 +35,61 @@ print('start at %s' % start)
 #===============================================================================
 # custom imports--------
 #===============================================================================
-from agg.hyd.scripts import Model, ModelStoch
+from agg.hyd.scripts import Model, ModelStoch, get_all_pars, view
+
+#===========================================================================
+# #presets
+#===========================================================================
+columns = ['aggLevel', 'aggType', 'sgType', 'samp_method', 'severity', 'zonal_stat', 'tval_type', 'vid']
+model_pars_d = {
+   0:[np.nan, 'none','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
+   1:[200, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
+   2:[50, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
+   3:[100, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
+}
+
+
+
+    
 #===============================================================================
 # FUNCTIONS-------
 #===============================================================================
-def get_pars_from_xls(
-        fp = r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\agg - calcs.xlsx',
-        sheet_name='hyd.smry',
-        ):
+def get_pars(modelID,
+             ):
     
-    df_raw = pd.read_excel(fp, sheet_name=sheet_name, index_col=0)
+    pars_df = get_all_pars().droplevel(0, axis=1)
+    """
+    pars_df.droplevel(0, axis=1)['aggLevel'].unique()
+    view(pars_df)
+    pars_df.droplevel(0, axis=1).columns.tolist()
+    pars_df.columns.tolist()
+    """
     
-    d = df_raw.to_dict(orient='index')
+
     
-    print('finished on %i \n    %s\n'%(len(d), d))
+    #===========================================================================
+    # check
+    #===========================================================================
+    assert modelID in model_pars_d, 'unrecognized modelID=%i'%modelID
+    pre_df = pd.DataFrame.from_dict(model_pars_d, columns=columns, orient='index')
+    
+    
+    for id in pre_df.index:
+        """replacing nulls so these are matched'"""
+        bx = pars_df.fillna('nan').eq(pre_df.fillna('nan').loc[id, :])
+    
+        """
+        view(pars_df.join(bx.sum(axis=1).rename('match_cnt')).sort_values('match_cnt', ascending=False))
+        """
+        assert bx.all(axis=1).sum()==1, 'failed to find a matching parameter sequence on modelID=%i'%id
+    
+    #===========================================================================
+    # get kwargs
+    #===========================================================================
+    
+    return pre_df.loc[modelID, :].to_dict()
+     
+    
     
  
     
@@ -186,6 +227,18 @@ def run( #run a basic model configuration
     print('\nfinished %s'%tag)
     
     return out_dir
+
+def run_autoPars( #retrieve pars from container
+        modelID=0,
+        **kwargs):
+    
+    model_pars = get_pars(modelID)
+    
+    return run(
+        modelID=modelID,
+        **{**model_pars, **kwargs}
+        )
+    
         
     
  
@@ -236,7 +289,10 @@ def dev():
  
         )
     
+    
+    
 def r2_base():
+    
     return run(
         tag='base',  modelID = 0,
        
@@ -251,16 +307,7 @@ def r2_base():
             }
         )
     
-def r2_g50():
-    return run(
-        tag='g50', modelID=2,
-        aggType='gridded', aggLevel=50,
-        
-        compiled_fp_d = {
  
-            
-            }
-        )
     
 def r2_g200():
     return run(
@@ -285,8 +332,9 @@ if __name__ == "__main__":
     #output=dev()
     #output=r2_base()
     #output=r2_g200()
-    output=r2_g50()
-        
+    output=run_autoPars(tag='g50', modelID=2)
+    #output=run_autoPars(tag='g100', modelID=3)
+ 
         
  
     tdelta = datetime.datetime.now() - start

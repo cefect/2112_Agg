@@ -76,10 +76,10 @@ class Model(agSession):  # single model run
         'tval_type':{'vals':['uniform', 'rand'],                    'dkey':'tvals'},
         'severity':{'vals':['hi', 'lo'],                            'dkey':'rsamps'},
         'aggType':{'vals':['none', 'gridded'],                      'dkey':'finv_agg_d'},
-        'aggLevel':{'vals':[50, 200],                               'dkey':'finv_agg_d'},
+        'aggLevel':{'vals':[None, 50, 100, 200],                    'dkey':'finv_agg_d'},
         'sgType':{'vals':['point', 'poly'],                         'dkey':'finv_sg_d'},
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
-        'zonal_stats':{'vals':['Mean', 'Minimum', 'Maximum'],       'dkey':'rsamps'},
+        'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum'],       'dkey':'rsamps'},
         'vid':{'vals':[49, 798,811, 0],                             'dkey':'vfunc'},
 
         }
@@ -314,7 +314,8 @@ class Model(agSession):  # single model run
             res_d = self.sa_get(meth='get_finv_clean', write=False, dkey=dkey, get_lookup=True, **kwargs)
  
         elif aggType == 'gridded':  # see Test_p1_finv_gridded
-            assert isinstance(aggLevel, int)
+            if isinstance(aggLevel, float): aggLevel = int(aggLevel)
+            assert isinstance(aggLevel, int), 'got bad aggType: %s (%s)'%(aggType, type(aggType))
             res_d = self.sa_get(meth='get_finv_gridPoly', write=False, dkey=dkey, aggLevel=aggLevel, **kwargs)
  
         else:
@@ -1353,15 +1354,20 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #                                fieldType='Integer', logger=log)
         #=======================================================================
         gvlay4 = gvlay3b
- 
+        
         #===================================================================
         # build refecrence dictionary to true assets
         #===================================================================
+        #prep
+        self.createspatialindex(finv_pts)
+        self.createspatialindex(gvlay4)
         gvlay4.setName('%s_gridded'%finv_vlay.name())
+        
         log.info('   joinattributesbylocation \'%s\' (%i) to \'%s\' (%i)'%(
             finv_pts.name(), finv_pts.dataProvider().featureCount(),
             gvlay4.name(), gvlay4.dataProvider().featureCount()))
         
+        """very slow for big layers"""
         jd = self.joinattributesbylocation(finv_pts, gvlay4, jvlay_fnl=gcn,
                                            method=1, logger=log,
                                            # predicate='touches',
@@ -1793,5 +1799,5 @@ class ModelStoch(Model):
  
         return {**d, **{k:getattr(self, k) for k in attns}}
     
-if __name__ == "__main__": 
-    get_all_pars()
+ 
+

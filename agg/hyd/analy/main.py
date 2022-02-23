@@ -51,6 +51,11 @@ print('loaded matplotlib %s'%matplotlib.__version__)
 
 from scripts import ModelAnalysis
 
+def write_pars():
+    df = get_all_pars()
+    df.to_csv(r'C:\LS\10_OUT\2112_Agg\lib\pars.csv', header=True, index=True)
+    
+
 
 def run( #run a basic model configuration
         #=======================================================================
@@ -62,6 +67,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #data
         #=======================================================================
+        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
         modelID_l=[],
  
         #=======================================================================
@@ -77,6 +83,7 @@ def run( #run a basic model configuration
         **kwargs):
     
     with ModelAnalysis(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
+                       catalog_fp=catalog_fp,
                        bk_lib = {
                            'outs':dict(modelID_l=modelID_l, debug_len=debug_len)
                            
@@ -142,11 +149,11 @@ def dev():
         
         )
     
-def r2():
+def grid_compare():
     return run(
-        tag='r2',
-        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
-        modelID_l = [0,1],
+        tag='grid_compare',
+        
+        modelID_l = [0,1, 2],
         
         compiled_fp_d = {
             'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220223\working\outs_analy_r2_0223.pickle',
