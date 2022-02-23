@@ -4,6 +4,8 @@ Created on Feb. 20, 2022
 @author: cefect
 
 tests for hyd model
+
+TODO: clean out old pickles
 '''
 
 
@@ -154,7 +156,7 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
             assert_frame_equal(test.to_frame(), true.to_frame())
 
 @pytest.mark.dev
-@pytest.mark.parametrize('tval_type',['rand', 'uniform'], indirect=False)
+@pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('normed', [True, False])
 def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write, normed):

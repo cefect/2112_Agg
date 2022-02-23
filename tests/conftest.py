@@ -12,7 +12,7 @@ import pytest
 #===============================================================================
 @pytest.fixture(scope='session')
 def write():
-    write=True
+    write=False
     if write:
         print('WARNING!!! runnig in write mode')
     return write
