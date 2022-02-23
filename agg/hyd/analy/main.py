@@ -83,7 +83,7 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
-        ses.plot_totals()
+        ses.plot_total_bars()
  
         
  
@@ -132,14 +132,31 @@ def run( #run a basic model configuration
 
 def dev():
     return run(
+        tag='dev',
         catalog_fp=r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\lib\model_run_index.csv',
         modelID_l = [0,1], debug_len=None,
         
+        compiled_fp_d = {
+'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220223\working\outs_analy_dev_0223.pickle',
+            }
+        
+        )
+    
+def r2():
+    return run(
+        tag='r2',
+        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
+        modelID_l = [0,1],
+        
+        compiled_fp_d = {
+            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220223\working\outs_analy_r2_0223.pickle',
+            },
         )
 
 if __name__ == "__main__": 
     
-    output=dev()
+    #output=dev()
+    output = r2()
         
         
  

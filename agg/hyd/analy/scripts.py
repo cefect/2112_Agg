@@ -53,6 +53,9 @@ def get_ax(
     return fig.add_subplot(111)
  
 class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
+    
+    colorMap = 'cool'
+    
     def __init__(self,
                  catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
                  plt=None,
@@ -67,6 +70,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             }
         
         super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,
+                         work_dir = r'C:\LS\10_OUT\2112_Agg',
                          **kwargs)
         self.plt=plt
         self.catalog_fp=catalog_fp
@@ -129,6 +133,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             dx = dx.sample(debug_len)
             
         dx.index.set_names(idn, level=0, inplace=True)
+        
+        #join tags
+        dx.index = dx.index.to_frame().join(cat_df['tag']).set_index('tag', append=True
+                          ).reorder_levels(['modelID', 'tag', 'studyArea', 'event', 'gid'], axis=0).index
         
         """
         view(dx)
@@ -761,12 +769,178 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # PLOTTERS-------------
     #===========================================================================
-    def plot_totals(self, #generic total bar charts
-                    dkey='tloss',
+    def plot_total_bars(self, #generic total bar charts
+                        
+                    #data
+                    dkey_l = ['rsamps','tloss'],
+                    dx_raw=None,
+                    
+                    #plot config
+                    plot_rown='dkey',
+                    plot_coln='event',
+                    plot_colr='modelID',
+                    plot_bgrp='modelID',
+                    
+                    #plot style
+                    colorMap=None,
+                    #ylabel=None,
+                    
                     ):
-        log = self.logger.getChild('plot_totals')
+        """"
+        compressing a range of values
+        """
         
-        dx = self.retrieve('outs')
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_total_bars')
+        
+        if dx_raw is None: dx_raw = self.retrieve('outs')
+        if colorMap is None: colorMap=self.colorMap
+ 
+        """
+        view(dx)
+        dx.loc[idx[0, 'LMFRA', 'LMFRA_0500yr', :], idx['tvals', 0]].sum()
+        dx_raw.columns.unique('dkey')
+        """
+        
+        
+        log.info('on %s'%str(dx_raw.shape))
+        
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        #collapse columns
+        dx = dx_raw.loc[:, idx[dkey_l, :]]
+        mdex = dx.index
+        """no... want to report stats per dkey group
+        #move dkeys to index for consistency
+        dx.stack(level=0)"""
+        
+        #get label dict
+        mid_tag_d = mdex.to_frame().reset_index(drop=True).loc[:, ['modelID', 'tag']
+                           ].drop_duplicates().set_index('modelID').iloc[:,0].to_dict()
+         
+        
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+        """
+        view(dx)
+        plt.show()
+        """
+ 
+        fig, ax_d = self.get_matrix_fig(
+                                    dkey_l,  
+                                    mdex.unique(plot_coln).tolist(),  # col keys
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey='row', sharex='all',  # everything should b euniform
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+        #fig.suptitle('%s total on %i studyAreas (%s)' % (lossType.upper(), len(mdex.unique('studyArea')), self.tag))
+        
+        # get colors
+        cvals = dx_raw.index.unique(plot_colr)
+        cmap = plt.cm.get_cmap(name=colorMap) 
+        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+        
+        #===================================================================
+        # loop and plot
+        #===================================================================
+        for col_key, gdx1 in dx.groupby(level=[plot_coln]):
+            keys_d = {plot_coln:col_key}
+            
+            for row_key, gdx2 in gdx1.groupby(level=[plot_rown], axis=1):
+                keys_d[plot_rown] = row_key
+                ax = ax_d[row_key][col_key]
+                #===============================================================
+                # #plot bars------
+                #===============================================================
+                gb = gdx2.groupby(plot_bgrp).sum().groupby(level=0, axis=1) #collapse assets
+                tlsum_ser = gb.mean() #collapse iters
+                ylocs = tlsum_ser.T.values[0]
+                
+                #===============================================================
+                # #formatters.
+                #===============================================================
+ 
+                # labels
+                tick_label = [mid_tag_d[mid] for mid in tlsum_ser.index] #label by tag
+                #tick_label = ['m%i' % i for i in range(0, len(tlsum_ser))]
+  
+                # widths
+                bar_cnt = len(tlsum_ser)
+                width = 0.9 / float(bar_cnt)
+                
+                #===============================================================
+                # #add bars
+                #===============================================================
+                xlocs = np.linspace(0, 1, num=len(tlsum_ser))# + width * i
+                bars = ax.bar(
+                    xlocs,  # xlocation of bars
+                    ylocs,  # heights
+                    width=width,
+                    align='center',
+                    color=newColor_d.values(),
+                    #label='%s=%s' % (plot_colr, ckey),
+                    alpha=0.5,
+                    tick_label=tick_label,
+                    )
+                
+                #===============================================================
+                # add error bars
+                #===============================================================
+                if len(gdx2.columns.get_level_values(1))>1:
+                    
+                    #get error values
+                    err_df = pd.concat({'hi':gb.quantile(q=0.95),'low':gb.quantile(q=0.05)}, axis=1).droplevel(axis=1, level=1)
+                    
+                    #convert to deltas
+                    assert np.array_equal(err_df.index, tlsum_ser.index)
+                    errH_df = err_df.subtract(tlsum_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
+                    
+                    #add the error bars
+                    ax.errorbar(xlocs, ylocs,
+                                errH_df.values,  
+                                capsize=5, color='black',
+                                fmt='none', #no data lines
+                                )
+                    """
+                    plt.show()
+                    """
+                #===============================================================
+                # #wrap format subplot
+                #===============================================================
+                """
+                fig.show()
+                """
+ 
+                ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+                # first row
+                #===============================================================
+                # if row_key == mdex.unique(plot_rown)[0]:
+                #     pass
+                #===============================================================
+         
+                        
+                # first col
+                if col_key == mdex.unique(plot_coln)[0]:
+                    ylabel = '%s sum'%row_key
+                    ax.set_ylabel(ylabel)
+                    
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        
+        return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
+                    
+ 
+        
     
     def plot_depths(self,
                     # data control

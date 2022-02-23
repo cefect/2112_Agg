@@ -1357,6 +1357,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #===================================================================
         # build refecrence dictionary to true assets
         #===================================================================
+        gvlay4.setName('%s_gridded'%finv_vlay.name())
         log.info('   joinattributesbylocation \'%s\' (%i) to \'%s\' (%i)'%(
             finv_pts.name(), finv_pts.dataProvider().featureCount(),
             gvlay4.name(), gvlay4.dataProvider().featureCount()))

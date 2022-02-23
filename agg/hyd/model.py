@@ -195,8 +195,6 @@ def dev():
     return run(
         tag='dev',modelID = 1,
         compiled_fp_d = {
-     'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_agg_d\finv_agg_d_hyd2_dev_0223.pickle',
-    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_agg_mindex_hyd2_dev_0223.pickle',
  
             },
         
@@ -240,32 +238,43 @@ def dev():
     
 def r2_base():
     return run(
-        tag='r2_base',  modelID = 0,
+        tag='base',  modelID = 0,
        
         compiled_fp_d = {
-                'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_agg_d\finv_agg_d_hyd2_r2_base_0223.pickle',
-                'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_agg_mindex_hyd2_r2_base_0223.pickle',
-                #'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\tvals_hyd2_r2_base_0223.pickle',
-                'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_sg_d\finv_sg_d_hyd2_r2_base_0223.pickle',
-                'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\rsamps_hyd2_r2_base_0223.pickle',
-                'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\rloss_hyd2_r2_base_0223.pickle',
-                #'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\tloss_hyd2_r2_base_0223.pickle',
+     'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\base\20220223\working\finv_agg_d\finv_agg_d_hyd2_base_0223.pickle',
+    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\base\20220223\working\finv_agg_mindex_hyd2_base_0223.pickle',
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\base\20220223\working\tvals_hyd2_base_0223.pickle',
+    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\base\20220223\working\finv_sg_d\finv_sg_d_hyd2_base_0223.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\base\20220223\working\rsamps_hyd2_base_0223.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\base\20220223\working\rloss_hyd2_base_0223.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\base\20220223\working\tloss_hyd2_base_0223.pickle',
             }
         )
     
-def r2_p01():
+def r2_g50():
     return run(
-        tag='r2_p01', modelID=1,
+        tag='g50', modelID=2,
+        aggType='gridded', aggLevel=50,
+        
+        compiled_fp_d = {
+ 
+            
+            }
+        )
+    
+def r2_g200():
+    return run(
+        tag='g200', modelID=1,
         aggType='gridded', aggLevel=200,
         
         compiled_fp_d = {
-            'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\finv_agg_d\finv_agg_d_hyd2_r2_p01_0223.pickle',
-            'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\finv_agg_mindex_hyd2_r2_p01_0223.pickle',
-            'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\tvals_hyd2_r2_p01_0223.pickle',
-            'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\finv_sg_d\finv_sg_d_hyd2_r2_p01_0223.pickle',
-            'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\rsamps_hyd2_r2_p01_0223.pickle',
-            'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\rloss_hyd2_r2_p01_0223.pickle',
-            'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\tloss_hyd2_r2_p01_0223.pickle',
+    'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\g200\20220223\working\finv_agg_d\finv_agg_d_hyd2_g200_0223.pickle',
+    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\g200\20220223\working\finv_agg_mindex_hyd2_g200_0223.pickle',
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\g200\20220223\working\tvals_hyd2_g200_0223.pickle',
+    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\g200\20220223\working\finv_sg_d\finv_sg_d_hyd2_g200_0223.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\g200\20220223\working\rsamps_hyd2_g200_0223.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\g200\20220223\working\rloss_hyd2_g200_0223.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\g200\20220223\working\tloss_hyd2_g200_0223.pickle',
             
             }
         )
@@ -274,8 +283,9 @@ def r2_p01():
 if __name__ == "__main__": 
     
     #output=dev()
-    output=r2_base()
-    #output=r2_p01()
+    #output=r2_base()
+    #output=r2_g200()
+    output=r2_g50()
         
         
  
