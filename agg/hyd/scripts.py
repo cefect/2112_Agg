@@ -1351,7 +1351,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('get_finvs_gridPoly')
+        log = self.logger.getChild('get_finv_clean')
         
         if finv_vlay_raw is None: finv_vlay_raw = self.finv_vlay
         if idfn is None: idfn = self.idfn
@@ -1438,10 +1438,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # raw grid
         #===================================================================
         log.info('on \'%s\' w/ grid_size=%i' % (finv_vlay.name(), grid_size))
-        
+        log.info('    creategrid w/ spacing=%i on  %i' %(grid_size, finv_vlay.dataProvider().featureCount()))
         gvlay1 = self.creategrid(finv_vlay, spacing=grid_size, logger=log)
         self.mstore.addMapLayer(gvlay1)
-        log.info('    built grid w/ %i' % gvlay1.dataProvider().featureCount())
+        
  
         """causing some inconsitent behavior
         #===================================================================
@@ -1462,9 +1462,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # populate/clean fields            
         #===================================================================
         # rename id field
+        log.info('   renameField \'id\':\'%s\'' % gcn)
         gvlay3 = self.renameField(gvlay2, 'id', gcn, logger=log)
         self.mstore.addMapLayer(gvlay3)
-        log.info('    renamed field \'id\':\'%s\'' % gcn)
+        
         
         # delete grid dimension fields
         fnl = set([f.name() for f in gvlay3.fields()]).difference([gcn])
@@ -1481,6 +1482,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #===================================================================
         # build refecrence dictionary to true assets
         #===================================================================
+        log.info('   joinattributesbylocation \'%s\' (%i) to \'%s\' (%i)'%(
+            finv_pts.name(), finv_pts.dataProvider().featureCount(),
+            gvlay4.name(), gvlay4.dataProvider().featureCount()))
+        
         jd = self.joinattributesbylocation(finv_pts, gvlay4, jvlay_fnl=gcn,
                                            method=1, logger=log,
                                            # predicate='touches',
@@ -1488,11 +1493,13 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                                              grid_size, self.longname)))
         
         # check match
-        noMatch_cnt = finv_vlay.dataProvider().featureCount() - jd['JOINED_COUNT']
-        if not noMatch_cnt == 0:
-            """gid lookup wont work"""
-            raise Error('for \'%s\' grid_size=%i failed to join  %i/%i assets... wrote non matcherse to \n    %s' % (
-                self.name, grid_size, noMatch_cnt, finv_vlay.dataProvider().featureCount(), jd['NON_MATCHING']))
+        #=======================================================================
+        # noMatch_cnt = finv_vlay.dataProvider().featureCount() - jd['JOINED_COUNT']
+        # if not noMatch_cnt == 0:
+        #     """gid lookup wont work"""
+        #     raise Error('for \'%s\' grid_size=%i failed to join  %i/%i assets... wrote non matcherse to \n    %s' % (
+        #         self.name, grid_size, noMatch_cnt, finv_vlay.dataProvider().featureCount(), jd['NON_MATCHING']))
+        #=======================================================================
                 
         jvlay = jd['OUTPUT']
         self.mstore.addMapLayer(jvlay)
@@ -1503,6 +1510,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # clear non-matchers
         #=======================================================================
         """3rd time around with this one... I think this approach is cleanest though"""
+        log.info('    cleaning \'%s\' w/ %i'%(gvlay4.name(), gvlay4.dataProvider().featureCount()))
         
         grid_df = vlay_get_fdf(gvlay4)
         

@@ -259,6 +259,17 @@ def r2_p01():
     return run(
         tag='r2_p01',
         aggType='gridded', aggLevel=200,
+        
+        compiled_fp_d = {
+            'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\finv_agg_d\finv_agg_d_hyd2_r2_p01_0223.pickle',
+            'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\finv_agg_mindex_hyd2_r2_p01_0223.pickle',
+            'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\tvals_hyd2_r2_p01_0223.pickle',
+            'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\finv_sg_d\finv_sg_d_hyd2_r2_p01_0223.pickle',
+            'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\rsamps_hyd2_r2_p01_0223.pickle',
+            'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\rloss_hyd2_r2_p01_0223.pickle',
+            'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_p01\20220223\working\tloss_hyd2_r2_p01_0223.pickle',
+            
+            }
         )
         
 

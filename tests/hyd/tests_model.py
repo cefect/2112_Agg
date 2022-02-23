@@ -103,7 +103,7 @@ def studyAreaWrkr(session, request):
 @pytest.mark.parametrize('aggLevel',[10, 50], indirect=False)  
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True)     
 def test_finv_gridPoly(studyAreaWrkr, aggLevel):
-    #NOTE: this function is also tested in test_finv_agg
+    """"this function is also tested in test_finv_agg"""
     finv_vlay = studyAreaWrkr.get_finv_clean()
     df, finv_agg_vlay = studyAreaWrkr.get_finv_gridPoly(aggLevel=aggLevel, finv_vlay=finv_vlay)
      
@@ -116,9 +116,9 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
     
-
+@pytest.mark.dev
 @pytest.mark.parametrize('aggType,aggLevel',[['none',None], ['gridded',20], ['gridded',50]], indirect=False) 
-def test_finv_agg(session, aggType, aggLevel, true_dir, base_dir, write):
+def test_finv_agg(session, aggType, aggLevel, true_dir, write):
     #===========================================================================
     # #execute the functions to be tested
     #===========================================================================
@@ -153,7 +153,7 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, base_dir, write):
         elif dkey=='finv_agg_mindex':
             assert_frame_equal(test.to_frame(), true.to_frame())
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('tval_type',['rand'], indirect=False)
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write):
