@@ -6,7 +6,7 @@ Created on Feb. 21, 2022
 #===============================================================================
 # imports------
 #===============================================================================
-import os, datetime, math, pickle, copy, random, pprint
+import os, datetime, math, pickle, copy, random, pprint, gc
 import matplotlib
 import scipy.stats
 
@@ -22,16 +22,18 @@ from hp.exceptions import Error
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
- 
+#===============================================================================
+# custom imports
+#===============================================================================
 from hp.plot import Plotr
+from hp.oop import Session, Error
+from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
+    vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
+    QgsWkbTypes
+    
+    
+from agg.coms.scripts import Catalog
 
-#===============================================================================
-# from agg.coms.scripts import Session as agSession
-# 
-# from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
-#     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
-#     QgsWkbTypes
-#===============================================================================
 
 
 def get_ax(
@@ -50,17 +52,105 @@ def get_ax(
             
     return fig.add_subplot(111)
  
-class ModelAnalysis(Plotr): #analysis of model results
+class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     def __init__(self,
+                 catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
                  plt=None,
+                 name='analy',
                  **kwargs):
         
-        super().__init__(**kwargs)
+        data_retrieve_hndls = {
+            'outs':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_outs(**kwargs),
+                },
+            }
+        
+        super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,
+                         **kwargs)
         self.plt=plt
+        self.catalog_fp=catalog_fp
     
     #===========================================================================
     # DATA ANALYSIS---------
     #===========================================================================
+    def build_outs(self, #collecting outputs from multiple model runs
+                   modelID_l=[], #set of modelID's to include
+                   dkey='outs',
+                     catalog_fp=None,
+                     load_dkey = 'tloss',
+                     write=None,
+                     debug_len=None,
+                     ):
+        """
+        just collecting into a dx for now... now meta
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_outs')
+        if catalog_fp is None: catalog_fp=self.catalog_fp
+        if write is None: write=self.write
+        idn = Catalog.idn
+        log.info('on %i'%len(modelID_l))
+        #=======================================================================
+        # retrieve catalog
+        #=======================================================================
+        cat_df = Catalog(catalog_fp=catalog_fp, logger=log, overwrite=False).get()
+        
+        #check
+        miss_l = set(modelID_l).difference(cat_df.index)
+        assert len(miss_l)==0, '%i/%i requested %s not found in catalog:\n    %s'%(
+            len(miss_l), len(modelID_l), idn, miss_l)
+        
+        #=======================================================================
+        # load data from modle results
+        #=======================================================================
+        data_d = dict()
+        for modelID, row in cat_df.loc[cat_df.index.isin(modelID_l),:].iterrows():
+            log.info('    on %s.%s w/ %i'%(modelID, row['tag'], row['%s_count'%load_dkey]))
+            
+            #load pickel            
+            with open(row['pick_fp'], 'rb') as f:
+                data = pickle.load(f)
+                
+                assert load_dkey in data
+                
+                data_d[modelID] = data[load_dkey].copy()
+                
+                del data
+                
+        #=======================================================================
+        # combine
+        #=======================================================================
+        dx = pd.concat(data_d).sort_index(level=0)
+        if not debug_len is None:
+            """this probably wont work for testing some functions"""
+            dx = dx.sample(debug_len)
+            
+        dx.index.set_names(idn, level=0, inplace=True)
+        
+        """
+        view(dx)
+        """
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished on %s'%str(dx.shape))
+        if write:
+            self.ofp_d[dkey] = self.write_pick(dx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+        gc.collect()
+        return dx
+                
+ 
+        
+        
+ 
+        
+ 
     def build_errs(self,  # get the errors (gridded - true)
                     dkey=None,
                      prec=None,
@@ -671,6 +761,12 @@ class ModelAnalysis(Plotr): #analysis of model results
     #===========================================================================
     # PLOTTERS-------------
     #===========================================================================
+    def plot_totals(self, #generic total bar charts
+                    dkey='tloss',
+                    ):
+        log = self.logger.getChild('plot_totals')
+        
+        dx = self.retrieve('outs')
     
     def plot_depths(self,
                     # data control

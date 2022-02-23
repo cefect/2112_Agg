@@ -49,7 +49,7 @@ matplotlib.rcParams['legend.title_fontsize'] = 'large'
 print('loaded matplotlib %s'%matplotlib.__version__)
 
 
-from .scripts import ModelAnalysis
+from scripts import ModelAnalysis
 
 
 def run( #run a basic model configuration
@@ -62,17 +62,29 @@ def run( #run a basic model configuration
         #=======================================================================
         # #data
         #=======================================================================
- 
+        modelID_l=[],
  
         #=======================================================================
         # plot control
         #=======================================================================
         transparent=False,
         
+        #=======================================================================
+        # debugging
+        #=======================================================================
+        debug_len=None,
+        
         **kwargs):
     
     with ModelAnalysis(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
+                       bk_lib = {
+                           'outs':dict(modelID_l=modelID_l, debug_len=debug_len)
+                           
+                           },
                  **kwargs) as ses:
+        
+        ses.plot_totals()
+ 
         
  
  
@@ -119,7 +131,11 @@ def run( #run a basic model configuration
     return out_dir
 
 def dev():
-    return run()
+    return run(
+        catalog_fp=r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\lib\model_run_index.csv',
+        modelID_l = [0,1], debug_len=None,
+        
+        )
 
 if __name__ == "__main__": 
     

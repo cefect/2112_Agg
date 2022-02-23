@@ -7,7 +7,7 @@ Created on Jan. 17, 2022
 import os, sys, datetime, gc, copy
 
 
-import os, datetime, math, pickle, copy
+import os, datetime, math, pickle, copy, shutil
 import pandas as pd
 import numpy as np
 
@@ -742,11 +742,9 @@ class Vfunc(object):
             
 class Catalog(object): #handling the simulation index and library
     df=None
- 
+    idn = 'modelID'
     
-    keys = ['modelID', 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins',
-             'out_dir', 'tloss_count', 'tloss_min', 'tloss_mean', 'tloss_max', 'tloss_sum', 
-             'pick_keys', 'iters']
+
     
     def __init__(self, 
                  catalog_fp='fp', 
@@ -763,13 +761,54 @@ class Catalog(object): #handling the simulation index and library
         if logger is None:
             import logging
             logger = logging.getLogger()
-            
+        
+        #=======================================================================
+        # attachments
+        #=======================================================================
         self.logger = logger.getChild('cat')
         self.overwrite=overwrite
         self.catalog_fp = catalog_fp
         
+        self.keys = [self.idn, 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins',
+             'out_dir', 'tloss_count', 'tloss_min', 'tloss_mean', 'tloss_max', 'tloss_sum', 
+             'pick_keys', 'iters']
+        
     def clean(self):
         raise Error('check consitency between index and library contents')
+    
+    def check(self):
+        #=======================================================================
+        # defai;lts
+        #=======================================================================
+        log = self.logger.getChild('check')
+        df = self.df.copy()
+        log.debug('on %s'%str(df.shape))
+        #check columns
+        miss_l = set(df.columns).symmetric_difference(self.keys)
+        assert len(miss_l)==0, miss_l
+        
+        #check index
+        assert df[self.idn].is_unique
+        assert 'int' in df[self.idn].dtype.name
+        
+        #check filepaths
+        errs_d = dict()
+        for coln in ['pick_fp', 'vlay_dir']:
+            assert df[coln].is_unique
+            
+            for id, path in df[coln].items():
+                if not os.path.exists(path):
+                    errs_d['%s_%i'%(coln, id)] = path
+                    
+        if len(errs_d)>0:
+            raise Error('got %i/%i bad filepaths')
+ 
+ 
+        
+    
+    def get(self):
+        self.check()
+        return self.df.set_index(self.idn).copy()
  
     def remove_model(self,
                         modelID,
@@ -785,9 +824,10 @@ class Catalog(object): #handling the simulation index and library
         if logger is None: logger=self.logger
         log=logger.getChild('remove_model')
         if overwrite is None: overwrite=self.overwrite
+        idn = self.idn
         
         
-        bx = df['modelID']==modelID
+        bx = df[idn]==modelID
         if bx.any():
             log.warning('found %i/%i entries with matching modelID=%s'%(bx.sum(), len(bx), modelID))
             assert overwrite

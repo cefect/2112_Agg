@@ -193,16 +193,11 @@ def run( #run a basic model configuration
 def dev():
     
     return run(
-        tag='dev',
+        tag='dev',modelID = 1,
         compiled_fp_d = {
- 
-    'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_agg_d\finv_agg_d_hyd2_dev_0223.pickle',
+     'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_agg_d\finv_agg_d_hyd2_dev_0223.pickle',
     'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_agg_mindex_hyd2_dev_0223.pickle',
-    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\tvals_hyd2_dev_0223.pickle',
-    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_sg_d\finv_sg_d_hyd2_dev_0223.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\rsamps_hyd2_dev_0223.pickle',
-    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\rloss_hyd2_dev_0223.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\tloss_hyd2_dev_0223.pickle',
+ 
             },
         
         proj_lib =     {
@@ -229,12 +224,15 @@ def dev():
                       },
                     }, 
             },
-        iters=3,
-        #aggType = 'none', aggLevel = None,
-        aggType = 'none', aggLevel = None,
-        tval_type = 'rand', #see build_tvals()
-        
-        samp_method = 'zonal', sgType='poly', zonal_stat='Mean',
+        iters=10,
+        aggType='gridded', aggLevel=50,
+        #=======================================================================
+        # #aggType = 'none', aggLevel = None,
+        # aggType = 'none', aggLevel = None,
+        # tval_type = 'rand', #see build_tvals()
+        # 
+        # samp_method = 'zonal', sgType='poly', zonal_stat='Mean',
+        #=======================================================================
         trim=True,
         overwrite=True,
  
@@ -242,22 +240,22 @@ def dev():
     
 def r2_base():
     return run(
-        tag='r2_base',
- 
+        tag='r2_base',  modelID = 0,
+       
         compiled_fp_d = {
                 'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_agg_d\finv_agg_d_hyd2_r2_base_0223.pickle',
                 'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_agg_mindex_hyd2_r2_base_0223.pickle',
-                'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\tvals_hyd2_r2_base_0223.pickle',
+                #'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\tvals_hyd2_r2_base_0223.pickle',
                 'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_sg_d\finv_sg_d_hyd2_r2_base_0223.pickle',
                 'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\rsamps_hyd2_r2_base_0223.pickle',
                 'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\rloss_hyd2_r2_base_0223.pickle',
-                'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\tloss_hyd2_r2_base_0223.pickle',
+                #'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\tloss_hyd2_r2_base_0223.pickle',
             }
         )
     
 def r2_p01():
     return run(
-        tag='r2_p01',
+        tag='r2_p01', modelID=1,
         aggType='gridded', aggLevel=200,
         
         compiled_fp_d = {
@@ -276,8 +274,8 @@ def r2_p01():
 if __name__ == "__main__": 
     
     #output=dev()
-    #output=r2_base()
-    output=r2_p01()
+    output=r2_base()
+    #output=r2_p01()
         
         
  

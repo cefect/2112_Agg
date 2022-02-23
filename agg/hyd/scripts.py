@@ -397,6 +397,9 @@ class Model(agSession):  # single model run
                     dkey=None,
                     prec=2,
                     tval_type='uniform',  # type for total values
+                    normed=True, #normalize per-studArea
+                    norm_scale=1e2, #norm scalar
+                        #for very big study areas we scale things up to avoid dangerously low values
                     finv_agg_d=None,
                     mindex=None,write=None,
                     **kwargs):
@@ -432,6 +435,23 @@ class Model(agSession):  # single model run
         finv_true_serx = pd.Series(vals, index=mindex, name=scale_cn)
  
         self.check_mindex(finv_true_serx.index)
+        
+        #=======================================================================
+        # normalize
+        #=======================================================================
+        if normed:
+            log.debug('on %i'%len(finv_true_serx))
+            
+            l = list()
+            for studyArea, gserx in finv_true_serx.groupby(level='studyArea'):
+                l.append(gserx.multiply(norm_scale).divide(gserx.sum()))
+                
+            serx = pd.concat(l)
+            
+            assert (serx.groupby(level='studyArea').sum().round(self.prec)==norm_scale).all()
+                
+            finv_true_serx = serx
+
         
         #=======================================================================
         # aggregate trues
@@ -1580,11 +1600,13 @@ class ModelStoch(Model):
  
         assert os.path.exists(lib_dir), lib_dir
         if modelID is None: modelID=self.modelID
+        
+        modTag = '%03i_%s'%(modelID, self.longname)
         #=======================================================================
         # setup filepaths4
         #=======================================================================
         catalog_fp = os.path.join(lib_dir, 'model_run_index.csv')
-        vlay_dir = os.path.join(lib_dir, 'vlays', self.longname)
+        vlay_dir = os.path.join(lib_dir, 'vlays', modTag)
         
         #clear any existing library methods
         """needs to be before all the writes"""
@@ -1607,8 +1629,9 @@ class ModelStoch(Model):
         #=======================================================================
         # write to csv
         #=======================================================================
+        """not part of the library
         out_fp = os.path.join(self.out_dir, '%s_tloss.csv'%self.longname)
-        tl_dx.to_csv(out_fp)
+        tl_dx.to_csv(out_fp)"""
 
         
         #=======================================================================
@@ -1637,7 +1660,7 @@ class ModelStoch(Model):
         #=======================================================================
         # add to library
         #=======================================================================
-        out_fp = os.path.join(lib_dir, '%s.pickle'%self.longname)
+        out_fp = os.path.join(lib_dir, '%s.pickle'%modTag)
         
         meta_d = {**meta_d, **{'pick_fp':out_fp, 'vlay_dir':vlay_dir}}
         
@@ -1656,8 +1679,6 @@ class ModelStoch(Model):
         cat_d['pick_keys'] = str(list(d.keys()))
         
         with Catalog(catalog_fp) as wrkr:
-            if os.path.exists(catalog_fp):
-                wrkr.remove_model(modelID)
             wrkr.add_entry(cat_d)
         
             
