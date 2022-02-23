@@ -25,15 +25,7 @@ def modelstoch(tmp_path,
             base_dir, write,logger, feedback,#see conftest.py (scope=session)
             iters=5,
             proj_lib =     {
-                    #===========================================================
-                    # 'point':{
-                    #       'EPSG': 2955, 
-                    #      'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0218.geojson', 
-                    #      'dem': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
-                    #      'wd_dir': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd',
-                    #      #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
-                    #         }, 
-                    #===========================================================
+ 
                     'testSet1':{
                           'EPSG': 2955, 
                          'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 

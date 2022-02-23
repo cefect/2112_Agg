@@ -11,6 +11,13 @@ import pytest
 # fixture-----
 #===============================================================================
 @pytest.fixture(scope='session')
+def write():
+    write=False
+    if write:
+        print('WARNING!!! runnig in write mode')
+    return write
+
+@pytest.fixture(scope='session')
 def logger():
     os.chdir(r'C:\LS\10_OUT\2112_Agg\outs\tests') #set this to the working directory
     print('working directory set to \"%s\''%os.getcwd())
@@ -26,12 +33,7 @@ def feedback(logger):
     
  
     
-@pytest.fixture(scope='session')
-def write():
-    write=False
-    if write:
-        print('WARNING!!! runnig in write mode')
-    return write
+
 
 
 @pytest.fixture(scope='session')

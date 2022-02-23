@@ -152,7 +152,8 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, base_dir, write):
                 
         elif dkey=='finv_agg_mindex':
             assert_frame_equal(test.to_frame(), true.to_frame())
- 
+
+@pytest.mark.dev
 @pytest.mark.parametrize('tval_type',['rand'], indirect=False)
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write):
@@ -285,7 +286,7 @@ def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, **k
     #===========================================================================
     assert_series_equal(rsamps_serx, true)
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
 @pytest.mark.parametrize('vid', [49, 798,811, 0])
