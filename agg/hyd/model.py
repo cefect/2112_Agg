@@ -58,7 +58,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #generic
         #=======================================================================
-        tag='r2',
+        tag='r2_base',
         name='hyd2',
         overwrite=True,
         trim=False,
@@ -123,7 +123,7 @@ def run( #run a basic model configuration
         # #parameters
         #=======================================================================
         #stochasticity
-        iters=10,
+        iters=50,
         
         
         #aggregation
@@ -133,11 +133,12 @@ def run( #run a basic model configuration
         tval_type = 'rand',
         
         #sampling (geo). see Model.build_sampGeo()
-        sgType = 'centroids',
+        sgType = 'poly', 
         
         #sampling (method). see Model.build_rsamps()
-        severity = 'low', #hazard raster selection        
-        samp_method = 'points', zonal_stat='Mean',  # stats to use for zonal. 2=mean
+        samp_method = 'zonal', zonal_stat='Mean',  # stats to use for zonal. 2=mean
+        severity = 'hi', #hazard raster selection        
+        
         
         #vfunc selection
         vid = 798, 
@@ -194,14 +195,14 @@ def dev():
     return run(
         tag='dev',
         compiled_fp_d = {
-    'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\finv_agg_d\finv_agg_d_hyd2_dev_0222.pickle',
-    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\finv_agg_mindex_hyd2_dev_0222.pickle',
-    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\tvals_hyd2_dev_0222.pickle',
-    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\finv_sg_d\finv_sg_d_hyd2_dev_0222.pickle',
-    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\rsamps_hyd2_dev_0222.pickle',
-    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\rloss_hyd2_dev_0222.pickle',
-    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220222\working\tloss_hyd2_dev_0222.pickle',
-
+ 
+    'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_agg_d\finv_agg_d_hyd2_dev_0223.pickle',
+    'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_agg_mindex_hyd2_dev_0223.pickle',
+    'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\tvals_hyd2_dev_0223.pickle',
+    'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\finv_sg_d\finv_sg_d_hyd2_dev_0223.pickle',
+    'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\rsamps_hyd2_dev_0223.pickle',
+    'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\rloss_hyd2_dev_0223.pickle',
+    'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\working\tloss_hyd2_dev_0223.pickle',
             },
         
         proj_lib =     {
@@ -239,30 +240,33 @@ def dev():
  
         )
     
-def r2():
+def r2_base():
     return run(
-        iters=10,
-        tval_type='rand',
-        severity='hi',
-        aggType='none', aggLevel=None,
-        sgType='poly', samp_method='zonal', zonal_stat='Mean',
-        vid=798,
-        
+        tag='r2_base',
+ 
         compiled_fp_d = {
-                'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\finv_agg_d\finv_agg_d_hyd2_r2_0222.pickle',
-                'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\finv_agg_mindex_hyd2_r2_0222.pickle',
-                #'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\tvals_hyd2_r2_0222.pickle',
-                'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\finv_sg_d\finv_sg_d_hyd2_r2_0222.pickle',
-                'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\rsamps_hyd2_r2_0222.pickle',
-                'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\rloss_hyd2_r2_0222.pickle',
-                'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2\20220222\working\tloss_hyd2_r2_0222.pickle',
+                'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_agg_d\finv_agg_d_hyd2_r2_base_0223.pickle',
+                'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_agg_mindex_hyd2_r2_base_0223.pickle',
+                'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\tvals_hyd2_r2_base_0223.pickle',
+                'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\finv_sg_d\finv_sg_d_hyd2_r2_base_0223.pickle',
+                'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\rsamps_hyd2_r2_base_0223.pickle',
+                'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\rloss_hyd2_r2_base_0223.pickle',
+                'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2\r2_base\20220223\working\tloss_hyd2_r2_base_0223.pickle',
             }
+        )
+    
+def r2_p01():
+    return run(
+        tag='r2_p01',
+        aggType='gridded', aggLevel=200,
         )
         
 
 if __name__ == "__main__": 
     
-    output=dev()
+    #output=dev()
+    #output=r2_base()
+    output=r2_p01()
         
         
  

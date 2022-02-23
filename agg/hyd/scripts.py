@@ -205,7 +205,7 @@ class Catalog(object): #handling the simulation index and library
                 #===============================================================
  
                 df.to_csv(self.catalog_fp, mode='w', header = True, index=False)
-                self.logger.info('wrote %s to %s'%(str(df.shape, self.catalog_fp)))
+                self.logger.info('wrote %s to %s'%(str(df.shape), self.catalog_fp))
 
 class Model(agSession):  # single model run
     """
@@ -328,6 +328,7 @@ class Model(agSession):  # single model run
         if out_fp is None: out_fp = os.path.join(self.out_dir, 'summary_%s.xls'%self.longname)
         
         smry_lib = dict()
+        log.info('preparing summary on %i dkeys: %s'%(len(dkey_l), dkey_l))
         #=======================================================================
         # retrieve
         #=======================================================================
@@ -369,11 +370,15 @@ class Model(agSession):  # single model run
         d = dict()
  
         for dkey in dkey_l:
+            
             data = self.retrieve(dkey) #best to call this before finv_agg_mindex
+            log.info('collecting stats on \'%s\' w/ %i'%(dkey, len(data)))
             if isinstance(data, pd.DataFrame):
                 serx = data.iloc[:, -1] #last one is usually total loss
             else:
                 serx=data
+                
+                
             res_meta_d = dict()
             
             for stat in ['count', 'min', 'mean', 'max', 'sum']:
@@ -398,6 +403,7 @@ class Model(agSession):  # single model run
         #write a dictionary of dfs
         with pd.ExcelWriter(out_fp) as writer:
             for tabnm, df in smry_lib.items():
+                if len(df)>10000:continue
                 df.to_excel(writer, sheet_name=tabnm, index=True, header=True)
                 
         log.info('wrote %i tabs to %s'%(len(smry_lib), out_fp))
@@ -1311,11 +1317,19 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
     def get_clean_rasterName(self, raster_fn,
                              conv_lib={
                                 'LMFRA':{
-                                    'AG4_Fr_0050_dep_0116_cmp.tif':'0050yr',
-                                    'AG4_Fr_0100_dep_0116_cmp.tif':'0100yr',
-                                    'AG4_Fr_0500_dep_0116_cmp.tif':'0500yr',
-                                    'AG4_Fr_1000_dep_0116_cmp.tif':'1000yr',
+                                    'AG4_Fr_0050_dep_0116_cmp.tif':'LMFRA_0050yr',
+                                    'AG4_Fr_0100_dep_0116_cmp.tif':'LMFRA_0100yr',
+                                    'AG4_Fr_0500_dep_0116_cmp.tif':'LMFRA_0500yr',
+                                    'AG4_Fr_1000_dep_0116_cmp.tif':'LMFRA_1000yr',
                                         },
+                                'obwb':{
+                                    'depth_sB_0500_1218.tif':'obwb_0500yr',
+                                    'depth_sB_0100_1218.tif':'obwb_0100yr',
+                                    },
+                                'Calgary':{
+                                    'IBI_2017CoC_s0_0500_170729_dep_0116.tif':'Calgary_0500yr',
+                                    'IBI_2017CoC_s0_0100_170729_dep_0116.tif':'Calgary_0100yr',
+                                    },
     
                                         }   
                              ):
@@ -1706,10 +1720,14 @@ class ModelStoch(Model):
         #=======================================================================
         # setup filepaths4
         #=======================================================================
-        catalog_fp = os.path.join(lib_dir, 'index.csv')
+        catalog_fp = os.path.join(lib_dir, 'model_run_index.csv')
         vlay_dir = os.path.join(lib_dir, 'vlays', self.longname)
         
- 
+        #clear any existing library methods
+        """needs to be before all the writes"""
+        if os.path.exists(catalog_fp):
+            with Catalog(catalog_fp) as wrkr:
+                wrkr.remove_model(modelID)
                 
         #=======================================================================
         # retrieve
@@ -1779,10 +1797,10 @@ class ModelStoch(Model):
                 wrkr.remove_model(modelID)
             wrkr.add_entry(cat_d)
         
-
+            
         
         #=======================================================================
-        # write sumary frame
+        # write 
         #=======================================================================
  
         
