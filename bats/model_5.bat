@@ -1,6 +1,6 @@
 REM paramters
-SET modelID=4
-SET tag=g100_meanKids
+SET modelID=5
+SET tag=g200_meanKids
 @echo off
 REM setup pyqgis
 call C:\LS\06_SOFT\OSGeo4w\3.9.5\pyqgis_39LTR_setup.bat

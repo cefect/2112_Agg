@@ -76,7 +76,7 @@ class Model(agSession):  # single model run
         'tval_type':{'vals':['uniform', 'rand'],                    'dkey':'tvals'},
         'severity':{'vals':['hi', 'lo'],                            'dkey':'rsamps'},
         'aggType':{'vals':['none', 'gridded'],                      'dkey':'finv_agg_d'},
-        'aggLevel':{'vals':[None, 50, 100, 200],                    'dkey':'finv_agg_d'},
+        'aggLevel':{'vals':[np.nan, 50, 100, 200],                    'dkey':'finv_agg_d'},
         'sgType':{'vals':['point', 'poly'],                         'dkey':'finv_sg_d'},
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum'],       'dkey':'rsamps'},
@@ -524,6 +524,7 @@ class Model(agSession):  # single model run
                      finv_sg_d=None,
                      write=True,
                      mindex=None, #special catch for test consitency
+                     zonal_stat=None, 
                      idfn=None,
                      prec=None,
                      **kwargs):
@@ -554,7 +555,8 @@ class Model(agSession):  # single model run
             
             #execute
             res_d = self.sa_get(meth='get_rsamps', logger=log, dkey=dkey, write=False,
-                                finv_sg_d=finv_sg_d, idfn=idfn, samp_method=samp_method, **kwargs)
+                                finv_sg_d=finv_sg_d, idfn=idfn, samp_method=samp_method,
+                                zonal_stat=zonal_stat, **kwargs)
             
             #post
             dxind1 = pd.concat(res_d, verify_integrity=True)
@@ -925,12 +927,13 @@ class Model(agSession):  # single model run
  
                        mindex=None,
                        
+                       
                        #true controls
                        samp_methodTrue = 'points',
                        finv_sg_true_d=None,
-                       sampGeoTrueKwargs = {},
-                           logger=None,
-                           ):
+ 
+                       logger=None,
+                       **kwargs):
         
         #=======================================================================
         # defaults
@@ -958,7 +961,7 @@ class Model(agSession):  # single model run
             finv_agg_true_d = self.sa_get(meth='get_finv_clean', write=False, dkey=dkey, get_lookup=False)
             
             #load the sampling geomtry (default is centroids)
-            finv_sg_true_d = self.build_sampGeo(finv_agg_d = finv_agg_true_d,write=False, **sampGeoTrueKwargs)
+            finv_sg_true_d = self.build_sampGeo(finv_agg_d = finv_agg_true_d,write=False)
         
 
         #=======================================================================
@@ -967,7 +970,7 @@ class Model(agSession):  # single model run
  
         true_serx = self.build_rsamps(dkey='rsamps', finv_sg_d = finv_sg_true_d, 
                                       write=False, samp_method=samp_methodTrue, 
-                                      idfn='id')        
+                                      idfn='id', **kwargs)        
         
         true_serx.index.set_names('id', level=2, inplace=True)
         #=======================================================================

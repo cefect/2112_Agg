@@ -35,7 +35,7 @@ print('start at %s' % start)
 #===============================================================================
 # custom imports--------
 #===============================================================================
-from agg.hyd.scripts import Model, ModelStoch, get_all_pars, view
+from agg.hyd.scripts import Model, ModelStoch, get_all_pars, view, Error
 
 #===========================================================================
 # #presets
@@ -49,8 +49,8 @@ model_pars_d = {
    3:[100, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
    
    #grid only
-   4:[100, 'true_mean','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
-   5:[200, 'true_mean','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
+   4:[100, 'gridded','poly', 'true_mean', 'hi', 'Mean', 'rand', 798],
+   5:[200, 'gridded','poly', 'true_mean', 'hi', 'Mean', 'rand', 798],
    
    
 }
@@ -63,8 +63,8 @@ model_pars_d = {
 #===============================================================================
 def get_pars(modelID,
              ):
-    
-    pars_df = get_all_pars().droplevel(0, axis=1)
+    #all possible pars
+    pars_lib = copy.deepcopy(Model.pars_lib)
     """
     pars_df.droplevel(0, axis=1)['aggLevel'].unique()
     view(pars_df)
@@ -81,14 +81,25 @@ def get_pars(modelID,
     pre_df = pd.DataFrame.from_dict(model_pars_d, columns=columns, orient='index')
     
     
-    for id in pre_df.index:
+    for id, row in pre_df.iterrows():
         """replacing nulls so these are matched'"""
-        bx = pars_df.fillna('nan').eq(pre_df.fillna('nan').loc[id, :])
+        #bx = pars_df.fillna('nan').eq(pre_df.fillna('nan').loc[id, :])
     
         """
         view(pars_df.join(bx.sum(axis=1).rename('match_cnt')).sort_values('match_cnt', ascending=False))
         """
-        assert bx.all(axis=1).sum()==1, 'failed to find a matching parameter sequence on modelID=%i'%id
+        
+        #check each parameter value
+        for varnm, val in row.items():
+            if pd.isnull(val):continue #check not working on this one
+            allowed_l = pars_lib[varnm]['vals']
+            
+            if not val in allowed_l:
+                raise Error(' modelID=%i \'%s\'=\'%s\' not in allowed set\n    %s'%(
+                id, varnm, val, allowed_l))
+            
+        
+ 
     
     #===========================================================================
     # get kwargs
@@ -347,8 +358,9 @@ if __name__ == "__main__":
     #output=r2_g200()
     #output=run_autoPars(tag='g50', modelID=2)
     #output=run_autoPars(tag='g100', modelID=3)
+    output=run_autoPars(tag='g100_true', modelID=4, trim=True)
     #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
-    print(sys.argv)
+    
  
         
  
