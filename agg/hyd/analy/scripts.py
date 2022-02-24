@@ -785,6 +785,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     #errorbars
                     qhi=0.99, qlo=0.01,
                     
+                    #labelling
+                    add_label=True,
+ 
+                    
                     #plot style
                     colorMap=None,
                     #ylabel=None,
@@ -876,7 +880,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 
  
                 #===============================================================
-                # #plot bars------
+                #plot bars------
                 #===============================================================
                 #===============================================================
                 # data setup
@@ -913,7 +917,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     )
                 
                 #===============================================================
-                # add error bars
+                # add error bars--------
                 #===============================================================
                 if len(gdx2.columns.get_level_values(1))>1:
                     
@@ -933,6 +937,38 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     """
                     plt.show()
                     """
+                    
+                #===============================================================
+                # add labels--------
+                #===============================================================
+                if add_label:
+                    log.debug(keys_d)
+ 
+                    
+                    #===========================================================
+                    # #calc errors
+                    #===========================================================
+                    d = {'pred':tlsum_ser}
+                    # get trues
+                    d['true'] = gser1r.loc[idx[0, keys_d['studyArea'],:,:, keys_d['vid']]].groupby('event').sum()
+                    
+                    d['delta'] = (tlsum_ser - d['true']).round(3)
+                    
+                    # collect
+                    tl_df = pd.concat(d, axis=1)
+                    
+                    tl_df['relErr'] = (tl_df['delta'] / tl_df['true'])
+                
+                    tl_df['xloc'] = xlocs
+                    #===========================================================
+                    # add as labels
+                    #===========================================================
+                    for event, row in tl_df.iterrows():
+                        ax.text(row['xloc'], row['pred'] * 1.01, '%+.1f' % (row['relErr'] * 100),
+                                ha='center', va='bottom', rotation='vertical',
+                                fontsize=10, color='red')
+                        
+                    log.debug('added error labels \n%s' % tl_df)
                 #===============================================================
                 # #wrap format subplot
                 #===============================================================
