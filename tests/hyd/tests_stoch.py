@@ -13,7 +13,7 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 idx = pd.IndexSlice
 
 import numpy as np
-np.random.seed(100)
+
 from numpy.testing import assert_equal
 
 from agg.hyd.scripts import ModelStoch
@@ -56,6 +56,7 @@ def modelstoch(tmp_path,
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('normed', [True, False])
 def testS_tvals(modelstoch,tval_type, finv_agg_fn, true_dir, base_dir, write, normed):
+    np.random.seed(100)
     #===========================================================================
     # load inputs   
     #===========================================================================
