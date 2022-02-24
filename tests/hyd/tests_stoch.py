@@ -38,6 +38,9 @@ def modelstoch(tmp_path,
     """
     TODO: get module scoped logger
     """
+    #set the seed
+    """need to do this for each stochastic runs to get consistent results when combining with other modules"""
+    np.random.seed(100)
     
     #get working directory
     wrk_dir = None
@@ -56,7 +59,7 @@ def modelstoch(tmp_path,
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('normed', [True, False])
 def testS_tvals(modelstoch,tval_type, finv_agg_fn, true_dir, base_dir, write, normed):
-    np.random.seed(100)
+    
     #===========================================================================
     # load inputs   
     #===========================================================================

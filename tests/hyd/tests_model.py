@@ -68,9 +68,8 @@ def session(tmp_path,
                             }, 
                         },
                     ):
-    """
-    TODO: get module scoped logger
-    """
+ 
+    np.random.seed(100)
     
     #get working directory
     wrk_dir = None
