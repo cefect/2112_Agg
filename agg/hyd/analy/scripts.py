@@ -772,7 +772,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     def plot_total_bars(self, #generic total bar charts
                         
                     #data
-                    dkey_l = ['rsamps','tloss'],
+                    dkey_d = {'rsamps':'mean','tvals':'var','tloss':'sum'}, #{dkey:groupby operation}
                     dx_raw=None,
                     modelID_l = None, #optinal sorting list
                     
@@ -781,6 +781,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     plot_coln='event',
                     plot_colr='modelID',
                     plot_bgrp='modelID',
+                    
+                    #errorbars
+                    qhi=0.99, qlo=0.01,
                     
                     #plot style
                     colorMap=None,
@@ -812,7 +815,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         # data prep
         #=======================================================================
         #collapse columns
-        dx = dx_raw.loc[:, idx[dkey_l, :]]
+        dx = dx_raw.loc[:, idx[dkey_d.keys(), :]]
         mdex = dx.index
         """no... want to report stats per dkey group
         #move dkeys to index for consistency
@@ -837,7 +840,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         """
  
         fig, ax_d = self.get_matrix_fig(
-                                    dkey_l,  
+                                    list(dkey_d.keys()),  
                                     mdex.unique(plot_coln).tolist(),  # col keys
                                     figsize_scaler=4,
                                     constrained_layout=True,
@@ -865,34 +868,39 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # data prep
                 #===============================================================
-                gb = gdx2.groupby(plot_bgrp).sum().loc[modelID_l, :] #collapse assets, sort
+                f = getattr(gdx2.groupby(plot_bgrp), dkey_d[keys_d['dkey']])
                 
-                gb = gb.groupby(level=0, axis=1)   #collapse iters (gb object)
+                gdx3 = f().loc[modelID_l, :] #collapse assets, sort
+                
+                gb = gdx3.groupby(level=0, axis=1)   #collapse iters (gb object)
                 
  
                 #===============================================================
                 # #plot bars------
                 #===============================================================
-                
-                tlsum_ser = gb.mean()
-                ylocs = tlsum_ser.T.values[0]
+                #===============================================================
+                # data setup
+                #===============================================================
+ 
+                barHeight_ser = gb.mean() #collapse iters(
+                ylocs = barHeight_ser.T.values[0]
                 
                 #===============================================================
                 # #formatters.
                 #===============================================================
  
                 # labels
-                tick_label = [mid_tag_d[mid] for mid in tlsum_ser.index] #label by tag
-                #tick_label = ['m%i' % i for i in range(0, len(tlsum_ser))]
+                tick_label = [mid_tag_d[mid] for mid in barHeight_ser.index] #label by tag
+                #tick_label = ['m%i' % i for i in range(0, len(barHeight_ser))]
   
                 # widths
-                bar_cnt = len(tlsum_ser)
+                bar_cnt = len(barHeight_ser)
                 width = 0.9 / float(bar_cnt)
                 
                 #===============================================================
                 # #add bars
                 #===============================================================
-                xlocs = np.linspace(0, 1, num=len(tlsum_ser))# + width * i
+                xlocs = np.linspace(0, 1, num=len(barHeight_ser))# + width * i
                 bars = ax.bar(
                     xlocs,  # xlocation of bars
                     ylocs,  # heights
@@ -910,11 +918,11 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 if len(gdx2.columns.get_level_values(1))>1:
                     
                     #get error values
-                    err_df = pd.concat({'hi':gb.quantile(q=0.95),'low':gb.quantile(q=0.05)}, axis=1).droplevel(axis=1, level=1)
+                    err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
                     
                     #convert to deltas
-                    assert np.array_equal(err_df.index, tlsum_ser.index)
-                    errH_df = err_df.subtract(tlsum_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
+                    assert np.array_equal(err_df.index, barHeight_ser.index)
+                    errH_df = err_df.subtract(barHeight_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
                     
                     #add the error bars
                     ax.errorbar(xlocs, ylocs,
@@ -942,7 +950,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                         
                 # first col
                 if col_key == mdex.unique(plot_coln)[0]:
-                    ylabel = '%s sum'%row_key
+                    ylabel = '%s (%s)'%(row_key,  dkey_d[keys_d['dkey']])
                     ax.set_ylabel(ylabel)
                     
         
