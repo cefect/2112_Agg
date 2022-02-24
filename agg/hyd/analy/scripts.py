@@ -774,6 +774,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     #data
                     dkey_l = ['rsamps','tloss'],
                     dx_raw=None,
+                    modelID_l = None, #optinal sorting list
                     
                     #plot config
                     plot_rown='dkey',
@@ -818,9 +819,13 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         dx.stack(level=0)"""
         
         #get label dict
-        mid_tag_d = mdex.to_frame().reset_index(drop=True).loc[:, ['modelID', 'tag']
-                           ].drop_duplicates().set_index('modelID').iloc[:,0].to_dict()
-         
+        lserx =  mdex.to_frame().reset_index(drop=True).loc[:, ['modelID', 'tag']
+                           ].drop_duplicates().set_index('modelID').iloc[:,0]
+        mid_tag_d = {k:'%s (%s)'%(v, k) for k,v in lserx.items()}
+        
+        if modelID_l is None:
+            modelID_l = mdex.unique('modelID').tolist()
+        
         
         #=======================================================================
         # setup the figure
@@ -856,11 +861,20 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             for row_key, gdx2 in gdx1.groupby(level=[plot_rown], axis=1):
                 keys_d[plot_rown] = row_key
                 ax = ax_d[row_key][col_key]
+                
+                #===============================================================
+                # data prep
+                #===============================================================
+                gb = gdx2.groupby(plot_bgrp).sum().loc[modelID_l, :] #collapse assets, sort
+                
+                gb = gb.groupby(level=0, axis=1)   #collapse iters (gb object)
+                
+ 
                 #===============================================================
                 # #plot bars------
                 #===============================================================
-                gb = gdx2.groupby(plot_bgrp).sum().groupby(level=0, axis=1) #collapse assets
-                tlsum_ser = gb.mean() #collapse iters
+                
+                tlsum_ser = gb.mean()
                 ylocs = tlsum_ser.T.values[0]
                 
                 #===============================================================

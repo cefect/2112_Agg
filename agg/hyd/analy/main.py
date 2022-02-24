@@ -90,7 +90,7 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
-        ses.plot_total_bars()
+        ses.plot_total_bars(modelID_l=modelID_l)
  
         
  
@@ -153,17 +153,17 @@ def grid_compare():
     return run(
         tag='grid_compare',
         
-        modelID_l = [0,1, 2],
+        modelID_l = [0,2, 3, 1],
         
         compiled_fp_d = {
-            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220223\working\outs_analy_r2_0223.pickle',
+            #'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\grid_compare\20220224\working\outs_analy_grid_compare_0224.pickle',
             },
         )
 
 if __name__ == "__main__": 
     
     #output=dev()
-    output = r2()
+    output = grid_compare()
         
         
  
