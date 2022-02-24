@@ -67,6 +67,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_outs(**kwargs),
                 },
+            'agg_mindex':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_agg_mindex(**kwargs),
+                }
             }
         
         super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,
@@ -78,13 +82,31 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # DATA ANALYSIS---------
     #===========================================================================
+    
     def build_outs(self, #collecting outputs from multiple model runs
+                    dkey='outs',
+ 
+                     **kwargs):
+        assert dkey=='outs'
+        
+        return self.assemble_model_data(dkey=dkey, **kwargs)
+    
+    def build_agg_mindex(self,
+                         dkey='agg_mindex',
+                         **kwargs):
+        assert dkey=='agg_mindex'
+        
+        return self.assemble_model_data(dkey=dkey, **kwargs)
+        
+    
+    
+    def assemble_model_data(self, #collecting outputs from multiple model runs
                    modelID_l=[], #set of modelID's to include
                    dkey='outs',
                      catalog_fp=None,
                      load_dkey = 'tloss',
                      write=None,
-                     debug_len=None,
+ 
                      ):
         """
         just collecting into a dx for now... now meta
@@ -92,7 +114,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_outs')
+        log = self.logger.getChild('build_%s'%dkey)
         if catalog_fp is None: catalog_fp=self.catalog_fp
         if write is None: write=self.write
         idn = Catalog.idn
@@ -128,9 +150,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         # combine
         #=======================================================================
         dx = pd.concat(data_d).sort_index(level=0)
-        if not debug_len is None:
-            """this probably wont work for testing some functions"""
-            dx = dx.sample(debug_len)
+ 
             
         dx.index.set_names(idn, level=0, inplace=True)
         
@@ -152,6 +172,23 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                                    logger=log)
         gc.collect()
         return dx
+    
+    def build_deltas(self,
+                     baseID=0, #modelID to consider 'true'
+                     dkey='deltas',
+                     dx_raw=None,
+                     ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_deltas')
+        assert dkey == 'deltas'
+        
+        if dx_raw is None: dx_raw = self.retrieve('outs')
+        dx_agg_mindex = self.retrieve('agg_mindex')
+        
+        raise Error('stopped here')
+ 
                 
  
         
@@ -800,6 +837,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         mdex = dx.index
         log.info('on %s'%str(dx.shape))
         
+        tag = dx_raw.loc[idx[modelID, :, :, :, :], :].index.remove_unused_levels().unique('tag')[0]
         #=======================================================================
         # setup the figure
         #=======================================================================
@@ -814,7 +852,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
-        #fig.suptitle('%s total on %i studyAreas (%s)' % (lossType.upper(), len(mdex.unique('studyArea')), self.tag))
+        fig.suptitle('Model Summary for \'%s\''%(tag))
         
         # get colors
         #cvals = dx_raw.index.unique(plot_colr)

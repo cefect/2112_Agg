@@ -90,10 +90,14 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
-        for mid in modelID_l:
-            pass
-            #ses.plot_model_smry(mid)
-        ses.plot_total_bars(modelID_l=modelID_l)
+        ses.build_deltas(baseID=0)
+        
+        #=======================================================================
+        # for mid in modelID_l:
+        #     pass
+        #     ses.plot_model_smry(mid)
+        # ses.plot_total_bars(modelID_l=modelID_l)
+        #=======================================================================
  
         
  
@@ -161,7 +165,7 @@ def grid_jensen():
                      3, 1],
         
         compiled_fp_d = {
-            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\grid_compare\20220224\working\outs_analy_grid_compare_0224.pickle',
+            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\grid_jensen\20220224\working\outs_analy_grid_jensen_0224.pickle',
             },
         )
     
