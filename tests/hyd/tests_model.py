@@ -16,7 +16,7 @@ import pytest
  
 
 import pandas as pd
-from pandas.testing import assert_frame_equal, assert_series_equal
+from pandas.testing import assert_frame_equal, assert_series_equal, assert_index_equal
 idx = pd.IndexSlice
 
 import numpy as np
@@ -163,6 +163,8 @@ def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write, normed
     #===========================================================================
     # load inputs   
     #===========================================================================
+ 
+    
     finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
     
     #===========================================================================
@@ -172,6 +174,8 @@ def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write, normed
     finv_agg_serx = session.build_tvals(dkey=dkey, tval_type=tval_type, normed=normed,
                             finv_agg_d=finv_agg_d, mindex =finv_agg_mindex, write=write)
     
+    #data checks
+    assert_index_equal(finv_agg_mindex.droplevel('id').drop_duplicates(), finv_agg_serx.index)
     #===========================================================================
     # retrieve true
     #===========================================================================
