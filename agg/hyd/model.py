@@ -17,7 +17,7 @@ key questions
 #===============================================================================
 # imports-----------
 #===============================================================================
-import os, datetime, math, pickle, copy
+import os, datetime, math, pickle, copy, sys
 import qgis.core
 import pandas as pd
 import numpy as np
@@ -42,10 +42,17 @@ from agg.hyd.scripts import Model, ModelStoch, get_all_pars, view
 #===========================================================================
 columns = ['aggLevel', 'aggType', 'sgType', 'samp_method', 'severity', 'zonal_stat', 'tval_type', 'vid']
 model_pars_d = {
+    #grid + Jensen
    0:[np.nan, 'none','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
    1:[200, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
    2:[50, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
    3:[100, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
+   
+   #grid only
+   4:[100, 'true_mean','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
+   5:[200, 'true_mean','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
+   
+   
 }
 
 
@@ -340,7 +347,8 @@ if __name__ == "__main__":
     #output=r2_g200()
     #output=run_autoPars(tag='g50', modelID=2)
     #output=run_autoPars(tag='g100', modelID=3)
-    output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
+    #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
+    print(sys.argv)
  
         
  

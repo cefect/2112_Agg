@@ -153,7 +153,9 @@ def grid_compare():
     return run(
         tag='grid_compare',
         
-        modelID_l = [0,2, 3, 1],
+        modelID_l = [0,
+                     #2, #50m grid 
+                     3, 1],
         
         compiled_fp_d = {
             'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\grid_compare\20220224\working\outs_analy_grid_compare_0224.pickle',
