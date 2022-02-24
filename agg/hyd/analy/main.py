@@ -90,6 +90,9 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
+        for mid in modelID_l:
+            pass
+            #ses.plot_model_smry(mid)
         ses.plot_total_bars(modelID_l=modelID_l)
  
         
@@ -149,9 +152,9 @@ def dev():
         
         )
     
-def grid_compare():
+def grid_jensen():
     return run(
-        tag='grid_compare',
+        tag='grid_jensen',
         
         modelID_l = [0,
                      #2, #50m grid 
@@ -161,11 +164,23 @@ def grid_compare():
             'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\grid_compare\20220224\working\outs_analy_grid_compare_0224.pickle',
             },
         )
-
+    
+def grid_only():
+    return run(
+        tag='grid_only',
+        
+        modelID_l = [0,
+                     4, 5],
+        
+        compiled_fp_d = {
+            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\grid_only\20220224\working\outs_analy_grid_only_0224.pickle'
+            },
+        )
 if __name__ == "__main__": 
     
     #output=dev()
-    output = grid_compare()
+    #output = grid_only()
+    output=grid_jensen()
         
         
  

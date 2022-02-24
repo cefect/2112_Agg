@@ -769,6 +769,140 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # PLOTTERS-------------
     #===========================================================================
+    def plot_model_smry(self, #plot a summary of data on one model
+                        modelID,
+                        dx_raw=None,
+                        
+                        #plot config
+                        plot_rown='dkey',
+                        plot_coln='event',
+                        #plot_colr = 'event',
+                        xlims_d = {'rsamps':(0,5)}, #specyfing limits per row
+                        
+                        #errorbars
+                        #qhi=0.99, qlo=0.01,
+                        
+                         #plot style
+                         drop_zeros=True,
+                         colorMap=None,
+                        ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_model_smry_%i'%modelID)
+        if dx_raw is None: dx_raw = self.retrieve('outs')
+        if colorMap is None: colorMap=self.colorMap
+        
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        dx = dx_raw.loc[idx[modelID, :, :, :, :], :].droplevel([0,1])
+        mdex = dx.index
+        log.info('on %s'%str(dx.shape))
+        
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = dx.columns.unique(plot_rown).tolist() 
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys,col_keys, 
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey='none', sharex='row',  # everything should b euniform
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+        #fig.suptitle('%s total on %i studyAreas (%s)' % (lossType.upper(), len(mdex.unique('studyArea')), self.tag))
+        
+        # get colors
+        #cvals = dx_raw.index.unique(plot_colr)
+        cvals = ['min', 'mean', 'max']
+        cmap = plt.cm.get_cmap(name=colorMap) 
+        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+        
+        #===================================================================
+        # loop and plot
+        #===================================================================
+        for col_key, gdx1 in dx.groupby(level=[plot_coln]):
+            keys_d = {plot_coln:col_key}
+            
+            for row_key, gdx2 in gdx1.groupby(level=[plot_rown], axis=1):
+                keys_d[plot_rown] = row_key
+                ax = ax_d[row_key][col_key]
+                
+                #===============================================================
+                # prep data
+                #===============================================================
+                gb = gdx2.groupby('dkey', axis=1)
+                
+                d = {k:getattr(gb, k)() for k in cvals}
+                err_df = pd.concat(d, axis=1).droplevel(axis=1, level=1)
+                
+                bx = err_df==0
+                if drop_zeros:                    
+                    err_df = err_df.loc[~bx.all(axis=1), :]
+                    
+                if keys_d['dkey'] in xlims_d:
+                    xlims = xlims_d[keys_d['dkey']]
+                else:
+                    xlims=None
+                #ax.set_xlim(xlims)
+                
+                #===============================================================
+                # loop and plot bounds
+                #===============================================================
+                for boundTag, col in err_df.items():
+                    ax.hist(col.values, 
+                            color=newColor_d[boundTag], alpha=0.3, 
+                            label=boundTag, 
+                            density=False, bins=40, 
+                            range=xlims,
+                            )
+                    
+                    if len(gdx2.columns.get_level_values(1))==1:
+                        break #dont bother plotting bounds
+                    
+                    
+                #===============================================================
+                # #label
+                #===============================================================
+                # get float labels
+                meta_d = {'cnt':len(err_df), 'zero_cnt':bx.all(axis=1).sum(), 'drop_zeros':drop_zeros,
+                          'min':err_df.min().min(), 'max':err_df.max().max()}
+ 
+                ax.text(0.4, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+                    
+                
+                #===============================================================
+                # styling
+                #===============================================================   
+                ax.set_xlabel(row_key)                 
+                # first columns
+                if col_key == col_keys[0]:
+                    """not setting for some reason"""
+                    ax.set_ylabel('count')
+ 
+                # last row
+                if row_key == row_keys[-1]:
+                    ax.legend()
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        
+        return self.output_fig(fig, fname='model_smry_%03d_%s' %(modelID, self.longname))
+        
+ 
+    """
+    plt.show()
+    """
+ 
+ 
+        
+        
     def plot_total_bars(self, #generic total bar charts
                         
                     #data
@@ -786,7 +920,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     qhi=0.99, qlo=0.01,
                     
                     #labelling
-                    add_label=True,
+                    add_label=False,
  
                     
                     #plot style
@@ -832,6 +966,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         if modelID_l is None:
             modelID_l = mdex.unique('modelID').tolist()
+        else:
+            miss_l = set(modelID_l).difference( mdex.unique('modelID'))
+            assert len(miss_l)==0, 'requested %i modelIDs not in teh data \n    %s'%(len(miss_l), miss_l)
         
         
         #=======================================================================
@@ -1233,201 +1370,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         return res_d      
 
-    def plot_tloss_bars(self,  # barchart of total losses
-                    dkey='tloss',  # dxind to plot
-                    lossType='tl',
-                    # plot_fign = 'studyArea',
-                    plot_rown='studyArea',
-                    plot_coln='vid',
-                    plot_colr='grid_size',
-                    plot_bgrp='event',
-                    
-                    # plot style
-                    ylabel=None,
-                    colorMap=None,
-                    yticklabelsF=lambda x, p: "{:,.0f}".format(x),
-                    
-                    ylims_d={'Calgary':8e5, 'LMFRA':4e5, 'SaintJohn':1.5e5, 'dP':0.5e5, 'obwb':6e5},
-                    
-                    add_label=True,
-                   ):
-        """
-        matrix figure
-            figure: studyAreas
-                rows: grid_size
-                columns: events
-                values: total loss sum
-                colors: grid_size
-        
-        """
 
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('plot_tloss')
-        if colorMap is None: colorMap = self.colorMap
-        if ylabel is None: ylabel = '%s sum' % lossType.upper()
-        #=======================================================================
-        # #retrieve child data
-        #=======================================================================
-
-        dx_raw = self.retrieve(dkey)
- 
-        log.info('on \'%s\' w/ %i' % (dkey, len(dx_raw)))
-        
-        #=======================================================================
-        # setup data
-        #=======================================================================
-        """
-        moving everything into an index for easier manipulation
-        """
-        
-        # clip to total loss columns
-        dxind1 = dx_raw.loc[:, idx[lossType,:]].droplevel(0, axis=1)
-        dxind1.columns.name = 'vid'
-
-        # promote column values to index
-        dxser = dxind1.stack().rename(lossType)
- 
-        mdex = dxser.index
-        #=======================================================================
-        # setup the figure
-        #=======================================================================
-        plt.close('all')
-        """
-        plt.show()
-        """
- 
-        fig, ax_d = self.get_matrix_fig(
-                                    mdex.unique(plot_rown).tolist(),  # row keys
-                                    mdex.unique(plot_coln).tolist(),  # col keys
-                                    figsize_scaler=4,
-                                    constrained_layout=True,
-                                    sharey='row', sharex='row',  # everything should b euniform
-                                    fig_id=0,
-                                    set_ax_title=False,
-                                    )
-        fig.suptitle('%s total on %i studyAreas (%s)' % (lossType.upper(), len(mdex.unique('studyArea')), self.tag))
-        
-        # get colors
-        cvals = dxser.index.unique(plot_colr)
-        cmap = plt.cm.get_cmap(name=colorMap) 
-        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
-        
-        #===================================================================
-        # loop and plot
-        #===================================================================
-        for (row_key, col_key), gser1r in dxser.groupby(level=[plot_rown, plot_coln]):
-            keys_d = dict(zip([plot_rown, plot_coln], (row_key, col_key)))
-            
-            # data setup
-            gser1 = gser1r.droplevel([plot_rown, plot_coln])
- 
-            # subplot setup 
-            ax = ax_d[row_key][col_key]
-            
-            #===================================================================
-            # loop on colors
-            #===================================================================
-            for i, (ckey, gser2r) in enumerate(gser1.groupby(level=plot_colr)):
-                keys_d[plot_colr] = ckey
-                # get data
-                gser2 = gser2r.droplevel(plot_colr)
- 
-                tlsum_ser = gser2.groupby(plot_bgrp).sum()
-                
-                #===============================================================
-                # #formatters.
-                #===============================================================
-                # labels
- 
-                tick_label = ['e%i' % i for i in range(0, len(tlsum_ser))]
-  
-                # widths
-                bar_cnt = len(mdex.unique(plot_colr)) * len(tlsum_ser)
-                width = 0.9 / float(bar_cnt)
-                
-                #===============================================================
-                # #add bars
-                #===============================================================
-                xlocs = np.linspace(0, 1, num=len(tlsum_ser)) + width * i
-                bars = ax.bar(
-                    xlocs,  # xlocation of bars
-                    tlsum_ser.values,  # heights
-                    width=width,
-                    align='center',
-                    color=newColor_d[ckey],
-                    label='%s=%s' % (plot_colr, ckey),
-                    alpha=0.5,
-                    tick_label=tick_label,
-                    )
-                
-                #===============================================================
-                # add labels--------
-                #===============================================================
-                if add_label:
-                    log.debug(keys_d)
-                    assert plot_colr == 'grid_size'
-                    if ckey == 0:continue
-                    
-                    #===========================================================
-                    # #calc errors
-                    #===========================================================
-                    d = {'pred':tlsum_ser}
-                    # get trues
-                    d['true'] = gser1r.loc[idx[0, keys_d['studyArea'],:,:, keys_d['vid']]].groupby('event').sum()
-                    
-                    d['delta'] = (tlsum_ser - d['true']).round(3)
-                    
-                    # collect
-                    tl_df = pd.concat(d, axis=1)
-                    
-                    tl_df['relErr'] = (tl_df['delta'] / tl_df['true'])
-                
-                    tl_df['xloc'] = xlocs
-                    #===========================================================
-                    # add as labels
-                    #===========================================================
-                    for event, row in tl_df.iterrows():
-                        ax.text(row['xloc'], row['pred'] * 1.01, '%+.1f' % (row['relErr'] * 100),
-                                ha='center', va='bottom', rotation='vertical',
-                                fontsize=10, color='red')
-                        
-                    log.debug('added error labels \n%s' % tl_df)
-                    
-            #===============================================================
-            # #wrap format subplot
-            #===============================================================
-            """
-            fig.show()
-            """
-            del keys_d[plot_colr]
-            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
-            # first row
-            if row_key == mdex.unique(plot_rown)[0]:
- 
-                # last col
-                if col_key == mdex.unique(plot_coln)[-1]:
-                    ax.legend()
-                    
-            # first col
-            if col_key == mdex.unique(plot_coln)[0]:
-                ax.set_ylabel(ylabel)
-                
-                ax.get_yaxis().set_major_formatter(
-                     matplotlib.ticker.FuncFormatter(yticklabelsF)
-                     )
-                
-                if row_key in ylims_d:
-                    ax.set_ylim((0, ylims_d[row_key]))
-
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info('finsihed')
-        self.output_fig(fig, fname='bars_%s_%s' % (lossType.upper(), self.longname))
-        return
-    
     def plot_terrs_box(self,  # boxplot of total errors
                     
                     # data control

@@ -1593,6 +1593,8 @@ class ModelStoch(Model):
         self.modelID=modelID
         self.iters=iters
         
+ 
+        
     def write_lib(self, #writing pickle w/ metadata
                   lib_dir = None, #library directory
                   mindex = None,

@@ -771,7 +771,8 @@ class Catalog(object): #handling the simulation index and library
         
         self.keys = [self.idn, 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins',
              'out_dir', 'tloss_count', 'tloss_min', 'tloss_mean', 'tloss_max', 'tloss_sum', 
-             'pick_keys', 'iters']
+             'pick_keys', 'iters',
+             'severity', 'tval_type', 'vid', 'zonal_stat', 'samp_method', 'aggLevel', 'aggType', 'sgType']
         
     def clean(self):
         raise Error('check consitency between index and library contents')

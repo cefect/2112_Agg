@@ -241,6 +241,7 @@ def run( #run a basic model configuration
         else:
             lib_dir = None
         
+ 
         ses.write_summary()
         ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
  
