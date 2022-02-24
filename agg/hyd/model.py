@@ -184,6 +184,11 @@ def run( #run a basic model configuration
         #vfunc selection
         vid = 798, 
         
+        #=======================================================================
+        # meta
+        #=======================================================================
+        cat_d={},
+        
  
         **kwargs):
     
@@ -192,7 +197,7 @@ def run( #run a basic model configuration
     #===========================================================================
  
     
-    if aggType == 'none': assert aggLevel is None
+    if aggType == 'none': assert pd.isnull(aggLevel)
     #===========================================================================
     # execute
     #===========================================================================
@@ -219,7 +224,7 @@ def run( #run a basic model configuration
             lib_dir = None
         
         ses.write_summary()
-        ses.write_lib(lib_dir=lib_dir)
+        ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
  
         
         out_dir = ses.out_dir
@@ -236,6 +241,7 @@ def run_autoPars( #retrieve pars from container
     
     return run(
         modelID=modelID,
+        cat_d=copy.deepcopy(model_pars),
         **{**model_pars, **kwargs}
         )
     
@@ -332,8 +338,9 @@ if __name__ == "__main__":
     #output=dev()
     #output=r2_base()
     #output=r2_g200()
-    output=run_autoPars(tag='g50', modelID=2)
+    #output=run_autoPars(tag='g50', modelID=2)
     #output=run_autoPars(tag='g100', modelID=3)
+    output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
  
         
  

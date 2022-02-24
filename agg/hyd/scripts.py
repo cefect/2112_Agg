@@ -310,7 +310,7 @@ class Model(agSession):  # single model run
         finv_agg_d, finv_gkey_df_d = dict(), dict()
         
         if aggType == 'none':  # see Test_p1_finv_none
-            assert aggLevel is None
+            assert pd.isnull(aggLevel), 'got bad aggLevel: %s'%aggLevel
             res_d = self.sa_get(meth='get_finv_clean', write=False, dkey=dkey, get_lookup=True, **kwargs)
  
         elif aggType == 'gridded':  # see Test_p1_finv_gridded
@@ -1595,6 +1595,7 @@ class ModelStoch(Model):
                   mindex = None,
                   overwrite=None,
                   modelID=None,
+                  cat_d = {}, #passthrough atts to write in the index
                   dkey='tloss',
                   ):
         #=======================================================================
@@ -1647,8 +1648,6 @@ class ModelStoch(Model):
         """here we copy each aggregated vector layer into a special directory in the libary
         these filepaths are then stored in teh model pickle"""
         #setup
- 
-        
         if not os.path.exists(vlay_dir):os.makedirs(vlay_dir)
         
         #retrieve
@@ -1681,7 +1680,10 @@ class ModelStoch(Model):
         #=======================================================================
         # update catalog
         #=======================================================================
-        cat_d = {k:meta_d[k] for k in ['modelID', 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins', 'out_dir', 'iters']}
+        #kwargs from meta
+        cat_d.update({k:meta_d[k] for k in ['modelID', 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins', 'out_dir', 'iters']})
+        
+ 
         cat_d = {**cat_d, **res_meta_d}
         cat_d['pick_keys'] = str(list(d.keys()))
         
