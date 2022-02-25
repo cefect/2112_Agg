@@ -156,7 +156,7 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
         elif dkey=='finv_agg_mindex':
             assert_frame_equal(test.to_frame(), true.to_frame())
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('dscale_meth', ['centroid_inter'])
@@ -228,15 +228,22 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
 
 #@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
 #rsamps methods are only applicable for certain geometry types  
-
+@pytest.mark.dev
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
 @pytest.mark.parametrize('samp_method',['zonal'], indirect=False)
 @pytest.mark.parametrize('zonal_stat',['Mean','Minimum', 'Maximum'])  
-def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir, zonal_stat):
+@pytest.mark.parametrize('resolution, resampling',[
+    [0, 'none'], #raw... no rexampling
+    [50,'Average'],
+    [50,'Maximum'],
+    ])  
+def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir, zonal_stat,
+                     resolution, resampling):
  
     rsamps_runr(base_dir, true_dir, session, zonal_stat=zonal_stat,
-                samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn)
+                samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn,
+                resolution=resolution, resampling=resampling)
     
 
 

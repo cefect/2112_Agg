@@ -195,12 +195,12 @@ def run( #run a basic model configuration
         #sampling (geo). see Model.build_sampGeo()
         sgType = 'poly', 
         
-        #rexampling and selecting rasters (StudyArea.get_raster())
-        resolution=0, resampling='none',
+        #raster resampling and selection  (StudyArea.get_raster())
+        resolution=0, resampling='none', severity = 'hi',
         
         #sampling (method). see Model.build_rsamps()
         samp_method = 'zonal', zonal_stat='Mean',  # stats to use for zonal. 2=mean
-        severity = 'hi', #hazard raster selection        
+      
         
         
         #vfunc selection
