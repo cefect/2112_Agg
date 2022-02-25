@@ -45,7 +45,7 @@ def df_d():
 
 
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def session(tmp_path,
             #wrk_base_dir=None, 
             base_dir, write,logger, feedback,#see conftest.py (scope=session)
@@ -80,6 +80,8 @@ def session(tmp_path,
                      overwrite=write,write=write, logger=logger,feedback=feedback,
                      driverName='GeoJSON', #nicer for writing small test datasets
                      ) as ses:
+        
+        assert len(ses.data_d)==0
         yield ses
 
  
@@ -156,9 +158,16 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
 
 @pytest.mark.dev
 @pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
-@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('normed', [True, False])
-def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write, normed):
+@pytest.mark.parametrize('dscale_meth', ['centroid_inter'])
+@pytest.mark.parametrize('finv_agg_fn',[
+                                        'test_finv_agg_gridded_50_0', 
+                                        'test_finv_agg_none_None_0',
+                                        ], indirect=False)  #see test_finv_agg
+def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, tval_type, normed, dscale_meth):
+    norm_scale=1.0
+    dkey='tvals'
+ 
     #===========================================================================
     # load inputs   
     #===========================================================================
@@ -169,12 +178,17 @@ def test_tvals(session,tval_type, finv_agg_fn, true_dir, base_dir, write, normed
     #===========================================================================
     # execute
     #===========================================================================
-    dkey='tvals'
-    finv_agg_serx = session.build_tvals(dkey=dkey, tval_type=tval_type, normed=normed,
+    
+    finv_agg_serx = session.build_tvals(dkey=dkey, norm_scale=norm_scale,
+                                    tval_type=tval_type, normed=normed, dscale_meth=dscale_meth,
                             finv_agg_d=finv_agg_d, mindex =finv_agg_mindex, write=write)
     
     #data checks
     assert_index_equal(finv_agg_mindex.droplevel('id').drop_duplicates(), finv_agg_serx.index)
+    
+ 
+    if normed:
+        assert (finv_agg_serx.groupby(level='studyArea').sum().round(3)==norm_scale).all()
     #===========================================================================
     # retrieve true
     #===========================================================================
