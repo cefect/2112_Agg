@@ -188,8 +188,9 @@ def run( #run a basic model configuration
         #aggregation
         aggType = 'none', aggLevel = None,
         
-        #asset values
-        tval_type = 'rand',
+        #down scaling (asset values)
+        tval_type = 'rand', normed=True, #generating true asset values
+        dscale_meth='centroid_inter', #downscaling to the aggreated finv
         
         #sampling (geo). see Model.build_sampGeo()
         sgType = 'poly', 
@@ -227,8 +228,9 @@ def run( #run a basic model configuration
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat, severity=severity),
                      
                      'finv_sg_d':dict(sgType=sgType),
-
-                     'tvals':dict(tval_type=tval_type),
+                     
+                     'tvals_raw':dict(tval_type=tval_type, normed=normed),
+                     'tvals':dict(dscale_meth=dscale_meth),
                      'vfunc':dict(vid=vid),
                                           
                      },
@@ -241,9 +243,9 @@ def run( #run a basic model configuration
         else:
             lib_dir = None
         
- 
-        ses.write_summary()
-        ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
+        ses.retrieve('tvals')
+        #ses.write_summary()
+        #ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
  
         
         out_dir = ses.out_dir

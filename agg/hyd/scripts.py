@@ -117,7 +117,12 @@ class Model(agSession):  # single model run
                 'build':lambda **kwargs: self.build_sampGeo(**kwargs),
                 },
             
-            'tvals':{  # total asset values (series)
+            'tvals_raw':{#total asset values (of the raw finv)
+                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_tvals_raw(**kwargs),
+                },
+            
+            'tvals':{  # total asset values aggregated
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_tvals(**kwargs),
                 },
@@ -394,29 +399,28 @@ class Model(agSession):  # single model run
         
         
 
-    def build_tvals(self,  # get the total values on each asset
+    def build_tvals_raw(self,  # get the total values on each asset
                     dkey=None,
                     prec=2,
                     tval_type='uniform',  # type for total values
                     normed=True, #normalize per-studArea
                     norm_scale=1e2, #norm scalar
                         #for very big study areas we scale things up to avoid dangerously low values
-                    finv_agg_d=None,
+                    #finv_agg_d=None,
                     mindex=None,write=None,
-                    **kwargs):
+                    ):
         
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_tvals')
-        assert dkey == 'tvals'
+        log = self.logger.getChild('build_tvals_raw')
+        assert dkey == 'tvals_raw'
         if prec is None: prec = self.prec
         if write is None: write=self.write
  
         scale_cn = self.scale_cn
         
-        if finv_agg_d is None: 
-            finv_agg_d = self.retrieve('finv_agg_d', **kwargs)
+
         if mindex is None: 
             mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
  
@@ -428,7 +432,7 @@ class Model(agSession):  # single model run
             vals = np.full(len(mindex), 1.0)
         elif tval_type == 'rand':
             vals = np.random.random(len(mindex))
-            #raise Error('need to implement somekind of simulation here')
+ 
             
         else:
             raise Error('unrecognized')
@@ -440,6 +444,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         # normalize
         #=======================================================================
+        """normalizng to the study area so the total value of all assets per study area always equals 100"""
         if normed:
             log.debug('on %i'%len(finv_true_serx))
             
@@ -454,17 +459,58 @@ class Model(agSession):  # single model run
             finv_true_serx = serx
 
         
+
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        if write:
+            self.ofp_d[dkey] = self.write_pick(finv_true_serx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+
+        return finv_true_serx
+    
+    def build_tvals(self, #downscaling raw asset values onto the aggregated inventory
+                    dkey = 'tvals',
+                    mindex=None,
+                    finv_agg_d=None,
+                    dscale_meth='centroid_inter',
+                    write=None,
+                    **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_tvals')
+        if write is None: write=self.write
+        assert dkey == 'tvals'
+        if mindex is None: 
+            mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
+            
+        #generate asset values on the raw
+        finv_raw_serx = self.retrieve('tvals_raw', mindex=mindex, **kwargs)
+        
         #=======================================================================
         # aggregate trues
         #=======================================================================
-        finv_agg_serx = finv_true_serx.groupby(level=mindex.names[0:2]).sum()
- 
+        if dscale_meth == 'centroid_inter':
+            """because the finv_agg_mindex is generated using the centroid intersect
+                see StudyArea.get_finv_gridPoly
+                se can do a simple groupby to perform this type of downscaling"""
+            finv_agg_serx = finv_raw_serx.groupby(level=mindex.names[0:2]).sum()
+            
+        elif dscale_meth == 'area_split':
+            raise Error('dome')
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
         if write:
             self.ofp_d[dkey] = self.write_pick(finv_agg_serx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
 
         return finv_agg_serx
+        
   
     def build_sampGeo(self,  # get raster samples for all finvs
                      dkey='finv_sg_d',
@@ -539,7 +585,7 @@ class Model(agSession):  # single model run
  
         if prec is None: prec=self.prec
  
-
+ 
         #=======================================================================
         # generate depths------
         #=======================================================================
@@ -1496,6 +1542,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert severity in wd_fp_d
         wd_fp = wd_fp_d[severity]
         
+        """separate function for 'severity' and 'resolution' (gdalwarp)"""
+        raise Error('implement raster retrival')
+    
+    
+        
         #=======================================================================
         # precheck
         #=======================================================================
@@ -1735,9 +1786,10 @@ class ModelStoch(Model):
         #=======================================================================
         # execute children
         #=======================================================================
-        res_d = self.model_get(meth='build_tvals', tval_type=tval_type, dkey=dkey,
+        res_d = self.model_retrieve(dkey, tval_type=tval_type,
                                mindex=mindex,iters=iters,
-                               finv_agg_d=finv_agg_d, logger=log, **kwargs)
+                               finv_agg_d=finv_agg_d, 
+                               logger=log, **kwargs)
         
         #=======================================================================
         # assemble and collapse
@@ -1761,8 +1813,8 @@ class ModelStoch(Model):
  
         
     
-    def model_get(self,
-                       meth='build_tvals',  # method to run
+    def model_retrieve(self,
+                       dkey='tvals',  # method to run
  
                        iters=None,
                        logger=None,
@@ -1775,7 +1827,7 @@ class ModelStoch(Model):
         if iters is None: iters=self.iters
  
         
-        log.info('calling \'%s\' on %i' %(meth, iters))
+        log.info('calling \'%s\' on %i' %(dkey, iters))
  
         #=======================================================================
         # loop and load
@@ -1788,8 +1840,8 @@ class ModelStoch(Model):
             log.info('%i/%i' % (i + 1, iters))
             
             with Model(session=self, tag='%s_%i'%(self.tag, i),  **init_kwargs) as wrkr:
-                f = getattr(wrkr, meth)
-                res_d[i] = f(write=False, **kwargs)
+ 
+                res_d[i] = wrkr.retrieve(dkey, write=False, **kwargs)
                 
  
         
