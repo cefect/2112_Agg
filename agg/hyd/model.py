@@ -132,8 +132,8 @@ def run( #run a basic model configuration
                   #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218',
                   'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                   'wd_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0500_1218.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0100_1218.tif',
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0500_1218fnd.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0100_1218fnd.tif',
                       },
                      }, 
             'LMFRA': {
@@ -143,8 +143,8 @@ def run( #run a basic model configuration
                 #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
                 'wd_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0500_dep_0116_cmp.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0100_dep_0116_cmp.tif',
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0500_dep_0116_cmpfnd.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0100_dep_0116_cmpfnd.tif',
                       },
                     }, 
             #===================================================================
@@ -163,8 +163,8 @@ def run( #run a basic model configuration
                 #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\DEV0116',
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
                  'wd_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116\IBI_2017CoC_s0_0500_170729_dep_0116.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116\IBI_2017CoC_s0_0100_170729_dep_0116.tif',
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116_fnd\IBI_2017CoC_s0_0500_170729_dep_0116fnd.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116_fnd\IBI_2017CoC_s0_0100_170729_dep_0116fnd.tif',
                       },
                         }, 
             #===================================================================
@@ -354,12 +354,12 @@ def r2_g200():
 
 if __name__ == "__main__": 
     
-    #output=dev()
+    output=dev()
     #output=r2_base()
     #output=r2_g200()
     #output=run_autoPars(tag='g50', modelID=2)
     #output=run_autoPars(tag='g100', modelID=3)
-    output=run_autoPars(tag='g100_true', modelID=4, trim=True)
+    #output=run_autoPars(tag='g100_true', modelID=4, trim=True)
     #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
     
  
