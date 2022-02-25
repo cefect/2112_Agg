@@ -21,7 +21,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
     QgsWkbTypes
 
-
+import hp.gdal
 
 
 from agg.coms.scripts import Session as agSession
@@ -80,6 +80,8 @@ class Model(agSession):  # single model run
         'sgType':{'vals':['point', 'poly'],                         'dkey':'finv_sg_d'},
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum'],       'dkey':'rsamps'},
+        'resolution':{'vals':[0, 50, 100, 200],                     'dkey':'rsamps'},
+        'resampling':{'vals':['none','Average'],                    'dkey':'rsamps'},
         'vid':{'vals':[49, 798,811, 0],                             'dkey':'vfunc'},
 
         }
@@ -1246,14 +1248,25 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                                     'AG4_Fr_0100_dep_0116_cmp.tif':'LMFRA_0100yr',
                                     'AG4_Fr_0500_dep_0116_cmp.tif':'LMFRA_0500yr',
                                     'AG4_Fr_1000_dep_0116_cmp.tif':'LMFRA_1000yr',
+                                    
+                                    'AG4_Fr_0050_dep_0116_cmpfnd.tif':'LMFRA_0050yr',
+                                    'AG4_Fr_0100_dep_0116_cmpfnd.tif':'LMFRA_0100yr',
+                                    'AG4_Fr_0500_dep_0116_cmpfnd.tif':'LMFRA_0500yr',
+                                    'AG4_Fr_1000_dep_0116_cmpfnd.tif':'LMFRA_1000yr',
                                         },
                                 'obwb':{
                                     'depth_sB_0500_1218.tif':'obwb_0500yr',
                                     'depth_sB_0100_1218.tif':'obwb_0100yr',
+                                    
+                                    'depth_sB_0500_1218fnd.tif':'obwb_0500yr',
+                                    'depth_sB_0100_1218fnd.tif':'obwb_0100yr',
                                     },
                                 'Calgary':{
                                     'IBI_2017CoC_s0_0500_170729_dep_0116.tif':'Calgary_0500yr',
                                     'IBI_2017CoC_s0_0100_170729_dep_0116.tif':'Calgary_0100yr',
+                                    
+                                    'IBI_2017CoC_s0_0500_170729_dep_0116fnd.tif':'Calgary_0500yr',
+                                    'IBI_2017CoC_s0_0100_170729_dep_0116fnd.tif':'Calgary_0100yr',
                                     },
     
                                         }   
@@ -1517,43 +1530,136 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log.info('finished on %i' % len(df))
  
         return df, gvlay5
+    
+    def get_raster(self,
+                   #raster selection
+                   wd_fp_d=None,
+                   severity='hi',
+                   
+                   #raster downsampling
+                   resolution=0, #0=raw (nicer for variable consistency)
+                   resampling='none',
+                   
+                   #gen 
+                  logger=None, 
+                  trim=True, #generally just trimming this by default
+                   ):
+        
+        """separate function for 'severity' and 'resolution' (gdalwarp)
+        
+        todo: add trimming?
+        """
+           
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if wd_fp_d is None: wd_fp_d = self.wd_fp_d
+        if logger is None: logger = self.logger
+        if trim is None: trim=self.trim
+        log = logger.getChild('get_raster')
+        
+        #=======================================================================
+        # #select raster filepath
+        #=======================================================================
+        assert severity in wd_fp_d
+        fp_raw = wd_fp_d[severity]
+        assert os.path.exists(fp_raw)
+        
+        #=======================================================================
+        # check it
+        #=======================================================================
+        """this can be quite slow"""
+        #=======================================================================
+        # nodata_cnt = hp.gdal.getNoDataCount(fp_raw)
+        # assert nodata_cnt==0
+        #=======================================================================
+        
+        
+        #=======================================================================
+        # downssample
+        #=======================================================================
+        baseName = self.get_clean_rasterName(os.path.basename(fp_raw))
+ 
+        if resolution==0:
+            assert resampling =='none', 'got resampling method for resolution=raw'
+            wd_fp = fp_raw
+        else:
+            
+            log.info('downsampling w/ resolution=%i and resampling=%s'%(resolution, resampling))
+            
+            #===================================================================
+            # #setup trim
+            #===================================================================
+            if trim:
+                """NOTE: this makes the output senstivite to the finv
+                e.g., slicing the finv could slightly change the sampling results"""
+
+                vlay = self.finv_vlay
+                rect = vlay.extent()
+                
+                bbox_str = '%.3f, %.3f, %.3f, %.3f [%s]'%(
+                    rect.xMinimum(), rect.xMaximum(), rect.yMinimum(), rect.yMaximum(),
+                    vlay.crs().authid())
+            else:
+                bbox_str=None
+ 
+            #===================================================================
+            # execute
+            #===================================================================
+            wd_fp = self.warpreproject(
+                fp_raw,
+                resolution=resolution, resampling=resampling,
+                compression='none', crsOut=self.qproj.crs(), extents=bbox_str,
+                logger=log)
+            
+            baseName = baseName + '_%i'%resolution
+            
+ 
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        rlay = self.rlay_load(wd_fp, set_proj_crs=False, reproj=False, logger=log)
+        #stats_d = self.get_rasterstats(rlay)
+        #assert stats_d['resolution'] == resolution
+        assert rlay.crs()==self.qproj.crs()
+        
+        rlay.setName(baseName)
+        
+        log.info('finished on \'%s\' (%i x %i = %i)'%(
+            rlay.name(), rlay.width(), rlay.height(), rlay.width()*rlay.height()))
+ 
+        
+        return rlay
+                   
 
     def get_rsamps(self,  # sample a set of rastsers withon a single finv
-                   wd_fp_d=None,
+                   
                    finv_sg_d=None,
                    idfn=None,
                    logger=None,
-                   severity='hi',
+                   
                    samp_method='points',
                    zonal_stat='Mean',  # stats to use for zonal. 2=mean
                    prec=None,
-                   ):
+                   **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger = self.logger
         log = logger.getChild('get_rsamps')
-        if wd_fp_d is None: wd_fp_d = self.wd_fp_d
+        
         # if finv_vlay_raw is None: finv_vlay_raw=self.finv_vlay
         if idfn is None: idfn = self.idfn
         if prec is None: prec = self.prec
-        
-        #select raster filepath
-        assert severity in wd_fp_d
-        wd_fp = wd_fp_d[severity]
-        
-        """separate function for 'severity' and 'resolution' (gdalwarp)"""
-        raise Error('implement raster retrival')
-    
-    
-        
+ 
         #=======================================================================
         # precheck
         #=======================================================================
         
         finv_vlay_raw = finv_sg_d[self.name]
         
-        assert os.path.exists(wd_fp)
+        
         if samp_method == 'points':
             assert 'Point' in QgsWkbTypes().displayString(finv_vlay_raw.wkbType())
         elif samp_method == 'zonal':
@@ -1576,23 +1682,26 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             finv_vlay = finv_vlay_raw
             
         assert [f.name() for f in finv_vlay.fields()] == [idfn]
-
         
         #=======================================================================
-        # loop and sample
+        # retrieve raster
+        #=======================================================================
+        rlay = self.get_raster(logger=log, **kwargs)
+        
+        rname = rlay.name()
+        
+        #=======================================================================
+        # loop and sample--------
         #=======================================================================
  
-        rname = self.get_clean_rasterName(os.path.basename(wd_fp))
- 
-        
         #===================================================================
         # sample
         #===================================================================
         if samp_method == 'points':
-            vlay_samps = self.rastersampling(finv_vlay, wd_fp, logger=log, pfx='samp_')
+            vlay_samps = self.rastersampling(finv_vlay, rlay, logger=log, pfx='samp_')
         
         elif samp_method == 'zonal':
-            vlay_samps = self.zonalstatistics(finv_vlay, wd_fp, logger=log, pfx='samp_', stat=zonal_stat)
+            vlay_samps = self.zonalstatistics(finv_vlay, rlay, logger=log, pfx='samp_', stat=zonal_stat)
         else:
             raise Error('not impleented')
         #===================================================================

@@ -195,6 +195,9 @@ def run( #run a basic model configuration
         #sampling (geo). see Model.build_sampGeo()
         sgType = 'poly', 
         
+        #rexampling and selecting rasters (StudyArea.get_raster())
+        resolution=0, resampling='none',
+        
         #sampling (method). see Model.build_rsamps()
         samp_method = 'zonal', zonal_stat='Mean',  # stats to use for zonal. 2=mean
         severity = 'hi', #hazard raster selection        
@@ -225,7 +228,8 @@ def run( #run a basic model configuration
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
 
-                     'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat, severity=severity),
+                     'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat, severity=severity,
+                                   resolution=resolution, resampling=resampling),
                      
                      'finv_sg_d':dict(sgType=sgType),
                      
@@ -243,7 +247,7 @@ def run( #run a basic model configuration
         else:
             lib_dir = None
         
-        ses.retrieve('tvals')
+        ses.retrieve('rsamps')
         #ses.write_summary()
         #ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
  
@@ -286,8 +290,8 @@ def dev():
                  #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218',
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                   'wd_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0500_1218.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218\depth_sB_0100_1218.tif',
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0500_1218fnd.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0100_1218fnd.tif',
                       },
                     }, 
             'LMFRA': {
@@ -297,13 +301,14 @@ def dev():
                 #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
                 'wd_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0500_dep_0116_cmp.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116\AG4_Fr_0100_dep_0116_cmp.tif',
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0500_dep_0116_cmpfnd.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0100_dep_0116_cmpfnd.tif',
                       },
                     }, 
             },
-        iters=10,
+        iters=3,
         aggType='gridded', aggLevel=50,
+        resolution=100, resampling='Average',
         #=======================================================================
         # #aggType = 'none', aggLevel = None,
         # aggType = 'none', aggLevel = None,
