@@ -24,7 +24,7 @@ np.random.seed(100)
 from numpy.testing import assert_equal
 
 from qgis.core import QgsVectorLayer, QgsWkbTypes
-
+import hp.gdal
 
 from agg.hyd.scripts import Model as CalcSession
 from agg.hyd.scripts import StudyArea as CalcStudyArea
@@ -100,7 +100,7 @@ def studyAreaWrkr(session, request):
     
     
 #===============================================================================
-# tests------
+# tests StudyArea------
 #===============================================================================
  
 @pytest.mark.parametrize('aggLevel',[10, 50], indirect=False)  
@@ -118,6 +118,33 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
     assert finv_agg_vlay.dataProvider().featureCount() <= len(df)
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
+
+@pytest.mark.dev
+@pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
+@pytest.mark.parametrize('resolution, resampling',[
+    [0, 'none'], #raw... no rexampling
+    [50,'Average'],
+    [50,'Maximum'],
+    ])  
+def test_get_raster(studyAreaWrkr, resolution, resampling):
+    rlay = studyAreaWrkr.get_raster(resolution=resolution, resampling=resampling)
+    
+    #check resolution
+    if not resolution == 0:
+        newResolution = studyAreaWrkr.get_resolution(rlay)
+        assert resolution==newResolution
+        
+    #check nodata values
+    
+    #studyAreaWrkr.rlay_getstats(rlay)
+    assert hp.gdal.getNoDataCount(rlay.source())==0
+    assert rlay.crs() == studyAreaWrkr.qproj.crs()
+        
+    
+    
+#===============================================================================
+# tests Session-------
+#===============================================================================
     
 
 @pytest.mark.parametrize('aggType,aggLevel',[['none',None], ['gridded',20], ['gridded',50]], indirect=False) 
@@ -228,7 +255,7 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
 
 #@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
 #rsamps methods are only applicable for certain geometry types  
-@pytest.mark.dev
+
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
 @pytest.mark.parametrize('samp_method',['zonal'], indirect=False)
@@ -246,6 +273,8 @@ def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_di
                 resolution=resolution, resampling=resampling)
     
 
+    
+
 
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_centroids_test_fi1','test_sampGeo_centroids_test_fi0'])
@@ -254,6 +283,8 @@ def test_rsamps_point(session, finv_sg_d_fn,samp_method, true_dir, write, base_d
  
     rsamps_runr(base_dir, true_dir,session, 
                 samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn)
+    
+    
     
 
 
@@ -296,12 +327,7 @@ def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, **k
     dkey='rsamps'
     rsamps_serx = session.build_rsamps(dkey=dkey, finv_sg_d=finv_sg_d, **kwargs)
     
-    #===========================================================================
-    # basic checks
-    #===========================================================================
  
-
-    
     #===========================================================================
     # retrieve trues    
     #===========================================================================

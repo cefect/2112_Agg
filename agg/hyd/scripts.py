@@ -1570,7 +1570,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if logger is None: logger = self.logger
         if trim is None: trim=self.trim
         log = logger.getChild('get_raster')
-        
+        resolution = int(resolution)
         #=======================================================================
         # #select raster filepath
         #=======================================================================
@@ -1619,24 +1619,34 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             #===================================================================
             # execute
             #===================================================================
+            ofp = os.path.join(self.temp_dir, os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif'%resolution)
             wd_fp = self.warpreproject(
-                fp_raw,
+                fp_raw, output=ofp,
                 resolution=resolution, resampling=resampling,
                 compression='none', crsOut=self.qproj.crs(), extents=bbox_str,
                 logger=log)
             
+ 
+            
             baseName = baseName + '_%i'%resolution
             
  
+ 
             
         #=======================================================================
-        # wrap
+        # check
         #=======================================================================
         rlay = self.rlay_load(wd_fp, set_proj_crs=False, reproj=False, logger=log)
         #stats_d = self.get_rasterstats(rlay)
         #assert stats_d['resolution'] == resolution
         assert rlay.crs()==self.qproj.crs()
         
+
+        
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
         rlay.setName(baseName)
         
         log.info('finished on \'%s\' (%i x %i = %i)'%(

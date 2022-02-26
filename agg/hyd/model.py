@@ -390,7 +390,7 @@ def r2_g200():
     
 def base_dev():
 
-    return run_auto_dev(tag='base_dev', modelID=0,
+    return run_auto_dev(modelID=0,
         compiled_fp_d = {
               'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\finv_agg_d\finv_agg_d_hyd2_dev_base_dev_0226.pickle',
             'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\finv_agg_mindex_hyd2_dev_base_dev_0226.pickle',
@@ -403,7 +403,8 @@ def base_dev():
  
 if __name__ == "__main__": 
     
-    output=base_dev()
+    #output=base_dev()
+    run_auto_dev(modelID=2)
     #output=dev()
     #output=r2_base()
     #output=r2_g200()
