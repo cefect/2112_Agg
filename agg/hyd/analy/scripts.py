@@ -1195,7 +1195,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
     
     
-    def plot_hist_mat(self,
+    def plot_dkey_mat(self,
                   
                     #data
                     dkey='tvals', #{dkey:groupby operation}
@@ -1203,12 +1203,14 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     modelID_l = None, #optinal sorting list
                     
                     #plot config
+                    plot_type='hist',
                     plot_rown='aggLevel',
                     plot_coln='dscale_meth',
                     plot_colr='aggLevel',
                     #plot_bgrp='modelID',
                     
-                    #errorbars
+                    #data control
+                    xlims = (0,2),
                     qhi=0.99, qlo=0.01,
                     
                     #labelling
@@ -1268,7 +1270,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
                                     figsize_scaler=4,
                                     constrained_layout=True,
-                                    sharey='row', sharex='row',  # everything should b euniform
+                                    sharey='all', sharex='all',  # everything should b euniform
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
@@ -1298,15 +1300,49 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             
             
             
+
+            color = [color_d[k] for k in data_d.keys()]
             #===================================================================
             # histogram of means
             #===================================================================
-            ar, bins, patches = ax.hist(
-                data_d.values(),
-                    color = [color_d[k] for k in data_d.keys()],
-                    #alpha=0.3, 
-                    density=False, bins=10,
-                    label=list(data_d.keys()))
+            if plot_type == 'hist':
+                ar, bins, patches = ax.hist(
+                    data_d.values(),
+                        range=xlims,
+                        bins=10,
+                        density=False,  color = color,
+                        label=list(data_d.keys()))
+            #===================================================================
+            # box plots
+            #===================================================================
+            elif plot_type=='box':
+                #===============================================================
+                # zero line
+                #===============================================================
+                #ax.axhline(0, color='black')
+ 
+                #===============================================================
+                # #add bars
+                #===============================================================
+                boxres_d = ax.boxplot(data_d.values(), labels=data_d.keys(), meanline=True,
+                           # boxprops={'color':newColor_d[rowVal]}, 
+                           # whiskerprops={'color':newColor_d[rowVal]},
+                           # flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
+                            )
+                
+                #===============================================================
+                # add extra text
+                #===============================================================
+                
+                # counts on median bar
+                for gval, line in dict(zip(data_d.keys(), boxres_d['medians'])).items():
+                    x_ar, y_ar = line.get_data()
+                    ax.text(x_ar.mean(), y_ar.mean(), 'n%i' % len(data_d[gval]),
+                            # transform=ax.transAxes, 
+                            va='bottom', ha='center', fontsize=8)
+                    
+            else:
+                raise Error(plot_type)
             
             #===================================================================
             # labels
@@ -1314,7 +1350,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             if add_label:
                 # get float labels
                 meta_d = {'modelIDs':str(gdx0.index.unique(idn).tolist()),
-                           'cnt':len(gdx0), 
+                           'cnt':len(gdx0), 'iters':len(gdx0.columns),
                            'min':gdx0.min().min(), 'max':gdx0.max().max(), 'mean':gdx0.mean().mean()}
  
                 ax.text(0.5, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
@@ -1341,11 +1377,15 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                         
                 # first col
                 if col_key == col_keys[0]:
-                    ax.set_ylabel('count')
+                    if plot_type == 'hist':
+                        ax.set_ylabel('count')
+                    elif plot_type=='box':
+                        ax.set_ylabel(dkey)
                 
                 #last row
                 if row_key == row_keys[-1]:
-                    ax.set_xlabel(dkey)
+                    if plot_type == 'hist':
+                        ax.set_xlabel(dkey)
                     #last col
                     if col_key == col_keys[-1]:
                         pass
@@ -1362,7 +1402,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         
-        return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
+        return self.output_fig(fig, fname='%s_%s_%s' % (dkey, plot_type, self.longname))
             
  
  

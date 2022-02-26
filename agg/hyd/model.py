@@ -286,8 +286,8 @@ def run( #run a basic model configuration
                      
                      'finv_sg_d':dict(sgType=sgType),
                      
-                     'tvals_raw':dict(tval_type=tval_type, normed=normed),
-                     'tvals':dict(dscale_meth=dscale_meth),
+                     'tvals_raw':dict(normed=normed),
+                     'tvals':dict(tval_type=tval_type, dscale_meth=dscale_meth),
                      'vfunc':dict(vid=vid),
                                           
                      },
@@ -412,9 +412,9 @@ def base_dev():
         })
  
 if __name__ == "__main__": 
-    
+ 
     #output=base_dev()
-    run_auto_dev(modelID=3)
+    output=run_auto_dev(modelID=9)
     #output=dev()
     #output=r2_base()
     #output=r2_g200()

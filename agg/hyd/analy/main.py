@@ -88,7 +88,8 @@ def run( #run a basic model configuration
         
  
         #total vals per ag method
-        ses.plot_hist_mat(modelID_l=[0,3,6], dkey='tvals')
+        #ses.plot_dkey_mat(modelID_l=[0,3,6], dkey='tvals', plot_type='hist')
+        ses.plot_dkey_mat(modelID_l=[0,3,6], dkey='tvals', plot_type='box')
         #ses.build_deltas(baseID=0)
         
         #=======================================================================

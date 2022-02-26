@@ -1,6 +1,6 @@
 REM paramters
-SET ids=(3,4,5,6,7,8)
-SET LAG=5
+SET ids=(9,10)
+SET LAG=1
  
 
 call C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\bats\hyd_setup.bat

@@ -247,6 +247,8 @@ class Model(agSession):  # single model run
             for stat in ['count', 'min', 'mean', 'max', 'sum']:
                 f = getattr(serx, stat)
                 res_meta_d[stat] = f() 
+                
+            res_meta_d['shape'] = str(serx.shape)
             
             d[dkey] = res_meta_d
         
@@ -480,6 +482,7 @@ class Model(agSession):  # single model run
                     mindex=None,
                     finv_agg_d=None,
                     dscale_meth='centroid',
+                    tval_type='uniform',
                     write=None,
                     **kwargs):
         #=======================================================================
@@ -492,7 +495,7 @@ class Model(agSession):  # single model run
             mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
             
         #generate asset values on the raw
-        finv_raw_serx = self.retrieve('tvals_raw', mindex=mindex, **kwargs)
+        finv_raw_serx = self.retrieve('tvals_raw', mindex=mindex,tval_type=tval_type, **kwargs)
         
         #=======================================================================
         # check if we are already a true finv
