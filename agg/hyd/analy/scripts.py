@@ -1190,7 +1190,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     def plot_hist_mat(self,
                   
                     #data
-                    dkey_d = {'rsamps':'mean','tvals':'var','tloss':'sum'}, #{dkey:groupby operation}
+                    dkey='tvals', #{dkey:groupby operation}
                     dx_raw=None,
                     modelID_l = None, #optinal sorting list
                     
@@ -1237,8 +1237,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # data prep
         #=======================================================================
+        
+        
         #collapse columns
-        dx = dx_raw.loc[:, idx[dkey_d.keys(), :]]
+        dx = dx_raw.loc[:, idx[dkey, :]]
         mdex = dx.index
         
     

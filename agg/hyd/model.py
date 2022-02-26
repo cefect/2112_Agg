@@ -116,17 +116,27 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
         elif isinstance(v1, float):
             assert 'float' in dtype.name
  
-                
  
-            
-        
- 
-    
     #===========================================================================
     # get kwargs
     #===========================================================================
+    raw_d = pars_df.loc[modelID, :].to_dict()
     
-    return pars_df.loc[modelID, :].to_dict()
+    #renamp types
+    """
+    this is an artifact of loading parameters from pandas
+    not very nice.. but not sure how else to preserve the type checks"""
+    for k,v in copy.copy(raw_d).items():
+        if isinstance(v, str):
+            continue
+        elif 'int' in type(v).__name__:
+            raw_d[k] = int(v)
+            
+        elif 'float' in type(v).__name__:
+            raw_d[k] = float(v)
+        
+    
+    return raw_d
      
     
 def run_autoPars( #retrieve pars from container
@@ -404,7 +414,7 @@ def base_dev():
 if __name__ == "__main__": 
     
     #output=base_dev()
-    run_auto_dev(modelID=2)
+    run_auto_dev(modelID=3)
     #output=dev()
     #output=r2_base()
     #output=r2_g200()

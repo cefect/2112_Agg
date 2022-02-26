@@ -310,7 +310,8 @@ class Model(agSession):  # single model run
         gcn = self.gcn
         log.info('building \'%s\' ' % (aggType))
  
-        
+        aggLevel = int(aggLevel)
+        #assert isinstance(aggLevel, int), 'got bad aggLevel type: %s (%s)'%(aggLevel, type(aggLevel))
         #=======================================================================
         # retrive aggregated finvs------
         #=======================================================================
@@ -324,7 +325,7 @@ class Model(agSession):  # single model run
  
         elif aggType == 'gridded':  # see Test_p1_finv_gridded
  
-            assert isinstance(aggLevel, int), 'got bad aggType: %s (%s)'%(aggType, type(aggType))
+            
             res_d = self.sa_get(meth='get_finv_gridPoly', write=False, dkey=dkey, aggLevel=aggLevel, **kwargs)
  
         else:

@@ -147,6 +147,9 @@ def dev():
         catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2_dev\model_run_index.csv',
         modelID_l = [0,1,2],
         
+        compiled_fp_d = {
+            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220226\working\outs_analy_dev_0226.pickle',
+            }
  
         
         )
