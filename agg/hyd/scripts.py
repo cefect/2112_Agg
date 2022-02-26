@@ -74,9 +74,10 @@ class Model(agSession):  # single model run
     #supported parameter values
     pars_lib = {
         'tval_type':{'vals':['uniform', 'rand'],                    'dkey':'tvals'},
+        'dscale_meth':{'vals':['centroid', 'none', 'area_split'],   'dkey':'tvals'},
         'severity':{'vals':['hi', 'lo'],                            'dkey':'rsamps'},
         'aggType':{'vals':['none', 'gridded'],                      'dkey':'finv_agg_d'},
-        'aggLevel':{'vals':[np.nan, 50, 100, 200],                    'dkey':'finv_agg_d'},
+        'aggLevel':{'vals':[0, 50, 100, 200],                    'dkey':'finv_agg_d'},
         'sgType':{'vals':['point', 'poly'],                         'dkey':'finv_sg_d'},
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum'],       'dkey':'rsamps'},
@@ -308,6 +309,7 @@ class Model(agSession):  # single model run
  
         gcn = self.gcn
         log.info('building \'%s\' ' % (aggType))
+ 
         
         #=======================================================================
         # retrive aggregated finvs------
@@ -317,11 +319,11 @@ class Model(agSession):  # single model run
         finv_agg_d, finv_gkey_df_d = dict(), dict()
         
         if aggType == 'none':  # see Test_p1_finv_none
-            assert pd.isnull(aggLevel), 'got bad aggLevel: %s'%aggLevel
+            assert aggLevel==0
             res_d = self.sa_get(meth='get_finv_clean', write=False, dkey=dkey, get_lookup=True, **kwargs)
  
         elif aggType == 'gridded':  # see Test_p1_finv_gridded
-            if isinstance(aggLevel, float): aggLevel = int(aggLevel)
+ 
             assert isinstance(aggLevel, int), 'got bad aggType: %s (%s)'%(aggType, type(aggType))
             res_d = self.sa_get(meth='get_finv_gridPoly', write=False, dkey=dkey, aggLevel=aggLevel, **kwargs)
  
@@ -499,6 +501,12 @@ class Model(agSession):  # single model run
                 see StudyArea.get_finv_gridPoly
                 se can do a simple groupby to perform this type of downscaling"""
             finv_agg_serx = finv_raw_serx.groupby(level=mindex.names[0:2]).sum()
+            
+        #no aggregation: base runs
+        elif dscale_meth=='none': 
+            finv_agg_serx = finv_raw_serx.copy()
+            
+            raise Error('check the mindex matches')
             
         elif dscale_meth == 'area_split':
             raise Error('dome')
@@ -719,9 +727,7 @@ class Model(agSession):  # single model run
                     tv_data = None,
                     rl_dxind = None,
                     
-                    
-                    #stochastic stats
-                    
+ 
                     #control
                     write=None,
                     

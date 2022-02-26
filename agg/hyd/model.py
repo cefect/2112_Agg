@@ -40,20 +40,7 @@ from agg.hyd.scripts import Model, ModelStoch, get_all_pars, view, Error
 #===========================================================================
 # #presets
 #===========================================================================
-columns = ['aggLevel', 'aggType', 'sgType', 'samp_method', 'severity', 'zonal_stat', 'tval_type', 'vid']
-model_pars_d = {
-    #grid + Jensen
-   0:[np.nan, 'none','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
-   1:[200, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
-   2:[50, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
-   3:[100, 'gridded','poly', 'zonal', 'hi', 'Mean', 'rand', 798],
-   
-   #grid only
-   4:[100, 'gridded','poly', 'true_mean', 'hi', 'Mean', 'rand', 798],
-   5:[200, 'gridded','poly', 'true_mean', 'hi', 'Mean', 'rand', 798],
-   
-   
-}
+ 
 
 
 
@@ -61,27 +48,41 @@ model_pars_d = {
 #===============================================================================
 # FUNCTIONS-------
 #===============================================================================
-def get_pars(modelID,
+def get_pars(#retrieving and pre-checking parmeter values based on model ID
+            modelID,
+            #file with preconfigrued runs
+             pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0226.csv',
              ):
-    #all possible pars
-    pars_lib = copy.deepcopy(Model.pars_lib)
-    """
-    pars_df.droplevel(0, axis=1)['aggLevel'].unique()
-    view(pars_df)
-    pars_df.droplevel(0, axis=1).columns.tolist()
-    pars_df.columns.tolist()
-    """
     
-
+    #===========================================================================
+    # load pars file
+    #===========================================================================
+    from numpy import dtype
+    #pars_df_raw.dtypes.to_dict()
+    pars_df_raw = pd.read_csv(pars_fp, index_col=False, comment='#')
+    pars_df = pars_df_raw.dropna(how='all').infer_objects().astype(
+        {'modelID': int, 'tag': str, 'tval_type': str, 
+         'aggLevel': int, 'aggType': str, 'dscale_meth': dtype('O'), 'severity': dtype('O'), 
+         'resolution': int, 'resampling': dtype('O'), 'sgType': dtype('O'), 
+         'samp_method': dtype('O'), 'zonal_stat': dtype('O'), 'vid': int}        
+        ).set_index('modelID')
+    
+    assert pars_df.notna().all().all()
+    assert pars_df.index.is_unique
+    assert pars_df['tag'].is_unique
+    assert pars_df.index.name == 'modelID'
+ 
+    assert modelID in pars_df.index
     
     #===========================================================================
     # check
     #===========================================================================
-    assert modelID in model_pars_d, 'unrecognized modelID=%i'%modelID
-    pre_df = pd.DataFrame.from_dict(model_pars_d, columns=columns, orient='index')
+    #possible paramater combinations
+    pars_lib = copy.deepcopy(Model.pars_lib)
+ 
     
-    
-    for id, row in pre_df.iterrows():
+    #value check
+    for id, row in pars_df.iterrows():
         """replacing nulls so these are matched'"""
         #bx = pars_df.fillna('nan').eq(pre_df.fillna('nan').loc[id, :])
     
@@ -91,12 +92,32 @@ def get_pars(modelID,
         
         #check each parameter value
         for varnm, val in row.items():
-            if pd.isnull(val):continue #check not working on this one
+            
+            #skippers
+            if varnm in ['tag']:
+                continue 
+ 
             allowed_l = pars_lib[varnm]['vals']
             
             if not val in allowed_l:
+                
                 raise Error(' modelID=%i \'%s\'=\'%s\' not in allowed set\n    %s'%(
                 id, varnm, val, allowed_l))
+        
+    #type check
+    for varnm, dtype in pars_df.dtypes.items():
+        if varnm in ['tag']:continue
+        v1 = pars_lib[varnm]['vals'][0]
+        
+        if isinstance(v1, str):
+            assert dtype.char=='O'
+        elif isinstance(v1, int):
+            assert 'int' in dtype.name
+        elif isinstance(v1, float):
+            assert 'float' in dtype.name
+ 
+                
+ 
             
         
  
@@ -105,7 +126,7 @@ def get_pars(modelID,
     # get kwargs
     #===========================================================================
     
-    return pre_df.loc[modelID, :].to_dict()
+    return pars_df.loc[modelID, :].to_dict()
      
     
     
@@ -186,7 +207,7 @@ def run( #run a basic model configuration
         
         
         #aggregation
-        aggType = 'none', aggLevel = None,
+        aggType = 'none', aggLevel = 0,
         
         #down scaling (asset values)
         tval_type = 'rand', normed=True, #generating true asset values
@@ -201,8 +222,7 @@ def run( #run a basic model configuration
         #sampling (method). see Model.build_rsamps()
         samp_method = 'zonal', zonal_stat='Mean',  # stats to use for zonal. 2=mean
       
-        
-        
+ 
         #vfunc selection
         vid = 798, 
         
@@ -218,8 +238,7 @@ def run( #run a basic model configuration
     # update depth rastsers
     #===========================================================================
  
-    
-    if aggType == 'none': assert pd.isnull(aggLevel)
+ 
     #===========================================================================
     # execute
     #===========================================================================
@@ -264,10 +283,18 @@ def run_autoPars( #retrieve pars from container
     
     model_pars = get_pars(modelID)
     
+    for k,v in copy.copy(model_pars).items():
+        if k in kwargs:
+            if not v==kwargs[k]:
+                print('WARNING!! passed parameter \'%s\' conflicts with pre-loaded value...replacing'%(k))
+                model_pars[k] = kwargs[k] #overwrite these for reporting
+ 
+        
+    
     return run(
         modelID=modelID,
         cat_d=copy.deepcopy(model_pars),
-        **{**model_pars, **kwargs}
+        **{**model_pars, **kwargs} #overwrites model_pars w/ kwargs (where theres a conflict)
         )
     
         
@@ -357,11 +384,23 @@ def r2_g200():
             
             }
         )
+    
+def run_auto_dev(
+        iters=10, trim=True, name='hyd2_dev',
+        **kwargs):
+    
+    return run_autoPars(iters=iters, trim=trim, name=name, **kwargs)
+    
+def base_dev():
+    return run_auto_dev(
+        tag='base_dev', modelID=0
+        )
         
 
 if __name__ == "__main__": 
     
-    output=dev()
+    output=base_dev()
+    #output=dev()
     #output=r2_base()
     #output=r2_g200()
     #output=run_autoPars(tag='g50', modelID=2)

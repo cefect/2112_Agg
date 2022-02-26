@@ -90,7 +90,8 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
-        ses.build_deltas(baseID=0)
+        ses.plot_hist(modelID_l=modelID_l)
+        #ses.build_deltas(baseID=0)
         
         #=======================================================================
         # for mid in modelID_l:
