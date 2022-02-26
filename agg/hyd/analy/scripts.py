@@ -1171,8 +1171,61 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         log.info('finsihed')
         
         return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
+    
+    
+    def plot_hist(self,
+                  
+                    #data
+                    dkey_d = {'rsamps':'mean','tvals':'var','tloss':'sum'}, #{dkey:groupby operation}
+                    dx_raw=None,
+                    modelID_l = None, #optinal sorting list
                     
+                    #plot config
+                    plot_rown='modelID',
+                    plot_coln='event',
+                    plot_colr='modelID',
+                    plot_bgrp='modelID',
+                    
+                    #errorbars
+                    qhi=0.99, qlo=0.01,
+                    
+                    #labelling
+                    add_label=False,
  
+                    
+                    #plot style
+                    colorMap=None,
+                    #ylabel=None,
+                    
+                    ):
+        """"
+        compressing a range of values
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_total_bars')
+        
+        if dx_raw is None: dx_raw = self.retrieve('outs')
+        if colorMap is None: colorMap=self.colorMap
+ 
+        """
+        view(dx_raw)
+        view(dx)
+        dx.loc[idx[0, 'LMFRA', 'LMFRA_0500yr', :], idx['tvals', 0]].sum()
+        dx_raw.columns.unique('dkey')
+        """
+        
+        
+        log.info('on %s'%str(dx_raw.shape))
+        
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        #collapse columns
+        dx = dx_raw.loc[:, idx[dkey_d.keys(), :]]
+        mdex = dx.index
         
     
     def plot_depths(self,
