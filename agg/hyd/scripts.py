@@ -1047,6 +1047,7 @@ class Model(agSession):  # single model run
         # join the gid keys
         #=======================================================================
         jdf = pd.DataFrame(index=mindex).reset_index(drop=False, level=1)
+        
         true_serx1 = true_serx.to_frame().join(jdf, how='left').swaplevel(
             ).sort_index().set_index('gid', append=True).swaplevel()
  

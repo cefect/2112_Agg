@@ -12,6 +12,7 @@ import scipy.stats
 
 import pandas as pd
 import numpy as np
+from pandas.testing import assert_index_equal
 
 idx = pd.IndexSlice
 
@@ -94,83 +95,72 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # DATA ANALYSIS---------
     #===========================================================================
-    
-    def build_outs(self, #collecting outputs from multiple model runs
-                    dkey='outs',
- 
-                     **kwargs):
-        assert dkey=='outs'
-        
-        return self.assemble_model_data(dkey=dkey, **kwargs)
-    
     def build_agg_mindex(self,
                          dkey='agg_mindex',
-                         **kwargs):
-        assert dkey=='agg_mindex'
-        
-        return self.assemble_model_data(dkey=dkey, **kwargs)
     
-    def build_catalog(self,
-                      dkey='catalog',
-                      catalog_fp=None,
-                      **kwargs):
-        
-        if catalog_fp is None: catalog_fp=self.catalog_fp
-        
-        return Catalog(catalog_fp=catalog_fp, logger=self.logger, overwrite=False, **kwargs).get()
-        
-    
-    
-    def assemble_model_data(self, #collecting outputs from multiple model runs
-                   modelID_l=None, #set of modelID's to include (None=load all in the catalog)
-                   dkey='outs',
-                     
-                     load_dkey = 'tloss',
-                     write=None,
- 
-                     ):
-        """
-        just collecting into a dx for now... now meta
-        """
+                        write=None,
+                        idn=None,
+                     **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_%s'%dkey)
-        
+        log=self.logger.getChild('build_agg_mindex')
+        assert dkey=='agg_mindex'
         if write is None: write=self.write
-        idn = Catalog.idn
+        if idn is None: idn=self.idn
+        #=======================================================================
+        # pull from piciles
+        #=======================================================================
+        
+        data_d= self.assemble_model_data(dkey='finv_agg_mindex', 
+                                         logger=log, write=write, idn=idn,
+                                         **kwargs)
         
         #=======================================================================
-        # retrieve catalog
+        # combine
         #=======================================================================
-        cat_df = self.retrieve('catalog')
+        log.debug('on %s'%data_d.keys())
         
-        if modelID_l is None:
-            modelID_l= cat_df.index.tolist()
+        d = {k: mdex.to_frame().reset_index(drop=True) for k, mdex in data_d.items()}
         
-        #check
-        miss_l = set(modelID_l).difference(cat_df.index)
-        assert len(miss_l)==0, '%i/%i requested %s not found in catalog:\n    %s'%(
-            len(miss_l), len(modelID_l), idn, miss_l)
+        dx1 = pd.concat(d, names=[idn, 'index'])
         
-        log.info('on %i'%len(modelID_l))
+        mdex = dx1.set_index(['studyArea', 'gid', 'id'], append=True).droplevel('index').index
+        
         #=======================================================================
-        # load data from modle results
+        # wrap
         #=======================================================================
-        data_d = dict()
-        for modelID, row in cat_df.loc[cat_df.index.isin(modelID_l),:].iterrows():
-            log.info('    on %s.%s w/ %i'%(modelID, row['tag'], row['%s_count'%load_dkey]))
-            
-            #load pickel            
-            with open(row['pick_fp'], 'rb') as f:
-                data = pickle.load(f)
-                
-                assert load_dkey in data
-                
-                data_d[modelID] = data[load_dkey].copy()
-                
-                del data
-                
+        log.info('finished on %s'%str(mdex.to_frame().shape))
+        if write:
+            self.ofp_d[dkey] = self.write_pick(mdex,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+ 
+        return mdex
+    
+    def build_outs(self, #collecting outputs from multiple model runs
+                    dkey='outs',
+                         write=None,
+                         idn=None,
+                         cat_df=None,
+                         **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log=self.logger.getChild('build_outs')
+        assert dkey=='outs'
+        if cat_df is None: cat_df = self.retrieve('catalog')
+        if write is None: write=self.write
+        if idn is None: idn=self.idn
+        #=======================================================================
+        # pull from piciles
+        #=======================================================================
+        
+        data_d= self.assemble_model_data(dkey='tloss', 
+                                         logger=log, write=write, cat_df=cat_df, idn=idn,
+                                         **kwargs)
+    
+    
         #=======================================================================
         # combine
         #=======================================================================
@@ -195,24 +185,187 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             self.ofp_d[dkey] = self.write_pick(dx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
-        gc.collect()
+ 
         return dx
     
-    def build_deltas(self,
-                     baseID=0, #modelID to consider 'true'
-                     dkey='deltas',
-                     dx_raw=None,
+    def build_catalog(self,
+                      dkey='catalog',
+                      catalog_fp=None,
+                      **kwargs):
+        
+        assert dkey=='catalog'
+        if catalog_fp is None: catalog_fp=self.catalog_fp
+        
+        return Catalog(catalog_fp=catalog_fp, logger=self.logger, overwrite=False, **kwargs).get()
+        
+    
+    
+    def assemble_model_data(self, #collecting outputs from multiple model runs
+                   modelID_l=None, #set of modelID's to include (None=load all in the catalog)
+                   dkey='outs',
+                    
+                    cat_df=None,
+                     idn=None,
+                     write=None,
+                     logger=None,
                      ):
+        """
+        just collecting into a dx for now... now meta
+        """
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_deltas')
-        assert dkey == 'deltas'
+        log = logger.getChild('build_%s'%dkey)
         
-        if dx_raw is None: dx_raw = self.retrieve('outs')
-        dx_agg_mindex = self.retrieve('agg_mindex')
+        if write is None: write=self.write
+        if idn is None: idn=self.idn
+        if cat_df is None: cat_df = self.retrieve('catalog')
         
+        assert idn==Catalog.idn
+        #=======================================================================
+        # retrieve catalog
+        #=======================================================================
+        
+        
+        if modelID_l is None:
+            modelID_l= cat_df.index.tolist()
+        
+        #check
+        miss_l = set(modelID_l).difference(cat_df.index)
+        assert len(miss_l)==0, '%i/%i requested %s not found in catalog:\n    %s'%(
+            len(miss_l), len(modelID_l), idn, miss_l)
+        
+        log.info('on %i'%len(modelID_l))
+        #=======================================================================
+        # load data from modle results
+        #=======================================================================
+        data_d = dict()
+        for modelID, row in cat_df.loc[cat_df.index.isin(modelID_l),:].iterrows():
+            log.info('    on %s.%s'%(modelID, row['tag']))
+            
+            #check
+            pick_keys = eval(row['pick_keys'])
+            assert dkey in pick_keys, 'requested dkey not stored in the pickle: \'%s\''%dkey
+            
+            #load pickel            
+            with open(row['pick_fp'], 'rb') as f:
+                data = pickle.load(f) 
+                data_d[modelID] = data[dkey].copy()
+                
+                del data
+                
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        gc.collect()
+        return data_d
+                
+
+    
+    def build_trues(self, #build a identically indexed 'true' data set for each model run
+                     baseID=0, #modelID to consider 'true'
+                     #modelID_l=None, #optional slicing to specific models
+                     dkey='trues',
+                     dx_raw=None, agg_mindex=None,
+                     
+                     idn=None,
+                     ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('trues')
+        if idn is None: idn=self.idn
+        assert dkey == 'trues'
+        
+        if dx_raw is None: 
+            dx_raw = self.retrieve('outs')
+        if agg_mindex is None:
+            agg_mindex = self.retrieve('agg_mindex')
+        
+        log.info('on %s'%str(dx_raw.shape))
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert baseID in dx_raw.index.unique(idn)
+        
+        miss_l = set(dx_raw.index.unique(idn)).symmetric_difference(agg_mindex.unique(idn))
+        assert len(miss_l)==0
+        
+        #=======================================================================
+        # get base
+        #=======================================================================
+        base_dx = dx_raw.loc[idx[baseID, :, :, :], :].droplevel([0, 1])
+        base_dx.index = base_dx.index.remove_unused_levels().set_names('id', level=2)
+        """
+        view(base_dx)
+        base_dx.columns
+        """
+        #add the events
+        amindex1 = agg_mindex.join(base_dx.index)
+        
+        #get the index joiner frame
+        jdf = amindex1.to_frame().reset_index(drop=True)
+        
+        #join the base data to this
+        dx1 = jdf.join(base_dx, on=base_dx.index.names).set_index(amindex1.names, drop=True
+                                      )
+        
+        #reset mdex on columns
+        dx1.columns = pd.MultiIndex.from_tuples(dx1.columns.tolist())
+        
+        #join tags 
+        dx1.index = dx1.index.join(dx_raw.index.to_frame(
+            ).reset_index(drop=True).loc[:, [idn, 'tag']].drop_duplicates(
+                ).set_index([idn, 'tag']).index)
+        
+        dx1 = dx1.reorder_levels(dx_raw.index.names + ['id']).sort_index()
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert np.array_equal(dx1.columns, base_dx.columns)
+        
+        assert np.array_equal(
+            dx1.index.to_frame().reset_index(drop=True).drop(['tag','event'], axis=1).drop_duplicates(),
+            agg_mindex.to_frame().reset_index(drop=True)
+            )
+        
+        chk_mindex = pd.MultiIndex.from_frame(dx1.index.to_frame().reset_index(drop=True).drop('id', axis=1).drop_duplicates()).sortlevel()[0]
+        
+        """not sure why this is failing"""
+        assert np.array_equal(
+            chk_mindex.get_level_values(3),
+            dx_raw.index.get_level_values(3)
+            )
+        assert_index_equal(
+            dx_raw.index.sortlevel()[0],
+            chk_mindex
+            )
+        
+        #loop and check each model
+        for modelID, gdx in dx1.groupby(level=idn):
+            assert np.array_equal(gdx.droplevel([idn, 'gid']).sort_index(), base_dx), modelID
+            
+        #=======================================================================
+        # group
+        #=======================================================================
+        log.info('grouping %s'%str(dx1.shape))
         raise Error('stopped here')
+        
+        
+        
+        
+ 
+        
+        """
+        view(dx_raw)
+        view(agg_mindex.to_frame())
+        """
+        
+ 
+         
  
                 
  

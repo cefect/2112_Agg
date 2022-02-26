@@ -100,13 +100,15 @@ def run( #run a basic model configuration
         #=======================================================================
         
         #hazard vs asset resolution
-        for plot_type in ['hist', 'box']:
-            ses.plot_dkey_mat(modelID_l=list(range(9)), dkey='rsamps', 
-                              plot_rown='aggLevel', 
-                              plot_coln='resolution', plot_type=plot_type, drop_zeros=True,
-                              plot_colr='aggLevel', bins=40)
+        #=======================================================================
+        # for plot_type in ['hist', 'box']:
+        #     ses.plot_dkey_mat(modelID_l=list(range(9)), dkey='rsamps', 
+        #                       plot_rown='aggLevel', 
+        #                       plot_coln='resolution', plot_type=plot_type, drop_zeros=True,
+        #                       plot_colr='aggLevel', bins=40)
+        #=======================================================================
         
-        #ses.build_deltas(baseID=0)
+        ses.build_trues(baseID=0)
         
         #=======================================================================
         # for mid in modelID_l:
@@ -168,6 +170,7 @@ def dev():
         
         compiled_fp_d = {
             'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220226\working\outs_analy_dev_0226.pickle',
+            'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220226\working\agg_mindex_analy_dev_0226.pickle',
             }
  
         
