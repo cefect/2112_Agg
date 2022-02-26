@@ -119,7 +119,7 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
 @pytest.mark.parametrize('resolution, resampling',[
     [0, 'none'], #raw... no rexampling
@@ -146,8 +146,8 @@ def test_get_raster(studyAreaWrkr, resolution, resampling):
 # tests Session-------
 #===============================================================================
     
-
-@pytest.mark.parametrize('aggType,aggLevel',[['none',None], ['gridded',20], ['gridded',50]], indirect=False) 
+@pytest.mark.dev
+@pytest.mark.parametrize('aggType,aggLevel',[['none',0], ['gridded',20], ['gridded',50]], indirect=False) 
 def test_finv_agg(session, aggType, aggLevel, true_dir, write):
     #===========================================================================
     # #execute the functions to be tested
@@ -186,10 +186,9 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
 
 @pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('normed', [True, False])
-@pytest.mark.parametrize('dscale_meth', ['centroid_inter'])
-@pytest.mark.parametrize('finv_agg_fn',[
-                                        'test_finv_agg_gridded_50_0', 
-                                        'test_finv_agg_none_None_0',
+@pytest.mark.parametrize('finv_agg_fn, dscale_meth',[
+                                        ['test_finv_agg_gridded_50_0', 'centroid'], 
+                                        ['test_finv_agg_none_None_0', 'none'],
                                         ], indirect=False)  #see test_finv_agg
 def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, tval_type, normed, dscale_meth):
     norm_scale=1.0
