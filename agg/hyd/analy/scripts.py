@@ -54,6 +54,7 @@ def get_ax(
  
 class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     
+    idn = 'modelID'
     colorMap = 'cool'
     
     def __init__(self,
@@ -115,7 +116,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     
     
     def assemble_model_data(self, #collecting outputs from multiple model runs
-                   modelID_l=[], #set of modelID's to include
+                   modelID_l=None, #set of modelID's to include (None=load all in the catalog)
                    dkey='outs',
                      
                      load_dkey = 'tloss',
@@ -132,17 +133,21 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         if write is None: write=self.write
         idn = Catalog.idn
-        log.info('on %i'%len(modelID_l))
+        
         #=======================================================================
         # retrieve catalog
         #=======================================================================
         cat_df = self.retrieve('catalog')
+        
+        if modelID_l is None:
+            modelID_l= cat_df.index.tolist()
         
         #check
         miss_l = set(modelID_l).difference(cat_df.index)
         assert len(miss_l)==0, '%i/%i requested %s not found in catalog:\n    %s'%(
             len(miss_l), len(modelID_l), idn, miss_l)
         
+        log.info('on %i'%len(modelID_l))
         #=======================================================================
         # load data from modle results
         #=======================================================================
@@ -420,6 +425,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
 
         return res_dx3
  
+
+ 
+                  
 
     
     
@@ -1195,20 +1203,20 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     modelID_l = None, #optinal sorting list
                     
                     #plot config
-                    plot_rown='modelID',
-                    plot_coln='event',
-                    plot_colr='modelID',
-                    plot_bgrp='modelID',
+                    plot_rown='aggLevel',
+                    plot_coln='dscale_meth',
+                    plot_colr='aggLevel',
+                    #plot_bgrp='modelID',
                     
                     #errorbars
                     qhi=0.99, qlo=0.01,
                     
                     #labelling
-                    add_label=False,
+                    add_label=True,
  
                     
                     #plot style
-                    colorMap=None,
+                    colorMap='winter',
                     #ylabel=None,
                     
                     ):
@@ -1221,8 +1229,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         log = self.logger.getChild('plot_total_bars')
         
-        if dx_raw is None: dx_raw = self.retrieve('outs')
-        if colorMap is None: colorMap=self.colorMap
+        
+        idn = self.idn
  
         """
         view(dx_raw)
@@ -1230,18 +1238,144 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         dx.loc[idx[0, 'LMFRA', 'LMFRA_0500yr', :], idx['tvals', 0]].sum()
         dx_raw.columns.unique('dkey')
         """
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
         
         
-        log.info('on %s'%str(dx_raw.shape))
         
         #=======================================================================
         # data prep
         #=======================================================================
+        #add requested indexers
+        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
+                                meta_indexers = set([plot_rown, plot_coln, plot_colr]),
+                                modelID_l=modelID_l)
         
-        
-        #collapse columns
-        dx = dx_raw.loc[:, idx[dkey, :]]
+        log.info('on %s'%str(dx_raw.shape))
         mdex = dx.index
+        
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+        """
+        view(dx)
+        plt.show()
+        """
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey='row', sharex='row',  # everything should b euniform
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+        fig.suptitle('%s values'%dkey)
+        
+        color_d = self.get_color_d(['hi', 'low', 'mean'], colorMap=colorMap)
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
+            ax = ax_d[gkeys[1]][gkeys[0]]
+            log.info('on %s'%keys_d)
+            
+            #xlims = (gdx0.min().min(), gdx0.max().max())
+            
+            #===================================================================
+            # prep data
+            #===================================================================
+            data_d = {
+                    'hi':gdx0.quantile(q=qhi, axis=1).values,
+                    'mean':gdx0.mean(axis=1).values,
+                    'low':gdx0.quantile(q=qlo, axis=1).values,
+                    }
+            
+            
+            
+            
+            #===================================================================
+            # histogram of means
+            #===================================================================
+            ar, bins, patches = ax.hist(
+                data_d.values(),
+                    color = [color_d[k] for k in data_d.keys()],
+                    #alpha=0.3, 
+                    density=False, bins=10,
+                    label=list(data_d.keys()))
+            
+            #===================================================================
+            # labels
+            #===================================================================
+            if add_label:
+                # get float labels
+                meta_d = {'modelIDs':str(gdx0.index.unique(idn).tolist()),
+                           'cnt':len(gdx0), 
+                           'min':gdx0.min().min(), 'max':gdx0.max().max(), 'mean':gdx0.mean().mean()}
+ 
+                ax.text(0.5, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+            
+            #===================================================================
+            # wrap format
+            #===================================================================
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+            
+        #===============================================================
+        # #wrap format subplot
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+ 
+                
+                # first row
+                if row_key == row_keys[0]:
+                    #first col
+                    if col_key == col_keys[0]:
+                        ax.legend()
+                
+                        
+                # first col
+                if col_key == col_keys[0]:
+                    ax.set_ylabel('count')
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    ax.set_xlabel(dkey)
+                    #last col
+                    if col_key == col_keys[-1]:
+                        pass
+                
+            
+ 
+                    
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        """
+        plt.show()
+        """
+        
+        return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
+            
+ 
+ 
+
+        
+    def get_color_d(self,
+                    cvals,
+                    colorMap=None,
+                    ):
+                    
+        if colorMap is None: colorMap=self.colorMap
+        cmap = plt.cm.get_cmap(name=colorMap) 
+        return {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
         
     
     def plot_depths(self,
@@ -2298,4 +2432,71 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
  
         anno_obj = ax.text(0.5, 0.8, annot, transform=ax.transAxes, va='center')
             
-        return stat_d     
+        return stat_d
+    
+    #===========================================================================
+    # HELPERS---------
+    #===========================================================================
+    def join_meta_indexers(self, #join some meta keys to the output data
+                modelID_l = None, #optional sub-set of modelIDs
+                meta_indexers = {'aggLevel', 'dscale_meth'}, #metadat fields to promote to index
+                dx_raw=None,
+                ):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        idn = self.idn
+        log = self.logger.getChild('prep_dx')
+        if dx_raw is None: 
+            dx_raw = self.retrieve('outs')
+                
+        assert isinstance(meta_indexers, set)
+        
+        if modelID_l is None:
+            modelID_l=dx_raw.index.unique(idn).tolist()
+            
+        
+        overlap_l = set(dx_raw.index.names).intersection(meta_indexers)
+        if len(overlap_l)>0:
+            log.warning('%i requested fields already in the index: %s'%(len(overlap_l), overlap_l))
+            for e in overlap_l:
+                meta_indexers.remove(e)
+            
+        if len(meta_indexers) == 0:
+            log.warning('no additional field srequested')
+            return dx_raw
+        
+        cat_df = self.retrieve('catalog')
+        #=======================================================================
+        # check
+        #=======================================================================
+        miss_l = set(meta_indexers).difference(cat_df.columns)
+        assert len(miss_l)==0
+        
+        miss_l = set(dx_raw.index.unique(idn)).difference(cat_df.index)
+        assert len(miss_l)==0
+        
+        
+        assert len(overlap_l)==0, 'some requested'
+        #=======================================================================
+        # join new indexers
+        #=======================================================================
+        #slice to selection
+        dx = dx_raw.loc[idx[modelID_l, :,:,:],:]
+        cdf1 = cat_df.loc[modelID_l,meta_indexers]
+        
+        #create expanded mindex from lookups
+        assert cdf1.index.name == dx.index.names[0]
+        dx.index = dx.index.join(pd.MultiIndex.from_frame(cdf1.reset_index()))
+        
+        #reorder a bit
+        dx = dx.reorder_levels(list(dx_raw.index.names) + list(meta_indexers))
+        dx = dx.swaplevel(i=4).sort_index()
+        #=======================================================================
+        # check
+        #=======================================================================
+        miss_l = set(meta_indexers).difference(dx.index.names)
+        assert len(miss_l)==0
+        
+        return dx

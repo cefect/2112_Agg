@@ -86,7 +86,9 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
-        ses.plot_hist_mat(modelID_l=modelID_l)
+ 
+        #total vals per ag method
+        ses.plot_hist_mat(modelID_l=[0,3,6], dkey='tvals')
         #ses.build_deltas(baseID=0)
         
         #=======================================================================
@@ -145,7 +147,7 @@ def dev():
     return run(
         tag='dev',
         catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2_dev\model_run_index.csv',
-        modelID_l = [0,1,2],
+        modelID_l = None,
         
         compiled_fp_d = {
             'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220226\working\outs_analy_dev_0226.pickle',

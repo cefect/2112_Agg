@@ -786,6 +786,8 @@ class Catalog(object): #handling the simulation index and library
         miss_l = set(self.keys).difference(df.columns)
         assert len(miss_l)==0, miss_l
         
+        assert df.columns.is_unique
+        
         #check index
         assert df[self.idn].is_unique
         assert 'int' in df[self.idn].dtype.name
@@ -867,16 +869,18 @@ class Catalog(object): #handling the simulation index and library
         log=self.logger.getChild('add_entry')
         cat_df = self.df
         
-        #=======================================================================
-        # prepare new 
-        #=======================================================================
+
         #check
         """only allowing these columns for now"""
         miss_l = set(self.keys).difference(cat_d.keys())
         assert len(miss_l)==0, 'got %i unrecognized keys: %s'%(len(miss_l), miss_l)
         
         
-        new_df = pd.Series(cat_d ).to_frame().T
+        #=======================================================================
+        # prepare new 
+        #=======================================================================
+        
+        new_df = pd.Series(cat_d).to_frame().T
         
         #=======================================================================
         # append
