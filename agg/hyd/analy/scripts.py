@@ -55,7 +55,13 @@ def get_ax(
 class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     
     idn = 'modelID'
-    colorMap = 'cool'
+    
+    #colormap per data type
+    colorMap_d = {
+        'aggLevel':'cool',
+        'dkey_range':'winter',
+        'studyArea':'Dark2',
+        }
     
     def __init__(self,
                  catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
@@ -79,7 +85,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             
             }
         
-        super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,
+        super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,init_plt_d=None,
                          work_dir = r'C:\LS\10_OUT\2112_Agg',
                          **kwargs)
         self.plt=plt
@@ -1206,20 +1212,25 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     plot_type='hist',
                     plot_rown='aggLevel',
                     plot_coln='dscale_meth',
-                    plot_colr='aggLevel',
+                    plot_colr='dkey_range',
                     #plot_bgrp='modelID',
                     
                     #data control
-                    xlims = (0,2),
+                    xlims = None,
                     qhi=0.99, qlo=0.01,
+                    drop_zeros=True,
                     
                     #labelling
                     add_label=True,
  
                     
                     #plot style
-                    colorMap='winter',
+                    colorMap=None,
                     #ylabel=None,
+                    
+                    #histwargs
+                    bins=20, rwidth=0.9, 
+                    mean_line=True, #plot a vertical line on the mean
                     
                     ):
         """"
@@ -1244,13 +1255,13 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             dx_raw = self.retrieve('outs')
         
         
-        
+        log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
         #=======================================================================
         # data prep
         #=======================================================================
         #add requested indexers
         dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
-                                meta_indexers = set([plot_rown, plot_coln, plot_colr]),
+                                meta_indexers = set([plot_rown, plot_coln]),
                                 modelID_l=modelID_l)
         
         log.info('on %s'%str(dx_raw.shape))
@@ -1274,9 +1285,18 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
-        fig.suptitle('%s values'%dkey)
+        fig.suptitle('\'%s\' values'%dkey)
         
-        color_d = self.get_color_d(['hi', 'low', 'mean'], colorMap=colorMap)
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        if plot_colr == 'dkey_range':
+            ckeys = ['hi', 'low', 'mean']
+        else:
+            ckeys = mdex.unique(plot_colr) 
+        
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
         
         #=======================================================================
         # loop and plot
@@ -1291,27 +1311,45 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #===================================================================
             # prep data
             #===================================================================
-            data_d = {
-                    'hi':gdx0.quantile(q=qhi, axis=1).values,
-                    'mean':gdx0.mean(axis=1).values,
-                    'low':gdx0.quantile(q=qlo, axis=1).values,
-                    }
+            #handle zeros
+            bx = (gdx0==0).all(axis=1)
+            if drop_zeros:
+                gdx1 = gdx0.loc[~bx, :]
+            else:
+                gdx1 = gdx0
             
+            #collect ranges
+            data_d = {'mean':gdx1.mean(axis=1).values}
             
-            
-            
-
-            color = [color_d[k] for k in data_d.keys()]
+            #add range for multi-dimensional
+            if len(gdx1.columns)>1:
+                data_d.update({
+                        'hi':gdx1.quantile(q=qhi, axis=1).values,
+                        'low':gdx1.quantile(q=qlo, axis=1).values
+                            })
+                
+            #get color
+            if plot_colr == 'dkey_range':
+                color = [color_d[k] for k in data_d.keys()]
+            else:
+                #all the same color
+                color = [color_d[keys_d[plot_colr]] for k in data_d.keys()]
+ 
             #===================================================================
             # histogram of means
             #===================================================================
             if plot_type == 'hist':
+ 
                 ar, bins, patches = ax.hist(
                     data_d.values(),
                         range=xlims,
-                        bins=10,
-                        density=False,  color = color,
+                        bins=bins,
+                        density=False,  color = color, rwidth=rwidth,
                         label=list(data_d.keys()))
+                
+                #vertical mean line
+                if mean_line:
+                    ax.axvline(data_d['mean'].mean(), color='black', linestyle='dashed')
             #===================================================================
             # box plots
             #===================================================================
@@ -1349,9 +1387,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #===================================================================
             if add_label:
                 # get float labels
-                meta_d = {'modelIDs':str(gdx0.index.unique(idn).tolist()),
-                           'cnt':len(gdx0), 'iters':len(gdx0.columns),
-                           'min':gdx0.min().min(), 'max':gdx0.max().max(), 'mean':gdx0.mean().mean()}
+                meta_d = {'modelIDs':str(gdx1.index.unique(idn).tolist()),
+                           'cnt':len(bx), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,'iters':len(gdx1.columns),
+                           'min':gdx1.min().min(), 'max':gdx1.max().max(), 'mean':gdx1.mean().mean()}
  
                 ax.text(0.5, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
             
@@ -1372,7 +1410,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 if row_key == row_keys[0]:
                     #first col
                     if col_key == col_keys[0]:
-                        ax.legend()
+                        if plot_type=='hist':
+                            ax.legend()
                 
                         
                 # first col
@@ -1389,11 +1428,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     #last col
                     if col_key == col_keys[-1]:
                         pass
-                
-            
  
-                    
-        
         #=======================================================================
         # wrap
         #=======================================================================
@@ -1402,7 +1437,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         
-        return self.output_fig(fig, fname='%s_%s_%s' % (dkey, plot_type, self.longname))
+        return self.output_fig(fig, fname='%s_%s_%sx%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname))
             
  
  
@@ -2517,8 +2552,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         miss_l = set(dx_raw.index.unique(idn)).difference(cat_df.index)
         assert len(miss_l)==0
         
+        miss_l = set(modelID_l).difference(dx_raw.index.unique(idn))
+        assert len(miss_l)==0, '%i/%i requested models not foundin data'%(len(miss_l), miss_l)
         
-        assert len(overlap_l)==0, 'some requested'
+ 
         #=======================================================================
         # join new indexers
         #=======================================================================

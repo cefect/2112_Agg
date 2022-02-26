@@ -37,7 +37,7 @@ matplotlib_font = {
 
 matplotlib.rc('font', **matplotlib_font)
 matplotlib.rcParams['axes.titlesize'] = 10 #set the figure title size
-matplotlib.rcParams['figure.titlesize'] = 12
+matplotlib.rcParams['figure.titlesize'] = 16
 matplotlib.rcParams['figure.titleweight']='bold'
 
 #spacing parameters
@@ -88,8 +88,24 @@ def run( #run a basic model configuration
         
  
         #total vals per ag method
-        #ses.plot_dkey_mat(modelID_l=[0,3,6], dkey='tvals', plot_type='hist')
-        ses.plot_dkey_mat(modelID_l=[0,3,6], dkey='tvals', plot_type='box')
+        #ses.plot_dkey_mat(modelID_l=[0,3,6], dkey='tvals', plot_type='hist', xlims = (0,2))
+        #ses.plot_dkey_mat(modelID_l=[0,3,6], dkey='tvals', plot_type='box', xlims = (0,2))
+        
+        
+        #intersection types (using g50)
+        #=======================================================================
+        # ses.plot_dkey_mat(modelID_l=[3,9,10], dkey='rsamps', plot_rown='samp_method', 
+        #                   plot_coln='studyArea', plot_type='hist', drop_zeros=True,
+        #                   plot_colr='studyArea', bins=30)
+        #=======================================================================
+        
+        #hazard vs asset resolution
+        for plot_type in ['hist', 'box']:
+            ses.plot_dkey_mat(modelID_l=list(range(9)), dkey='rsamps', 
+                              plot_rown='aggLevel', 
+                              plot_coln='resolution', plot_type=plot_type, drop_zeros=True,
+                              plot_colr='aggLevel', bins=40)
+        
         #ses.build_deltas(baseID=0)
         
         #=======================================================================
