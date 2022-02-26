@@ -319,7 +319,7 @@ class Model(agSession):  # single model run
         finv_agg_d, finv_gkey_df_d = dict(), dict()
         
         if aggType == 'none':  # see Test_p1_finv_none
-            assert aggLevel==0
+            assert aggLevel==0, 'got bad aggLevel: %s'%aggLevel
             res_d = self.sa_get(meth='get_finv_clean', write=False, dkey=dkey, get_lookup=True, **kwargs)
  
         elif aggType == 'gridded':  # see Test_p1_finv_gridded
@@ -478,7 +478,7 @@ class Model(agSession):  # single model run
                     dkey = 'tvals',
                     mindex=None,
                     finv_agg_d=None,
-                    dscale_meth='centroid_inter',
+                    dscale_meth='centroid',
                     write=None,
                     **kwargs):
         #=======================================================================
@@ -503,7 +503,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         # aggregate trues
         #=======================================================================
-        if dscale_meth == 'centroid_inter':
+        if dscale_meth == 'centroid':
             """because the finv_agg_mindex is generated using the centroid intersect
                 see StudyArea.get_finv_gridPoly
                 se can do a simple groupby to perform this type of downscaling"""
@@ -517,6 +517,8 @@ class Model(agSession):  # single model run
             
         elif dscale_meth == 'area_split':
             raise Error('dome')
+        else:
+            raise Error('unrecognized dscale_meth=%s'%dscale_meth)
         
         #=======================================================================
         # wrap
@@ -978,7 +980,7 @@ class Model(agSession):  # single model run
         if write_pick:
             """cant pickle vlays... so pickling the filepath"""
             self.ofp_d[dkey] = self.write_pick(ofp_d,
-                os.path.join(out_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+                os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
         # save to data
         self.data_d[dkey] = finv_grid_lib
         return ofp_d
