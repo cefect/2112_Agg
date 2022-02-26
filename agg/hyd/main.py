@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='hyd',description='execute hyd.models')
     #add arguments
     parser.add_argument('modelID', help='specify the model code', type=int)
-    parser.add_argument("-tag",'-t', help='tag for the run')
+    #parser.add_argument("-tag",'-t', help='tag for the run') #this defaults to None if not passed
     parser.add_argument("-dev",'-d', help='flag for dev runs', action='store_true')
     
     
