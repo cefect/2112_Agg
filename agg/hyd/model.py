@@ -129,8 +129,32 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
     return pars_df.loc[modelID, :].to_dict()
      
     
+def run_autoPars( #retrieve pars from container
+        modelID=0,
+        **kwargs):
     
+    #retrieve preconfigured parameters
+    model_pars = get_pars(modelID)
+    
+    #reconcile passed parameters
+    for k,v in copy.copy(model_pars).items():
+        if k in kwargs:
+            if not v==kwargs[k]:
+                print('WARNING!! passed parameter \'%s\' conflicts with pre-loaded value...replacing'%(k))
+                model_pars[k] = kwargs[k] #overwrite these for reporting
  
+        
+    
+    return run(
+        modelID=modelID,
+        cat_d=copy.deepcopy(model_pars),
+        **{**model_pars, **kwargs} #overwrites model_pars w/ kwargs (where theres a conflict)
+        )
+    
+def run_auto_dev( #special dev runner
+        iters=10, trim=True, name='hyd2_dev',**kwargs):
+    
+    return run_autoPars(iters=iters, trim=trim, name=name, **kwargs)
     
  
 
@@ -266,9 +290,9 @@ def run( #run a basic model configuration
         else:
             lib_dir = None
         
-        ses.retrieve('rsamps')
-        #ses.write_summary()
-        #ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
+        #ses.retrieve('rsamps')
+        ses.write_summary()
+        ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
  
         
         out_dir = ses.out_dir
@@ -277,28 +301,7 @@ def run( #run a basic model configuration
     
     return out_dir
 
-def run_autoPars( #retrieve pars from container
-        modelID=0,
-        **kwargs):
-    
-    model_pars = get_pars(modelID)
-    
-    for k,v in copy.copy(model_pars).items():
-        if k in kwargs:
-            if not v==kwargs[k]:
-                print('WARNING!! passed parameter \'%s\' conflicts with pre-loaded value...replacing'%(k))
-                model_pars[k] = kwargs[k] #overwrite these for reporting
- 
-        
-    
-    return run(
-        modelID=modelID,
-        cat_d=copy.deepcopy(model_pars),
-        **{**model_pars, **kwargs} #overwrites model_pars w/ kwargs (where theres a conflict)
-        )
-    
-        
-    
+
  
  
 def dev():
@@ -385,18 +388,19 @@ def r2_g200():
             }
         )
     
-def run_auto_dev(
-        iters=10, trim=True, name='hyd2_dev',
-        **kwargs):
-    
-    return run_autoPars(iters=iters, trim=trim, name=name, **kwargs)
-    
 def base_dev():
-    return run_auto_dev(
-        tag='base_dev', modelID=0
-        )
-        
 
+    return run_auto_dev(tag='base_dev', modelID=0,
+        compiled_fp_d = {
+              'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\finv_agg_d\finv_agg_d_hyd2_dev_base_dev_0226.pickle',
+            'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\finv_agg_mindex_hyd2_dev_base_dev_0226.pickle',
+            'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\tvals_hyd2_dev_base_dev_0226.pickle',
+            'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\finv_sg_d\finv_sg_d_hyd2_dev_base_dev_0226.pickle',
+            'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\rsamps_hyd2_dev_base_dev_0226.pickle',
+            'rloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\rloss_hyd2_dev_base_dev_0226.pickle',
+            'tloss':r'C:\LS\10_OUT\2112_Agg\outs\hyd2_dev\base_dev\20220226\working\tloss_hyd2_dev_base_dev_0226.pickle',
+        })
+ 
 if __name__ == "__main__": 
     
     output=base_dev()

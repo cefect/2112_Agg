@@ -494,6 +494,13 @@ class Model(agSession):  # single model run
         finv_raw_serx = self.retrieve('tvals_raw', mindex=mindex, **kwargs)
         
         #=======================================================================
+        # check if we are already a true finv
+        #=======================================================================
+        if np.array_equal(mindex.get_level_values(1).values,mindex.get_level_values(2).values):
+            assert dscale_meth=='none', 'finv is already aggregated'
+            
+        
+        #=======================================================================
         # aggregate trues
         #=======================================================================
         if dscale_meth == 'centroid_inter':
@@ -504,9 +511,9 @@ class Model(agSession):  # single model run
             
         #no aggregation: base runs
         elif dscale_meth=='none': 
-            finv_agg_serx = finv_raw_serx.copy()
-            
-            raise Error('check the mindex matches')
+            """this should return the same result as the above groupby"""
+            finv_agg_serx = finv_raw_serx.droplevel(2)
+ 
             
         elif dscale_meth == 'area_split':
             raise Error('dome')
