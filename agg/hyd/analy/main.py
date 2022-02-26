@@ -51,11 +51,7 @@ print('loaded matplotlib %s'%matplotlib.__version__)
 
 from scripts import ModelAnalysis
 
-def write_pars():
-    df = get_all_pars()
-    df.to_csv(r'C:\LS\10_OUT\2112_Agg\lib\pars.csv', header=True, index=True)
-    
-
+ 
 
 def run( #run a basic model configuration
         #=======================================================================
@@ -78,19 +74,19 @@ def run( #run a basic model configuration
         #=======================================================================
         # debugging
         #=======================================================================
-        debug_len=None,
+ 
         
         **kwargs):
     
     with ModelAnalysis(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
                        catalog_fp=catalog_fp,
                        bk_lib = {
-                           'outs':dict(modelID_l=modelID_l, debug_len=debug_len)
+                           'outs':dict(modelID_l=modelID_l)
                            
                            },
                  **kwargs) as ses:
         
-        ses.plot_hist(modelID_l=modelID_l)
+        ses.plot_hist_mat(modelID_l=modelID_l)
         #ses.build_deltas(baseID=0)
         
         #=======================================================================
@@ -148,12 +144,10 @@ def run( #run a basic model configuration
 def dev():
     return run(
         tag='dev',
-        catalog_fp=r'C:\LS\10_OUT\2112_Agg\outs\hyd2\dev\20220223\lib\model_run_index.csv',
-        modelID_l = [0,1], debug_len=None,
+        catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2_dev\model_run_index.csv',
+        modelID_l = [0,1,2],
         
-        compiled_fp_d = {
-'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220223\working\outs_analy_dev_0223.pickle',
-            }
+ 
         
         )
     
@@ -185,7 +179,7 @@ if __name__ == "__main__":
     
     #output=dev()
     #output = grid_only()
-    output=grid_jensen()
+    output=dev()
         
         
  

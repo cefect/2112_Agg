@@ -63,6 +63,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                  **kwargs):
         
         data_retrieve_hndls = {
+            'catalog':{
+                #probably best not to have a compliled version of this
+                'build':lambda **kwargs:self.build_catalog(**kwargs), #
+                },
             'outs':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_outs(**kwargs),
@@ -70,7 +74,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             'agg_mindex':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_agg_mindex(**kwargs),
-                }
+                },
+            
             }
         
         super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,
@@ -97,13 +102,22 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         assert dkey=='agg_mindex'
         
         return self.assemble_model_data(dkey=dkey, **kwargs)
+    
+    def build_catalog(self,
+                      dkey='catalog',
+                      catalog_fp=None,
+                      **kwargs):
+        
+        if catalog_fp is None: catalog_fp=self.catalog_fp
+        
+        return Catalog(catalog_fp=catalog_fp, logger=self.logger, overwrite=False, **kwargs).get()
         
     
     
     def assemble_model_data(self, #collecting outputs from multiple model runs
                    modelID_l=[], #set of modelID's to include
                    dkey='outs',
-                     catalog_fp=None,
+                     
                      load_dkey = 'tloss',
                      write=None,
  
@@ -115,14 +129,14 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_%s'%dkey)
-        if catalog_fp is None: catalog_fp=self.catalog_fp
+        
         if write is None: write=self.write
         idn = Catalog.idn
         log.info('on %i'%len(modelID_l))
         #=======================================================================
         # retrieve catalog
         #=======================================================================
-        cat_df = Catalog(catalog_fp=catalog_fp, logger=log, overwrite=False).get()
+        cat_df = self.retrieve('catalog')
         
         #check
         miss_l = set(modelID_l).difference(cat_df.index)
@@ -1173,7 +1187,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
     
     
-    def plot_hist(self,
+    def plot_hist_mat(self,
                   
                     #data
                     dkey_d = {'rsamps':'mean','tvals':'var','tloss':'sum'}, #{dkey:groupby operation}

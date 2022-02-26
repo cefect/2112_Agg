@@ -769,10 +769,8 @@ class Catalog(object): #handling the simulation index and library
         self.overwrite=overwrite
         self.catalog_fp = catalog_fp
         
-        self.keys = [self.idn, 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins',
-             'out_dir', 'tloss_count', 'tloss_min', 'tloss_mean', 'tloss_max', 'tloss_sum', 
-             'pick_keys', 'iters',
-             'severity', 'tval_type', 'vid', 'zonal_stat', 'samp_method', 'aggLevel', 'aggType', 'sgType']
+        #mandatory keys
+        self.keys = [self.idn, 'name', 'tag', 'pick_fp', 'vlay_dir','pick_keys']
         
     def clean(self):
         raise Error('check consitency between index and library contents')
@@ -785,7 +783,7 @@ class Catalog(object): #handling the simulation index and library
         df = self.df.copy()
         log.debug('on %s'%str(df.shape))
         #check columns
-        miss_l = set(df.columns).symmetric_difference(self.keys)
+        miss_l = set(self.keys).difference(df.columns)
         assert len(miss_l)==0, miss_l
         
         #check index

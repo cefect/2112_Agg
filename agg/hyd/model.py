@@ -152,7 +152,7 @@ def run_autoPars( #retrieve pars from container
         )
     
 def run_auto_dev( #special dev runner
-        iters=10, trim=True, name='hyd2_dev',**kwargs):
+        iters=3, trim=True, name='hyd2_dev',**kwargs):
     
     return run_autoPars(iters=iters, trim=trim, name=name, **kwargs)
     
