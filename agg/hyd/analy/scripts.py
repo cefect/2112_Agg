@@ -1201,7 +1201,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
     
     
-    def plot_dkey_mat(self,
+    def plot_dkey_mat(self, #flexible plotting of model results in a matrix
                   
                     #data
                     dkey='tvals', #{dkey:groupby operation}
@@ -1234,7 +1234,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     
                     ):
         """"
-        compressing a range of values
+        generally 1 modelId per panel
         """
         
         #=======================================================================
@@ -1245,12 +1245,6 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         idn = self.idn
  
-        """
-        view(dx_raw)
-        view(dx)
-        dx.loc[idx[0, 'LMFRA', 'LMFRA_0500yr', :], idx['tvals', 0]].sum()
-        dx_raw.columns.unique('dkey')
-        """
         if dx_raw is None:
             dx_raw = self.retrieve('outs')
         
@@ -1271,10 +1265,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         # setup the figure
         #=======================================================================
         plt.close('all')
-        """
-        view(dx)
-        plt.show()
-        """
+ 
         col_keys =mdex.unique(plot_coln).tolist()
         row_keys = mdex.unique(plot_rown).tolist()
  
