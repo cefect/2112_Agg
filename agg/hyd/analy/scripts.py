@@ -1049,7 +1049,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         log = self.logger.getChild('plot_model_smry_%i'%modelID)
         if dx_raw is None: dx_raw = self.retrieve('outs')
-        if colorMap is None: colorMap=self.colorMap
+        if colorMap is None: colorMap=self.colorMap_d['studyArea']
         
         #=======================================================================
         # data prep
@@ -1152,7 +1152,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         log.info('finsihed')
         
-        return self.output_fig(fig, fname='model_smry_%03d_%s' %(modelID, self.longname))
+        return self.output_fig(fig,
+                               out_dir = os.path.join(self.out_dir, tag), 
+                               fname='model_smry_%03d_%s' %(modelID, self.longname))
         
  
     """

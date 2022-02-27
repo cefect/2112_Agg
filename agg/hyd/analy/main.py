@@ -88,13 +88,22 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
+        #=======================================================================
+        # individual model summaries
+        #=======================================================================
+        for mid in modelID_l:
+            ses.plot_model_smry(mid)
  
-        #total vals per ag method
+        #=======================================================================
+        # #total vals per ag method
+        #=======================================================================
         #ses.plot_dkey_mat(modelID_l=[0,3,6], dkey='tvals', plot_type='hist', xlims = (0,2))
         #ses.plot_dkey_mat(modelID_l=[0,3,6], dkey='tvals', plot_type='box', xlims = (0,2))
         
         
-        #intersection types (using g50)
+        #=======================================================================
+        # #intersection types (using g50)
+        #=======================================================================
         #=======================================================================
         # ses.plot_dkey_mat(modelID_l=[3,9,10], dkey='rsamps', plot_rown='samp_method', 
         #                   plot_coln='studyArea', plot_type='hist', drop_zeros=True,
@@ -118,14 +127,11 @@ def run( #run a basic model configuration
         #error plots
         #ses.plot_compare_mat(dkey='rsamps', modelID_l=mid_rsamps_l,plot_rown='aggLevel', plot_coln='resolution')
         #ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea')
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea')
+        #ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea')
         
-        #=======================================================================
-        # for mid in modelID_l:
-        #     pass
-        #     ses.plot_model_smry(mid)
-        # ses.plot_total_bars(modelID_l=modelID_l)
-        #=======================================================================
+
+            
+        #ses.plot_total_bars(modelID_l=modelID_l)
  
         
  
@@ -187,35 +193,18 @@ def dev():
         
         )
     
-def grid_jensen():
+
+def r2():
     return run(
-        tag='grid_jensen',
-        
-        modelID_l = [0,
-                     #2, #50m grid 
-                     3, 1],
-        
-        compiled_fp_d = {
-            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\grid_jensen\20220224\working\outs_analy_grid_jensen_0224.pickle',
-            },
+        modelID_l = [0],
+        tag='r2',
         )
     
-def grid_only():
-    return run(
-        tag='grid_only',
-        
-        modelID_l = [0,
-                     4, 5],
-        
-        compiled_fp_d = {
-            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\grid_only\20220224\working\outs_analy_grid_only_0224.pickle'
-            },
-        )
 if __name__ == "__main__": 
     
+ 
     #output=dev()
-    #output = grid_only()
-    output=dev()
+    output=r2()
         
         
  

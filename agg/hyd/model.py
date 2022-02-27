@@ -51,7 +51,7 @@ from agg.hyd.scripts import Model, ModelStoch, get_all_pars, view, Error
 def get_pars(#retrieving and pre-checking parmeter values based on model ID
             modelID,
             #file with preconfigrued runs
-             pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0226.csv',
+             pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0226.xls',
              ):
     
     #===========================================================================
@@ -59,7 +59,8 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
     #===========================================================================
     from numpy import dtype
     #pars_df_raw.dtypes.to_dict()
-    pars_df_raw = pd.read_csv(pars_fp, index_col=False, comment='#')
+    #pars_df_raw = pd.read_csv(pars_fp, index_col=False, comment='#')
+    pars_df_raw= pd.read_excel(pars_fp, comment='#')
     pars_df = pars_df_raw.dropna(how='all').infer_objects().astype(
         {'modelID': int, 'tag': str, 'tval_type': str, 
          'aggLevel': int, 'aggType': str, 'dscale_meth': dtype('O'), 'severity': dtype('O'), 
@@ -142,7 +143,7 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
 def run_autoPars( #retrieve pars from container
         modelID=0,
         **kwargs):
-    
+    print('START on %i w/ %s'%(modelID, kwargs))
     #retrieve preconfigured parameters
     model_pars = get_pars(modelID)
     
@@ -267,12 +268,7 @@ def run( #run a basic model configuration
         
  
         **kwargs):
-    
-    #===========================================================================
-    # update depth rastsers
-    #===========================================================================
- 
- 
+    print('START run w/ %s.%s and iters=%i'%(name, tag, iters))
     #===========================================================================
     # execute
     #===========================================================================
@@ -414,11 +410,11 @@ def base_dev():
 if __name__ == "__main__": 
  
     #output=base_dev()
-    output=run_auto_dev(modelID=9)
+    #output=run_auto_dev(modelID=9)
     #output=dev()
     #output=r2_base()
     #output=r2_g200()
-    #output=run_autoPars(tag='g50', modelID=2)
+    output=run_autoPars(modelID=0)
     #output=run_autoPars(tag='g100', modelID=3)
     #output=run_autoPars(tag='g100_true', modelID=4, trim=True)
     #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
