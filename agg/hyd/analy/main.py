@@ -80,9 +80,10 @@ def run( #run a basic model configuration
         **kwargs):
     
     with ModelAnalysis(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
-                       catalog_fp=catalog_fp,baseID=baseID,
+                       catalog_fp=catalog_fp,baseID=baseID,modelID_l=modelID_l,
                        bk_lib = {
-                           'outs':dict(modelID_l=modelID_l),
+                           'outs':dict(),
+                           'finv_agg_fps':dict(),
                            'trues':dict(baseID=baseID),
                            
                            },
@@ -92,7 +93,7 @@ def run( #run a basic model configuration
         # individual model summaries
         #=======================================================================
         for mid in modelID_l:
-            ses.write_resvlay(mid)
+            ses.write_resvlay()
             #ses.plot_model_smry(mid)
  
         #=======================================================================
@@ -197,8 +198,13 @@ def dev():
 
 def r2():
     return run(
-        modelID_l = [0],
+        modelID_l = [0, 1, 2],
         tag='r2',
+        compiled_fp_d = {
+        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\outs_analy_r2_0227.pickle',
+        'finv_agg_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\finv_agg_fps_analy_r2_0227.pickle',
+            
+            },
         )
     
 if __name__ == "__main__": 

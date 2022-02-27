@@ -68,6 +68,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                  catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
                  plt=None,
                  name='analy',
+                 modelID_l=None, #optional list for specifying a subset of the model runs
                  baseID=0, #mase model ID
                  **kwargs):
         
@@ -87,7 +88,11 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             'trues':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs), #consider checking the baseID
                 'build':lambda **kwargs: self.build_trues(**kwargs),
-                }
+                },
+            'finv_agg_fps':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs), #only filepaths?
+                'build':lambda **kwargs: self.build_finv_agg(**kwargs),
+                },
             
             }
         
@@ -97,10 +102,22 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         self.plt=plt
         self.catalog_fp=catalog_fp
         self.baseID=baseID
+        self.modelID_l=modelID_l
     
     #===========================================================================
-    # DATA ANALYSIS---------
+    # RESULTS ASSEMBLY---------
     #===========================================================================
+    
+    def build_catalog(self,
+                      dkey='catalog',
+                      catalog_fp=None,
+                      **kwargs):
+        
+        assert dkey=='catalog'
+        if catalog_fp is None: catalog_fp=self.catalog_fp
+        
+        return Catalog(catalog_fp=catalog_fp, logger=self.logger, overwrite=False, **kwargs).get()
+    
     def build_agg_mindex(self,
                          dkey='agg_mindex',
     
@@ -194,17 +211,52 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
  
         return dx
     
-    def build_catalog(self,
-                      dkey='catalog',
-                      catalog_fp=None,
-                      **kwargs):
-        
-        assert dkey=='catalog'
-        if catalog_fp is None: catalog_fp=self.catalog_fp
-        
-        return Catalog(catalog_fp=catalog_fp, logger=self.logger, overwrite=False, **kwargs).get()
-        
+
+    def build_finv_agg(self,
+                         dkey='finv_agg_fps',
     
+                        write=None,
+                        idn=None,
+                     **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log=self.logger.getChild('build_finv_agg')
+        assert dkey=='finv_agg_fps'
+        if write is None: write=self.write
+        if idn is None: idn=self.idn
+        #=======================================================================
+        # pull from piciles
+        #=======================================================================
+        
+        fp_lib= self.assemble_model_data(dkey='finv_agg_d', 
+                                         logger=log, write=write, idn=idn,
+                                         **kwargs)
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        cnt = 0
+        for mid, d in fp_lib.items():
+            for studyArea, fp in d.items():
+                assert os.path.exists(fp)
+                cnt+=1
+                
+        
+        
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('retrieved %i finv_agg fps'%cnt)
+        if write:
+            self.ofp_d[dkey] = self.write_pick(fp_lib,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+ 
+        return fp_lib
+        
+        
     
     def assemble_model_data(self, #collecting outputs from multiple model runs
                    modelID_l=None, #set of modelID's to include (None=load all in the catalog)
@@ -226,6 +278,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         if write is None: write=self.write
         if idn is None: idn=self.idn
         if cat_df is None: cat_df = self.retrieve('catalog')
+        if modelID_l is None: modelID_l=self.modelID_l
         
         assert idn==Catalog.idn
         #=======================================================================
@@ -796,15 +849,15 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         view(dx_raw)
         """
     
-    def xxxwrite_errs(self,  # write a points layer with the errors
-                                       # data control   
-                    dkey='errs',
+    def write_resvlay(self,  #attach some data to the gridded finv
+                  # data control   
+                  modelID_l=None,
+                  dx_raw=None,finv_agg_fps=None,
+                  dkey='tloss',
+                  stats = ['mean', 'min', 'max', 'var'], #stats for compressing iter data
                     
                     # output config
-                    # folder1_key = 'studyArea',
-                    # folder2_key = 'event',
-                    folder_keys=['studyArea', 'event', 'vid'],
-                    file_key='grid_size',
+ 
                     out_dir=None,
                     ):
         """
@@ -817,123 +870,138 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('write_errs')
-        assert dkey == 'errs'
+        log = self.logger.getChild('write_resvlay')
+ 
         if out_dir is None:out_dir = self.out_dir
-            
-        gcn = self.gcn
+        idn=self.idn
+        gcn = 'gid'
         #=======================================================================
         # #retrieve child data
         #=======================================================================
         # errors
-        dx_raw = self.retrieve(dkey)
-        # mindex = dx_raw.index
-        # names_d= {lvlName:i for i, lvlName in enumerate(dx_raw.index.names)}
-        
-        # get type
-        # dx1 = dx_raw.loc[:, idx[lossType, :,:,:]].droplevel(0, axis=1)
-        
-        """
-        dx_raw.index
-        dx_raw.columns
-        view(dxind_raw)
-        view(dx_raw)
-        view(tl_dxind)
-        """
-        # depths and id_cnt
-        tl_dxind = self.retrieve('tloss')
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
+ 
         
         # geometry
-        finv_agg_lib = self.retrieve('finv_agg_d')
-        
+        if finv_agg_fps is None:
+            finv_agg_fps = self.retrieve('finv_agg_fps')
+            
         #=======================================================================
-        # prep data
+        # slice
         #=======================================================================
-        
-        #=======================================================================
-        # loop and write
-        #=======================================================================
-        meta_d = dict()
-        # vf_d = self.retrieve('vf_d')
-        log.info('on \'%s\' w/ %i' % (dkey, len(dx_raw)))
-        
-        # lvls = [names_d[k] for k in [folder1_key, folder2_key, file_key]]
-        for i, (keys, gdx) in enumerate(dx_raw.groupby(level=folder_keys + [file_key])):
+        if modelID_l is None:
+            modelID_l = dx_raw.index.unique(idn).tolist()
+            
  
-            keys_d = dict(zip(folder_keys + [file_key], keys))
-            log.debug(keys_d)
+        
+        
+        dxind = dx_raw.loc[idx[modelID_l, :, :, :, :], idx[dkey, :]].droplevel(0, axis=1)
+        
+ 
+        
+        #=======================================================================
+        # loop and write--------
+        #=======================================================================
+        log.info('on \'%s\' w/ %i' % (dkey, len(dx_raw)))
+        #=======================================================================
+        # loop on study area
+        #=======================================================================
+        ofp_l = list()
+        gnames = [idn, 'studyArea', 'event']
+        for keys, gdx0 in dxind.groupby(level=gnames):
+ 
+            keys_d = dict(zip(gnames, keys))
+            mstore = QgsMapLayerStore()
+            log.info(keys_d)
+            
+            
+            #===================================================================
+            # prep
+            #===================================================================
+            assert len(gdx0.index.unique('tag'))==1
+            tag = gdx0.index.unique('tag')[0]
+            keys_d['tag'] = tag
+            
+            #drop extra indicies
+            gdf1 = gdx0.droplevel([0,1,2,3])
                 
             #===================================================================
             # retrieve spatial data
             #===================================================================
             # get vlay
-            finv_vlay = finv_agg_lib[keys_d['studyArea']][keys_d['grid_size']]
+            finv_fp = finv_agg_fps[keys_d[idn]][keys_d['studyArea']]
+            finv_vlay = self.vlay_load(finv_fp, logger=log, set_proj_crs=True)
+            mstore.addMapLayer(finv_vlay)
             
+            #get geo
             geo_d = vlay_get_geo(finv_vlay)
+            
+            #===================================================================
+            # re-key
+            #===================================================================
             fid_gid_d = vlay_get_fdata(finv_vlay, fieldn=gcn)
-            #===================================================================
-            # prepare data
-            #===================================================================
-            """layers only support 1d indexers... compressing 2d columsn here"""
-            # get column values
-            cdf = gdx.columns.to_frame().reset_index(drop=True)            
- 
-            # get flat frame
-            gdf1 = pd.DataFrame(gdx.values,
-                index=gdx.index.droplevel(list(keys_d.keys())),
-                columns=cdf.iloc[:, 0].str.cat(cdf.iloc[:, 1], sep='.').values,
-                ).reset_index()
- 
-            # reset to fid index
-            gdf2 = gdf1.join(pd.Series({v:k for k, v in fid_gid_d.items()}, name='fid'), on='gid').set_index('fid')
+            
+            #chekc keys
+            miss_l = set(gdf1.index).difference(fid_gid_d.values())
+            if not len(miss_l)==0:
+                raise Error('missing %i/%i keys on %s'%(len(miss_l), len(gdf1), keys_d))
+            
+            #rekey data
+            fid_ser = pd.Series({v:k for k,v in fid_gid_d.items()}, name='fid')
+            gdf2 = gdf1.join(fid_ser).set_index('fid')
             
             """
-            view(gdf2)
+            gdf2.columns
             """
+            
+            #===================================================================
+            # compute stats
+            #===================================================================
+            d = {'mean':gdf2.mean(axis=1)}
+            
+            if len(gdf2.columns)>0:
+                d = {k:getattr(gdf2, k)(axis=1) for k in stats}
+                
+            gdf3 = pd.concat(d.values(), keys=d.keys(), axis=1).sort_index()
+            """
+            view(gdx1)
+            """
+ 
             #===================================================================
             # build layer
             #===================================================================
-            layname = '_'.join([str(e).replace('_', '') for e in keys_d.values()])
-            vlay = self.vlay_new_df(gdf2, geo_d=geo_d, layname=layname, logger=log,
+            layname = 'm' + '_'.join([str(e).replace('_', '') for e in keys_d.values()])
+            vlay = self.vlay_new_df(gdf3, geo_d=geo_d, layname=layname, logger=log,
                                     crs=finv_vlay.crs(),  # session crs does not match studyAreas
                                     )
-            
+            mstore.addMapLayer(vlay)
             #===================================================================
             # write layer
             #===================================================================
             # get output directory
-            od = out_dir
-            for fkey in [keys_d[k] for k in folder_keys]: 
-                od = os.path.join(od, str(fkey))
+            od = os.path.join(out_dir, tag)
  
             if not os.path.exists(od):
                 os.makedirs(od)
                 
             s = '_'.join([str(e) for e in keys_d.values()])
-            ofp = os.path.join(od, self.longname + '_' + 'errs_' + s + '.gpkg') 
+            ofp = os.path.join(od, self.longname + '_%s_'%dkey + s + '.gpkg') 
  
-            ofp = self.vlay_write(vlay, ofp, logger=log)
+            ofp_l.append(self.vlay_write(vlay, ofp, logger=log))
             
             #===================================================================
             # wrap
             #===================================================================
-            meta_d[i] = {**keys_d,
-                **{ 'len':len(gdf2), 'width':len(gdf2.columns), 'ofp':ofp}
-                }
+            mstore.removeAllMapLayers()
             
         #=======================================================================
         # write meta
         #=======================================================================
-        log.info('finished on %i' % len(meta_d))
+        log.info('finished on %i' % len(ofp_l))
         
-        # write meta
-        mdf = pd.DataFrame.from_dict(meta_d, orient='index')
-        
-        ofp = os.path.join(out_dir, '%s_writeErrs_smry.xls' % self.longname)
-        with pd.ExcelWriter(ofp) as writer: 
-            mdf.to_excel(writer, sheet_name='smry', index=True, header=True)
-            
-        return mdf
+ 
+        return ofp_l
             
     def get_confusion_matrix(self,  # wet/dry confusion
                              
@@ -1049,7 +1117,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         log = self.logger.getChild('plot_model_smry_%i'%modelID)
         if dx_raw is None: dx_raw = self.retrieve('outs')
-        if colorMap is None: colorMap=self.colorMap_d['studyArea']
+        if colorMap is None: colorMap=self.colorMap_d['dkey_range']
         
         #=======================================================================
         # data prep
