@@ -262,7 +262,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 
 
     
-    def build_trues(self, #build a identically indexed 'true' data set for each model run
+    def build_trues(self, #build a 'base' data set using the raw indexers for each run
                      baseID=0, #modelID to consider 'true'
                      #modelID_l=None, #optional slicing to specific models
                      dkey='trues',
@@ -270,6 +270,12 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                      
                      idn=None, write=None,
                      ):
+        """
+        for direct comparison w/ aggregated model results,
+            these trues will need to be aggregated (groupby) again (method depends on what youre doing)
+            
+        TODO: check the specified baseID run had an aggLevel=0
+        """
         
         #=======================================================================
         # defaults
@@ -1611,21 +1617,108 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         return self.output_fig(fig, fname='%s_%s_%sx%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname))
             
+    def plot_compare_mat(self, #flexible plotting of model results vs. true in a matrix
+                  
+                    #data
+                    dkey='tvals', #{dkey:groupby operation}
+                    dx_raw=None,
+                    modelID_l = None, #optinal sorting list
+                    
+                    #plot config
+                    plot_type='hist',
+                    plot_rown='aggLevel',
+                    plot_coln='dscale_meth',
+                    plot_colr='dkey_range',
+                    #plot_bgrp='modelID',
+                    
+                    #data control
+                    xlims = None,
+                    qhi=0.99, qlo=0.01,
+                    drop_zeros=True,
+                    
+                    #labelling
+                    add_label=True,
  
+                    
+                    #plot style
+                    colorMap=None,
+                    #ylabel=None,
+                    
+                    #histwargs
+                    bins=20, rwidth=0.9, 
+                    mean_line=True, #plot a vertical line on the mean
+                    
+                    ):
+        """"
+        generally 1 modelId per panel
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_total_bars')
+        
+        
+        idn = self.idn
+ 
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
+        
+        
+        log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        #add requested indexers
+        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
+                                meta_indexers = set([plot_rown, plot_coln]),
+                                modelID_l=modelID_l)
+        
+        log.info('on %s'%str(dx_raw.shape))
+        mdex = dx.index
+        
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+ 
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey='all', sharex='all',  # everything should b euniform
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+        fig.suptitle('\'%s\' values'%dkey)
+        
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        if plot_colr == 'dkey_range':
+            ckeys = ['hi', 'low', 'mean']
+        else:
+            ckeys = mdex.unique(plot_colr) 
+        
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
  
 
         
-    def get_color_d(self,
-                    cvals,
-                    colorMap=None,
-                    ):
-                    
-        if colorMap is None: colorMap=self.colorMap
-        cmap = plt.cm.get_cmap(name=colorMap) 
-        return {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+
         
-    
-    def plot_depths(self,
+    #===========================================================================
+    # OLD PLOTTER-------
+    #===========================================================================
+    def xxxplot_depths(self,
                     # data control
                     plot_fign='studyArea',
                     plot_rown='grid_size',
@@ -2010,7 +2103,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         log.info('finsihed')
         return
  
-    def plot_errs_scatter(self,  # scatter plot of error-like data
+    def xxxplot_errs_scatter(self,  # scatter plot of error-like data
                     # data control   
                     dkey='errs',
                     
@@ -2684,6 +2777,17 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # HELPERS---------
     #===========================================================================
+    
+    def get_color_d(self,
+                    cvals,
+                    colorMap=None,
+                    ):
+                    
+        if colorMap is None: colorMap=self.colorMap
+        cmap = plt.cm.get_cmap(name=colorMap) 
+        return {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+    
+    
     def join_meta_indexers(self, #join some meta keys to the output data
                 modelID_l = None, #optional sub-set of modelIDs
                 meta_indexers = {'aggLevel', 'dscale_meth'}, #metadat fields to promote to index
