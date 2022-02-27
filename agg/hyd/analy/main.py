@@ -93,9 +93,11 @@ def run( #run a basic model configuration
         # individual model summaries---------
         #=======================================================================
         mids = [0,2]
-        ses.write_resvlay(dkey='rsamps', modelID_l=mids)
-        for mid in mids:
-            ses.plot_model_smry(mid)
+        #=======================================================================
+        # ses.write_resvlay(dkey='rsamps', modelID_l=mids)
+        # for mid in mids:
+        #     ses.plot_model_smry(mid)
+        #=======================================================================
             
         #=======================================================================
         # exposure calc analysis----------
@@ -154,6 +156,8 @@ def run( #run a basic model configuration
         #=======================================================================
         # loss calc analysis---------
         #=======================================================================
+        mids = [0,12,13]
+        ses.plot_vs_mat(modelID_l=mids, fmt='png')
         
         
 
@@ -187,10 +191,7 @@ def r2():
         #modelID_l = [0, 11],
         tag='r2',
         compiled_fp_d = {
-        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\outs_analy_r2_0227.pickle',
-        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\agg_mindex_analy_r2_0227.pickle',
-        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\trues_analy_r2_0227.pickle',
-        'finv_agg_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\finv_agg_fps_analy_r2_0227.pickle',
+'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\outs_analy_r2_0227.pickle',
             },
         )
     

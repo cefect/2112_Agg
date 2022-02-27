@@ -1892,7 +1892,197 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         return self.output_fig(fig, fname='errs_%s_%sx%s_%s' % (dkey, plot_rown, plot_coln, self.longname), **kwargs)
  
-
+    def plot_vs_mat(self, #plot dkeys against eachother in a matrix
+                  
+                    #data
+                    dkey_y='rloss',#column group w/ values to plot
+                    dkey_x='rsamps',
+                     
+ 
+                    dx_raw=None, #combined model results
+                    modelID_l = None, #optinal sorting list
+                    
+                    #plot config
+                    #plot_type='hist',
+                    plot_rown='studyArea',
+                    plot_coln='vid',
+                    plot_colr=None,
+                    #plot_bgrp='modelID',
+                    
+                    #data control
+                    #xlims = None,
+                    qhi=0.99, qlo=0.01,
+                    #drop_zeros=True, #must always be false for the matching to work
+                    
+                    #labelling
+                    baseID=None,
+                    add_label=True,
+ 
+                    
+                    #plot style
+                    colorMap=None,
+                    **kwargs):
+        """"
+        generally 1 modelId per panel
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_compare_mat')
+        
+        if plot_colr is None: plot_colr=plot_rown
+        idn = self.idn
+        if baseID is None: baseID=self.baseID
+ 
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
+            
+ 
+        
+        
+        log.info('on \'%s\' vs \'%s\' (%s x %s)'%(dkey_x, dkey_y, plot_rown, plot_coln))
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        #add requested indexers
+        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[[dkey_x, dkey_y], :]], 
+                                meta_indexers = set([plot_rown, plot_coln]),
+                                modelID_l=modelID_l)
+        
+        log.info('on %s'%str(dx.shape))
+        mdex = dx.index
+        
+ 
+        
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+ 
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey='none', sharex='none',  # everything should b euniform
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+        
+        fig.suptitle('\'%s\' vs \'%s\' '%(dkey_x, dkey_y))
+        
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+ 
+        ckeys = mdex.unique(plot_colr) 
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+ 
+        for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            
+            #===================================================================
+            # setup
+            #===================================================================
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
+            ax = ax_d[gkeys[1]][gkeys[0]]
+            log.info('on %s'%keys_d)
+            
+            #===================================================================
+            # color loop
+            #===================================================================
+            for color_key, gdx1 in gdx0.groupby(level=plot_colr):
+            
+                #===================================================================
+                # data prep----------
+                #==================================================================
+                #split the data
+                xdx0 = gdx1.loc[:, idx[dkey_x, :]].droplevel(0, axis=1)
+                ydx0 = gdx1.loc[:, idx[dkey_y, :]].droplevel(0, axis=1)
+     
+                
+                #===================================================================
+                # ranges
+                #===================================================================
+                #model results
+                xdata_d, zeros_bx = self.prep_ranges(qhi, qlo, False, xdx0)
+                
+                #trues
+                ydata_d, _ = self.prep_ranges(qhi, qlo, False, ydx0)
+                
+     
+                
+                #===================================================================
+                # scatter plot
+                #===================================================================
+                """only using mean values for now"""
+                xar, yar = xdata_d['mean'], ydata_d['mean'] 
+                
+      
+                ax.plot(xar, yar, linestyle='None', color=color_d[color_key],
+                        label=color_key,
+                         **{'markersize':3.0, 'marker':'.', 'fillstyle':'full'})
+            """
+            fig.show()
+            """
+            #===================================================================
+            # post-format----
+            #===================================================================
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+            #===================================================================
+            # labels
+            #===================================================================
+            if add_label:
+                # get float labels
+                meta_d = {'modelIDs':str(list(gdx0.index.unique(idn))),
+                           'count':len(gdx0), 'zero_cnt':(gdx0==0).sum().sum(), 'drop_zeros':False,
+                           'iters':len(xdx0.columns),
+                           #'min':gdx1.min().min(), 'max':gdx1.max().max(), 'mean':gdx1.mean().mean()},
+                            }
+ 
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+                
+        #===============================================================
+        # #wrap format subplot
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+ 
+                ax.legend(loc=1)
+                # first row
+                if row_key == row_keys[0]:
+                    pass
+                #last col
+                if col_key == col_keys[-1]:
+                    pass
+                    
+                
+                        
+                # first col
+                if col_key == col_keys[0]:
+                    ax.set_ylabel('\'%s\''%dkey_y)
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    ax.set_xlabel('\'%s\''%dkey_x)
+ 
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        """
+        plt.show()
+        """
+        
+        return self.output_fig(fig, fname='%s-%s_%sx%s_%s' % (dkey_x, dkey_y, plot_rown, plot_coln, self.longname), **kwargs)
         
 
         
@@ -2016,7 +2206,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         return res_d
 
-    def plot_tvals(self,
+    def xxxplot_tvals(self,
                     plot_fign='studyArea',
                     plot_rown='grid_size',
                     # plot_coln = 'event',
@@ -2133,7 +2323,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         return res_d      
 
 
-    def plot_terrs_box(self,  # boxplot of total errors
+    def xxxplot_terrs_box(self,  # boxplot of total errors
                     
                     # data control
                     dkey='errs',
@@ -2521,7 +2711,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         log.info('finsihed')
         return
     
-    def plot_accuracy_mat(self,  # matrix plot of accuracy
+    def xxxplot_accuracy_mat(self,  # matrix plot of accuracy
                     # data control   
                     dkey='errs',
                     lossType='tl',
@@ -2869,7 +3059,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         return stat_d
                     
-    def ax_hist(self,  # set a histogram on the axis
+    def xxxax_hist(self,  # set a histogram on the axis
                 ax,
                 data_raw,
  
