@@ -65,6 +65,7 @@ def run( #run a basic model configuration
         #=======================================================================
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
         modelID_l=[],
+        baseID = 0, #model representing the base run
  
         #=======================================================================
         # plot control
@@ -79,9 +80,10 @@ def run( #run a basic model configuration
         **kwargs):
     
     with ModelAnalysis(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
-                       catalog_fp=catalog_fp,
+                       catalog_fp=catalog_fp,baseID=baseID,
                        bk_lib = {
-                           'outs':dict(modelID_l=modelID_l)
+                           'outs':dict(modelID_l=modelID_l),
+                           'trues':dict(baseID=baseID),
                            
                            },
                  **kwargs) as ses:
@@ -99,16 +101,24 @@ def run( #run a basic model configuration
         #                   plot_colr='studyArea', bins=30)
         #=======================================================================
         
-        #hazard vs asset resolution
+        #=======================================================================
+        # #hazard vs asset resolution
+        #=======================================================================
+        mid_rsamps_l = list(range(9))
+        
+        #result values
         #=======================================================================
         # for plot_type in ['hist', 'box']:
-        #     ses.plot_dkey_mat(modelID_l=list(range(9)), dkey='rsamps', 
+        #     ses.plot_dkey_mat(modelID_l=mid_rsamps_l, dkey='rsamps', 
         #                       plot_rown='aggLevel', 
         #                       plot_coln='resolution', plot_type=plot_type, drop_zeros=True,
         #                       plot_colr='aggLevel', bins=40)
         #=======================================================================
         
-        ses.build_trues(baseID=0)
+        #error plots
+        #ses.plot_compare_mat(dkey='rsamps', modelID_l=mid_rsamps_l,plot_rown='aggLevel', plot_coln='resolution')
+        #ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea')
+        ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea')
         
         #=======================================================================
         # for mid in modelID_l:
@@ -171,6 +181,7 @@ def dev():
         compiled_fp_d = {
         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220227\working\outs_analy_dev_0227.pickle',
         'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220227\working\agg_mindex_analy_dev_0227.pickle',
+        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220227\working\trues_analy_dev_0227.pickle',
             }
  
         

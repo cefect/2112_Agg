@@ -68,6 +68,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                  catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
                  plt=None,
                  name='analy',
+                 baseID=0, #mase model ID
                  **kwargs):
         
         data_retrieve_hndls = {
@@ -83,6 +84,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_agg_mindex(**kwargs),
                 },
+            'trues':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs), #consider checking the baseID
+                'build':lambda **kwargs: self.build_trues(**kwargs),
+                }
             
             }
         
@@ -91,6 +96,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                          **kwargs)
         self.plt=plt
         self.catalog_fp=catalog_fp
+        self.baseID=baseID
     
     #===========================================================================
     # DATA ANALYSIS---------
@@ -408,7 +414,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
  
         
  
-    def build_errs(self,  # get the errors (gridded - true)
+    def xxxbuild_errs(self,  # get the errors (gridded - true)
                     dkey=None,
                      prec=None,
                      group_keys=['grid_size', 'studyArea', 'event'],
@@ -631,7 +637,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
  
         
  
-    def write_loss_smry(self,  # write statistcs on total loss grouped by grid_size, studyArea, and event
+    def xxxwrite_loss_smry(self,  # write statistcs on total loss grouped by grid_size, studyArea, and event
                     
                    # data control   
                     dkey='tloss',
@@ -790,7 +796,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         view(dx_raw)
         """
     
-    def write_errs(self,  # write a points layer with the errors
+    def xxxwrite_errs(self,  # write a points layer with the errors
                                        # data control   
                     dkey='errs',
                     
@@ -1388,10 +1394,12 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
     
     
+
+
     def plot_dkey_mat(self, #flexible plotting of model results in a matrix
                   
                     #data
-                    dkey='tvals', #{dkey:groupby operation}
+                    dkey='tvals', #column group w/ values to plot
                     dx_raw=None,
                     modelID_l = None, #optinal sorting list
                     
@@ -1486,27 +1494,11 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             
             #xlims = (gdx0.min().min(), gdx0.max().max())
             
-            #===================================================================
-            # prep data
-            #===================================================================
-            #handle zeros
-            bx = (gdx0==0).all(axis=1)
-            if drop_zeros:
-                gdx1 = gdx0.loc[~bx, :]
-            else:
-                gdx1 = gdx0
-            
-            #collect ranges
-            data_d = {'mean':gdx1.mean(axis=1).values}
-            
-            #add range for multi-dimensional
-            if len(gdx1.columns)>1:
-                data_d.update({
-                        'hi':gdx1.quantile(q=qhi, axis=1).values,
-                        'low':gdx1.quantile(q=qlo, axis=1).values
-                            })
+            data_d, bx = self.prep_ranges(qhi, qlo, drop_zeros, gdx0)
                 
-            #get color
+            #===================================================================
+            # #get color
+            #===================================================================
             if plot_colr == 'dkey_range':
                 color = [color_d[k] for k in data_d.keys()]
             else:
@@ -1620,23 +1612,26 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     def plot_compare_mat(self, #flexible plotting of model results vs. true in a matrix
                   
                     #data
-                    dkey='tvals', #{dkey:groupby operation}
-                    dx_raw=None,
+                    dkey='tvals',#column group w/ values to plot
+                    aggMethod='mean', #method to use for aggregating the true values (down to the gridded)
+                    true_dx_raw=None, #base values (indexed to raws per model)
+                    dx_raw=None, #combined model results
                     modelID_l = None, #optinal sorting list
                     
                     #plot config
-                    plot_type='hist',
+                    #plot_type='hist',
                     plot_rown='aggLevel',
-                    plot_coln='dscale_meth',
-                    plot_colr='dkey_range',
+                    plot_coln='resolution',
+                    plot_colr=None,
                     #plot_bgrp='modelID',
                     
                     #data control
                     xlims = None,
                     qhi=0.99, qlo=0.01,
-                    drop_zeros=True,
+                    #drop_zeros=True, #must always be false for the matching to work
                     
                     #labelling
+                    baseID=None,
                     add_label=True,
  
                     
@@ -1644,9 +1639,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     colorMap=None,
                     #ylabel=None,
                     
-                    #histwargs
-                    bins=20, rwidth=0.9, 
-                    mean_line=True, #plot a vertical line on the mean
+ 
                     
                     ):
         """"
@@ -1656,13 +1649,17 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('plot_total_bars')
+        log = self.logger.getChild('plot_compare_mat')
         
-        
+        if plot_colr is None: plot_colr=plot_rown
         idn = self.idn
+        if baseID is None: baseID=self.baseID
  
         if dx_raw is None:
             dx_raw = self.retrieve('outs')
+            
+        if true_dx_raw is None:
+            true_dx_raw = self.retrieve('trues', baseID=baseID)
         
         
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
@@ -1674,8 +1671,13 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                                 meta_indexers = set([plot_rown, plot_coln]),
                                 modelID_l=modelID_l)
         
-        log.info('on %s'%str(dx_raw.shape))
+        log.info('on %s'%str(dx.shape))
         mdex = dx.index
+        
+        #and on the trues
+        true_dx = self.join_meta_indexers(dx_raw = true_dx_raw.loc[:, idx[dkey, :]], 
+                                meta_indexers = set([plot_rown, plot_coln]),
+                                modelID_l=modelID_l)
         
         #=======================================================================
         # setup the figure
@@ -1688,28 +1690,140 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
                                     figsize_scaler=4,
                                     constrained_layout=True,
-                                    sharey='all', sharex='all',  # everything should b euniform
+                                    sharey='none', sharex='none',  # everything should b euniform
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
-        fig.suptitle('\'%s\' values'%dkey)
+        fig.suptitle('\'%s\' errors'%dkey)
         
         #=======================================================================
         # #get colors
         #=======================================================================
         if colorMap is None: colorMap = self.colorMap_d[plot_colr]
-        if plot_colr == 'dkey_range':
-            ckeys = ['hi', 'low', 'mean']
-        else:
-            ckeys = mdex.unique(plot_colr) 
-        
+ 
+        ckeys = mdex.unique(plot_colr) 
         color_d = self.get_color_d(ckeys, colorMap=colorMap)
         
         #=======================================================================
         # loop and plot
         #=======================================================================
+        true_gb = true_dx.groupby(level=[plot_coln, plot_rown])
         for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            
+            #===================================================================
+            # setup
+            #===================================================================
             keys_d = dict(zip([plot_coln, plot_rown], gkeys))
+            ax = ax_d[gkeys[1]][gkeys[0]]
+            log.info('on %s'%keys_d)
+            
+            #===================================================================
+            # assert len(gdx0.index.unique(idn))==1, 'bad modelcnt on %s w/ \n    %s'%(
+            #     keys_d, gdx0.index.unique(idn))
+            # mid = gdx0.index.unique(idn)[0] #model ID for this loop
+            #===================================================================
+            #keys_d[idn] = mid
+            
+ 
+            #===================================================================
+            # data prep----------
+            #===================================================================
+            #simplify the gridded (drop some uncessairy levels)
+            #gdx1 = gdx0.droplevel(level=list(set(gdx0.index.names).difference(['gid', 'studyArea']))).sort_index()
+            gdx1 = gdx0
+ 
+            
+            
+            #get the true values
+            tgdx0 = true_gb.get_group(gkeys)
+            
+            #===================================================================
+            # aggregate the trues
+            #===================================================================
+            tgdx1 = getattr(tgdx0.groupby(level=[gdx1.index.names]), aggMethod)()
+            tgdx2 = tgdx1.reorder_levels(gdx1.index.names).sort_index()
+            
+            assert_index_equal(gdx1.index, tgdx2.index)
+            
+            #===================================================================
+            # ranges
+            #===================================================================
+            #model results
+            data_d, zeros_bx = self.prep_ranges(qhi, qlo, False, gdx1)
+            
+            #trues
+            true_data_d, _ = self.prep_ranges(qhi, qlo, False, tgdx2)
+            
+ 
+            
+            #===================================================================
+            # scatter plot
+            #===================================================================
+            """only using mean values for now"""
+            xar, yar = data_d['mean'], true_data_d['mean'] 
+            
+            
+            
+            stat_d = self.ax_corr_scat(ax, xar, yar, 
+                                       #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
+                                       scatter_kwargs = {
+                                           'color':color_d[keys_d[plot_colr]]
+                                           },
+                                       logger=log, add_label=False)
+            """
+            fig.show()
+            """
+            #===================================================================
+            # post-format----
+            #===================================================================
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+            #===================================================================
+            # labels
+            #===================================================================
+            if add_label:
+                # get float labels
+                meta_d = {**{'modelIDs':str(list(gdx0.index.unique(idn))),
+                           'count':len(zeros_bx), 'zero_cnt':zeros_bx.sum(), 'drop_zeros':False,'iters':len(gdx1.columns),
+                           'min':gdx1.min().min(), 'max':gdx1.max().max(), 'mean':gdx1.mean().mean()},
+                             **stat_d}
+ 
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+                
+        #===============================================================
+        # #wrap format subplot
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+ 
+                ax.legend(loc=1)
+                # first row
+                if row_key == row_keys[0]:
+                    pass
+                #last col
+                if col_key == col_keys[-1]:
+                    pass
+                    
+                
+                        
+                # first col
+                if col_key == col_keys[0]:
+                    ax.set_ylabel('\'%s\' (true)'%dkey)
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    ax.set_xlabel('\'%s\' (aggregated)'%dkey)
+ 
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        """
+        plt.show()
+        """
+        
+        return self.output_fig(fig, fname='errs_%s_%sx%s_%s' % (dkey, plot_rown, plot_coln, self.longname))
  
 
         
@@ -2595,35 +2709,43 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 plot_11=True,
                 
                 # lienstyles
-                style_d={},
-                style2_d={  # default styles
-                    'markersize':3.0, 'marker':'.', 'fillstyle':'full'
+ 
+                scatter_kwargs={  # default styles
+                    
                     } ,
  
                 logger=None,
- 
+                add_label=True,
                 ):
         
         #=======================================================================
         # defaultst
         #=======================================================================
         if logger is None: logger = self.logger
-        log = logger.getChild('ax_hist')
+        log = logger.getChild('ax_corr_scat')
  
         # assert isinstance(stat_keys, list), label
-        assert isinstance(style_d, dict), label
+        if not xar.shape == yar.shape:
+            raise Error('data mismatch on %s'%(label))
+        assert isinstance(scatter_kwargs, dict), label
+        #assert isinstance(label, str)
         # log.info('on %s'%data.shape)
- 
+        
         #=======================================================================
         # setup 
         #=======================================================================
         max_v = max(max(xar), max(yar))
-
         xlim = (min(xar), max(xar))
+ 
+         
         #=======================================================================
         # add the scatter
         #=======================================================================
-        ax.plot(xar, yar, linestyle='None', **style2_d, **style_d)
+        #overwrite defaults with passed kwargs
+        scatter_kwargs = {**{'markersize':3.0, 'marker':'.', 'fillstyle':'full'},
+                          **scatter_kwargs}
+        
+        ax.plot(xar, yar, linestyle='None', label=label, **scatter_kwargs)
         """
         view(data)
         self.plt.show()
@@ -2634,7 +2756,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         if plot_11:
             # draw a 1:1 line
-            ax.plot([0, max_v * 10], [0, max_v * 10], color='black', linewidth=0.5)
+            ax.plot([0, max_v * 10], [0, max_v * 10], color='black', linewidth=0.5, label='1:1')
         
         #=======================================================================
         # add the trend line
@@ -2644,10 +2766,11 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             
             pearson, pval = scipy.stats.pearsonr(xar, yar)
             
+            
             x_vals = np.array(xlim)
             y_vals = intercept + slope * x_vals
             
-            ax.plot(x_vals, y_vals, color='red', linewidth=0.5)
+            ax.plot(x_vals, y_vals, color='red', linewidth=0.5, label='r=%.3f'%rvalue)
  
         #=======================================================================
         # get stats
@@ -2655,23 +2778,26 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         stat_d = {
                 'count':len(xar),
-                  # 'LR.slope':round(slope, 3),
+                   'LR.slope':round(slope, 3),
                   # 'LR.intercept':round(intercept, 3),
                   # 'LR.pvalue':round(slope,3),
-                  # 'pearson':round(pearson, 3), #just teh same as rvalue
+                  #'pearson':round(pearson, 3), #just teh same as rvalue
                   'r value':round(rvalue, 3),
                    # 'max':round(max_v,3),
                    }
             
         # dump into a string
-        annot = label + '\n' + '\n'.join(['%s=%s' % (k, v) for k, v in stat_d.items()])
         
-        anno_obj = ax.text(0.1, 0.9, annot, transform=ax.transAxes, va='center')
+        if add_label:
+            annot = label + '\n' + get_dict_str(stat_d)
+            
+            anno_obj = ax.text(0.1, 0.9, annot, transform=ax.transAxes, va='center')
  
         #=======================================================================
-        # add grid
+        # post format
         #=======================================================================
-        
+        ax.set_xlim(xlim)
+        ax.set_ylim(xlim)
         ax.grid()
         
         return stat_d
@@ -2777,6 +2903,26 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # HELPERS---------
     #===========================================================================
+
+    def prep_ranges(self, qhi, qlo, drop_zeros, gdx0):
+        #===================================================================
+        # prep data
+        #===================================================================
+        #handle zeros
+        bx = (gdx0 == 0).all(axis=1)
+        if drop_zeros:
+            gdx1 = gdx0.loc[~bx, :]
+        else:
+            gdx1 = gdx0
+            
+        #collect ranges
+        data_d = {'mean':gdx1.mean(axis=1).values}
+        #add range for multi-dimensional
+        if len(gdx1.columns) > 1:
+            data_d.update({
+                    'hi':gdx1.quantile(q=qhi, axis=1).values, 
+                    'low':gdx1.quantile(q=qlo, axis=1).values})
+        return data_d,bx
     
     def get_color_d(self,
                     cvals,
