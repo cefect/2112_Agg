@@ -90,12 +90,15 @@ def run( #run a basic model configuration
                  **kwargs) as ses:
         
         #=======================================================================
-        # individual model summaries
+        # individual model summaries---------
         #=======================================================================
+        mids = [0,2]
+        ses.write_resvlay(dkey='rsamps', modelID_l=mids)
+        for mid in mids:
+            ses.plot_model_smry(mid)
+            
         #=======================================================================
-        # ses.write_resvlay(dkey='tvals')
-        # for mid in ses.modelID_l:
-        #     ses.plot_model_smry(mid)
+        # exposure calc analysis----------
         #=======================================================================
         
         #=======================================================================
@@ -134,16 +137,24 @@ def run( #run a basic model configuration
         mids = list(range(9))
         
         #result values
-        for plot_type in ['hist', 'box']:
-            ses.plot_dkey_mat(modelID_l=mids, dkey='rsamps', 
-                              plot_rown='aggLevel', 
-                              plot_coln='resolution', plot_type=plot_type, drop_zeros=True,
-                              plot_colr='aggLevel', bins=40)
+        #=======================================================================
+        # for plot_type in ['hist', 'box']:
+        #     ses.plot_dkey_mat(modelID_l=mids, dkey='rsamps', 
+        #                       plot_rown='aggLevel', 
+        #                       plot_coln='resolution', plot_type=plot_type, drop_zeros=True,
+        #                       plot_colr='aggLevel', bins=40)
+        # 
+        # #error plots
+        # fmt='png'
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt)
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea',  fmt=fmt)
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea',  fmt=fmt)
+        #=======================================================================
         
-        #error plots
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution')
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea')
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea')
+        #=======================================================================
+        # loss calc analysis---------
+        #=======================================================================
+        
         
 
             
@@ -179,6 +190,7 @@ def r2():
         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\outs_analy_r2_0227.pickle',
         'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\agg_mindex_analy_r2_0227.pickle',
         'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\trues_analy_r2_0227.pickle',
+        'finv_agg_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\finv_agg_fps_analy_r2_0227.pickle',
             },
         )
     
