@@ -270,6 +270,12 @@ def run( #run a basic model configuration
         **kwargs):
     print('START run w/ %s.%s and iters=%i'%(name, tag, iters))
     #===========================================================================
+    # parameter logic override
+    #===========================================================================
+    """these overrides are an artifact of having overly flexible parameters"""
+    if tval_type=='uniform':
+        iters=1
+    #===========================================================================
     # execute
     #===========================================================================
     with ModelStoch(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,

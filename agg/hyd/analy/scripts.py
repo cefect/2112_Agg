@@ -289,6 +289,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         if modelID_l is None:
             modelID_l= cat_df.index.tolist()
         
+        assert len(modelID_l)>0
         #check
         miss_l = set(modelID_l).difference(cat_df.index)
         assert len(miss_l)==0, '%i/%i requested %s not found in catalog:\n    %s'%(
@@ -366,7 +367,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         # get base
         #=======================================================================
         #just the results for the base model
-        base_dx = dx_raw.loc[idx[baseID, :, :, :], :].droplevel([idn, 'tag', 'event']) 
+        base_dx = dx_raw.loc[idx[baseID, :, :, :], :].droplevel([idn, 'tag', 'event']).dropna(how='all', axis=1)
         base_dx.index = base_dx.index.remove_unused_levels().set_names('id', level=1)
         """
         view(base_dx)
@@ -409,7 +410,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 gdx1 =  gdx0.join(base_dx, on=base_dx.index.names).drop('a', axis=1, level=0)
                 
                 #check
-                assert gdx1.notna().all().all()
+                assert gdx1.notna().all().all(), 'got %i/%i nulls'%(gdx1.isna().sum().sum(), gdx1.size)
                 d[modelID] = gdx1.copy()
             except Exception as e:
                 err_d[modelID] = e
@@ -437,9 +438,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         #check we still match the aggregated index mapper
         assert np.array_equal(
-            dx1.index.to_frame().reset_index(drop=True).drop(['tag','event'], axis=1).drop_duplicates(),
-            agg_mindex.to_frame().reset_index(drop=True)
-            )
+            dx1.index.sortlevel()[0].to_frame().reset_index(drop=True).drop(['tag','event'], axis=1).drop_duplicates(),
+            agg_mindex.sortlevel()[0].to_frame().reset_index(drop=True)
+            ), 'result failed to match original mapper'
         
         assert_series_equal(dx1.max(axis=0), base_dx.max(axis=0))
  
@@ -1505,7 +1506,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('plot_total_bars')
+        log = self.logger.getChild('plot_dkey_mat')
         
         
         idn = self.idn
@@ -1627,11 +1628,11 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #===================================================================
             if add_label:
                 # get float labels
-                meta_d = {'modelIDs':str(gdx1.index.unique(idn).tolist()),
-                           'cnt':len(bx), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,'iters':len(gdx1.columns),
-                           'min':gdx1.min().min(), 'max':gdx1.max().max(), 'mean':gdx1.mean().mean()}
+                meta_d = {'modelIDs':str(gdx0.index.unique(idn).tolist()),
+                           'cnt':len(bx), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,'iters':len(gdx0.columns),
+                           'min':gdx0.min().min(), 'max':gdx0.max().max(), 'mean':gdx0.mean().mean()}
  
-                ax.text(0.5, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
             
             #===================================================================
             # wrap format
@@ -1707,11 +1708,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     
                     #plot style
                     colorMap=None,
-                    #ylabel=None,
-                    
- 
-                    
-                    ):
+                    **kwargs):
         """"
         generally 1 modelId per panel
         """
@@ -1893,7 +1890,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         
-        return self.output_fig(fig, fname='errs_%s_%sx%s_%s' % (dkey, plot_rown, plot_coln, self.longname))
+        return self.output_fig(fig, fname='errs_%s_%sx%s_%s' % (dkey, plot_rown, plot_coln, self.longname), **kwargs)
  
 
         
@@ -2975,6 +2972,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
 
     def prep_ranges(self, qhi, qlo, drop_zeros, gdx0):
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert gdx0.notna().all().all()
         #===================================================================
         # prep data
         #===================================================================
@@ -3045,14 +3046,14 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         assert len(miss_l)==0
         
         miss_l = set(modelID_l).difference(dx_raw.index.unique(idn))
-        assert len(miss_l)==0, '%i/%i requested models not foundin data'%(len(miss_l), miss_l)
+        assert len(miss_l)==0, '%i/%i requested models not foundin data'%(len(miss_l), len(modelID_l))
         
  
         #=======================================================================
         # join new indexers
         #=======================================================================
         #slice to selection
-        dx = dx_raw.loc[idx[modelID_l, :,:,:],:]
+        dx = dx_raw.loc[idx[modelID_l, :,:,:],:].dropna(how='all', axis=1)
         cdf1 = cat_df.loc[modelID_l,meta_indexers]
         
         #create expanded mindex from lookups
