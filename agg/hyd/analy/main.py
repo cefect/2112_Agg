@@ -92,7 +92,8 @@ def run( #run a basic model configuration
         # individual model summaries
         #=======================================================================
         for mid in modelID_l:
-            ses.plot_model_smry(mid)
+            ses.write_resvlay(mid)
+            #ses.plot_model_smry(mid)
  
         #=======================================================================
         # #total vals per ag method
