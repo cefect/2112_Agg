@@ -169,8 +169,8 @@ def dev():
         modelID_l = None,
         
         compiled_fp_d = {
-            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220226\working\outs_analy_dev_0226.pickle',
-            'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220226\working\agg_mindex_analy_dev_0226.pickle',
+        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220227\working\outs_analy_dev_0227.pickle',
+        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220227\working\agg_mindex_analy_dev_0227.pickle',
             }
  
         

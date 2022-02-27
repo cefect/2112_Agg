@@ -12,7 +12,7 @@ import scipy.stats
 
 import pandas as pd
 import numpy as np
-from pandas.testing import assert_index_equal
+from pandas.testing import assert_index_equal, assert_frame_equal, assert_series_equal
 
 idx = pd.IndexSlice
 
@@ -268,7 +268,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                      dkey='trues',
                      dx_raw=None, agg_mindex=None,
                      
-                     idn=None,
+                     idn=None, write=None,
                      ):
         
         #=======================================================================
@@ -276,10 +276,14 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         log = self.logger.getChild('trues')
         if idn is None: idn=self.idn
+        if write is None: write=self.write
         assert dkey == 'trues'
         
+        #combined model outputs (on aggregated indexes): {modelID, tag, studyArea, event, gid}
         if dx_raw is None: 
             dx_raw = self.retrieve('outs')
+            
+        #index relating aggregated ids to raw ids {modelID, studyArea, gid, id}
         if agg_mindex is None:
             agg_mindex = self.retrieve('agg_mindex')
         
@@ -296,73 +300,97 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # get base
         #=======================================================================
-        base_dx = dx_raw.loc[idx[baseID, :, :, :], :].droplevel([0, 1])
-        base_dx.index = base_dx.index.remove_unused_levels().set_names('id', level=2)
+        #just the results for the base model
+        base_dx = dx_raw.loc[idx[baseID, :, :, :], :].droplevel([idn, 'tag', 'event']) 
+        base_dx.index = base_dx.index.remove_unused_levels().set_names('id', level=1)
         """
         view(base_dx)
         base_dx.columns
+
+        
+        view(dx_raw.loc[idx[3, :, :, :], :])
+        
+        view(jdx.loc[idx[3, :, :, :, :, :], :].sort_index(level=['id']))
         """
-        #add the events
-        amindex1 = agg_mindex.join(base_dx.index)
+        #=======================================================================
+        # expand to all results
+        #=======================================================================
+        #add the events and tags
+        amindex1 = agg_mindex.join(dx_raw.index).reorder_levels(dx_raw.index.names + ['id'])
         
-        #get the index joiner frame
-        jdf = amindex1.to_frame().reset_index(drop=True)
+ 
+        #create a dummy joiner frame
+        """need a 2d column index for the column dimensions to be preserved during the join"""
+        jdx = pd.DataFrame(index=amindex1, columns=pd.MultiIndex.from_tuples([('a',1)], names=base_dx.columns.names))
         
-        #join the base data to this
-        dx1 = jdf.join(base_dx, on=base_dx.index.names).set_index(amindex1.names, drop=True
-                                      )
+        #loop and add base values for each Model
+        d = dict()
+        err_d = dict()
+        for modelID, gdx0 in jdx.groupby(level=idn):
+            """
+            view(gdx0.sort_index(level=['id']))
+            """
+            log.debug(modelID)
+            #check indicides
+            try:
+                assert_index_equal(
+                    base_dx.index,
+                    gdx0.index.droplevel(['modelID', 'tag', 'gid', 'event']).sortlevel()[0],
+                    #check_order=False, #not in 1.1.3 yet 
+                    #obj=modelID #not doing anything
+                    )
+                
+                #join base data onto this models indicides
+                gdx1 =  gdx0.join(base_dx, on=base_dx.index.names).drop('a', axis=1, level=0)
+                
+                #check
+                assert gdx1.notna().all().all()
+                d[modelID] = gdx1.copy()
+            except Exception as e:
+                err_d[modelID] = e
         
-        #reset mdex on columns
-        dx1.columns = pd.MultiIndex.from_tuples(dx1.columns.tolist())
-        
-        #join tags 
-        dx1.index = dx1.index.join(dx_raw.index.to_frame(
-            ).reset_index(drop=True).loc[:, [idn, 'tag']].drop_duplicates(
-                ).set_index([idn, 'tag']).index)
-        
-        dx1 = dx1.reorder_levels(dx_raw.index.names + ['id']).sort_index()
+        #report errors
+        if len(err_d)>0:
+            for mid, msg in err_d.items():
+                log.error('%i: %s'%(mid, msg))
+            raise Error('failed join on %i/%i \n    %s'%(
+                len(err_d), len(jdx.index.unique(idn)), list(err_d.keys())))
+                
+ 
+            
+        #combine
+        dx1 = pd.concat(d.values())
+            
+ 
         
         #=======================================================================
         # check
         #=======================================================================
+        assert dx1.notna().all().all()
+        #check columns match
         assert np.array_equal(dx1.columns, base_dx.columns)
         
+        #check we still match the aggregated index mapper
         assert np.array_equal(
             dx1.index.to_frame().reset_index(drop=True).drop(['tag','event'], axis=1).drop_duplicates(),
             agg_mindex.to_frame().reset_index(drop=True)
             )
         
-        chk_mindex = pd.MultiIndex.from_frame(dx1.index.to_frame().reset_index(drop=True).drop('id', axis=1).drop_duplicates()).sortlevel()[0]
-        
-        """not sure why this is failing"""
-        assert np.array_equal(
-            chk_mindex.get_level_values(3),
-            dx_raw.index.get_level_values(3)
-            )
-        assert_index_equal(
-            dx_raw.index.sortlevel()[0],
-            chk_mindex
-            )
-        
-        #loop and check each model
-        for modelID, gdx in dx1.groupby(level=idn):
-            assert np.array_equal(gdx.droplevel([idn, 'gid']).sort_index(), base_dx), modelID
-            
+        assert_series_equal(dx1.max(axis=0), base_dx.max(axis=0))
+ 
         #=======================================================================
-        # group
+        # wrap
         #=======================================================================
         log.info('grouping %s'%str(dx1.shape))
-        raise Error('stopped here')
-        
-        
-        
+ 
+        if write:
+            self.ofp_d[dkey] = self.write_pick(dx1,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+ 
+        return dx1
         
  
-        
-        """
-        view(dx_raw)
-        view(agg_mindex.to_frame())
-        """
         
  
          
