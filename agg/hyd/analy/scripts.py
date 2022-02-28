@@ -1538,7 +1538,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
                                     figsize_scaler=4,
                                     constrained_layout=True,
-                                    sharey='all', sharex='all',  # everything should b euniform
+                                    sharey='all', sharex='col',  # everything should b euniform
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
@@ -1566,6 +1566,11 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #xlims = (gdx0.min().min(), gdx0.max().max())
             
             data_d, bx = self.prep_ranges(qhi, qlo, drop_zeros, gdx0)
+            
+            """
+            view(gdx0)
+            gdx0.index.droplevel('gid').to_frame().drop_duplicates().reset_index(drop=True)
+            """
                 
             #===================================================================
             # #get color
@@ -1581,16 +1586,17 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #===================================================================
             if plot_type == 'hist':
  
-                ar, bins, patches = ax.hist(
+                ar, _, patches = ax.hist(
                     data_d.values(),
                         range=xlims,
                         bins=bins,
                         density=False,  color = color, rwidth=rwidth,
                         label=list(data_d.keys()))
                 
+                bin_max = ar.max()
                 #vertical mean line
                 if mean_line:
-                    ax.axvline(data_d['mean'].mean(), color='black', linestyle='dashed')
+                    ax.axvline(gdx0.mean().mean(), color='black', linestyle='dashed')
             #===================================================================
             # box plots
             #===================================================================
@@ -1608,7 +1614,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                            # whiskerprops={'color':newColor_d[rowVal]},
                            # flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
                             )
-                
+ 
                 #===============================================================
                 # add extra text
                 #===============================================================
@@ -1623,14 +1629,19 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             else:
                 raise Error(plot_type)
             
+            if not xlims is None:
+                ax.set_xlim(xlims)
             #===================================================================
             # labels
             #===================================================================
             if add_label:
                 # get float labels
                 meta_d = {'modelIDs':str(gdx0.index.unique(idn).tolist()),
-                           'cnt':len(bx), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,'iters':len(gdx0.columns),
+                           'cnt':len(gdx0), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,'iters':len(gdx0.columns),
                            'min':gdx0.min().min(), 'max':gdx0.max().max(), 'mean':gdx0.mean().mean()}
+                
+                if plot_type == 'hist':
+                    meta_d['bin_max'] = bin_max
  
                 ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
             
@@ -1966,7 +1977,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
                                     figsize_scaler=4,
                                     constrained_layout=True,
-                                    sharey='none', sharex='none',  # everything should b euniform
+                                    sharey='all', sharex='all',  # everything should b euniform
                                     fig_id=0,
                                     set_ax_title=True,
                                     )

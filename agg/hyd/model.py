@@ -290,7 +290,7 @@ def run( #run a basic model configuration
                      
                      'tvals_raw':dict(normed=normed),
                      'tvals':dict(tval_type=tval_type, dscale_meth=dscale_meth),
-                     'vfunc':dict(vid=vid),
+                     'rloss':dict(vid=vid),
                                           
                      },
                  **kwargs) as ses:
@@ -416,11 +416,11 @@ def base_dev():
 if __name__ == "__main__": 
  
     #output=base_dev()
-    #output=run_auto_dev(modelID=9)
+    output=run_auto_dev(modelID=12)
     #output=dev()
     #output=r2_base()
     #output=r2_g200()
-    output=run_autoPars(modelID=0)
+    #output=run_autoPars(modelID=0)
     #output=run_autoPars(tag='g100', modelID=3)
     #output=run_autoPars(tag='g100_true', modelID=4, trim=True)
     #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
