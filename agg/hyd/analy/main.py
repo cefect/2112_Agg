@@ -98,6 +98,17 @@ def run( #run a basic model configuration
         # for mid in mids:
         #     ses.plot_model_smry(mid)
         #=======================================================================
+        
+        #=======================================================================
+        # total loss (top level) summary bar charts--------
+        #=======================================================================
+        #tloss sum: agg levels  X studyArea (w/ tval_samp=rand)
+        mids = [11, 19, 20]
+        #ses.plot_total_bars(modelID_l=mids, plot_bgrp='aggLevel')
+        
+        #hazard res X aggLevel
+        mids = list(range(9))
+        ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
             
         #=======================================================================
         # exposure calc analysis----------
@@ -243,9 +254,14 @@ def run( #run a basic model configuration
         mids = list(range(9))
         fmt='png'
         #ses.plot_compare_mat(dkey='tloss',aggMethod='sum',modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt)
-        ses.plot_compare_mat(dkey='tloss', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea',  fmt=fmt, aggMethod='sum')
-        ses.plot_compare_mat(dkey='tloss', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea',  fmt=fmt, aggMethod='sum')
+        #ses.plot_compare_mat(dkey='tloss', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea',  fmt=fmt, aggMethod='sum')
+        #ses.plot_compare_mat(dkey='tloss', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea',  fmt=fmt, aggMethod='sum')
+        
+        #=======================================================================
+        # tval_type
+        #=======================================================================
 
+        
             
 
         
@@ -276,9 +292,7 @@ def r2():
         #modelID_l = [0, 11],
         tag='r2',
         compiled_fp_d = {
-  'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\outs_analy_r2_0227.pickle',
-          'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\agg_mindex_analy_r2_0227.pickle',
-        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220227\working\trues_analy_r2_0227.pickle',
+            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220228\working\outs_analy_r2_0228.pickle',
             },
         )
     

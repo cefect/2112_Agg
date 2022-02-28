@@ -62,6 +62,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         'aggLevel':'cool',
         'dkey_range':'winter',
         'studyArea':'Dark2',
+        'modelID':'Pastel1',
         }
     
     def __init__(self,
@@ -1242,15 +1243,16 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     
                     #plot config
                     plot_rown='dkey',
-                    plot_coln='event',
-                    plot_colr='modelID',
+                    plot_coln='studyArea',
                     plot_bgrp='modelID',
+                    plot_colr=None,
+                    sharey='row',
                     
                     #errorbars
                     qhi=0.99, qlo=0.01,
                     
                     #labelling
-                    add_label=False,
+                    add_label=True,
  
                     
                     #plot style
@@ -1266,9 +1268,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         # defaults
         #=======================================================================
         log = self.logger.getChild('plot_total_bars')
+        if plot_colr is None: plot_colr=plot_bgrp
         
         if dx_raw is None: dx_raw = self.retrieve('outs')
-        if colorMap is None: colorMap=self.colorMap
+ 
  
         """
         view(dx)
@@ -1282,8 +1285,13 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # data prep
         #=======================================================================
-        #collapse columns
-        dx = dx_raw.loc[:, idx[dkey_d.keys(), :]]
+        #add requested indexers
+        meta_indexers = set([plot_rown, plot_coln, plot_colr, plot_bgrp]).difference(['dkey']) #all those except dkey
+        
+        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[list(dkey_d.keys()), :]], 
+                                meta_indexers = meta_indexers,
+                                modelID_l=modelID_l)
+        
         mdex = dx.index
         """no... want to report stats per dkey group
         #move dkeys to index for consistency
@@ -1292,6 +1300,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #get label dict
         lserx =  mdex.to_frame().reset_index(drop=True).loc[:, ['modelID', 'tag']
                            ].drop_duplicates().set_index('modelID').iloc[:,0]
+                            
         mid_tag_d = {k:'%s (%s)'%(v, k) for k,v in lserx.items()}
         
         if modelID_l is None:
@@ -1299,6 +1308,17 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         else:
             miss_l = set(modelID_l).difference( mdex.unique('modelID'))
             assert len(miss_l)==0, 'requested %i modelIDs not in teh data \n    %s'%(len(miss_l), miss_l)
+            
+        #=======================================================================
+        # configure dimensions
+        #=======================================================================
+        if plot_rown=='dkey':
+            row_keys = list(dkey_d.keys())
+            axis=1
+        else:
+            dkey = list(dkey_d.keys())[0]
+            axis=0
+            row_keys = mdex.unique(plot_rown).tolist()
         
         
         #=======================================================================
@@ -1309,39 +1329,61 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         view(dx)
         plt.show()
         """
- 
-        fig, ax_d = self.get_matrix_fig(
-                                    list(dkey_d.keys()),  
-                                    mdex.unique(plot_coln).tolist(),  # col keys
+        col_keys = mdex.unique(plot_coln).tolist()
+        
+        
+        
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,  # col keys
                                     figsize_scaler=4,
                                     constrained_layout=True,
-                                    sharey='row', sharex='all',  # everything should b euniform
+                                    sharey=sharey, sharex='all',  # everything should b euniform
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
         #fig.suptitle('%s total on %i studyAreas (%s)' % (lossType.upper(), len(mdex.unique('studyArea')), self.tag))
         
-        # get colors
-        cvals = dx_raw.index.unique(plot_colr)
-        cmap = plt.cm.get_cmap(name=colorMap) 
-        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        if plot_colr == 'dkey_range':
+            ckeys = ['hi', 'low', 'mean']
+        else:
+            ckeys = mdex.unique(plot_colr) 
+        
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
         
         #===================================================================
         # loop and plot
         #===================================================================
+
+        
         for col_key, gdx1 in dx.groupby(level=[plot_coln]):
             keys_d = {plot_coln:col_key}
             
-            for row_key, gdx2 in gdx1.groupby(level=[plot_rown], axis=1):
+
+            
+            
+            for row_key, gdx2 in gdx1.groupby(level=[plot_rown], axis=axis):
                 keys_d[plot_rown] = row_key
                 ax = ax_d[row_key][col_key]
+                
+                if plot_rown=='dkey':
+ 
+                    dkey = row_key
+                
                 
                 #===============================================================
                 # data prep
                 #===============================================================
-                f = getattr(gdx2.groupby(plot_bgrp), dkey_d[keys_d['dkey']])
+ 
                 
-                gdx3 = f().loc[modelID_l, :] #collapse assets, sort
+                f = getattr(gdx2.groupby(level=[plot_bgrp]), dkey_d[dkey])
+                
+                try:
+                    gdx3 = f()#.loc[modelID_l, :] #collapse assets, sort
+                except Exception as e:
+                    raise Error('failed on %s w/ \n    %s'%(keys_d, e))
                 
                 gb = gdx3.groupby(level=0, axis=1)   #collapse iters (gb object)
                 
@@ -1360,8 +1402,11 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 # #formatters.
                 #===============================================================
  
-                # labels
-                tick_label = [mid_tag_d[mid] for mid in barHeight_ser.index] #label by tag
+                # labels conversion to tag
+                if plot_bgrp=='modelID':
+                    tick_label = [mid_tag_d[mid] for mid in barHeight_ser.index] #label by tag
+                else:
+                    tick_label = ['%s=%s'%(plot_bgrp, i) for i in barHeight_ser.index]
                 #tick_label = ['m%i' % i for i in range(0, len(barHeight_ser))]
   
                 # widths
@@ -1377,9 +1422,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     ylocs,  # heights
                     width=width,
                     align='center',
-                    color=newColor_d.values(),
+                    color=color_d.values(),
                     #label='%s=%s' % (plot_colr, ckey),
-                    alpha=0.5,
+                    #alpha=0.5,
                     tick_label=tick_label,
                     )
                 
@@ -1411,18 +1456,18 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 if add_label:
                     log.debug(keys_d)
  
-                    
+                    if dkey_d[dkey] == 'var':continue
                     #===========================================================
                     # #calc errors
                     #===========================================================
-                    d = {'pred':tlsum_ser}
+                    d = {'pred':barHeight_ser.T.values[0]}
                     # get trues
-                    d['true'] = gser1r.loc[idx[0, keys_d['studyArea'],:,:, keys_d['vid']]].groupby('event').sum()
+                    d['true'] = np.full(len(barHeight_ser),d['pred'][0])
                     
-                    d['delta'] = (tlsum_ser - d['true']).round(3)
+                    d['delta'] = (d['pred'] - d['true']).round(3)
                     
                     # collect
-                    tl_df = pd.concat(d, axis=1)
+                    tl_df = pd.DataFrame.from_dict(d)
                     
                     tl_df['relErr'] = (tl_df['delta'] / tl_df['true'])
                 
@@ -1431,11 +1476,18 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     # add as labels
                     #===========================================================
                     for event, row in tl_df.iterrows():
-                        ax.text(row['xloc'], row['pred'] * 1.01, '%+.1f' % (row['relErr'] * 100),
+                        ax.text(row['xloc'], row['pred'] * 1.01, #shifted locations
+                                '%+.1f' % (row['relErr'] * 100),
                                 ha='center', va='bottom', rotation='vertical',
                                 fontsize=10, color='red')
                         
                     log.debug('added error labels \n%s' % tl_df)
+                    
+                    #expand the limits
+                    ylims = ax.get_ylim()
+                    
+                    ax.set_ylim(tuple([1.1*x for x in ylims]))
+                    
                 #===============================================================
                 # #wrap format subplot
                 #===============================================================
@@ -1453,7 +1505,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                         
                 # first col
                 if col_key == mdex.unique(plot_coln)[0]:
-                    ylabel = '%s (%s)'%(row_key,  dkey_d[keys_d['dkey']])
+                    ylabel = '%s (%s)'%(dkey,  dkey_d[dkey])
                     ax.set_ylabel(ylabel)
                     
         
@@ -3225,6 +3277,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         if modelID_l is None:
             modelID_l=dx_raw.index.unique(idn).tolist()
             
+        #=======================================================================
+        # checks
+        #=======================================================================
         
         overlap_l = set(dx_raw.index.names).intersection(meta_indexers)
         if len(overlap_l)>0:
@@ -3232,16 +3287,18 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             for e in overlap_l:
                 meta_indexers.remove(e)
             
+        dx = dx_raw.loc[idx[modelID_l, :,:,:],:].dropna(how='all', axis=1)
+        
         if len(meta_indexers) == 0:
             log.warning('no additional field srequested')
-            return dx_raw
+            return dx
         
         cat_df = self.retrieve('catalog')
         #=======================================================================
         # check
         #=======================================================================
         miss_l = set(meta_indexers).difference(cat_df.columns)
-        assert len(miss_l)==0
+        assert len(miss_l)==0, 'missing %i requested indexers: %s'%(len(miss_l), miss_l)
         
         miss_l = set(dx_raw.index.unique(idn)).difference(cat_df.index)
         assert len(miss_l)==0
@@ -3254,7 +3311,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         # join new indexers
         #=======================================================================
         #slice to selection
-        dx = dx_raw.loc[idx[modelID_l, :,:,:],:].dropna(how='all', axis=1)
+        
         cdf1 = cat_df.loc[modelID_l,meta_indexers]
         
         #create expanded mindex from lookups
