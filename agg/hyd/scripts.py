@@ -19,7 +19,7 @@ from hp.basic import set_info
 
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
-    QgsWkbTypes
+    QgsWkbTypes, QgsRasterLayer
 
 import hp.gdal
 
@@ -590,10 +590,55 @@ class Model(agSession):  # single model run
         
         return res_d
     
+    def build_drlay(self, #buidl the depth rasters
+                    dkey=None,
+                    
+                    
+                    
+                   #raster selection
+                   severity='hi',
+                   
+                   #raster downsampling
+                   resampStage='none', #which stage of the depth raster calculation to apply the downsampling
+                   resolution=0, #0=raw (nicer for variable consistency)
+                   resampling='none',
+                   
+                   #generic
+                   write=None,
+                    **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_drlay')
+ 
+ 
+        if write is None: write=self.write
+        assert dkey=='drlay_d'
+        
+        #=======================================================================
+        # retrive rasters per StudyArea------
+        #=======================================================================
+        """leaving everything on the StudyArea to speed things up"""
+        
+        #execute
+        res_d = self.sa_get(meth='get_drlay', logger=log, dkey=dkey, write=False,
+                            severity=severity, resampStage=resampStage, resolution=resolution, resampling=resampling,
+                              **kwargs)
+ 
+        
+        #=======================================================================
+        # handle layers----
+        #=======================================================================
+ 
+        if write:
+            self.store_finv_lib(finv_agg_d, dkey1, logger=log)
+        
+        self.data_d[dkey1] = finv_agg_d
+    
     def build_rsamps(self,  # get raster samples for all finvs
                      dkey=None,
                      samp_method='points',  # method for raster sampling
-                     finv_sg_d=None,
+                     finv_sg_d=None, drlay_d=None,
                      write=None,
                      mindex=None, #special catch for test consitency
                      zonal_stat=None, 
@@ -611,8 +656,8 @@ class Model(agSession):  # single model run
  
         if prec is None: prec=self.prec
         if write is None: write=self.write
- 
- 
+        
+
         #=======================================================================
         # generate depths------
         #=======================================================================
@@ -624,12 +669,15 @@ class Model(agSession):  # single model run
             gcn = self.gcn
             if idfn is None: idfn=gcn
             
+            #get the depth rasters
+            if drlay_d is None:drlay_d = self.retrieve('drlay_d')
+            
             if finv_sg_d is None: finv_sg_d = self.retrieve('finv_sg_d')
             
             #execute
             res_d = self.sa_get(meth='get_rsamps', logger=log, dkey=dkey, write=False,
                                 finv_sg_d=finv_sg_d, idfn=idfn, samp_method=samp_method,
-                                zonal_stat=zonal_stat, **kwargs)
+                                zonal_stat=zonal_stat,drlay_d=drlay_d, **kwargs)
             
             #post
             dxind1 = pd.concat(res_d, verify_integrity=True)
@@ -1555,7 +1603,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
         return df, gvlay5
     
-    def get_raster(self,
+    def get_drlay(self,
                    #raster selection
                    wd_fp_d=None,
                    severity='hi',
@@ -1669,7 +1717,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
 
     def get_rsamps(self,  # sample a set of rastsers withon a single finv
                    
-                   finv_sg_d=None,
+                   finv_sg_d=None, drlay_d=None,
                    idfn=None,
                    logger=None,
                    
@@ -1688,7 +1736,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if prec is None: prec = self.prec
  
         #=======================================================================
-        # precheck
+        # precheck finv
         #=======================================================================
         
         finv_vlay_raw = finv_sg_d[self.name]
@@ -1718,9 +1766,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert [f.name() for f in finv_vlay.fields()] == [idfn]
         
         #=======================================================================
-        # retrieve raster
+        # prechekc depth raster
         #=======================================================================
-        rlay = self.get_raster(logger=log, **kwargs)
+        rlay = drlay_d[self.name]
+        assert isinstance(rlay, QgsRasterLayer)
         
         rname = rlay.name()
         

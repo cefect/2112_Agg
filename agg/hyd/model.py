@@ -338,6 +338,11 @@ def dev():
                       'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0500_1218fnd.tif',
                       'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0100_1218fnd.tif',
                       },
+                  'wse_fp_d':{
+                      #r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\wse_sB_0020_1218.tif'
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\wse_sB_0200_1218.tif', #need to replace with 100year
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\wse_sB_0500_1218.tif',
+                      },
                     }, 
             'LMFRA': {
                 'EPSG': 3005, 
