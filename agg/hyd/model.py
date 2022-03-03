@@ -3,6 +3,8 @@ Created on Jan. 16, 2022
 
 @author: cefect
 
+running hyd models (from python IDE)
+
 explore errors in impact estimates as a result of aggregation using hyd model depths
     let's use hp.coms, but not Canflood
     using damage function csvs from figurero2018 (which were pulled from a db)
@@ -177,6 +179,7 @@ def run( #run a basic model configuration
         name='hyd2',
         overwrite=True,
         trim=False,
+        write=True,
         #=======================================================================
         # #data
         #=======================================================================
@@ -279,7 +282,7 @@ def run( #run a basic model configuration
     # execute
     #===========================================================================
     with ModelStoch(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
-                    iters=iters,
+                    iters=iters,write=write,
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
 
@@ -416,7 +419,7 @@ def base_dev():
 if __name__ == "__main__": 
  
     #output=base_dev()
-    output=run_auto_dev(modelID=12)
+    output=run_auto_dev(modelID=0, write=False)
     #output=dev()
     #output=r2_base()
     #output=r2_g200()

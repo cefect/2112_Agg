@@ -289,7 +289,7 @@ class Model(agSession):  # single model run
                        # control aggregated finv type 
                        aggType=None,
                        aggLevel=None,
-                       write=True,
+                       write=None,
                        **kwargs):
         """
         wrapper for calling more specific aggregated finvs (and their indexer)
@@ -304,6 +304,7 @@ class Model(agSession):  # single model run
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_finv_agg')
+        if write is None: write=self.write
  
         assert dkey in ['finv_agg_d',
                         #'finv_agg_mindex', #makes specifycing keys tricky... 
@@ -413,8 +414,9 @@ class Model(agSession):  # single model run
                     normed=True, #normalize per-studArea
                     norm_scale=1e2, #norm scalar
                         #for very big study areas we scale things up to avoid dangerously low values
-                    #finv_agg_d=None,
-                    mindex=None,write=None,
+                    #finv_agg_d=None, #for consistency?
+                    mindex=None,
+                    write=None,
                     ):
         
         #=======================================================================
@@ -480,7 +482,7 @@ class Model(agSession):  # single model run
     def build_tvals(self, #downscaling raw asset values onto the aggregated inventory
                     dkey = 'tvals',
                     mindex=None,
-                    finv_agg_d=None,
+                    #finv_agg_d=None,
                     dscale_meth='centroid',
                     tval_type='uniform',
                     write=None,
@@ -538,7 +540,7 @@ class Model(agSession):  # single model run
     def build_sampGeo(self,  # get raster samples for all finvs
                      dkey='finv_sg_d',
                      sgType='centroids',
-                     write=True,
+                     write=None,
                      finv_agg_d=None,
                      ):
         """
@@ -549,6 +551,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         assert dkey == 'finv_sg_d'
         log = self.logger.getChild('build_sampGeo')
+        if write is None: write=self.write
         
         if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', write=write)
  
@@ -591,7 +594,7 @@ class Model(agSession):  # single model run
                      dkey=None,
                      samp_method='points',  # method for raster sampling
                      finv_sg_d=None,
-                     write=True,
+                     write=None,
                      mindex=None, #special catch for test consitency
                      zonal_stat=None, 
                      idfn=None,
@@ -607,6 +610,7 @@ class Model(agSession):  # single model run
         log = self.logger.getChild('build_rsamps')
  
         if prec is None: prec=self.prec
+        if write is None: write=self.write
  
  
         #=======================================================================
@@ -749,7 +753,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         # defaults
         #=======================================================================
-        scale_cn = self.scale_cn
+        #scale_cn = self.scale_cn
         log = self.logger.getChild('build_tloss')
         assert dkey == 'tloss'
         if write is None: write=self.write
@@ -1898,7 +1902,8 @@ class ModelStoch(Model):
         
     def build_tvals(self, #stochastic calculation of tvals
                     dkey='tvals',
-                    mindex=None, finv_agg_d=None,
+                    mindex=None, 
+                    #finv_agg_d=None,
                     tval_type='rand',  # type for total values
                     iters=None, write=None,
                     **kwargs): 
@@ -1911,8 +1916,7 @@ class ModelStoch(Model):
         if mindex is None: 
             mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
         
-        if finv_agg_d is None: 
-            finv_agg_d = self.retrieve('finv_agg_d')
+        #if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d')
         if iters is None: iters=self.iters
         
         assert dkey=='tvals'
@@ -1927,7 +1931,7 @@ class ModelStoch(Model):
         #=======================================================================
         res_d = self.model_retrieve(dkey, tval_type=tval_type,
                                mindex=mindex,iters=iters,
-                               finv_agg_d=finv_agg_d, 
+                               #finv_agg_d=finv_agg_d, 
                                logger=log, **kwargs)
         
         #=======================================================================
@@ -1973,7 +1977,7 @@ class ModelStoch(Model):
         #=======================================================================
 
         init_kwargs = {k:getattr(self,k) for k in [
-            'name', 'prec', 'trim', 'out_dir', 'overwrite', 'temp_dir', 'bk_lib']}
+            'name', 'prec', 'trim', 'out_dir', 'overwrite', 'temp_dir', 'bk_lib', 'write']}
         res_d = dict()
         for i in range(iters):
             log.info('%i/%i' % (i + 1, iters))
