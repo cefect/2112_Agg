@@ -146,7 +146,7 @@ def test_get_raster(studyAreaWrkr, resolution, resampling):
 # tests Session-------
 #===============================================================================
     
-@pytest.mark.dev
+
 @pytest.mark.parametrize('aggType,aggLevel',[['none',0], ['gridded',20], ['gridded',50]], indirect=False) 
 def test_finv_agg(session, aggType, aggLevel, true_dir, write):
     #===========================================================================
@@ -225,7 +225,8 @@ def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, tval_type, normed
     # compare
     #===========================================================================
     assert_series_equal(finv_agg_serx, true)
-    
+
+ 
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
 def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
@@ -427,8 +428,10 @@ def test_tloss(session, base_dir, rloss_fn):
 
 
 
-def check_layer_d(d1, d2,
-                   test_data=True,):
+def check_layer_d(d1, d2, #two containers of layers
+                   test_data=True, #check vlay attributes
+                   ignore_fid=True,  #whether to ignore the native ordering of the vlay
+                   ):
     
     assert d1.keys()==d2.keys()
     
@@ -448,9 +451,14 @@ def check_layer_d(d1, d2,
             
             #data checks
             if test_data:
-                true_df, test_df = vlay_get_fdf(vtrue).reset_index(drop=True), vlay_get_fdf(vtest).reset_index(drop=True)
+                true_df, test_df = vlay_get_fdf(vtrue), vlay_get_fdf(vtest)
                 
-                assert_frame_equal(true_df, test_df)
+                if ignore_fid:
+                    true_df = true_df.sort_values(true_df.columns[0],  ignore_index=True) #sort by first column and reset index
+                    test_df = test_df.sort_values(test_df.columns[0],  ignore_index=True)
+                
+                
+                assert_frame_equal(true_df, test_df,check_names=False)
  
             
             
