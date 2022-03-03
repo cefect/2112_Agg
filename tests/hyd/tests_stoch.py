@@ -55,9 +55,8 @@ def modelstoch(tmp_path,
         yield ses
         
 @pytest.mark.dev
-@pytest.mark.parametrize('dscale_meth', ['centroid_inter'])
 @pytest.mark.parametrize('tval_type',['rand'], indirect=False) #uniform is somewhat silly here. see tests_model
-@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
+@pytest.mark.parametrize('finv_agg_fn, dscale_meth',[['test_finv_agg_gridded_50_0', 'centroid'], ['test_finv_agg_none_None_0', 'none']], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('normed', [True, False])
 def testS_tvals(modelstoch,tval_type, finv_agg_fn, true_dir, base_dir, write, normed, dscale_meth):
     
