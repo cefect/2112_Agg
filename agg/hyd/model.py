@@ -187,23 +187,45 @@ def run( #run a basic model configuration
              'obwb':{
                    'EPSG': 2955, 
                   'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_aoi06.gpkg', 
-                  'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
-                  #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218',
                   'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
-                  'wd_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0500_1218fnd.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0100_1218fnd.tif',
+                  #=============================================================
+                  # 'wd_fp_d':{
+                  #     'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0500_1218fnd.tif',
+                  #     'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0100_1218fnd.tif',
+                  #     },
+                  #=============================================================
+                'wse_fp_d':{
+ 
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0100_1218_10.tif',  
+                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0200_1218_10.tif',
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0500_1218_10.tif',
+                      },
+                'dem_fp_d':{
+                     1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_01_aoi07_0304.tif',
+                     5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_05_aoi07_0304.tif',
+ 
                       },
                      }, 
             'LMFRA': {
                 'EPSG': 3005, 
                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\finv\IBI_BldgFt_V3_20191213_aoi08_0219.gpkg', 
-                'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\dem\\LMFRA_NHC2019_dtm_5x5_aoi08.tif', 
-                #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
+ 
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
-                'wd_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0500_dep_0116_cmpfnd.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0100_dep_0116_cmpfnd.tif',
+                #===============================================================
+                # 'wd_fp_d':{
+                #       'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0500_dep_0116_cmpfnd.tif',
+                #       'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0100_dep_0116_cmpfnd.tif',
+                #       },
+                #===============================================================
+                'wse_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif', #10x10
+                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0200_WL_simu_0415_aoi09_0304.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0100_WL_simu_0415_aoi09_0304.tif',
+                      },
+                'dem_fp_d':{
+                     1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi08_0304.tif',
+                     5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_05_aoi08_0304.tif',
+ 
                       },
                     }, 
             #===================================================================
@@ -218,12 +240,23 @@ def run( #run a basic model configuration
             'Calgary': {
                 'EPSG': 3776, 
                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\finv\ISS_bldgs_das2017_20180501_aoi02.gpkg', 
-                'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\Calgary\\dem\\CoC_WR_DEM_170815_5x5_0126.tif', 
-                #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\DEV0116',
+ 
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
-                 'wd_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116_fnd\IBI_2017CoC_s0_0500_170729_dep_0116fnd.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116_fnd\IBI_2017CoC_s0_0100_170729_dep_0116fnd.tif',
+                 #==============================================================
+                 # 'wd_fp_d':{
+                 #      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116_fnd\IBI_2017CoC_s0_0500_170729_dep_0116fnd.tif',
+                 #      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wd\0116_fnd\IBI_2017CoC_s0_0100_170729_dep_0116fnd.tif',
+                 #      },
+                 #==============================================================
+                  'wse_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0500_170729_aoi01_0304.tif',
+                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0200_170729_aoi01_0304.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0100_170729_aoi01_0304.tif',
+                      },
+                'dem_fp_d':{
+                      1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_01_aoi01_0304.tif',
+                      5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_05_aoi01_0304.tif',
+ 
                       },
                         }, 
             #===================================================================

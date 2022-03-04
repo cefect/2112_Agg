@@ -177,8 +177,6 @@ class Model(agSession):  # single model run
     #===========================================================================
     # WRITERS---------
     #===========================================================================
-
-    
     def write_summary(self, #write a nice model run summary 
                       dkey_l=['tloss', 'rloss', 'rsamps'],
                       out_fp=None,
@@ -1325,13 +1323,24 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                                     'AG4_Fr_0100_dep_0116_cmpfnd.tif':'LMFRA_0100yr',
                                     'AG4_Fr_0500_dep_0116_cmpfnd.tif':'LMFRA_0500yr',
                                     'AG4_Fr_1000_dep_0116_cmpfnd.tif':'LMFRA_1000yr',
+                                    
+                                    'AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif':'LM_0500',
+                                    'AG4_Fr_0200_WL_simu_0415_aoi09_0304.tif':'LM_0200',
+                                    'AG4_Fr_0100_WL_simu_0415_aoi09_0304.tif':'LM_0100'                                    
                                         },
+                                
                                 'obwb':{
                                     'depth_sB_0500_1218.tif':'obwb_0500yr',
                                     'depth_sB_0100_1218.tif':'obwb_0100yr',
                                     
                                     'depth_sB_0500_1218fnd.tif':'obwb_0500yr',
                                     'depth_sB_0100_1218fnd.tif':'obwb_0100yr',
+                                    
+                                    'wse_sB_0100_1218_10.tif':'obwb_0100',
+                                    'wse_sB_0200_1218_10.tif':'obwb_0200',
+                                    'wse_sB_0500_1218_10.tif':'obwb_0500'
+                                    
+                                    
                                     },
                                 'Calgary':{
                                     'IBI_2017CoC_s0_0500_170729_dep_0116.tif':'Calgary_0500yr',
@@ -1339,6 +1348,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                                     
                                     'IBI_2017CoC_s0_0500_170729_dep_0116fnd.tif':'Calgary_0500yr',
                                     'IBI_2017CoC_s0_0100_170729_dep_0116fnd.tif':'Calgary_0100yr',
+                                    
+                                    'IBI_2017CoC_s0_0500_170729_aoi01_0304.tif':'Calgary_0500',
+                                    'IBI_2017CoC_s0_0200_170729_aoi01_0304.tif':'Calgary_0200',
+                                    'IBI_2017CoC_s0_0100_170729_aoi01_0304.tif':'Calgary_0100'
                                     },
     
                                         }   
