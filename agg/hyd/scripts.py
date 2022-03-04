@@ -649,6 +649,8 @@ class Model(agSession):  # single model run
         if prec is None: prec=self.prec
         if write is None: write=self.write
         
+        #get the depth rasters
+        if drlay_d is None:drlay_d = self.retrieve('drlay_d')
 
         #=======================================================================
         # generate depths------
@@ -661,8 +663,7 @@ class Model(agSession):  # single model run
             gcn = self.gcn
             if idfn is None: idfn=gcn
             
-            #get the depth rasters
-            if drlay_d is None:drlay_d = self.retrieve('drlay_d')
+
             
             if finv_sg_d is None: finv_sg_d = self.retrieve('finv_sg_d')
             
@@ -686,7 +687,7 @@ class Model(agSession):  # single model run
         # use mean depths from true assets (for error isolation only)
         #=======================================================================
         elif samp_method == 'true_mean':
-            res_serx = self.rsamp_trueMean(dkey,  logger=log, mindex=mindex, **kwargs)
+            res_serx = self.rsamp_trueMean(dkey,  logger=log, mindex=mindex, drlay_d=drlay_d, **kwargs)
         else:raise Error('bad key')
         
         #=======================================================================
