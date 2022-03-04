@@ -19,7 +19,7 @@ from hp.basic import set_info
 
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
-    QgsWkbTypes, QgsRasterLayer
+    QgsWkbTypes, QgsRasterLayer, RasterCalc, QgsVectorLayer
 
 import hp.gdal
 
@@ -104,7 +104,7 @@ class Model(agSession):  # single model run
 
             # aggregating inventories
             'finv_agg_d':{  # lib of aggrtevated finv vlays
-                'compiled':lambda **kwargs:self.load_finv_lib(**kwargs),  # vlays need additional loading
+                'compiled':lambda **kwargs:self.load_layer_d(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_finv_agg(**kwargs),
                 },
             
@@ -116,7 +116,7 @@ class Model(agSession):  # single model run
                 },
             
             'finv_sg_d':{  # sampling geometry
-                'compiled':lambda **kwargs:self.load_finv_lib(**kwargs),  # vlays need additional loading
+                'compiled':lambda **kwargs:self.load_layer_d(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_sampGeo(**kwargs),
                 },
             
@@ -128,6 +128,11 @@ class Model(agSession):  # single model run
             'tvals':{  # total asset values aggregated
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_tvals(**kwargs),
+                },
+            
+            'drlay_d':{ #depth raster layers
+                'compiled':lambda **kwargs:self.load_layer_d(**kwargs),
+                'build':lambda **kwargs: self.build_drlay(**kwargs),
                 },
             
             'rsamps':{  # depth raster samples
@@ -347,7 +352,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         dkey1 = 'finv_agg_d'
         if write:
-            self.store_finv_lib(finv_agg_d, dkey1, logger=log)
+            self.store_layer_d(finv_agg_d, dkey1, logger=log)
         
         self.data_d[dkey1] = finv_agg_d
         #=======================================================================
@@ -584,22 +589,18 @@ class Model(agSession):  # single model run
         #=======================================================================
         # store layers
         #=======================================================================
-        if write: ofp_d = self.store_finv_lib(res_d, dkey, logger=log)
+        if write: ofp_d = self.store_layer_d(res_d, dkey, logger=log)
         
         return res_d
     
     def build_drlay(self, #buidl the depth rasters
                     dkey=None,
                     
-                    
-                    
-                   #raster selection
-                   severity='hi',
+ 
                    
                    #raster downsampling
-                   resampStage='none', #which stage of the depth raster calculation to apply the downsampling
-                   resolution=0, #0=raw (nicer for variable consistency)
-                   resampling='none',
+                   
+ 
                    
                    #generic
                    write=None,
@@ -619,9 +620,7 @@ class Model(agSession):  # single model run
         """leaving everything on the StudyArea to speed things up"""
         
         #execute
-        res_d = self.sa_get(meth='get_drlay', logger=log, dkey=dkey, write=False,
-                            severity=severity, resampStage=resampStage, resolution=resolution, resampling=resampling,
-                              **kwargs)
+        res_d = self.sa_get(meth='get_drlay', logger=log, dkey=dkey, write=False, **kwargs)
  
         
         #=======================================================================
@@ -629,9 +628,11 @@ class Model(agSession):  # single model run
         #=======================================================================
  
         if write:
-            self.store_finv_lib(finv_agg_d, dkey1, logger=log)
+            self.store_layer_d(res_d, dkey, logger=log)
         
-        self.data_d[dkey1] = finv_agg_d
+        self.data_d[dkey] = res_d
+        
+        return res_d
     
     def build_rsamps(self,  # get raster samples for all finvs
                      dkey=None,
@@ -966,44 +967,56 @@ class Model(agSession):  # single model run
         return res_lib
             
  
-    def load_finv_lib(self,  # generic retrival for finv type intermediaries
+    def load_layer_d(self,  # generic retrival for finv type intermediaries
                   fp=None, dkey=None,
                   **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('load_finv_lib.%s' % dkey)
-        assert dkey in ['finv_agg_d', 'finv_agg_d', 'finv_sg_d']
+        log = self.logger.getChild('load_layer_d.%s' % dkey)
+        assert dkey in [  'finv_agg_d', 'finv_sg_d']
         
         vlay_fp_lib = self.load_pick(fp=fp)  # {study area: aggLevel : vlay filepath}}
         
         # load layers
-        finv_agg_d = dict()
+        lay_d = dict()
         
         for studyArea, fp in vlay_fp_lib.items():
  
             log.info('loading %s from %s' % (studyArea, fp))
             
             """will throw crs warning"""
-            finv_agg_d[studyArea] = self.vlay_load(fp, logger=log, 
-                                           set_proj_crs=False, #these usually have different crs's
-                                                   **kwargs)
+            ext = os.path.split(fp)[1]
+            #===================================================================
+            # vectors
+            #===================================================================
+            if ext in ['.gpkg']:
+            
+                lay_d[studyArea] = self.vlay_load(fp, logger=log, 
+                                               set_proj_crs=False, #these usually have different crs's
+                                                       **kwargs)
+            elif ext in ['.tif']:
+                lay_d[studyArea] = self.rlay_load(fp, logger=log, 
+                                               set_proj_crs=False, #these usually have different crs's
+                                                       **kwargs)
+            else:
+                raise Error('unrecognized filetype: %s'%ext)
         
-        return finv_agg_d
+        return lay_d
 
-    def store_finv_lib(self,  # consistent storage of finv containers 
-                       finv_grid_lib,
+    def store_layer_d(self,  # consistent storage of finv containers 
+                       layer_d,
                        dkey,
                        out_dir=None,
                        logger=None,
                        write_pick=True,
-                       ):
+                       **kwargs):
         
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger = self.logger
-        log = logger.getChild('store_finv')
+        log = logger.getChild('store_layer_d')
         if out_dir is None: out_dir = os.path.join(self.wrk_dir, dkey)
         
         log.info('writing \'%s\' layers to %s' % (dkey, out_dir))
@@ -1013,16 +1026,24 @@ class Model(agSession):  # single model run
         #=======================================================================
         ofp_d = dict()
         cnt = 0
-        for studyArea, poly_vlay in finv_grid_lib.items():
+        for studyArea, layer in layer_d.items():
             # setup directory
             od = os.path.join(out_dir, studyArea)
             if not os.path.exists(od):
                 os.makedirs(od)
                 
-            # write each sstudy area
-            ofp_d[studyArea] = self.vlay_write(poly_vlay,
-                    os.path.join(od, poly_vlay.name()),
-                    logger=log)
+            out_fp = os.path.join(od, layer.name())
+            #===================================================================
+            # write vectors
+            #===================================================================
+            if isinstance(layer, QgsVectorLayer):
+                # write each sstudy area
+                ofp_d[studyArea] = self.vlay_write(layer,out_fp,logger=log, **kwargs)
+            elif isinstance(layer, QgsRasterLayer):
+                ofp_d[studyArea] = self.rlay_write(layer,ofp=out_fp+'.tif',logger=log, **kwargs)
+            else:
+                raise Error('bad type: %s'%type(layer))
+            
             cnt += 1
         
         log.debug('wrote %i layers' % cnt)
@@ -1036,7 +1057,7 @@ class Model(agSession):  # single model run
             self.ofp_d[dkey] = self.write_pick(ofp_d,
                 os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
         # save to data
-        self.data_d[dkey] = finv_grid_lib
+        self.data_d[dkey] = layer_d
         return ofp_d
     
     def rsamp_trueMean(self,
@@ -1237,12 +1258,13 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                  # pars_lib kwargs
                  EPSG=None,
                  finv_fp=None,
-                 dem=None,
+ 
                  
                  #depth rasters
                  #wd_dir=None,
                  #wd_fp = None,
-                 wd_fp_d = None, #{raster tag:fp}
+                 wse_fp_d = None, #{raster tag:fp}
+                 dem_fp_d=None, 
                  
                  
                  aoi=None,
@@ -1306,9 +1328,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # attachments
         #=======================================================================
         self.finv_vlay = finv2
-        #self.wd_dir = wd_dir
-        #self.wd_fp=wd_fp
-        self.wd_fp_d = copy.deepcopy(wd_fp_d)
+        
+        self.wse_fp_d=wse_fp_d
+        self.dem_fp_d=dem_fp_d
+
+
         self.logger.info('StudyArea \'%s\' init' % (self.name))
  
     def get_clean_rasterName(self, raster_fn,
@@ -1616,10 +1640,18 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
         return df, gvlay5
     
+
+
+
     def get_drlay(self,
+                  
+                  resampStage='none', #which stage of the depth raster calculation to apply the downsampling
+                  
+                  
                    #raster selection
-                   wd_fp_d=None,
-                   severity='hi',
+                   wse_fp_d=None,dem_fp_d=None,
+                   severity='hi', 
+                   dem_res=5,
                    
                    #raster downsampling
                    resolution=0, #0=raw (nicer for variable consistency)
@@ -1638,18 +1670,26 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # defaults
         #=======================================================================
-        if wd_fp_d is None: wd_fp_d = self.wd_fp_d
+        if wse_fp_d is None: wse_fp_d = self.wse_fp_d
+        if dem_fp_d is None: dem_fp_d=self.dem_fp_d
         if logger is None: logger = self.logger
         if trim is None: trim=self.trim
         log = logger.getChild('get_raster')
         resolution = int(resolution)
         #=======================================================================
-        # #select raster filepath
+        # #select raster filepaths
         #=======================================================================
-        assert severity in wd_fp_d
-        fp_raw = wd_fp_d[severity]
-        assert os.path.exists(fp_raw)
+        assert severity in wse_fp_d
+        wse_raw_fp = wse_fp_d[severity]
+        assert os.path.exists(wse_raw_fp)
         
+        assert dem_res in dem_fp_d
+        dem_raw_fp = dem_fp_d[dem_res]
+        assert os.path.exists(dem_raw_fp)
+        
+        #get names
+        baseName = self.get_clean_rasterName(os.path.basename(wse_raw_fp))
+        layerName = baseName + '_%i' % resolution
         #=======================================================================
         # check it
         #=======================================================================
@@ -1659,56 +1699,93 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # assert nodata_cnt==0
         #=======================================================================
         
+        #=======================================================================
+        # trim
+        #=======================================================================
+        if (not resampStage=='none') and trim:
+ 
+            """NOTE: this makes the output senstivite to the finv
+
+        e.g., slicing the finv could slightly change the sampling results"""
+            vlay = self.finv_vlay
+            rect = vlay.extent()
+            bbox_str = '%.3f, %.3f, %.3f, %.3f [%s]' % (
+                rect.xMinimum(), rect.xMaximum(), rect.yMinimum(), rect.yMaximum(), 
+                vlay.crs().authid())
+        else:
+            bbox_str = None
+        
         
         #=======================================================================
-        # downssample
+        # pre-downsample 
         #=======================================================================
-        baseName = self.get_clean_rasterName(os.path.basename(fp_raw))
  
-        if resolution==0:
-            assert resampling =='none', 'got resampling method for resolution=raw'
-            wd_fp = fp_raw
+        if resampStage in ['none', 'depth']:
+            """consider trimming before the raster calc?"""
+            wse_fp = wse_raw_fp
+            dem_fp = dem_raw_fp
+ 
+ 
+        elif resampStage == 'wsl':
+            
+            wse_fp = self.get_resamp(wse_raw_fp, resolution, resampling,  extents=bbox_str, logger=log)
+            dem_fp = self.get_resamp(dem_raw_fp, resolution, resampling,  extents=bbox_str, logger=log)
+ 
         else:
+            raise Error('badd resampStage: %s'%resampStage)
+        
+ 
             
-            log.info('downsampling w/ resolution=%i and resampling=%s'%(resolution, resampling))
+        #=======================================================================
+        # subtraction
+        #=======================================================================
+        with RasterCalc(wse_fp, name='dep', session=self, logger=log,out_dir=self.temp_dir,) as wrkr:
+            
+            wse_rlay = wrkr.ref_lay #loaded during init
+            dtm_rlay = wrkr.load(dem_fp)
             
             #===================================================================
-            # #setup trim
+            # #check layers
             #===================================================================
-            if trim:
-                """NOTE: this makes the output senstivite to the finv
-                e.g., slicing the finv could slightly change the sampling results"""
-
-                vlay = self.finv_vlay
-                rect = vlay.extent()
+ 
+            
                 
-                bbox_str = '%.3f, %.3f, %.3f, %.3f [%s]'%(
-                    rect.xMinimum(), rect.xMaximum(), rect.yMinimum(), rect.yMaximum(),
-                    vlay.crs().authid())
-            else:
-                bbox_str=None
+            entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'top':wse_rlay, 'bottom':dtm_rlay}.items()}
+            formula = '%s - %s'%(entries_d['top'].ref, entries_d['bottom'].ref)
+            log.info('executing %s'%formula)
+            dep_fp1 = wrkr.rcalc(formula, layname=baseName)
+            
+            #treat negatives
+            stats_d = self.rasterlayerstatistics(dep_fp1)
+            if stats_d['MIN']<0:
+                entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'dep':dep_fp1}.items()}
+                formula = '{dep} * ({dep} >= 0)'.format(**{k:v.ref for k,v in entries_d.items()})
+                #log.info('executing %s'%formula)
+                dep_fp1 = wrkr.rcalc(formula, layname=baseName, 
+                                 ofp=os.path.join(os.path.dirname(dep_fp1),os.path.basename(dep_fp1).replace('.tif', '_posi.tif'))
+                                 )
+
+        
+        
+        #=======================================================================
+        # post-downsample
+        #=======================================================================
+        if resampStage =='depth':
+        
  
-            #===================================================================
-            # execute
-            #===================================================================
-            ofp = os.path.join(self.temp_dir, os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif'%resolution)
-            wd_fp = self.warpreproject(
-                fp_raw, output=ofp,
-                resolution=resolution, resampling=resampling,
-                compression='none', crsOut=self.qproj.crs(), extents=bbox_str,
-                logger=log)
+            dep_fp2 = self.get_resamp(dep_fp1, resolution, resampling,  extents=bbox_str, logger=log)
+            
+        else:
+            dep_fp2 = dep_fp1
             
  
-            
-            baseName = baseName + '_%i'%resolution
-            
  
- 
+        
             
         #=======================================================================
         # check
         #=======================================================================
-        rlay = self.rlay_load(wd_fp, set_proj_crs=False, reproj=False, logger=log)
+        rlay = self.rlay_load(dep_fp2, set_proj_crs=False, reproj=False, logger=log)
         #stats_d = self.get_rasterstats(rlay)
         #assert stats_d['resolution'] == resolution
         assert rlay.crs()==self.qproj.crs()
@@ -1726,6 +1803,38 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
         
         return rlay
+    
+    def get_resamp(self, fp_raw, resolution, resampling,  
+                extents=None,
+                logger=None,
+                ):
+        
+    
+        
+        if resolution == 0:
+            assert resampling == 'none', 'got resampling method for resolution=raw'
+            wd_fp = fp_raw
+        else:
+            #===================================================================
+            # defaults
+            #===================================================================
+            if logger is None: logger=self.logger
+            log = logger.getChild('get_resamp')
+            
+            log.info('downsampling \'%s\' w/ resolution=%i and resampling=%s' % (
+                os.path.basename(fp_raw).replace('.tif', ''), resolution, resampling))
+
+            #===================================================================
+            # execute
+            #===================================================================
+            ofp = os.path.join(self.temp_dir, os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif' % resolution)
+            wd_fp = self.warpreproject(
+                fp_raw, output=ofp, 
+                resolution=resolution, resampling=resampling, 
+                compression='none', crsOut=self.qproj.crs(), extents=extents, 
+                logger=log)
+            
+        return wd_fp 
                    
 
     def get_rsamps(self,  # sample a set of rastsers withon a single finv
@@ -1737,7 +1846,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    samp_method='points',
                    zonal_stat='Mean',  # stats to use for zonal. 2=mean
                    prec=None,
-                   **kwargs):
+                   #**kwargs,
+                   ):
         #=======================================================================
         # defaults
         #=======================================================================
@@ -1915,7 +2025,7 @@ class ModelStoch(Model):
         finv_agg_d = self.retrieve('finv_agg_d')
         
         #write each layer into the directory
-        ofp_d = self.store_finv_lib(finv_agg_d, 'finv_agg_d', out_dir=vlay_dir, logger=log, write_pick=False)
+        ofp_d = self.store_layer_d(finv_agg_d, 'finv_agg_d', out_dir=vlay_dir, logger=log, write_pick=False)
         
         #=======================================================================
         # build meta
