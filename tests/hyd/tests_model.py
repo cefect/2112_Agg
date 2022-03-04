@@ -257,7 +257,8 @@ def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, tval_type, normed
     
     finv_agg_serx = session.build_tvals(dkey=dkey, norm_scale=norm_scale,
                                     tval_type=tval_type, normed=normed, dscale_meth=dscale_meth,
-                            finv_agg_d=finv_agg_d, mindex =finv_agg_mindex, write=write)
+                            #finv_agg_d=finv_agg_d,
+                             mindex =finv_agg_mindex, write=write)
     
     #data checks
     assert_index_equal(finv_agg_mindex.droplevel('id').drop_duplicates(), finv_agg_serx.index)

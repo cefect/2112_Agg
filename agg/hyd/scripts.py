@@ -979,11 +979,11 @@ class Model(agSession):  # single model run
             log.info('loading %s from %s' % (studyArea, fp))
             
             """will throw crs warning"""
-            ext = os.path.split(fp)[1]
+            ext = os.path.splitext(os.path.basename(fp))[1]
             #===================================================================
             # vectors
             #===================================================================
-            if ext in ['.gpkg']:
+            if ext in ['.gpkg', '.geojson']:
             
                 lay_d[studyArea] = self.vlay_load(fp, logger=log, 
                                                set_proj_crs=False, #these usually have different crs's
