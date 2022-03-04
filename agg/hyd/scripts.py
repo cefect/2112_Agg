@@ -1258,6 +1258,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                  #wd_fp = None,
                  wse_fp_d = None, #{raster tag:fp}
                  dem_fp_d=None, 
+                 #drlay_d = None,
                  
                  
                  aoi=None,
@@ -1324,6 +1325,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         self.wse_fp_d=wse_fp_d
         self.dem_fp_d=dem_fp_d
+        #self.drlay_d=drlay_d
 
 
         self.logger.info('StudyArea \'%s\' init' % (self.name))

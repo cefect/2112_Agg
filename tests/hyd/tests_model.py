@@ -62,6 +62,7 @@ def session(tmp_path,
                     'testSet1':{
                           'EPSG': 2955, 
                          'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
+                         #'wd_fp':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_rand_test_0304.tif',
 
                             }, 
                         },
@@ -104,6 +105,15 @@ def dem_fp(studyAreaWrkr, tmp_path):
 def wse_fp(studyAreaWrkr, tmp_path):
     return studyAreaWrkr.randomuniformraster(10, bounds=(5,7), extent_layer=studyAreaWrkr.finv_vlay,
                                              output=os.path.join(tmp_path, 'wse_random.tif'))
+    
+@pytest.fixture   
+def wd_rlay(session):
+        wd_fp = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_rand_test_0304.tif'
+        rlay = session.rlay_load(wd_fp)
+        session.mstore.addMapLayer(rlay)
+        return rlay
+    
+
 #===============================================================================
 # tests StudyArea------
 #===============================================================================
@@ -124,7 +134,7 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
 @pytest.mark.parametrize('resampStage, resolution, resampling',[
     #['none',0, 'none'], #raw... no rexampling
@@ -311,32 +321,29 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
 # Rsamp tests
 #===============================================================================
 #rsamps methods are only applicable for certain geometry types  
+@pytest.mark.dev
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
 @pytest.mark.parametrize('samp_method',['zonal'], indirect=False)
 @pytest.mark.parametrize('zonal_stat',['Mean','Minimum', 'Maximum'])  
-@pytest.mark.parametrize('resolution, resampling',[
-    [0, 'none'], #raw... no rexampling
-    [50,'Average'],
-    [50,'Maximum'],
-    ])  
-def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir, zonal_stat,
-                     resolution, resampling):
+
+def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir, zonal_stat,wd_rlay,
+                     ):
  
     rsamps_runr(base_dir, true_dir, session, zonal_stat=zonal_stat,
-                samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn,
-                resolution=resolution, resampling=resampling)
+                samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn,wd_rlay=wd_rlay,
+                )
     
 
     
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_centroids_test_fi1','test_sampGeo_centroids_test_fi0'])
 @pytest.mark.parametrize('samp_method',['points'], indirect=False) 
-def test_rsamps_point(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir):
+def test_rsamps_point(session, finv_sg_d_fn,samp_method, true_dir, write, base_dir, wd_rlay):
  
-    rsamps_runr(base_dir, true_dir,session, 
+    rsamps_runr(base_dir, true_dir,session, wd_rlay=wd_rlay,
                 samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn)
     
     
@@ -347,7 +354,7 @@ def test_rsamps_point(session, finv_sg_d_fn,samp_method, true_dir, write, base_d
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
 @pytest.mark.parametrize('samp_method',['true_mean'], indirect=False) 
-def test_rsamps_trueMean(session, finv_agg_fn, samp_method, true_dir, write, base_dir, sgType):
+def test_rsamps_trueMean(session, finv_agg_fn, samp_method, true_dir, write, base_dir, sgType, wd_rlay):
     #===========================================================================
     # build the sample geometry
     #===========================================================================
@@ -363,9 +370,9 @@ def test_rsamps_trueMean(session, finv_agg_fn, samp_method, true_dir, write, bas
     #===========================================================================        
  
     rsamps_runr(base_dir, true_dir,session, samp_method=samp_method, write=write, 
-                finv_sg_d=finv_sg_d, mindex=finv_agg_mindex)
+                finv_sg_d=finv_sg_d, mindex=finv_agg_mindex, wd_rlay=wd_rlay)
 
-def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, **kwargs):
+def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, wd_rlay=wd_rlay, **kwargs):
     """because kwarg combinations are complex for rsamps... its easier to split out the tests"""
     #===========================================================================
     # load inputs   
@@ -374,13 +381,17 @@ def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, **k
         dkey = 'finv_sg_d'
         input_fp = search_fp(os.path.join(base_dir, finv_sg_d_fn), '.pickle', dkey) #find the data file.
         finv_sg_d = retrieve_data(dkey, input_fp, session)
+
  
     #===========================================================================
     # execute
     #===========================================================================
-
+    saName = list(session.proj_lib.keys())[0]
+    
     dkey='rsamps'
-    rsamps_serx = session.build_rsamps(dkey=dkey, finv_sg_d=finv_sg_d, **kwargs)
+    rsamps_serx = session.build_rsamps(dkey=dkey, finv_sg_d=finv_sg_d, 
+                                       drlay_d={saName:wd_rlay},
+                                        **kwargs)
     
  
     #===========================================================================
