@@ -595,14 +595,7 @@ class Model(agSession):  # single model run
     
     def build_drlay(self, #buidl the depth rasters
                     dkey=None,
-                    
  
-                   
-                   #raster downsampling
-                   
- 
-                   
-                   #generic
                    write=None,
                     **kwargs):
         #=======================================================================
@@ -1644,21 +1637,19 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
 
 
     def get_drlay(self,
-                  
-                  resampStage='none', #which stage of the depth raster calculation to apply the downsampling
-                  
-                  
+
                    #raster selection
                    wse_fp_d=None,dem_fp_d=None,
                    severity='hi', 
                    dem_res=5,
                    
                    #raster downsampling
-                   resolution=0, #0=raw (nicer for variable consistency)
+                   resampStage='none', #which stage of the depth raster calculation to apply the downsampling
                    resampling='none',
+                  resolution=0, #0=raw (nicer for variable consistency)
                    
                    #gen 
-                  logger=None, 
+                  logger=None, layerName=None,
                   trim=True, #generally just trimming this by default
                    ):
         
@@ -1689,7 +1680,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         #get names
         baseName = self.get_clean_rasterName(os.path.basename(wse_raw_fp))
-        layerName = baseName + '_%i' % resolution
+        if layerName is None: 
+            layerName = baseName + '_%i' % resolution
         #=======================================================================
         # check it
         #=======================================================================
@@ -1698,6 +1690,13 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # nodata_cnt = hp.gdal.getNoDataCount(fp_raw)
         # assert nodata_cnt==0
         #=======================================================================
+        
+        #parameter logic
+        if resampStage =='none':
+            assert resolution==0
+            assert resampling=='none'
+            
+        
         
         #=======================================================================
         # trim
@@ -1726,7 +1725,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             dem_fp = dem_raw_fp
  
  
-        elif resampStage == 'wsl':
+        elif resampStage == 'wse':
             
             wse_fp = self.get_resamp(wse_raw_fp, resolution, resampling,  extents=bbox_str, logger=log)
             dem_fp = self.get_resamp(dem_raw_fp, resolution, resampling,  extents=bbox_str, logger=log)
@@ -1786,6 +1785,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # check
         #=======================================================================
         rlay = self.rlay_load(dep_fp2, set_proj_crs=False, reproj=False, logger=log)
+ 
         #stats_d = self.get_rasterstats(rlay)
         #assert stats_d['resolution'] == resolution
         assert rlay.crs()==self.qproj.crs()
@@ -1796,7 +1796,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # wrap
         #=======================================================================
-        rlay.setName(baseName)
+        rlay.setName(layerName)
         
         log.info('finished on \'%s\' (%i x %i = %i)'%(
             rlay.name(), rlay.width(), rlay.height(), rlay.width()*rlay.height()))

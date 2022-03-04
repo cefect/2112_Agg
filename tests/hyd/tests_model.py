@@ -28,7 +28,7 @@ import hp.gdal
 
 from agg.hyd.scripts import Model as CalcSession
 from agg.hyd.scripts import StudyArea as CalcStudyArea
-from agg.hyd.scripts import vlay_get_fdf
+from agg.hyd.scripts import vlay_get_fdf, RasterCalc
 
 from tests.conftest import retrieve_finv_d, retrieve_data, search_fp
 #===============================================================================
@@ -62,9 +62,7 @@ def session(tmp_path,
                     'testSet1':{
                           'EPSG': 2955, 
                          'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
-                         'dem': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
-                         'wd_fp_d': {'hi':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_test_0218.tif'},
-                         #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
+
                             }, 
                         },
                     ):
@@ -96,9 +94,16 @@ def studyAreaWrkr(session, request):
 
  
 
-            
-    
-    
+@pytest.fixture   
+def dem_fp(studyAreaWrkr, tmp_path):
+    return studyAreaWrkr.randomuniformraster(5, bounds=(0,5), extent_layer=studyAreaWrkr.finv_vlay,
+                                             output=os.path.join(tmp_path, 'dem_random.tif'))
+
+@pytest.fixture
+# were setup to filter out ground water... but tests are much simpler if we ignore this   
+def wse_fp(studyAreaWrkr, tmp_path):
+    return studyAreaWrkr.randomuniformraster(10, bounds=(5,7), extent_layer=studyAreaWrkr.finv_vlay,
+                                             output=os.path.join(tmp_path, 'wse_random.tif'))
 #===============================================================================
 # tests StudyArea------
 #===============================================================================
@@ -119,15 +124,19 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
-@pytest.mark.parametrize('resolution, resampling',[
-    [0, 'none'], #raw... no rexampling
-    [50,'Average'],
-    [50,'Maximum'],
+@pytest.mark.parametrize('resampStage, resolution, resampling',[
+    #['none',0, 'none'], #raw... no rexampling
+    ['depth',50,'Average'],
+    ['wse',50,'Average'],
+    ['depth',50,'Maximum'],
     ])  
-def test_get_raster(studyAreaWrkr, resolution, resampling):
-    rlay = studyAreaWrkr.get_raster(resolution=resolution, resampling=resampling)
+def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, dem_fp, wse_fp, tmp_path):
+    rlay = studyAreaWrkr.get_drlay(
+        wse_fp_d = {'hi':wse_fp},
+        dem_fp_d = {5:dem_fp},
+        resolution=resolution, resampling=resampling, resampStage=resampStage, layerName='dep_rand')
     
     #check resolution
     if not resolution == 0:
@@ -135,12 +144,53 @@ def test_get_raster(studyAreaWrkr, resolution, resampling):
         assert resolution==newResolution
         
     #check nodata values
-    
-    #studyAreaWrkr.rlay_getstats(rlay)
     assert hp.gdal.getNoDataCount(rlay.source())==0
     assert rlay.crs() == studyAreaWrkr.qproj.crs()
-        
+    #stats_d = studyAreaWrkr.rlay_getstats(rlay)
     
+    #===========================================================================
+    # get the raw depth
+    #===========================================================================
+    with RasterCalc(wse_fp, session=studyAreaWrkr, out_dir=tmp_path, logger=studyAreaWrkr.logger) as wrkr:
+        #dep_rlay = wrkr.ref_lay
+        wse_rlay = wrkr.ref_lay #loaded during init
+        dtm_rlay = wrkr.load(dem_fp)
+ 
+ 
+        entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'wse':wse_rlay, 'dtm':dtm_rlay}.items()}
+        
+        formula = '{wse} - {dtm}'.format(**{k:v.ref for k,v in entries_d.items()})
+        
+        chk_rlay_fp = wrkr.rcalc(formula, report=False)
+        
+        #full resolution test calc
+        stats2_d = studyAreaWrkr.rlay_getstats(chk_rlay_fp)
+        
+        #resulting stats
+        stats_d = studyAreaWrkr.rlay_getstats(rlay)
+        
+        assert stats2_d['resolution']<=stats_d['resolution']
+        
+        if resampling =='Average':
+            assert abs(stats2_d['MEAN'] - stats_d['MEAN']) <1.0
+            assert stats2_d['MAX'] >=stats_d['MAX']
+            assert stats2_d['MIN'] <=stats_d['MIN']
+            assert stats2_d['RANGE']>=stats_d['RANGE']
+            
+        if resampling =='Maximum':
+            assert abs(stats2_d['MAX'] - stats_d['MAX']) <0.001
+            
+            
+        
+        if resolution==0:
+            for stat, val in {k:stats_d[k] for k in ['MAX', 'MIN']}.items():
+                assert abs(val)<1e-3, stat
+            
+ 
+    
+    
+        
+ 
     
 #===============================================================================
 # tests Session-------
@@ -253,9 +303,13 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
     #===========================================================================
     check_layer_d(vlay_d, true)
 
-#@pytest.mark.parametrize('finv_sg_d_fn',['test_sampGeo_centroids_test_fi1', 'test_sampGeo_poly_test_finv_ag1'], indirect=False)
-#rsamps methods are only applicable for certain geometry types  
 
+
+
+#===============================================================================
+# Rsamp tests
+#===============================================================================
+#rsamps methods are only applicable for certain geometry types  
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
 @pytest.mark.parametrize('samp_method',['zonal'], indirect=False)
