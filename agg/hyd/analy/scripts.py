@@ -1253,6 +1253,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     
                     #labelling
                     add_label=True,
+                    baseline_loc='first_bar', #what to consider the baseline for labelling deltas
  
                     
                     #plot style
@@ -1369,10 +1370,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 ax = ax_d[row_key][col_key]
                 
                 if plot_rown=='dkey':
- 
                     dkey = row_key
-                
-                
+ 
                 #===============================================================
                 # data prep
                 #===============================================================
@@ -1387,7 +1386,6 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 
                 gb = gdx3.groupby(level=0, axis=1)   #collapse iters (gb object)
                 
- 
                 #===============================================================
                 #plot bars------
                 #===============================================================
@@ -1461,8 +1459,19 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     # #calc errors
                     #===========================================================
                     d = {'pred':barHeight_ser.T.values[0]}
+                    
                     # get trues
-                    d['true'] = np.full(len(barHeight_ser),d['pred'][0])
+                    if baseline_loc == 'first_bar':
+                        d['true'] = np.full(len(barHeight_ser),d['pred'][0])
+                    elif baseline_loc == 'first_axis':
+                        if col_key == col_keys[0] and row_key == row_keys[0]:
+                            base_ar = d['pred'].copy()
+ 
+                        
+                        d['true'] = base_ar
+                    else:
+                        raise Error('bad key')
+                        
                     
                     d['delta'] = (d['pred'] - d['true']).round(3)
                     

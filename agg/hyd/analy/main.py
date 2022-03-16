@@ -106,9 +106,13 @@ def run( #run a basic model configuration
         mids = [11, 19, 20]
         #ses.plot_total_bars(modelID_l=mids, plot_bgrp='aggLevel')
         
-        #hazard res X aggLevel
+        #hazard res X study area (bars for aggLevel)
         mids = list(range(9))
-        ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
+        #ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
+        
+        #haz res x aggLevel (bars for studyArea)
+        ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='studyArea',  
+                            plot_rown='resolution', plot_coln='aggLevel', sharey='col', baseline_loc='first_axis')
             
         #=======================================================================
         # exposure calc analysis----------
@@ -292,7 +296,7 @@ def r2():
         #modelID_l = [0, 11],
         tag='r2',
         compiled_fp_d = {
-            'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220228\working\outs_analy_r2_0228.pickle',
+              'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220316\working\outs_analy_r2_0316.pickle'
             },
         )
     
