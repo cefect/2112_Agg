@@ -112,7 +112,7 @@ def run( #run a basic model configuration
         
         #haz res x aggLevel (bars for studyArea)
         ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='studyArea',  
-                            plot_rown='resolution', plot_coln='aggLevel', sharey='col', baseline_loc='first_axis')
+                            plot_rown='aggLevel', plot_coln='resolution', sharey='row', baseline_loc='first_axis')
             
         #=======================================================================
         # exposure calc analysis----------
