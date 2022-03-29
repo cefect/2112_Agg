@@ -206,7 +206,7 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, dem_fp, w
 # tests Session-------
 #===============================================================================
     
-
+@pytest.mark.dev
 @pytest.mark.parametrize('aggType,aggLevel',[['none',0], ['gridded',20], ['gridded',50]], indirect=False) 
 def test_finv_agg(session, aggType, aggLevel, true_dir, write):
     #===========================================================================
@@ -350,7 +350,7 @@ def test_rsamps_point(session, finv_sg_d_fn,samp_method, true_dir, write, base_d
     
 
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 @pytest.mark.parametrize('sgType',['centroids', 'poly'], indirect=False)  
 @pytest.mark.parametrize('samp_method',['true_mean'], indirect=False) 
@@ -480,20 +480,11 @@ def test_tloss(session, base_dir, rloss_fn):
     rl_dx_chk2 = tl_dxind.loc[idx[:, 'rloss']].droplevel(1, axis=0)
     rl_dx_chk2.columns = pd.Index(range(len(rl_dx_chk2.columns)))
     assert_frame_equal(rl_dx_chk, rl_dx_chk2)
- 
- 
 
-    
-    
         
 #===============================================================================
 # helpers-----------
 #===============================================================================
-
-    
-
-
-
 def check_layer_d(d1, d2, #two containers of layers
                    test_data=True, #check vlay attributes
                    ignore_fid=True,  #whether to ignore the native ordering of the vlay
