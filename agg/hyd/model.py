@@ -142,7 +142,7 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
     return raw_d
      
     
-def run_autoPars( #retrieve pars from container
+def run_autoPars( #run a pre-defined model configuration
         modelID=0,
         **kwargs):
     print('START on %i w/ %s'%(modelID, kwargs))
@@ -180,6 +180,7 @@ def run( #run a basic model configuration
         overwrite=True,
         trim=False,
         write=True,
+        exit_summary=True,
         #=======================================================================
         # #data
         #=======================================================================
@@ -206,30 +207,28 @@ def run( #run a basic model configuration
   
                      },
                     }, 
-  #=============================================================================
-  #           'LMFRA': {
-  #               'EPSG': 3005, 
-  #               'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\finv\IBI_BldgFt_V3_20191213_aoi08_0219.gpkg', 
-  # 
-  #               'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
-  #               #===============================================================
-  #               # 'wd_fp_d':{
-  #               #       'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0500_dep_0116_cmpfnd.tif',
-  #               #       'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0100_dep_0116_cmpfnd.tif',
-  #               #       },
-  #               #===============================================================
-  #               'wse_fp_d':{
-  #                     'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif', #10x10
-  #                     'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0200_WL_simu_0415_aoi09_0304.tif',
-  #                     'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0100_WL_simu_0415_aoi09_0304.tif',
-  #                     },
-  #               'dem_fp_d':{
-  #                    1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi09_0304.tif',
-  #                    5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_05_aoi09_0304.tif',
-  # 
-  #                     },
-  #                   }, 
-  #=============================================================================
+            'LMFRA': {
+                'EPSG': 3005, 
+                'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\finv\IBI_BldgFt_V3_20191213_aoi08_0219.gpkg', 
+   
+                'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
+                #===============================================================
+                # 'wd_fp_d':{
+                #       'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0500_dep_0116_cmpfnd.tif',
+                #       'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0100_dep_0116_cmpfnd.tif',
+                #       },
+                #===============================================================
+                'wse_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif', #10x10
+                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0200_WL_simu_0415_aoi09_0304.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0100_WL_simu_0415_aoi09_0304.tif',
+                      },
+                'dem_fp_d':{
+                     1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi09_0304.tif',
+                     5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_05_aoi09_0304.tif',
+   
+                      },
+                    }, 
             #===================================================================
             # 'SaintJohn': {
             #     'EPSG': 3979, 
@@ -318,7 +317,7 @@ def run( #run a basic model configuration
     # execute
     #===========================================================================
     with ModelStoch(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
-                    iters=iters,write=write,
+                    iters=iters,write=write,exit_summary=exit_summary,
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
                      
@@ -344,7 +343,12 @@ def run( #run a basic model configuration
         else:
             lib_dir = None
         
-        #ses.retrieve('drlay_d')
+        #execute parts in sequence
+        ses.run_dataGeneration()
+        ses.run_intersection()
+        ses.run_lossCalcs()
+        
+        #write results
         ses.write_summary()
         ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
  
@@ -366,49 +370,13 @@ def dev():
  
             },
         
-        #=======================================================================
-        # proj_lib =     {
-        #     'obwb':{
-        #           'EPSG': 2955, 
-        #          'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_aoi06.gpkg', 
-        #          'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\obwb\\dem\\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04.tif', 
-        #          #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218',
-        #          'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
-        #           'wd_fp_d':{
-        #               'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0500_1218fnd.tif',
-        #               'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\depth_sB_1218_fnd\depth_sB_0100_1218fnd.tif',
-        #               },
-        #           'wse_fp_d':{
-        #               #r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\wse_sB_0020_1218.tif'
-        #               'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\wse_sB_0200_1218.tif', #need to replace with 100year
-        #               'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\wse_sB_0500_1218.tif',
-        #               },
-        #             }, 
-        #     'LMFRA': {
-        #         'EPSG': 3005, 
-        #         'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\finv\IBI_BldgFt_V3_20191213_aoi08_0219.gpkg', 
-        #         'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\LMFRA\\dem\\LMFRA_NHC2019_dtm_5x5_aoi08.tif', 
-        #         #'wd_dir': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\DEV0116',
-        #         'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
-        #         'wd_fp_d':{
-        #               'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0500_dep_0116_cmpfnd.tif',
-        #               'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wd\0116_fnd\AG4_Fr_0100_dep_0116_cmpfnd.tif',
-        #               },
-        #             }, 
-        #     },
-        #=======================================================================
+ 
         iters=3,
         aggType='gridded', aggLevel=50,
         
         resampStage='wsl',
         resolution=100, resampling='Average',
-        #=======================================================================
-        # #aggType = 'none', aggLevel = None,
-        # aggType = 'none', aggLevel = None,
-        # tval_type = 'rand', #see build_tvals()
-        # 
-        # samp_method = 'zonal', sgType='poly', zonal_stat='Mean',
-        #=======================================================================
+ 
         trim=True,
         overwrite=True,
  
@@ -421,8 +389,13 @@ def dev():
 if __name__ == "__main__": 
  
     #output=base_dev()
-    #output=run_auto_dev(modelID=0, write=False)
-    output=dev()
+    output=run_auto_dev(modelID=21, write=True,
+                        compiled_fp_d={
+ 
+                            }
+                        
+                        )
+    #output=dev()
     #output=r2_base()
     #output=r2_g200()
     #output=run_autoPars(modelID=0)

@@ -75,15 +75,22 @@ class Model(agSession):  # single model run
     pars_lib = {
         'tval_type':{'vals':['uniform', 'rand'],                    'dkey':'tvals'},
         'dscale_meth':{'vals':['centroid', 'none', 'area_split'],   'dkey':'tvals'},
-        'severity':{'vals':['hi', 'lo'],                            'dkey':'rsamps'},
+        
         'aggType':{'vals':['none', 'gridded'],                      'dkey':'finv_agg_d'},
         'aggLevel':{'vals':[0, 50, 100, 200],                    'dkey':'finv_agg_d'},
         'sgType':{'vals':['centroids', 'poly'],                         'dkey':'finv_sg_d'},
+
+        
+        'severity':{'vals':['hi', 'lo'],                            'dkey':'drlay_d'},
+        'resolution':{'vals':[0, 50, 100, 200],                     'dkey':'drlay_d'},
+        'resampling':{'vals':['none','Average'],                    'dkey':'drlay_d'},
+        'resampStage':{'vals':['none', 'wse', 'depth'],             'dkey':'drlay_d'},
+        
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum', 'none'], 'dkey':'rsamps'},
-        'resolution':{'vals':[0, 50, 100, 200],                     'dkey':'rsamps'},
-        'resampling':{'vals':['none','Average'],                    'dkey':'rsamps'},
+                
         'vid':{'vals':[49, 798,811, 0],                             'dkey':'vfunc'},
+
 
         }
     
@@ -93,7 +100,7 @@ class Model(agSession):  # single model run
                  name='hyd',
                  proj_lib={},
                  trim=True,  # whether to apply aois
-                 data_retrieve_hndls={},
+                 data_retrieve_hndls={}, exit_summary=False,
                  **kwargs):
         
         #===========================================================================
@@ -148,14 +155,11 @@ class Model(agSession):  # single model run
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs:self.build_tloss(**kwargs),
                 },
-            'errs':{
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.build_errs(**kwargs),
-                }
+ 
             
             }}
         
-        super().__init__(
+        super().__init__(exit_summary=exit_summary,
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
         
@@ -286,6 +290,40 @@ class Model(agSession):  # single model run
     #===========================================================================
     # DATA CONSTRUCTION-------------
     #===========================================================================
+    def run_dataGeneration(self, #convenience for executing data generation calls insequence
+                           ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('rDg')
+        
+        #=======================================================================
+        # build the aggregated inventories
+        #=======================================================================
+        finv_agg_d = self.retrieve('finv_agg_d', logger=log)
+        
+        #retrieve the index linking back to the raw
+        finv_agg_mindex = self.retrieve('finv_agg_mindex', logger=log)
+        
+        #=======================================================================
+        # populate the 'total asset values' on each asset
+        #=======================================================================
+        #raw values
+        finv_true_serx = self.retrieve('tvals_raw', logger=log)
+        
+        #aggregated values
+        finv_agg_serx = self.retrieve('tvals', logger=log)
+        
+        #=======================================================================
+        # build hazard data
+        #=======================================================================
+        drlay_d = self.retrieve('drlay_d', logger=log)
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('done')
+        
     def build_finv_agg(self,  # build aggregated finvs
                        dkey=None,
                        
@@ -407,9 +445,6 @@ class Model(agSession):  # single model run
         
         return self.data_d[dkey]
         
-        
-        
-
     def build_tvals_raw(self,  # get the total values on each asset
                     dkey=None,
                     prec=2,
@@ -539,8 +574,66 @@ class Model(agSession):  # single model run
 
         return finv_agg_serx
         
-  
-    def build_sampGeo(self,  # get raster samples for all finvs
+    def build_drlay(self, #buidl the depth rasters
+                    dkey=None,
+ 
+                   write=None,
+                    **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('build_drlay')
+ 
+ 
+        if write is None: write=self.write
+        assert dkey=='drlay_d'
+        
+        #=======================================================================
+        # retrive rasters per StudyArea------
+        #=======================================================================
+        """leaving everything on the StudyArea to speed things up"""
+        
+        #execute
+        res_d = self.sa_get(meth='get_drlay', logger=log, dkey=dkey, write=False, **kwargs)
+ 
+        
+        #=======================================================================
+        # handle layers----
+        #=======================================================================
+ 
+        if write:
+            self.store_layer_d(res_d, dkey, logger=log)
+        
+        self.data_d[dkey] = res_d
+        
+        return res_d
+    
+    #===========================================================================
+    # INTERSECTION----------
+    #===========================================================================
+    def run_intersection(self, 
+                         ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('rInt')
+        
+        #=======================================================================
+        # build sampling geometry
+        #=======================================================================
+        finv_d = self.retrieve('finv_sg_d', logger=log)
+        
+        #=======================================================================
+        # sample depth raseres
+        #=======================================================================
+        rsamp_serx = self.retrieve('rsamps', logger=log)
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('done')
+    
+    def build_sampGeo(self,  # sampling geometry no each asset
                      dkey='finv_sg_d',
                      sgType='centroids',
                      write=None,
@@ -590,40 +683,6 @@ class Model(agSession):  # single model run
         # store layers
         #=======================================================================
         if write: ofp_d = self.store_layer_d(res_d, dkey, logger=log)
-        
-        return res_d
-    
-    def build_drlay(self, #buidl the depth rasters
-                    dkey=None,
- 
-                   write=None,
-                    **kwargs):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('build_drlay')
- 
- 
-        if write is None: write=self.write
-        assert dkey=='drlay_d'
-        
-        #=======================================================================
-        # retrive rasters per StudyArea------
-        #=======================================================================
-        """leaving everything on the StudyArea to speed things up"""
-        
-        #execute
-        res_d = self.sa_get(meth='get_drlay', logger=log, dkey=dkey, write=False, **kwargs)
- 
-        
-        #=======================================================================
-        # handle layers----
-        #=======================================================================
- 
-        if write:
-            self.store_layer_d(res_d, dkey, logger=log)
-        
-        self.data_d[dkey] = res_d
         
         return res_d
     
@@ -720,6 +779,33 @@ class Model(agSession):  # single model run
                             logger=log)
         
         return res_serx
+    
+    #===========================================================================
+    # LOSS CALCS----------
+    #===========================================================================
+    def run_lossCalcs(self,
+                      ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log=self.logger.getChild('rLoss')
+        
+        #=======================================================================
+        # run depths through vfuncs
+        #=======================================================================
+        rloss_dx = self.retrieve('rloss', logger=log)
+        
+        #=======================================================================
+        # multiply by total value to get total loss
+        #=======================================================================
+        tloss_dx = self.retrieve('tloss', logger=log)
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished')
+        
+        
     
     def build_rloss(self,  # calculate relative loss from rsamps on each vfunc
                     dkey=None,
@@ -970,7 +1056,7 @@ class Model(agSession):  # single model run
         log = self.logger.getChild('load_layer_d.%s' % dkey)
         assert dkey in [  'finv_agg_d', 'finv_sg_d']
         
-        vlay_fp_lib = self.load_pick(fp=fp)  # {study area: aggLevel : vlay filepath}}
+        vlay_fp_lib = self.load_pick(fp=fp, dkey=dkey)  # {study area: aggLevel : vlay filepath}}
         
         # load layers
         lay_d = dict()
@@ -1269,7 +1355,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                  idfn='id',  # unique key for assets
                  ** kwargs):
         
-        super().__init__(**kwargs)
+        super().__init__(exit_summary=False, **kwargs)
         
         #=======================================================================
         # #set crs
@@ -1639,7 +1725,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
 
 
 
-    def get_drlay(self,
+    def get_drlay(self, #build a depth layer intelligently
 
                    #raster selection
                    wse_fp_d=None,dem_fp_d=None,
@@ -1648,6 +1734,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    
                    #raster downsampling
                    resampStage='none', #which stage of the depth raster calculation to apply the downsampling
+                        #none: no resampling happening
+                        #wse: resample both rasters before subtraction  
+                        #depth: subtract rasters first, then resample the result
                    resampling='none',
                   resolution=0, #0=raw (nicer for variable consistency)
                    
@@ -1659,6 +1748,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         """separate function for 'severity' and 'resolution' (gdalwarp)
         
         todo: add trimming?
+        
+        zero handling?
         """
            
         #=======================================================================
@@ -1670,6 +1761,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if trim is None: trim=self.trim
         log = logger.getChild('get_raster')
         resolution = int(resolution)
+        
+        """TODO: get this to return somewhere"""
+        meta_d = {'resolution':resolution, 'resampStage':resampStage, 'resampling':resampling}
         #=======================================================================
         # #select raster filepaths
         #=======================================================================
@@ -1681,26 +1775,30 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         dem_raw_fp = dem_fp_d[dem_res]
         assert os.path.exists(dem_raw_fp)
         
+        """probably slows things down"""
+        dem_raw_res = self.rlay_get_resolution(dem_raw_fp)
+        assert dem_res==int(dem_raw_res)
+        
         #get names
         baseName = self.get_clean_rasterName(os.path.basename(wse_raw_fp))
         if layerName is None: 
             layerName = baseName + '_%i' % resolution
         #=======================================================================
-        # check it
+        # checks
         #=======================================================================
         """this can be quite slow"""
         #=======================================================================
         # nodata_cnt = hp.gdal.getNoDataCount(fp_raw)
         # assert nodata_cnt==0
         #=======================================================================
-        
+        assert resampStage in ['none', 'depth', 'wse'], resampStage
         #parameter logic
         if resampStage =='none':
             assert resolution==0
             assert resampling=='none'
             
         
-        
+        log.info('on %s w/ %s'%(os.path.basename(wse_raw_fp) ,meta_d))
         #=======================================================================
         # trim
         #=======================================================================
@@ -1708,7 +1806,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
             """NOTE: this makes the output senstivite to the finv
 
-        e.g., slicing the finv could slightly change the sampling results"""
+            e.g., slicing the finv could slightly change the sampling results"""
             vlay = self.finv_vlay
             rect = vlay.extent()
             bbox_str = '%.3f, %.3f, %.3f, %.3f [%s]' % (
@@ -1724,12 +1822,17 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
         if resampStage in ['none', 'depth']:
             """consider trimming before the raster calc?"""
-            wse_fp = wse_raw_fp
-            dem_fp = dem_raw_fp
+            if bbox_str is None:
+                log.info('trimming w/ resampStage=%s'%resampStage)
+                wse_fp = self.warpreproject(wse_raw_fp, compression='none', extents=bbox_str, logger=log)
+                dem_fp = self.warpreproject(dem_raw_fp, compression='none', extents=bbox_str, logger=log)
+            else:
+                wse_fp = wse_raw_fp
+                dem_fp = dem_raw_fp
  
  
         elif resampStage == 'wse':
-            
+            log.info('resampling w/ resampStage=%s'%resampStage)
             wse_fp = self.get_resamp(wse_raw_fp, resolution, resampling,  extents=bbox_str, logger=log)
             dem_fp = self.get_resamp(dem_raw_fp, resolution, resampling,  extents=bbox_str, logger=log)
  
@@ -1792,7 +1895,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #stats_d = self.get_rasterstats(rlay)
         #assert stats_d['resolution'] == resolution
         assert rlay.crs()==self.qproj.crs()
-        
+        assert int(self.rlay_get_resolution(rlay))==resolution
 
         
         
@@ -1803,7 +1906,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         log.info('finished on \'%s\' (%i x %i = %i)'%(
             rlay.name(), rlay.width(), rlay.height(), rlay.width()*rlay.height()))
- 
+        
+        
         
         return rlay
     

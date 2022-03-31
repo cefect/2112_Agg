@@ -150,7 +150,7 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, dem_fp, w
     
     #check resolution
     if not resolution == 0:
-        newResolution = studyAreaWrkr.get_resolution(rlay)
+        newResolution = studyAreaWrkr.rlay_get_resolution(rlay)
         assert resolution==newResolution
         
     #check nodata values
