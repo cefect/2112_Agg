@@ -91,6 +91,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 'compiled':lambda **kwargs:self.load_pick(**kwargs), #consider checking the baseID
                 'build':lambda **kwargs: self.build_trues(**kwargs),
                 },
+            'deltas':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs), #consider checking the baseID
+                'build':lambda **kwargs: self.build_deltas(**kwargs),
+                },
             'finv_agg_fps':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs), #only filepaths?
                 'build':lambda **kwargs: self.build_finv_agg(**kwargs),
@@ -126,6 +130,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                         write=None,
                         idn=None,
                      **kwargs):
+        """
+        todo: check against loaded outs?
+        """
         #=======================================================================
         # defaults
         #=======================================================================
@@ -136,7 +143,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # pull from piciles
         #=======================================================================
-        
+        #get each finv_agg_mindex from the run pickels
         data_d= self.assemble_model_data(dkey='finv_agg_mindex', 
                                          logger=log, write=write, idn=idn,
                                          **kwargs)
@@ -270,6 +277,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                      logger=None,
                      ):
         """
+        loop t hrough each pickle, open, then retrive the requested dkey
         just collecting into a dx for now... now meta
         """
         #=======================================================================
@@ -324,7 +332,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 
 
     
-    def build_trues(self, #build a 'base' data set using the raw indexers for each run
+    def build_trues(self, #map 'base' model data onto the index of all the  models 
+                         
                      baseID=0, #modelID to consider 'true'
                      #modelID_l=None, #optional slicing to specific models
                      dkey='trues',
@@ -333,7 +342,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                      idn=None, write=None,
                      ):
         """
+        
         for direct comparison w/ aggregated model results,
+            NOTE the index is expanded to preserve the trues
             these trues will need to be aggregated (groupby) again (method depends on what youre doing)
             
         TODO: check the specified baseID run had an aggLevel=0
@@ -363,7 +374,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         assert baseID in dx_raw.index.unique(idn)
         
         miss_l = set(dx_raw.index.unique(idn)).symmetric_difference(agg_mindex.unique(idn))
-        assert len(miss_l)==0
+        assert len(miss_l)==0, '%s mismatch between outs and agg_mindex... recompile?'%idn
         
         #=======================================================================
         # get base
@@ -371,15 +382,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #just the results for the base model
         base_dx = dx_raw.loc[idx[baseID, :, :, :], :].droplevel([idn, 'tag', 'event']).dropna(how='all', axis=1)
         base_dx.index = base_dx.index.remove_unused_levels().set_names('id', level=1)
-        """
-        view(base_dx)
-        base_dx.columns
-
-        
-        view(dx_raw.loc[idx[3, :, :, :], :])
-        
-        view(jdx.loc[idx[3, :, :, :, :, :], :].sort_index(level=['id']))
-        """
+ 
         #=======================================================================
         # expand to all results
         #=======================================================================
@@ -391,7 +394,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         """need a 2d column index for the column dimensions to be preserved during the join"""
         jdx = pd.DataFrame(index=amindex1, columns=pd.MultiIndex.from_tuples([('a',1)], names=base_dx.columns.names))
         
-        #loop and add base values for each Model
+        #=======================================================================
+        # #loop and add base values for each Model
+        #=======================================================================
         d = dict()
         err_d = dict()
         for modelID, gdx0 in jdx.groupby(level=idn):
@@ -430,7 +435,6 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         dx1 = pd.concat(d.values())
             
  
-        
         #=======================================================================
         # check
         #=======================================================================
@@ -450,6 +454,14 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         # wrap
         #=======================================================================
         log.info('grouping %s'%str(dx1.shape))
+        """
+        view(dx1)
+        view(dx1.iloc[10000:15000, :])
+        view(dx_raw.iloc[10000:15000, :])
+        dx_raw
+        view(dx1.index.droplevel([4,5]).to_frame().drop_duplicates())
+        dx1.columns
+        """
  
         if write:
             self.ofp_d[dkey] = self.write_pick(dx1,
@@ -457,9 +469,37 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                                    logger=log)
  
         return dx1
+    
+    
+    def build_deltas(self,
+                     
+                     #input data
+                     dx_raw=None,
+                     true_dx=None, #base values mapped onto all the other models
+                     
+                     
+                     dkey=None,write=None,
+                     ):
         
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        assert dkey=='deltas'
+        log = self.logger.getChild(dkey)
+        idn=self.idn
+        if write is None: write=self.write
  
         
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if dx_raw is None:  
+            dx_raw = self.retrieve('outs')
+            
+        if true_dx is None:
+            true_dx = self.retrieve('trues')
+            
+        log.info('on raw: %s and true: %s'%(str(dx_raw.shape), str(true_dx.shape)))
  
          
  
@@ -1487,7 +1527,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     #===========================================================
                     for event, row in tl_df.iterrows():
                         ax.text(row['xloc'], row['pred'] * 1.01, #shifted locations
-                                '%+.1f' % (row['relErr'] * 100),
+                                '%+.1f %%' % (row['relErr'] * 100),
                                 ha='center', va='bottom', rotation='vertical',
                                 fontsize=10, color='red')
                         
@@ -1767,7 +1807,13 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     plot_rown='aggLevel',
                     plot_coln='resolution',
                     plot_colr=None,
-                    #plot_bgrp='modelID',
+                    
+                    #plot config [bars]
+                    plot_bgrp=None, #grouping (for plotType==bars)
+                    err_type=None, #what type of errors to calculate
+                        #absolute: modelled - true
+                        #relative: absolute/true
+ 
                     
                     #data control
                     xlims = None,
@@ -1780,7 +1826,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
  
                     
                     #plot style
+                    plot_type='scatter', 
                     colorMap=None,
+                    sharey=None,sharex=None,
                     **kwargs):
         """"
         generally 1 modelId per panel
@@ -1791,7 +1839,15 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         log = self.logger.getChild('plot_compare_mat')
         
-        if plot_colr is None: plot_colr=plot_rown
+        if plot_colr is None: 
+            plot_colr=plot_bgrp
+        
+        if plot_colr is None: 
+            plot_colr=plot_rown
+            
+        if plot_bgrp is None:
+            assert plot_type=='scatter'
+            
         idn = self.idn
         if baseID is None: baseID=self.baseID
  
@@ -1800,6 +1856,18 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             
         if true_dx_raw is None:
             true_dx_raw = self.retrieve('trues', baseID=baseID)
+            
+        if sharey is None:
+            if plot_type=='scatter':
+                sharey='none'
+            else:
+                sharey='all'
+                
+        if sharex is None:
+            if plot_type=='scatter':
+                sharex='none'
+            else:
+                sharex='all'
         
         
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
@@ -1830,11 +1898,17 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
                                     figsize_scaler=4,
                                     constrained_layout=True,
-                                    sharey='none', sharex='none',  # everything should b euniform
+                                    sharey=sharey, 
+                                    sharex=sharex,  
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
-        fig.suptitle('\'%s\' errors'%dkey)
+        
+        if not plot_type=='bars':
+            fig.suptitle('\'%s\' errors'%dkey)
+        else:
+            fig.suptitle('\'%s\' errors (%s)'%(dkey, err_type))
+            
         
         #=======================================================================
         # #get colors
@@ -1847,6 +1921,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # loop and plot
         #=======================================================================
+ 
+ 
         true_gb = true_dx.groupby(level=[plot_coln, plot_rown])
         for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
             
@@ -1857,59 +1933,183 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             ax = ax_d[gkeys[1]][gkeys[0]]
             log.info('on %s'%keys_d)
             
-            #===================================================================
-            # assert len(gdx0.index.unique(idn))==1, 'bad modelcnt on %s w/ \n    %s'%(
-            #     keys_d, gdx0.index.unique(idn))
-            # mid = gdx0.index.unique(idn)[0] #model ID for this loop
-            #===================================================================
-            #keys_d[idn] = mid
-            
  
             #===================================================================
             # data prep----------
             #===================================================================
-            #simplify the gridded (drop some uncessairy levels)
-            #gdx1 = gdx0.droplevel(level=list(set(gdx0.index.names).difference(['gid', 'studyArea']))).sort_index()
+ 
             gdx1 = gdx0
  
-            
-            
-            #get the true values
+            #get the corresponding true values
             tgdx0 = true_gb.get_group(gkeys)
             
             #===================================================================
             # aggregate the trues
             #===================================================================
+            """because trues are mapped from the base model.. where we compress down to the model index"""
             tgdx1 = getattr(tgdx0.groupby(level=[gdx1.index.names]), aggMethod)()
             tgdx2 = tgdx1.reorder_levels(gdx1.index.names).sort_index()
             
             assert_index_equal(gdx1.index, tgdx2.index)
             
-            #===================================================================
-            # ranges
-            #===================================================================
-            #model results
-            data_d, zeros_bx = self.prep_ranges(qhi, qlo, False, gdx1)
-            
-            #trues
-            true_data_d, _ = self.prep_ranges(qhi, qlo, False, tgdx2)
-            
  
             
             #===================================================================
-            # scatter plot
+            # scatter plot-----
             #===================================================================
-            """only using mean values for now"""
-            xar, yar = data_d['mean'], true_data_d['mean'] 
+            if plot_type =='scatter':
+                #===================================================================
+                # reduce ranges
+                #===================================================================
+                #model results
+                data_d, zeros_bx = self.prep_ranges(qhi, qlo, False, gdx1)
+                
+                #trues
+                true_data_d, _ = self.prep_ranges(qhi, qlo, False, tgdx2)
             
             
+                """only using mean values for now"""
+                xar, yar = data_d['mean'], true_data_d['mean'] 
+                
+                
+                
+                stat_d = self.ax_corr_scat(ax, xar, yar, 
+                                           #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
+                                           scatter_kwargs = {
+                                               'color':color_d[keys_d[plot_colr]]
+                                               },
+                                           logger=log, add_label=False)
+                
+                gdata = gdx1 #for stats
+            #===================================================================
+            # bar plot---------
+            #===================================================================
+            elif plot_type=='bars':
+                """TODO: consolidate w/ plot_total_bars"""
+                #===============================================================
+                # data setup
+                #===============================================================
+                gdx2 = gdx1 - tgdx2 #modelled - trues
+                
+                gb = gdx2.groupby(level=plot_bgrp)
+                
+                
+                barHeight_ser = gb.sum() #collapse iters(
+                if err_type=='relative':
+                    barHeight_ser = barHeight_ser/tgdx2.groupby(level=plot_bgrp).sum()
+ 
+                    
+                """always want totals for the bars"""
+                
+                ylocs = barHeight_ser.T.values[0]
+                gdata = gdx2
+                
+                #===============================================================
+                # #formatters.
+                #===============================================================
+ 
+                # labels conversion to tag
+                if plot_bgrp=='modelID':
+                    raise Error('not implementd')
+                    #tick_label = [mid_tag_d[mid] for mid in barHeight_ser.index] #label by tag
+                else:
+                    tick_label = ['%s=%s'%(plot_bgrp, i) for i in barHeight_ser.index]
+                #tick_label = ['m%i' % i for i in range(0, len(barHeight_ser))]
+  
+                # widths
+                bar_cnt = len(barHeight_ser)
+                width = 0.9 / float(bar_cnt)
+                
+                #===============================================================
+                # #add bars
+                #===============================================================
+                xlocs = np.linspace(0, 1, num=len(barHeight_ser))# + width * i
+                bars = ax.bar(
+                    xlocs,  # xlocation of bars
+                    ylocs,  # heights
+                    width=width,
+                    align='center',
+                    color=color_d.values(),
+                    #label='%s=%s' % (plot_colr, ckey),
+                    #alpha=0.5,
+                    tick_label=tick_label,
+                    )
+                
+                #===============================================================
+                # add error bars 
+                #===============================================================
+                if len(gdx2.columns.get_level_values(1))>1:
+                    """untesetd"""
+                    #get error values
+                    err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
+                    
+                    #convert to deltas
+                    assert np.array_equal(err_df.index, barHeight_ser.index)
+                    errH_df = err_df.subtract(barHeight_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
+                    
+                    #add the error bars
+                    ax.errorbar(xlocs, ylocs,
+                                errH_df.values,  
+                                capsize=5, color='black',
+                                fmt='none', #no data lines
+                                )
+                
+                #===============================================================
+                # add bar labels
+                #===============================================================
+                d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':ylocs, 'xloc':xlocs}.items()}
+
+                for event, row in pd.concat(d1, axis=1).iterrows():
+                    ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
+                                '%+.1f %%' % (row['yloc'] * 100),
+                                ha='center', va='bottom', rotation='vertical',
+                                fontsize=10, color='red')
+                    
+            #===================================================================
+            # violin plot-----
+            #===================================================================
+            elif plot_type=='violin':
+                #===============================================================
+                # data setup
+                #===============================================================
+                gdx2 = gdx1 - tgdx2 #modelled - trues
+                
+                gb = gdx2.groupby(level=plot_bgrp)
+                
+                data_d = {k:v.values.T[0] for k,v in gb}
+                gdata = gdx2
+                #===============================================================
+                # plot
+                #===============================================================
+                parts_d = ax.violinplot(data_d.values(),  
+ 
+                                       showmeans=True,
+                                       showextrema=True,  
+                                       )
+                
+                #===============================================================
+                # color
+                #===============================================================
+                labels = list(data_d.keys())
+                ckey_d = {i:color_key for i,color_key in enumerate(labels)}
+                
+                #style fills
+                for i, pc in enumerate(parts_d['bodies']):
+                    pc.set_facecolor(color_d[ckey_d[i]])
+                    pc.set_edgecolor(color_d[ckey_d[i]])
+                    pc.set_alpha(0.5)
+                    
+                #style lines
+                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
+                    parts_d[partName].set(color='black', alpha=0.5)
+                
+                
+                
+                
+ 
             
-            stat_d = self.ax_corr_scat(ax, xar, yar, 
-                                       #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
-                                       scatter_kwargs = {
-                                           'color':color_d[keys_d[plot_colr]]
-                                           },
-                                       logger=log, add_label=False)
+            else:
+                raise KeyError('unrecognized plot_type: %s'%plot_type)
             """
             fig.show()
             """
@@ -1922,10 +2122,19 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #===================================================================
             if add_label:
                 # get float labels
-                meta_d = {**{'modelIDs':str(list(gdx0.index.unique(idn))),
-                           'count':len(zeros_bx), 'zero_cnt':zeros_bx.sum(), 'drop_zeros':False,'iters':len(gdx1.columns),
-                           'min':gdx1.min().min(), 'max':gdx1.max().max(), 'mean':gdx1.mean().mean()},
-                             **stat_d}
+                meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),
+                            'drop_zeros':False,'iters':len(gdx1.columns),
+                            
+                            'min':gdata.min().min(), 'max':gdata.max().max(), 'mean':gdata.mean().mean(),
+                          } 
+                
+                if plot_type=='scatter':
+                    meta_d.update({'zero_cnt':zeros_bx.sum(),
+                                    'count':len(gdx0),
+                                    })
+                    meta_d.update(stat_d)
+                elif plot_type=='bars':
+                    pass
  
                 ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
                 
@@ -1935,8 +2144,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         """best to loop on the axis container in case a plot was missed"""
         for row_key, d in ax_d.items():
             for col_key, ax in d.items():
- 
-                ax.legend(loc=1)
+                if plot_type=='scatter':
+                    ax.legend(loc=1)
                 # first row
                 if row_key == row_keys[0]:
                     pass
@@ -1948,11 +2157,26 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                         
                 # first col
                 if col_key == col_keys[0]:
-                    ax.set_ylabel('\'%s\' (true)'%dkey)
+                    if plot_type in ['bars']:
+                        ax.set_ylabel('\'%s\' total errors (%s)'%(dkey, err_type))
+                    elif plot_type == 'violin':
+                        ax.set_ylabel('\'%s\' errors'%(dkey))
+                    elif plot_type=='scatter':
+                        ax.set_ylabel('\'%s\' (true)'%dkey)
                 
                 #last row
                 if row_key == row_keys[-1]:
-                    ax.set_xlabel('\'%s\' (aggregated)'%dkey)
+                    if plot_type == 'bars': 
+                        pass
+                        #ax.set_ylabel('\'%s\' (agg - true)'%dkey)
+                    elif plot_type=='violin':
+                        ax.set_xticks(np.arange(1, len(labels) + 1))
+                        ax.set_xticklabels(labels)
+                        
+                    else:
+                        ax.set_xlabel('\'%s\' (aggregated)'%dkey)
+                        
+                    
  
  
         #=======================================================================
@@ -1963,7 +2187,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         
-        return self.output_fig(fig, fname='errs_%s_%sx%s_%s' % (dkey, plot_rown, plot_coln, self.longname), **kwargs)
+        return self.output_fig(fig, fname='errs_%s_%s_%sX%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), **kwargs)
  
     def plot_vs_mat(self, #plot dkeys against eachother in a matrix
                   
@@ -3234,7 +3458,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     # HELPERS---------
     #===========================================================================
 
-    def prep_ranges(self, qhi, qlo, drop_zeros, gdx0):
+    def prep_ranges(self, #for multi-simulations, compress each entry using the passed stats 
+                    qhi, qlo, drop_zeros, gdx0):
         #=======================================================================
         # check
         #=======================================================================

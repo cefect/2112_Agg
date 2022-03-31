@@ -89,6 +89,8 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
+        #ses.retrieve('deltas')
+        
         #=======================================================================
         # individual model summaries---------
         #=======================================================================
@@ -262,6 +264,25 @@ def run( #run a basic model configuration
         #ses.plot_compare_mat(dkey='tloss', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea',  fmt=fmt, aggMethod='sum')
         
         #=======================================================================
+        # errors bars (totals)
+        #=======================================================================
+        #total errors (relative) grouped by studyArea
+        ses.plot_compare_mat(dkey='tloss',aggMethod='sum',modelID_l=mids, plot_type='bars',
+                             plot_rown='aggLevel', plot_coln='resolution', plot_bgrp='studyArea',
+                             err_type='relative' )
+        
+        
+        #=======================================================================
+        # errors violin
+        #=======================================================================
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='tloss',aggMethod='sum',modelID_l=mids, plot_type='violin',
+        #                      plot_rown='aggLevel', plot_coln='resolution', plot_bgrp='studyArea',
+        #                      err_type='relative' )
+        # 
+        #=======================================================================
+        
+        #=======================================================================
         # tval_type
         #=======================================================================
 
@@ -276,13 +297,16 @@ def run( #run a basic model configuration
     return out_dir
 
 def dev():
+    """problem with trues?"""
     return run(
         tag='dev',
         catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hyd2_dev\model_run_index.csv',
         modelID_l = None,
         
         compiled_fp_d = {
-        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220227\working\outs_analy_dev_0227.pickle',
+        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220331\working\outs_analy_dev_0331.pickle',
+        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220331\working\agg_mindex_analy_dev_0331.pickle',
+        #'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\dev\20220331\working\trues_analy_dev_0331.pickle',
         
  
             }
@@ -296,7 +320,9 @@ def r2():
         #modelID_l = [0, 11],
         tag='r2',
         compiled_fp_d = {
-              'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220316\working\outs_analy_r2_0316.pickle'
+              'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220316\working\outs_analy_r2_0316.pickle',
+            'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220331\working\agg_mindex_analy_r2_0331.pickle',
+            'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220331\working\trues_analy_r2_0331.pickle',
             },
         )
     
