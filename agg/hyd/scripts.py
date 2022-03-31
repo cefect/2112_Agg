@@ -1863,9 +1863,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             #treat negatives
             stats_d = self.rasterlayerstatistics(dep_fp1)
             if stats_d['MIN']<0:
+ 
                 entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'dep':dep_fp1}.items()}
                 formula = '{dep} * ({dep} >= 0)'.format(**{k:v.ref for k,v in entries_d.items()})
-                #log.info('executing %s'%formula)
+                log.info('executing for negatives %s'%formula)
                 dep_fp1 = wrkr.rcalc(formula, layname=baseName, 
                                  ofp=os.path.join(os.path.dirname(dep_fp1),os.path.basename(dep_fp1).replace('.tif', '_posi.tif'))
                                  )
@@ -1876,7 +1877,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # post-downsample
         #=======================================================================
         if resampStage =='depth':
-        
+            log.info('resampling w/ resampStage=%s'%resampStage)
  
             dep_fp2 = self.get_resamp(dep_fp1, resolution, resampling,  extents=bbox_str, logger=log)
             
