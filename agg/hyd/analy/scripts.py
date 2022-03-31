@@ -71,6 +71,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                  name='analy',
                  modelID_l=None, #optional list for specifying a subset of the model runs
                  baseID=0, #mase model ID
+                 exit_summary=False,
                  **kwargs):
         
         data_retrieve_hndls = {
@@ -98,7 +99,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             }
         
         super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,init_plt_d=None,
-                         work_dir = r'C:\LS\10_OUT\2112_Agg',
+                         work_dir = r'C:\LS\10_OUT\2112_Agg', exit_summary=exit_summary,
                          **kwargs)
         self.plt=plt
         self.catalog_fp=catalog_fp

@@ -49,7 +49,7 @@ matplotlib.rcParams['legend.title_fontsize'] = 'large'
 print('loaded matplotlib %s'%matplotlib.__version__)
 
 
-from scripts import ModelAnalysis
+from agg.hyd.analy.scripts import ModelAnalysis
 
  
 
@@ -110,7 +110,7 @@ def run( #run a basic model configuration
         mids = list(range(9))
         #ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
         
-        #haz res x aggLevel (bars for studyArea)
+        #haz res x aggLevel (tloss bars for studyArea)
         ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='studyArea',  
                             plot_rown='aggLevel', plot_coln='resolution', sharey='row', baseline_loc='first_axis')
             
