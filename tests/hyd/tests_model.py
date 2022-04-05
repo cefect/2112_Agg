@@ -103,7 +103,7 @@ def dem_fp(studyAreaWrkr, tmp_path):
 @pytest.fixture
 # were setup to filter out ground water... but tests are much simpler if we ignore this   
 def wse_fp(studyAreaWrkr, tmp_path):
-    return studyAreaWrkr.randomuniformraster(10, bounds=(5,7), extent_layer=studyAreaWrkr.finv_vlay,
+    return studyAreaWrkr.randomuniformraster(5, bounds=(5,7), extent_layer=studyAreaWrkr.finv_vlay,
                                              output=os.path.join(tmp_path, 'wse_random.tif'))
     
 @pytest.fixture   
@@ -142,7 +142,9 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
     ['wse',50,'Average'],
     ['depth',50,'Maximum'],
     ])  
-def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, dem_fp, wse_fp, tmp_path):
+def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, 
+                   dem_fp, wse_fp, #randomly generated rasters 
+                   tmp_path):
     
     #===========================================================================
     # get calc result
@@ -155,6 +157,10 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, dem_fp, w
     #===========================================================================
     # check result----
     #===========================================================================
+    #resulting stats
+    stats_d = studyAreaWrkr.rlay_getstats(rlay)
+    assert stats_d['resolution']==resolution
+        
     #check nodata values
     assert hp.gdal.getNoDataCount(rlay.source())==0
     assert rlay.crs() == studyAreaWrkr.qproj.crs()
@@ -179,8 +185,7 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, dem_fp, w
         #full resolution test calc
         stats2_d = studyAreaWrkr.rlay_getstats(chk_rlay_fp)
         
-        #resulting stats
-        stats_d = studyAreaWrkr.rlay_getstats(rlay)
+
         
         assert stats2_d['resolution']<=stats_d['resolution']
         
