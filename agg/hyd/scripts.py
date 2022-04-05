@@ -22,6 +22,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     QgsWkbTypes, QgsRasterLayer, RasterCalc, QgsVectorLayer
 
 import hp.gdal
+from hp.exceptions import assert_func
 
 
 from agg.coms.scripts import Session as agSession
@@ -82,7 +83,7 @@ class Model(agSession):  # single model run
 
         
         'severity':{'vals':['hi', 'lo'],                            'dkey':'drlay_d'},
-        'resolution':{'vals':[0, 50, 100, 200],                     'dkey':'drlay_d'},
+        'resolution':{'vals':[5, 50, 100, 200],                     'dkey':'drlay_d'},
         'resampling':{'vals':['none','Average'],                    'dkey':'drlay_d'},
         'resampStage':{'vals':['none', 'wse', 'depth'],             'dkey':'drlay_d'},
         
@@ -1371,6 +1372,12 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         self.idfn = idfn
         
         self.finv_fnl.append(idfn)
+        
+        #=======================================================================
+        # directories
+        #=======================================================================
+        self.temp_dir = os.path.join(self.temp_dir, self.name)
+        if not os.path.exists(self.temp_dir): os.makedirs(self.temp_dir)
         #=======================================================================
         # load aoi
         #=======================================================================
@@ -1729,8 +1736,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
 
                    #raster selection
                    wse_fp_d=None,dem_fp_d=None,
-                   severity='hi', 
-                   dem_res=5,
+                   severity='hi',  #which wse rastser to select
+                   #dem_res=5,
                    
                    #raster downsampling
                    resampStage='none', #which stage of the depth raster calculation to apply the downsampling
@@ -1738,7 +1745,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                         #wse: resample both rasters before subtraction  
                         #depth: subtract rasters first, then resample the result
                    resampling='none',
-                  resolution=0, #0=raw (nicer for variable consistency)
+                  resolution=5, #0=raw (nicer for variable consistency)
+                  base_resolution=5, #resolution of raw data
                    
                    #gen 
                   logger=None, layerName=None,
@@ -1759,108 +1767,124 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if dem_fp_d is None: dem_fp_d=self.dem_fp_d
         if logger is None: logger = self.logger
         if trim is None: trim=self.trim
+        temp_dir = os.path.join(self.temp_dir, 'get_drlay')
+        if not os.path.exists(temp_dir): os.makedirs(temp_dir)
+        start = datetime.datetime.now()
         log = logger.getChild('get_raster')
         resolution = int(resolution)
         
         """TODO: get this to return somewhere"""
         meta_d = {'resolution':resolution, 'resampStage':resampStage, 'resampling':resampling}
+        mstore=QgsMapLayerStore()
+        #=======================================================================
+        # parameter checks
+        #=======================================================================
+ 
+        assert resampStage in ['none', 'depth', 'wse'], resampStage
+        #parameter logic
+        if resampStage =='none':
+            assert resolution==base_resolution, resolution
+            assert resampling=='none'
+            
+        if resampling =='none':
+            assert resampStage == 'none'
+            
+            
+        assert resolution>=base_resolution
+        assert isinstance(resolution, int)
+        
         #=======================================================================
         # #select raster filepaths
         #=======================================================================
+        #WSE
         assert severity in wse_fp_d
         wse_raw_fp = wse_fp_d[severity]
         assert os.path.exists(wse_raw_fp)
         
-        assert dem_res in dem_fp_d
-        dem_raw_fp = dem_fp_d[dem_res]
+        #DEM
+        if resolution in dem_fp_d:
+            dem_raw_fp = dem_fp_d[resolution]
+        else:
+            dem_raw_fp = dem_fp_d[base_resolution] #just take the highest resolution
+            
         assert os.path.exists(dem_raw_fp)
         
-        """probably slows things down"""
-        dem_raw_res = self.rlay_get_resolution(dem_raw_fp)
-        assert dem_res==int(dem_raw_res)
+ 
         
         #get names
         baseName = self.get_clean_rasterName(os.path.basename(wse_raw_fp))
         if layerName is None: 
             layerName = baseName + '_%i' % resolution
-        #=======================================================================
-        # checks
-        #=======================================================================
-        """this can be quite slow"""
-        #=======================================================================
-        # nodata_cnt = hp.gdal.getNoDataCount(fp_raw)
-        # assert nodata_cnt==0
-        #=======================================================================
-        assert resampStage in ['none', 'depth', 'wse'], resampStage
-        #parameter logic
-        if resampStage =='none':
-            assert resolution==0
-            assert resampling=='none'
+
             
         
         log.info('on %s w/ %s'%(os.path.basename(wse_raw_fp) ,meta_d))
         #=======================================================================
         # trim
         #=======================================================================
-        if (not resampStage=='none') and trim:
+        if trim:
  
             """NOTE: this makes the output senstivite to the finv
 
             e.g., slicing the finv could slightly change the sampling results"""
             vlay = self.finv_vlay
-            rect = vlay.extent()
-            bbox_str = '%.3f, %.3f, %.3f, %.3f [%s]' % (
-                rect.xMinimum(), rect.xMaximum(), rect.yMinimum(), rect.yMaximum(), 
-                vlay.crs().authid())
+            extents = vlay.extent()
         else:
-            bbox_str = None
+            wse_raw_rlay = self.get_layer(wse_raw_fp, mstore=mstore)
+            extents = wse_raw_rlay.extent()
         
         
         #=======================================================================
-        # pre-downsample 
+        # preCalc 
         #=======================================================================
  
         if resampStage in ['none', 'depth']:
-            """consider trimming before the raster calc?"""
-            if bbox_str is None:
-                log.info('trimming w/ resampStage=%s'%resampStage)
-                wse_fp = self.warpreproject(wse_raw_fp, compression='none', extents=bbox_str, logger=log)
-                dem_fp = self.warpreproject(dem_raw_fp, compression='none', extents=bbox_str, logger=log)
-            else:
-                wse_fp = wse_raw_fp
-                dem_fp = dem_raw_fp
+            log.info('warpreproject w/ resolution=%i to %s'%(base_resolution, extents))
+            wse_fp = self.warpreproject(wse_raw_fp, compression='none', extents=extents, logger=log,
+                                        resolution=base_resolution,
+                                        output=os.path.join(temp_dir, 'preCalc_%s'%os.path.basename(wse_raw_fp)))
+            
+            dem_fp = self.warpreproject(dem_raw_fp, compression='none', extents=extents, logger=log,
+                                        resolution=base_resolution,
+                                        output=os.path.join(temp_dir, 'preCalc_%s'%os.path.basename(dem_raw_fp)))
+ 
  
  
         elif resampStage == 'wse':
             log.info('resampling w/ resampStage=%s'%resampStage)
-            wse_fp = self.get_resamp(wse_raw_fp, resolution, resampling,  extents=bbox_str, logger=log)
-            dem_fp = self.get_resamp(dem_raw_fp, resolution, resampling,  extents=bbox_str, logger=log)
+            wse_fp = self.get_resamp(wse_raw_fp, resolution, resampling,  extents=extents, logger=log)
+            dem_fp = self.get_resamp(dem_raw_fp, resolution, resampling,  extents=extents, logger=log)
  
         else:
             raise Error('badd resampStage: %s'%resampStage)
         
  
-            
+        assert_func(lambda:self.rlay_check_match(wse_fp, dem_fp), msg='dem and wse dont match')
         #=======================================================================
         # subtraction
         #=======================================================================
+        log.info('building RasterCalc')
         with RasterCalc(wse_fp, name='dep', session=self, logger=log,out_dir=self.temp_dir,) as wrkr:
             
             wse_rlay = wrkr.ref_lay #loaded during init
             dtm_rlay = wrkr.load(dem_fp)
             
             #===================================================================
-            # #check layers
+            # setup
             #===================================================================
- 
             
-                
             entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'top':wse_rlay, 'bottom':dtm_rlay}.items()}
             formula = '%s - %s'%(entries_d['top'].ref, entries_d['bottom'].ref)
+            
+            #===================================================================
+            # execute subtraction
+            #===================================================================
             log.info('executing %s'%formula)
             dep_fp1 = wrkr.rcalc(formula, layname=baseName)
             
-            #treat negatives
+            #===================================================================
+            # #treat negatives
+            #===================================================================
             stats_d = self.rasterlayerstatistics(dep_fp1)
             if stats_d['MIN']<0:
  
@@ -1879,7 +1903,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if resampStage =='depth':
             log.info('resampling w/ resampStage=%s'%resampStage)
  
-            dep_fp2 = self.get_resamp(dep_fp1, resolution, resampling,  extents=bbox_str, logger=log)
+            dep_fp2 = self.get_resamp(dep_fp1, resolution, resampling,  extents=extents, logger=log)
             
         else:
             dep_fp2 = dep_fp1
@@ -1891,7 +1915,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # check
         #=======================================================================
-        rlay = self.rlay_load(dep_fp2, set_proj_crs=False, reproj=False, logger=log)
+        rlay = self.rlay_load(dep_fp2,logger=log)
  
         #stats_d = self.get_rasterstats(rlay)
         #assert stats_d['resolution'] == resolution
@@ -1904,8 +1928,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # wrap
         #=======================================================================
         rlay.setName(layerName)
+        mstore.removeAllMapLayers()
+        tdelta = datetime.datetime.now() - start
         
-        log.info('finished on \'%s\' (%i x %i = %i)'%(
+        log.info('finished in %s on \'%s\' (%i x %i = %i)'%(tdelta,
             rlay.name(), rlay.width(), rlay.height(), rlay.width()*rlay.height()))
         
         

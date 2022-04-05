@@ -115,7 +115,7 @@ def wd_rlay(session):
     
 
 #===============================================================================
-# tests StudyArea------
+# TESTS STUDYAREA------
 #===============================================================================
  
 @pytest.mark.parametrize('aggLevel',[10, 50], indirect=False)  
@@ -134,33 +134,36 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
 @pytest.mark.parametrize('resampStage, resolution, resampling',[
-    #['none',0, 'none'], #raw... no rexampling
+    ['none',5, 'none'], #raw... no rexampling
     ['depth',50,'Average'],
     ['wse',50,'Average'],
     ['depth',50,'Maximum'],
     ])  
 def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, dem_fp, wse_fp, tmp_path):
+    
+    #===========================================================================
+    # get calc result
+    #===========================================================================
     rlay = studyAreaWrkr.get_drlay(
         wse_fp_d = {'hi':wse_fp},
         dem_fp_d = {5:dem_fp},
-        resolution=resolution, resampling=resampling, resampStage=resampStage, layerName='dep_rand')
+        resolution=resolution, resampling=resampling, resampStage=resampStage)
     
-    #check resolution
-    if not resolution == 0:
-        newResolution = studyAreaWrkr.rlay_get_resolution(rlay)
-        assert resolution==newResolution
-        
+    #===========================================================================
+    # check result----
+    #===========================================================================
     #check nodata values
     assert hp.gdal.getNoDataCount(rlay.source())==0
     assert rlay.crs() == studyAreaWrkr.qproj.crs()
     #stats_d = studyAreaWrkr.rlay_getstats(rlay)
     
     #===========================================================================
-    # get the raw depth
+    # against the raw depth
     #===========================================================================
+    """what is the resolution of the test data??"""
     with RasterCalc(wse_fp, session=studyAreaWrkr, out_dir=tmp_path, logger=studyAreaWrkr.logger) as wrkr:
         #dep_rlay = wrkr.ref_lay
         wse_rlay = wrkr.ref_lay #loaded during init
@@ -206,7 +209,7 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, dem_fp, w
 # tests Session-------
 #===============================================================================
     
-@pytest.mark.dev
+
 @pytest.mark.parametrize('aggType,aggLevel',[['none',0], ['gridded',20], ['gridded',50]], indirect=False) 
 def test_finv_agg(session, aggType, aggLevel, true_dir, write):
     #===========================================================================

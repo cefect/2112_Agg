@@ -3539,7 +3539,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         assert len(miss_l)==0
         
         miss_l = set(modelID_l).difference(dx_raw.index.unique(idn))
-        assert len(miss_l)==0, '%i/%i requested models not foundin data'%(len(miss_l), len(modelID_l))
+        assert len(miss_l)==0, '%i/%i requested models not foundin data\n    %s'%(len(miss_l), len(modelID_l), miss_l)
         
  
         #=======================================================================

@@ -63,7 +63,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #data
         #=======================================================================
-        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
+        catalog_fp = None,
         modelID_l=None,
         baseID = 0, #model representing the base run
  
@@ -319,10 +319,21 @@ def r2():
     return run(
         #modelID_l = [0, 11],
         tag='r2',
+        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd2\model_run_index.csv',
         compiled_fp_d = {
               'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220316\working\outs_analy_r2_0316.pickle',
             'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220331\working\agg_mindex_analy_r2_0331.pickle',
             'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r2\20220331\working\trues_analy_r2_0331.pickle',
+            },
+        )
+
+def r3():
+    return run(
+        #modelID_l = [0, 11],
+        tag='r3',
+        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd3\model_run_index.csv',
+        compiled_fp_d = {
+ 
             },
         )
     
@@ -330,7 +341,8 @@ if __name__ == "__main__":
     
  
     #output=dev()
-    output=r2()
+    #output=r2()
+    output=r3()
         
         
  
