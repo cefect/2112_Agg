@@ -1790,7 +1790,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             assert resampling=='none'
             
         if resampling =='none':
-            assert resampStage == 'none'
+            assert resampStage == 'none', 'for resampling=none expects resampStage=none'
             
             
         assert resolution>=base_resolution

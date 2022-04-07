@@ -385,16 +385,14 @@ def dev():
 if __name__ == "__main__": 
  
     #output=base_dev()
-    #===========================================================================
-    # output=run_auto_dev(modelID=2, write=False,
-    #                     compiled_fp_d={ 
-    #                         }
-    #                     )
-    #===========================================================================
+    output=run_auto_dev(modelID=23, write=False,
+                        compiled_fp_d={ 
+                            }
+                        )
     #output=dev()
     #output=r2_base()
     #output=r2_g200()
-    output=run_autoPars(modelID=2)
+    #output=run_autoPars(modelID=2)
     #output=run_autoPars(tag='g100', modelID=3)
     #output=run_autoPars(tag='g100_true', modelID=4, trim=True)
     #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
