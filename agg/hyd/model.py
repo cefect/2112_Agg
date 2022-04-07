@@ -181,7 +181,7 @@ def run_autoPars( #run a pre-defined model configuration
         )
     
 def run_auto_dev( #special dev runner
-        iters=3, trim=True, name='hyd3_dev',**kwargs):
+        iters=3, trim=True, name='hyd4_dev',**kwargs):
     
     return run_autoPars(iters=iters, trim=trim, name=name, **kwargs)
     
@@ -192,7 +192,7 @@ def run( #run a basic model configuration
         # #generic
         #=======================================================================
         tag='r2_base',
-        name='hyd3',
+        name='hyd4',
         overwrite=True,
         trim=False,
         write=True,
@@ -216,22 +216,20 @@ def run( #run a basic model configuration
                        },
                     }, 
             
-            #===================================================================
-            # 'LMFRA': {
-            #     'EPSG': 3005, 
-            #     'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\finv\IBI_BldgFt_V3_20191213_aoi08_0219.gpkg', 
-            #     'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
-            #     'wse_fp_d':{
-            #           'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif', #10x10
-            #           'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0200_WL_simu_0415_aoi09_0304.tif',
-            #           'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0100_WL_simu_0415_aoi09_0304.tif',
-            #           },
-            #     'dem_fp_d':{
-            #          1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi09_0304.tif',
-            #          5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_05_aoi09_0304.tif',
-            #           },
-            #         }, 
-            #===================================================================
+            'LMFRA': {
+                'EPSG': 3005, 
+                'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\finv\IBI_BldgFt_V3_20191213_aoi08_0219.gpkg', 
+                'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
+                'wse_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif', #10x10
+                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0200_WL_simu_0415_aoi09_0304.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0100_WL_simu_0415_aoi09_0304.tif',
+                      },
+                'dem_fp_d':{
+                     1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi09_0304.tif',
+                     5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_05_aoi09_0304.tif',
+                      },
+                    }, 
             #===================================================================
             # 'SaintJohn': {
             #     'EPSG': 3979, 
@@ -241,25 +239,23 @@ def run( #run a basic model configuration
             #       'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\SJ_aoiT01_0119.gpkg',
             #                 }, 
             #===================================================================
-#===============================================================================
-#             'Calgary': {
-#                 'EPSG': 3776, 
-#                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\finv\ISS_bldgs_das2017_20180501_aoi02.gpkg', 
-#  
-#                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
-# 
-#                 'wse_fp_d':{
-#                       'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0500_170729_aoi01_0304.tif',
-#                       'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0200_170729_aoi01_0304.tif',
-#                       'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0100_170729_aoi01_0304.tif',
-#                       },
-#                 'dem_fp_d':{
-#                       1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_01_aoi01_0304.tif',
-#                       5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_05_aoi01_0304.tif',
-#  
-#                       },
-#                         }, 
-#===============================================================================
+            'Calgary': {
+                'EPSG': 3776, 
+                'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\finv\ISS_bldgs_das2017_20180501_aoi02.gpkg', 
+  
+                'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
+ 
+                'wse_fp_d':{
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0500_170729_aoi01_0304.tif',
+                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0200_170729_aoi01_0304.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0100_170729_aoi01_0304.tif',
+                      },
+                'dem_fp_d':{
+                      1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_01_aoi01_0304.tif',
+                      5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_05_aoi01_0304.tif',
+  
+                      },
+                        }, 
             #===================================================================
             # 'dP': {
             #     'EPSG': 2950, 
@@ -389,14 +385,16 @@ def dev():
 if __name__ == "__main__": 
  
     #output=base_dev()
-    output=run_auto_dev(modelID=0, write=True,
-                        compiled_fp_d={ 
-                            }
-                        )
+    #===========================================================================
+    # output=run_auto_dev(modelID=2, write=False,
+    #                     compiled_fp_d={ 
+    #                         }
+    #                     )
+    #===========================================================================
     #output=dev()
     #output=r2_base()
     #output=r2_g200()
-    #output=run_autoPars(modelID=0)
+    output=run_autoPars(modelID=2)
     #output=run_autoPars(tag='g100', modelID=3)
     #output=run_autoPars(tag='g100_true', modelID=4, trim=True)
     #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)

@@ -1376,8 +1376,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # directories
         #=======================================================================
+        """todo: decide on a more consistent handling of directories for children"""
         self.temp_dir = os.path.join(self.temp_dir, self.name)
         if not os.path.exists(self.temp_dir): os.makedirs(self.temp_dir)
+        
+        
         #=======================================================================
         # load aoi
         #=======================================================================
@@ -1814,7 +1817,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #get names
         baseName = self.get_clean_rasterName(os.path.basename(wse_raw_fp))
         if layerName is None: 
-            layerName = baseName + '_%i' % resolution
+            layerName = baseName + '_%i_dep' %resolution
 
             
         
@@ -2006,7 +2009,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    
                    samp_method='points',
                    zonal_stat='Mean',  # stats to use for zonal. 2=mean
-                   prec=None,
+                   prec=None, out_dir=None,
                    #**kwargs,
                    ):
         #=======================================================================
@@ -2018,7 +2021,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # if finv_vlay_raw is None: finv_vlay_raw=self.finv_vlay
         if idfn is None: idfn = self.idfn
         if prec is None: prec = self.prec
- 
+        if out_dir is None: out_dir=os.path.join(self.temp_dir, 'get_rsamps')
+        if not os.path.exists(out_dir): os.makedirs(out_dir) 
         #=======================================================================
         # precheck finv
         #=======================================================================
@@ -2058,26 +2062,38 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         rname = rlay.name()
         
         #=======================================================================
-        # loop and sample--------
+        #sample--------
         #=======================================================================
  
         #===================================================================
         # sample
         #===================================================================
+        """note.. these are saved as temporary layres for debugging
+        they dont correspond exactly tot he outputs"""
+        ofp = os.path.join(out_dir, finv_vlay_raw.name() +'_rsamps.gpkg')
         if samp_method == 'points':
-            vlay_samps = self.rastersampling(finv_vlay, rlay, logger=log, pfx='samp_')
+            vlay_samps = self.rastersampling(finv_vlay, rlay, logger=log, pfx='samp_',
+                                             output=ofp)
         
         elif samp_method == 'zonal':
-            vlay_samps = self.zonalstatistics(finv_vlay, rlay, logger=log, pfx='samp_', stat=zonal_stat)
+            vlay_samps = self.zonalstatistics(finv_vlay, rlay, logger=log, pfx='samp_', 
+                                              stat=zonal_stat, output=ofp)
         else:
             raise Error('not impleented')
+        
         #===================================================================
         # post           
         #===================================================================
+        #retrieve data
+        vlay_samps = self.get_layer(vlay_samps)
         self.mstore.addMapLayer(vlay_samps)
-        # change column names
-        df = vlay_get_fdf(vlay_samps, logger=log)
-        df = df.rename(columns={df.columns[1]:rname})
+        
+        df = vlay_get_fdf(vlay_samps, logger=log).drop('fid', axis=1)
+        
+        # change resulting sample column name        
+        colbx = df.columns.str.startswith('samp_')
+        assert colbx.sum()==1, 'non-unique match on sample prefixed column'      
+        df = df.rename(columns={df.columns[colbx][0]:rname})
         
         # force type
         assert idfn in df.columns, 'missing key \'%s\' on %s' % (idfn, finv_vlay.name())
@@ -2086,14 +2102,16 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert df[idfn].is_unique, finv_vlay.name()
  
         df = df.set_index(idfn).sort_index()
+        
+        assert len(df.columns)==1
         #=======================================================================
         # fill zeros
         #=======================================================================
-        res_df = df.fillna(0.0)
+        res_df = df.fillna(0.0).round(prec)
         #=======================================================================
         # wrap
         #=======================================================================
-
+        
         assert res_df.index.is_unique
         
         log.info('finished on %s and %i rasters w/ %i/%i dry' % (
