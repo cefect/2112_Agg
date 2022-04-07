@@ -93,17 +93,21 @@ def studyAreaWrkr(session, request):
     with CalcStudyArea(session=session, name=name, **session.proj_lib[name]) as sa:
         yield sa
 
- 
+@pytest.fixture  #(scope='module')  needs to match
+def extent(studyAreaWrkr):
+    extent_layer = studyAreaWrkr.finv_vlay
+    return studyAreaWrkr.layerextent(extent_layer, precision=5)
 
 @pytest.fixture   
-def dem_fp(studyAreaWrkr, tmp_path):
-    return studyAreaWrkr.randomuniformraster(5, bounds=(0,5), extent_layer=studyAreaWrkr.finv_vlay,
+def dem_fp(studyAreaWrkr, tmp_path, extent):
+    return studyAreaWrkr.randomuniformraster(5, bounds=(0,5), extent=extent,
                                              output=os.path.join(tmp_path, 'dem_random.tif'))
 
 @pytest.fixture
 # were setup to filter out ground water... but tests are much simpler if we ignore this   
-def wse_fp(studyAreaWrkr, tmp_path):
-    return studyAreaWrkr.randomuniformraster(5, bounds=(5,7), extent_layer=studyAreaWrkr.finv_vlay,
+def wse_fp(studyAreaWrkr, tmp_path, extent):
+    
+    return studyAreaWrkr.randomuniformraster(5, bounds=(5,7), extent=extent,
                                              output=os.path.join(tmp_path, 'wse_random.tif'))
     
 @pytest.fixture   
@@ -152,7 +156,7 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling,
     rlay = studyAreaWrkr.get_drlay(
         wse_fp_d = {'hi':wse_fp},
         dem_fp_d = {5:dem_fp},
-        resolution=resolution, resampling=resampling, resampStage=resampStage)
+        resolution=resolution, resampling=resampling, resampStage=resampStage, trim=False)
     
     #===========================================================================
     # check result----
@@ -167,7 +171,7 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling,
     #stats_d = studyAreaWrkr.rlay_getstats(rlay)
     
     #===========================================================================
-    # against the raw depth
+    # get the true depths
     #===========================================================================
     """what is the resolution of the test data??"""
     with RasterCalc(wse_fp, session=studyAreaWrkr, out_dir=tmp_path, logger=studyAreaWrkr.logger) as wrkr:
@@ -182,27 +186,35 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling,
         
         chk_rlay_fp = wrkr.rcalc(formula, report=False)
         
-        #full resolution test calc
+        assert hp.gdal.getNoDataCount(chk_rlay_fp)==0
+        
+        #get true stats
         stats2_d = studyAreaWrkr.rlay_getstats(chk_rlay_fp)
         
 
+    #===========================================================================
+    # compare
+    #===========================================================================
+    
+    assert stats2_d['resolution']<=stats_d['resolution']
+    
+    if resampling =='Average':
+        #check averages (should be about the same)
+        assert abs(stats2_d['MEAN'] - stats_d['MEAN']) <1.0
         
-        assert stats2_d['resolution']<=stats_d['resolution']
+        #check extremes (true should always be more exreme)
+        assert stats2_d['MAX'] >=stats_d['MAX'] 
+        #assert stats2_d['MIN'] <=stats_d['MIN'] #doesnt work as we fill nulls w/ zeros
+        assert stats2_d['RANGE']>=stats_d['RANGE']
         
-        if resampling =='Average':
-            assert abs(stats2_d['MEAN'] - stats_d['MEAN']) <1.0
-            assert stats2_d['MAX'] >=stats_d['MAX']
-            assert stats2_d['MIN'] <=stats_d['MIN']
-            assert stats2_d['RANGE']>=stats_d['RANGE']
-            
-        if resampling =='Maximum':
-            assert abs(stats2_d['MAX'] - stats_d['MAX']) <0.001
-            
-            
+    elif resampling =='Maximum':
+        assert abs(stats2_d['MAX'] - stats_d['MAX']) <0.001, 'maximum values dont match'
         
-        if resolution==0:
-            for stat, val in {k:stats_d[k] for k in ['MAX', 'MIN']}.items():
-                assert abs(val)<1e-3, stat
+        
+    
+    if resolution==0:
+        for stat, val in {k:stats_d[k] for k in ['MAX', 'MIN']}.items():
+            assert abs(val)<1e-3, stat
             
  
     

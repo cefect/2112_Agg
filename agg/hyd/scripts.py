@@ -1827,11 +1827,14 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             """NOTE: this makes the output senstivite to the finv
 
             e.g., slicing the finv could slightly change the sampling results"""
-            vlay = self.finv_vlay
-            extents = vlay.extent()
+            extents_layer = self.finv_vlay
+ 
         else:
-            wse_raw_rlay = self.get_layer(wse_raw_fp, mstore=mstore)
-            extents = wse_raw_rlay.extent()
+            extents_layer = self.get_layer(wse_raw_fp, mstore=mstore)
+            
+        extents = self.layerextent(extents_layer, 
+                                   precision=0.0, #adding this buffer causes some problems with the tests
+                                   ).extent()
         
         
         #=======================================================================
@@ -1847,7 +1850,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             dem_fp = self.warpreproject(dem_raw_fp, compression='none', extents=extents, logger=log,
                                         resolution=base_resolution,
                                         output=os.path.join(temp_dir, 'preCalc_%s'%os.path.basename(dem_raw_fp)))
- 
+            
+
  
  
         elif resampStage == 'wse':
@@ -1882,6 +1886,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             log.info('executing %s'%formula)
             dep_fp1 = wrkr.rcalc(formula, layname=baseName)
             
+            
             #===================================================================
             # #treat negatives
             #===================================================================
@@ -1895,7 +1900,26 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                                  ofp=os.path.join(os.path.dirname(dep_fp1),os.path.basename(dep_fp1).replace('.tif', '_posi.tif'))
                                  )
 
+
+        #=======================================================================
+        # fill nulls
+        #=======================================================================
+        """wse layer may have some nulls (just from rounded extents)
+        these propagate as nulls into the delta calc... here we just set the depth to zero
+        in these cells
+
+        """
+        nodcnt = hp.gdal.getNoDataCount(dep_fp1)
+        if nodcnt>0:
         
+            log.info('filling %i/%i noDataCells w/ 0.0'%(nodcnt, 
+                                                         self.rlay_get_cellCnt(dep_fp1, exclude_nulls=False)))
+        
+            dep_fp2 = self.fillnodata(dep_fp1, fval=0, logger=log, 
+                            output = os.path.join(self.temp_dir, os.path.basename(dep_fp1).replace('.tif', '_fillna.tif')))
+            
+        else:
+            dep_fp2 = dep_fp1
         
         #=======================================================================
         # post-downsample
@@ -1903,19 +1927,23 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if resampStage =='depth':
             log.info('resampling w/ resampStage=%s'%resampStage)
  
-            dep_fp2 = self.get_resamp(dep_fp1, resolution, resampling,  extents=extents, logger=log)
+            dep_fp3a = self.get_resamp(dep_fp2, resolution, resampling,  extents=extents, logger=log)
+            
+            #fill nulls again
+            """still possible to get nulls after we resample here with the new extents"""
+            dep_fp3 = self.fillnodata(dep_fp3a, fval=0, logger=log, 
+                            output = os.path.join(self.temp_dir, os.path.basename(dep_fp2).replace('.tif', '_fillna.tif')))
             
         else:
-            dep_fp2 = dep_fp1
-            
- 
- 
-        
+            dep_fp3 = dep_fp2
             
         #=======================================================================
         # check
         #=======================================================================
-        rlay = self.rlay_load(dep_fp2,logger=log)
+        if not hp.gdal.getNoDataCount(dep_fp3)==0:
+            raise Error('got some nodata')
+        
+        rlay = self.rlay_load(dep_fp3,logger=log)
  
         #stats_d = self.get_rasterstats(rlay)
         #assert stats_d['resolution'] == resolution
@@ -1938,35 +1966,34 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         return rlay
     
-    def get_resamp(self, fp_raw, resolution, resampling,  
+    def get_resamp(self, #wrapper for  warpreproject
+                   fp_raw, resolution, resampling,  
                 extents=None,
                 logger=None,
                 ):
         
     
         
-        if resolution == 0:
-            assert resampling == 'none', 'got resampling method for resolution=raw'
-            wd_fp = fp_raw
-        else:
-            #===================================================================
-            # defaults
-            #===================================================================
-            if logger is None: logger=self.logger
-            log = logger.getChild('get_resamp')
-            
-            log.info('downsampling \'%s\' w/ resolution=%i and resampling=%s' % (
-                os.path.basename(fp_raw).replace('.tif', ''), resolution, resampling))
+        assert not resolution == 0
+ 
+        #===================================================================
+        # defaults
+        #===================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('get_resamp')
+        
+        log.info('downsampling \'%s\' w/ resolution=%i and resampling=%s' % (
+            os.path.basename(fp_raw).replace('.tif', ''), resolution, resampling))
 
-            #===================================================================
-            # execute
-            #===================================================================
-            ofp = os.path.join(self.temp_dir, os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif' % resolution)
-            wd_fp = self.warpreproject(
-                fp_raw, output=ofp, 
-                resolution=resolution, resampling=resampling, 
-                compression='none', crsOut=self.qproj.crs(), extents=extents, 
-                logger=log)
+        #===================================================================
+        # execute
+        #===================================================================
+        ofp = os.path.join(self.temp_dir, os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif' % resolution)
+        wd_fp = self.warpreproject(
+            fp_raw, output=ofp, 
+            resolution=resolution, resampling=resampling, 
+            compression='none', crsOut=self.qproj.crs(), extents=extents, 
+            logger=log)
             
         return wd_fp 
                    
