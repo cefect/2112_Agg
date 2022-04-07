@@ -1803,7 +1803,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     modelID_l = None, #optinal sorting list
                     
                     #plot config
-                    #plot_type='hist',
+                    plot_type='scatter', 
                     plot_rown='aggLevel',
                     plot_coln='resolution',
                     plot_colr=None,
@@ -1826,7 +1826,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
  
                     
                     #plot style
-                    plot_type='scatter', 
+                    
                     colorMap=None,
                     sharey=None,sharex=None,
                     **kwargs):

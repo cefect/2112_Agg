@@ -113,8 +113,10 @@ def run( #run a basic model configuration
         #ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
         
         #haz res x aggLevel (tloss bars for studyArea)
-        ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='studyArea',  
-                            plot_rown='aggLevel', plot_coln='resolution', sharey='row', baseline_loc='first_axis')
+        #=======================================================================
+        # ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='studyArea',  
+        #                     plot_rown='aggLevel', plot_coln='resolution', sharey='row', baseline_loc='first_axis')
+        #=======================================================================
             
         #=======================================================================
         # exposure calc analysis----------
@@ -125,6 +127,14 @@ def run( #run a basic model configuration
         #=======================================================================
         mids = [0, 11]
         #ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_coln='tval_type', plot_rown='studyArea', plot_type='box', add_label=False)
+        
+        #=======================================================================
+        # resolution vs. resampStage
+        #=======================================================================
+        mids=[0,1,2,21,22] 
+        raise IOError('stopped here... runs should be in lib/hyd4')
+        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+                             plot_rown='resampStage', plot_coln='resolution')
         
         #=======================================================================
         # #total vals per ag method
@@ -267,9 +277,11 @@ def run( #run a basic model configuration
         # errors bars (totals)
         #=======================================================================
         #total errors (relative) grouped by studyArea
-        ses.plot_compare_mat(dkey='tloss',aggMethod='sum',modelID_l=mids, plot_type='bars',
-                             plot_rown='aggLevel', plot_coln='resolution', plot_bgrp='studyArea',
-                             err_type='relative' )
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='tloss',aggMethod='sum',modelID_l=mids, plot_type='bars',
+        #                      plot_rown='aggLevel', plot_coln='resolution', plot_bgrp='studyArea',
+        #                      err_type='relative' )
+        #=======================================================================
         
         
         #=======================================================================
@@ -336,13 +348,23 @@ def r3():
  
             },
         )
+
+def r4():
+    return run(
+        #modelID_l = [0, 11],
+        tag='r4',
+        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd4\model_run_index.csv',
+        compiled_fp_d = {
+ 
+            },
+        )
     
 if __name__ == "__main__": 
     
  
     #output=dev()
     #output=r2()
-    output=r3()
+    output=r4()
         
         
  
