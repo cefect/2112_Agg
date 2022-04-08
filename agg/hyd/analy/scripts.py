@@ -6,7 +6,7 @@ Created on Feb. 21, 2022
 #===============================================================================
 # imports------
 #===============================================================================
-import os, datetime, math, pickle, copy, random, pprint, gc
+import os, datetime, math, pickle, copy, random, pprint, gc, math
 import matplotlib
 import scipy.stats
 
@@ -891,6 +891,152 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         mindex.names
         view(dx_raw)
         """
+    
+    def write_suite_smry(self, #write a summary of the model suite
+                         
+                         #data
+                         dx_raw=None,
+                         true_dx_raw=None,
+                         modelID_l=None, #models to include
+                         baseID=None,
+                         
+                         #control
+                         agg_d = {'rloss':'mean', 'rsamps': 'mean', 'tvals':'sum', 'tloss':'sum'}, #aggregation methods
+                         ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('suite_smry')
+        
+        
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        idn = self.idn
+        if baseID is None: baseID=self.baseID
+ 
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
+            
+        if true_dx_raw is None:
+            true_dx_raw = self.retrieve('trues', baseID=baseID)
+            
+        if modelID_l is None:
+            modelID_l = dx_raw.index.unique(0).tolist()
+            
+        assert baseID == modelID_l[0]
+        
+        
+        
+        #=======================================================================
+        # prep data
+        #=======================================================================
+        dx = dx_raw.loc[idx[modelID_l, :, :, :, :], :]
+        true_dx = true_dx_raw.loc[idx[modelID_l, :,:, :, :, :], :]
+        
+        #=======================================================================
+        # loop and calc summary
+        #=======================================================================
+        log.info('on %i models w/ %s'%(len(modelID_l), str(dx_raw.shape)))
+        
+        res_lib = dict()
+        true_gb = true_dx.groupby(level=0, axis=0)
+        for gkey, gdx0 in dx.groupby(level=0, axis=0): #loop by axis data
+            #===================================================================
+            # setup
+            #===================================================================            
+            keys_d = dict(zip([dx.index.names[0]], [gkey]))
+            tgdx0 = true_gb.get_group(gkey)
+            
+            
+ 
+            #===================================================================
+            # by column
+            #===================================================================
+            res_d = dict()
+            for coln, aggMethod in agg_d.items():
+                keys_d['coln'] = coln
+                log.debug('on %s w/ AggMethod: %s'%(keys_d, aggMethod))
+                
+                #trim the data to this column
+                """taking the mean of all iterations for now"""
+                gdx1 = gdx0.loc[:, idx[coln, :]].mean(axis=1)
+                tgdx1 = tgdx0.loc[:, idx[coln, :]].mean(axis=1)
+                
+                
+                #===============================================================
+                # totals----
+                #===============================================================
+                rser = pd.Series({
+                    'pred':getattr(gdx1, aggMethod)(), 
+                    'true':getattr(tgdx1, aggMethod)()
+                    })
+                
+                #===================================================================
+                # bias
+                #===================================================================
+                
+                """works for multi and single iterations"""
+
+                
+                rser['bias'] = rser['pred']/rser['true']
+                
+                #===============================================================
+                # per-asset-----
+                #===============================================================
+                #aggregate trues
+                tgdx2 = getattr(tgdx1.groupby(level=[gdx1.index.names]), aggMethod)()
+                tgdx2 = tgdx2.reorder_levels(gdx1.index.names).sort_index()
+                
+                assert_index_equal(gdx1.index, tgdx2.index)
+                
+                #===============================================================
+                # mean errors
+                #===============================================================
+                rser['meanError'] = (gdx1 - tgdx2).sum()/len(gdx1)
+                rser['meanErrorAbs'] = (gdx1 - tgdx2).abs().sum()/len(gdx1)
+                rser['RMSE'] = math.sqrt(((gdx1 - tgdx2)**2).sum()/len(gdx1))
+                
+                #===============================================================
+                # confusion
+                #===============================================================
+                if coln == 'rsamps':
+                    df = pd.DataFrame({'true':tgdx2.values, 'pred':gdx1.values})
+                    cm_df, cm_dx = self.get_confusion(df, logger=log)
+                    
+                    rser = rser.append(cm_dx.droplevel(['pred', 'true']).iloc[:,0])
+ 
+                    
+ 
+                #===============================================================
+                # wrap
+                #===============================================================
+                res_d[coln] = rser.astype(float).round(3)
+                
+            #===================================================================
+            # combine
+            #===================================================================
+            res_lib[gkey] = pd.concat(res_d, names=['var', 'metric'])
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        rdx = pd.concat(res_lib, axis=1, names=[dx.index.names[0]]).T
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        ofp = os.path.join(self.out_dir, 'suite_%s.csv'%self.longname)
+        
+        rdx.to_csv(ofp)
+        
+        log.info('wrote %s to \n    %s'%(str(rdx.shape), ofp))
+        
+        return ofp
+                
+ 
+        
+        
     
     def write_resvlay(self,  #attach some data to the gridded finv
                   # data control   

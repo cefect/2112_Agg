@@ -1,5 +1,5 @@
 REM paramters
-SET ids=(21, 22)
+SET ids=(6, 7, 8)
 SET LAG=2
 SET NAME=hyd4
  
