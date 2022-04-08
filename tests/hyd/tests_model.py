@@ -208,7 +208,7 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling,
         assert stats2_d['RANGE']>=stats_d['RANGE']
         
     elif resampling =='Maximum':
-        assert abs(stats2_d['MAX'] - stats_d['MAX']) <0.001, 'maximum values dont match'
+        assert abs(stats2_d['MAX'] - stats_d['MAX']) <0.01, 'maximum values dont match'
         
         
     

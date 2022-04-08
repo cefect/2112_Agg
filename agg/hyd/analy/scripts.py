@@ -1046,7 +1046,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
  
         return ofp_l
             
-    def get_confusion_matrix(self,  # wet/dry confusion
+    def xxxget_confusion_matrix(self,  # wet/dry confusion
                              
                              # data control
                              dkey='errs',
@@ -1952,7 +1952,14 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             
             assert_index_equal(gdx1.index, tgdx2.index)
             
- 
+            
+            #===================================================================
+            # meta
+            #===================================================================
+            meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),
+                            'drop_zeros':False,'iters':len(gdx1.columns),
+                            }
+                            
             
             #===================================================================
             # scatter plot-----
@@ -1981,6 +1988,19 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                                            logger=log, add_label=False)
                 
                 gdata = gdx1 #for stats
+                
+                
+                #===============================================================
+                # meta
+                #===============================================================
+                #meta_d.update({'zero_cnt':zeros_bx.sum(),'count':len(gdx0)})
+                meta_d.update(stat_d)
+                
+                #add confusion matrix stats
+                cm_df, cm_dx = self.get_confusion(pd.DataFrame({'pred':xar, 'true':yar}), logger=log)
+                
+                meta_d.update(cm_dx.droplevel(['pred', 'true']).iloc[:,0].to_dict())
+                
             #===================================================================
             # bar plot---------
             #===================================================================
@@ -2122,19 +2142,11 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #===================================================================
             if add_label:
                 # get float labels
-                meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),
-                            'drop_zeros':False,'iters':len(gdx1.columns),
-                            
-                            'min':gdata.min().min(), 'max':gdata.max().max(), 'mean':gdata.mean().mean(),
-                          } 
+                meta_d.update({ 
+                    'min':gdata.min().min(), 'max':gdata.max().max(), 'mean':gdata.mean().mean(),
+                          })
                 
-                if plot_type=='scatter':
-                    meta_d.update({'zero_cnt':zeros_bx.sum(),
-                                    'count':len(gdx0),
-                                    })
-                    meta_d.update(stat_d)
-                elif plot_type=='bars':
-                    pass
+ 
  
                 ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
                 
@@ -2187,7 +2199,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         
-        return self.output_fig(fig, fname='errs_%s_%s_%sX%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), **kwargs)
+        return self.output_fig(fig, fname='compareMat_%s_%s_%sX%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), **kwargs)
  
     def plot_vs_mat(self, #plot dkeys against eachother in a matrix
                   
@@ -2742,7 +2754,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # #wrap format subplot
                 #===============================================================
-                ax.grid()
+                ax.grid(alpha=0.8)
                 # first row
                 if row_key == mdex.unique(plot_rown)[0]:
                      
@@ -3457,6 +3469,54 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # HELPERS---------
     #===========================================================================
+    
+    def get_confusion(self,
+                     df_raw,
+                     wetdry=True,
+                     logger=None):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_confusion')
+        
+        assert len(df_raw.columns)==2
+        
+        #=======================================================================
+        # prep data
+        #=======================================================================
+        if wetdry:
+            assert (df_raw.dtypes == 'float64').all()
+            
+            df1 = pd.DataFrame('dry', index=df_raw.index, columns=df_raw.columns)
+            
+            df1[df_raw>0.0] = 'wet'
+            
+            labels = ['wet', 'dry']
+            
+        else:
+            raise Error('not impelemented')
+            df1 = df_raw.copy()
+            
+ 
+        #build matrix
+        cm_ar = confusion_matrix(df1['true'], df1['pred'], labels=labels)
+        
+        cm_df = pd.DataFrame(cm_ar, index=labels, columns=labels)
+        
+        #convert and label
+        
+        cm_df2 = cm_df.unstack().rename('counts').to_frame()
+        
+        cm_df2.index.set_names(['true', 'pred'], inplace=True)
+        
+        cm_df2['codes'] = ['TP', 'FP', 'FN', 'TN']
+        
+        cm_df2 = cm_df2.set_index('codes', append=True)
+        
+        return cm_df, cm_df2.swaplevel(i=0, j=2)
+        
+        
 
     def prep_ranges(self, #for multi-simulations, compress each entry using the passed stats 
                     qhi, qlo, drop_zeros, gdx0):
