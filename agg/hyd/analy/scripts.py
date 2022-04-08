@@ -63,6 +63,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         'dkey_range':'winter',
         'studyArea':'Dark2',
         'modelID':'Pastel1',
+        'resampStage':'Set1'
         }
     
     def __init__(self,
@@ -2023,6 +2024,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #===================================================================
             # scatter plot-----
             #===================================================================
+            """consider hist2d?"""
             if plot_type =='scatter':
                 #===================================================================
                 # reduce ranges
@@ -3375,12 +3377,9 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         scatter_kwargs = {**{'markersize':3.0, 'marker':'.', 'fillstyle':'full'},
                           **scatter_kwargs}
         
+        """density color?"""
         ax.plot(xar, yar, linestyle='None', label=label, **scatter_kwargs)
-        """
-        view(data)
-        self.plt.show()
-        """
-        
+ 
         #=======================================================================
         # add the 1:1 line
         #=======================================================================

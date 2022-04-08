@@ -107,7 +107,7 @@ def run( #run a basic model configuration
         # total loss (top level) summary bar charts--------
         #=======================================================================
         
-        ses.write_suite_smry()
+        #ses.write_suite_smry()
         
         #tloss sum: agg levels  X studyArea (w/ tval_samp=rand)
         mids = [11, 19, 20]
@@ -147,10 +147,8 @@ def run( #run a basic model configuration
         #=======================================================================
         mids=[0,1,2,21,22] 
 
-        #=======================================================================
-        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-        #                      plot_rown='resampStage', plot_coln='resolution')
-        #=======================================================================
+        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+                             plot_rown='resampStage', plot_coln='resolution', fmt='png')
         
         #=======================================================================
         # #total vals per ag method
