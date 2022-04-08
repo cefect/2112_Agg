@@ -1046,94 +1046,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
  
         return ofp_l
             
-    def xxxget_confusion_matrix(self,  # wet/dry confusion
-                             
-                             # data control
-                             dkey='errs',
-                             group_keys=['studyArea', 'event'],
-                             pcn='grid_size',  # label for prediction grouping
-                             vid=None,  # default is to take first vid
-                             
-                             # output control
-                             out_dir=None,
-                             ):
- 
-        """
-        predicteds will always be dry (we've dropped these)
-        """
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('get_confusion_matrix')
-        if out_dir is None: out_dir = os.path.join(self.out_dir, 'confusion_mat')
-        if not os.path.exists(out_dir): os.makedirs(out_dir)
-        labs_d = {1:'wet', 0:'dry'}
-        #=======================================================================
-        # #retrieve child data
-        #=======================================================================
-        dx_raw = self.retrieve(dkey)
-        
-        #=======================================================================
-        # prep data
-        #=======================================================================
-        if vid is None: vid = dx_raw.index.unique('vid')[0]  # just taking one function
-        dxind1 = dx_raw.loc[idx[:,:,:, vid,:], idx['depth', ['grid', 'true']]
-                         ].droplevel(0, axis=1  # clean columns
-                                     ).droplevel('vid', axis=0)  # remove other vids
- 
-        # convert to binary
-        bx = dxind1 > 0  # id wets
-        
-        dxind2 = dxind1.where(~bx, other=labs_d[1]).where(bx, other=labs_d[0])  # replace where false
-        
-        #=======================================================================
-        # loop on each raster
-        #=======================================================================
-        mat_lib = dict()
-        for keys, gdx0 in dxind2.groupby(level=group_keys):
-            keys_d = dict(zip(group_keys, keys))
-            
-            if not keys[0] in mat_lib:
-                mat_lib[keys[0]] = dict()
-            
-            cm_d = dict()
-            #===================================================================
-            # collect confusion on each grid_size
-            #===================================================================
-            for pkey, gdx1 in gdx0.groupby(level=pcn, axis=0):
-                keys_d[pcn] = pkey
-            
-                gdf = gdx1.droplevel(level=list(keys_d.keys()), axis=0)
-                # if keys_d['grid_size']==0: continue
-                cm = confusion_matrix(gdf['true'].values, gdf['grid'].values, labels=list(labs_d.values()))
-                
-                cm_d[pkey] = pd.DataFrame(cm, index=labs_d.values(), columns=labs_d.values())
-                
-            #===================================================================
-            # combine
-            #===================================================================
-            dxcol1 = pd.concat(cm_d, axis=1)
-            
-            # add predicted/true labels
-            dx1 = pd.concat([dxcol1], names=['type', 'grid_size', 'exposure'], axis=1, keys=['predicted'])
-            dx2 = pd.concat([dx1], keys=['true'])
-            
-            # store
-            mat_lib[keys[0]][keys[1]] = dx2
-            
-        #===========================================================================
-        # write
-        #===========================================================================
-        for studyArea, df_d in mat_lib.items():
-            ofp = os.path.join(out_dir, '%s_confMat_%s.xls' % (studyArea, self.longname))
-            
-            with pd.ExcelWriter(ofp) as writer:
-                for tabnm, df in df_d.items():
-                    df.to_excel(writer, sheet_name=tabnm, index=True, header=True)
-                    
-            log.info('wrote %i sheets to %s' % (len(df_d), ofp))
-            
-        return mat_lib
+
     
     #===========================================================================
     # PLOTTERS-------------
@@ -3264,7 +3177,12 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         log.info('finished')
         
         return
-                    
+
+    
+    #===========================================================================
+    # HELPERS---------
+    #===========================================================================
+     
     def ax_corr_scat(self,  # correlation scatter plots on an axis
                 ax,
                 xar, yar,
@@ -3368,107 +3286,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         return stat_d
                     
-    def xxxax_hist(self,  # set a histogram on the axis
-                ax,
-                data_raw,
- 
-                label='',
-                style_d={},
-                stat_keys=[],
- 
-                plot_zeros=False,
-                binWidth=None,
 
-                logger=None,
- 
-                ):
-        #=======================================================================
-        # defaultst
-        #=======================================================================
-        if logger is None: logger = self.logger
-        log = logger.getChild('ax_hist')
-        assert isinstance(data_raw, pd.Series), label
-        assert isinstance(stat_keys, list), label
-        assert isinstance(style_d, dict), label
-        log.debug('on \'%s\' w/ %s' % (label, str(data_raw.shape)))
-        
-        #=======================================================================
-        # setup  data
-        #=======================================================================
-        assert data_raw.notna().all().all()
-        assert len(data_raw) > 0
- 
-        dcount = len(data_raw)  # length of raw data
-        
-        # handle zeros
-        bx = data_raw <= 0
-        
-        if bx.all():
-            log.warning('got all zeros!')
-            return {}
-        
-        if plot_zeros: 
-            """usually dropping for delta plots"""
-            data = data_raw.copy()
-        else:
-            data = data_raw.loc[~bx]
-        
-        if data.min() == data.max():
-            log.warning('no variance')
-            return {}
-        #=======================================================================
-        # #add the hist
-        #=======================================================================
-        assert len(data) > 0
-        if not binWidth is None:
-            try:
-                bins = np.arange(data.min(), data.max() + binWidth, binWidth)
-            except Exception as e:
-                raise Error('faliled to get bin dimensions w/ \n    %s' % e)
-        else:
-            bins = None
-        
-        histVals_ar, bins_ar, patches = ax.hist(
-            data,
-            bins=bins,
-            stacked=False, label=label,
-            alpha=0.9, **style_d)
- 
-        # check
-        assert len(bins_ar) > 1, '%s only got 1 bin!' % label
 
-        #=======================================================================
-        # format ticks
-        #=======================================================================
-        # ax.set_xticklabels(['%.1f'%value for value in ax.get_xticks()])
-            
-        #===================================================================
-        # #add the summary stats
-        #===================================================================
-        """
-        plt.show()
-        """
-
-        bin_width = round(abs(bins_ar[1] - bins_ar[0]), 3)
- 
-        stat_d = {
-            **{'count':dcount,  # real values count
-               'zeros (count)':bx.sum(),  # pre-filter 
-               'bin width':bin_width,
-               # 'bin_max':int(max(histVals_ar)),
-               },
-            **{k:round(getattr(data_raw, k)(), 3) for k in stat_keys}}
- 
-        # dump into a string
-        annot = label + '\n' + '\n'.join(['%s=%s' % (k, v) for k, v in stat_d.items()])
- 
-        anno_obj = ax.text(0.5, 0.8, annot, transform=ax.transAxes, va='center')
-            
-        return stat_d
-    
-    #===========================================================================
-    # HELPERS---------
-    #===========================================================================
     
     def get_confusion(self,
                      df_raw,
