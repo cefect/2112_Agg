@@ -137,18 +137,18 @@ def run( #run a basic model configuration
         # resolution vs. studyArea
         #=======================================================================
         mids = [0, 1, 2]
-        #=======================================================================
-        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-        #                      plot_rown='studyArea', plot_coln='resolution', fmt='png',
-        #                      sharey='row', sharex='row')
-        #=======================================================================
+        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+                             plot_rown='studyArea', plot_coln='resolution', fmt='png',
+                             sharey='row', sharex='row')
         #=======================================================================
         # resolution vs. resampStage
         #=======================================================================
         mids=[0,1,2,21,22] 
 
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-                             plot_rown='resampStage', plot_coln='resolution', fmt='png')
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='resampStage', plot_coln='resolution', fmt='png')
+        #=======================================================================
         
         #=======================================================================
         # #total vals per ag method
@@ -365,9 +365,7 @@ def r4():
         tag='r4',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd4\model_run_index.csv',
         compiled_fp_d = {
-        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r4\20220408\working\outs_analy_r4_0408.pickle',
-        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r4\20220408\working\agg_mindex_analy_r4_0408.pickle',
-        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r4\20220408\working\trues_analy_r4_0408.pickle',
+
             },
         )
     
