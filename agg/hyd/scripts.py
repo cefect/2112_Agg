@@ -489,6 +489,9 @@ class Model(agSession):  # single model run
             vals = np.full(len(mindex), 1.0)
         elif tval_type == 'rand':
             vals = np.random.random(len(mindex))
+            
+        elif tval_type=='footprintArea':
+            raise Error('not implemented')
  
             
         else:
