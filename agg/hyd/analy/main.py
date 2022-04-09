@@ -124,14 +124,10 @@ def run( #run a basic model configuration
         #=======================================================================
             
         #=======================================================================
-        # exposure calc analysis----------
+        # hazard data----------
         #=======================================================================
         
-        #=======================================================================
-        # true vals generation
-        #=======================================================================
-        mids = [0, 11]
-        #ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_coln='tval_type', plot_rown='studyArea', plot_type='box', add_label=False)
+
         
         #=======================================================================
         # resolution vs. studyArea
@@ -174,9 +170,25 @@ def run( #run a basic model configuration
         #per-study area (just dsampStage=depth)
         mids=[0,23,24] 
         #=======================================================================
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='studyArea', plot_coln='resolution', fmt='png',
+        #                      sharey='row', sharex='row')
+        #=======================================================================
+        
+        #=======================================================================
+        # asset data----------
+        #=======================================================================
+        
+        #=======================================================================
+        # aggLevel vs. studyArea
+        #=======================================================================
+        mids = [0, 3,6]
         ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-                             plot_rown='studyArea', plot_coln='resolution', fmt='png',
+                             plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
                              sharey='row', sharex='row')
+        
+        
         #=======================================================================
         # #total vals per ag method
         #=======================================================================
@@ -186,7 +198,11 @@ def run( #run a basic model configuration
         # ses.plot_dkey_mat(modelID_l=dscale_ids, dkey='tvals', plot_type='box', xlims = (0,2))
         #=======================================================================
         
- 
+        #=======================================================================
+        # true vals generation
+        #=======================================================================
+        mids = [0, 11]
+        #ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_coln='tval_type', plot_rown='studyArea', plot_type='box', add_label=False)
         
         #=======================================================================
         # #intersection types (using g50)

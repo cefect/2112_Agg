@@ -74,11 +74,11 @@ class Model(agSession):  # single model run
     
     #supported parameter values
     pars_lib = {
-        'tval_type':{'vals':['uniform', 'rand'],                    'dkey':'tvals'},
-        'dscale_meth':{'vals':['centroid', 'none', 'area_split'],   'dkey':'tvals'},
+        'tval_type':{'vals':['uniform', 'rand'],                        'dkey':'tvals'},
+        'dscale_meth':{'vals':['centroid', 'none', 'area_split'],       'dkey':'tvals'},
         
-        'aggType':{'vals':['none', 'gridded'],                      'dkey':'finv_agg_d'},
-        'aggLevel':{'vals':[0, 50, 100, 200],                    'dkey':'finv_agg_d'},
+        'aggType':{'vals':['none', 'gridded', 'convexHulls'],            'dkey':'finv_agg_d'},
+        'aggLevel':{'vals':[0, 10, 20, 40, 50, 100, 200],                           'dkey':'finv_agg_d'},
         'sgType':{'vals':['centroids', 'poly'],                         'dkey':'finv_sg_d'},
 
         
@@ -357,6 +357,10 @@ class Model(agSession):  # single model run
  
         aggLevel = int(aggLevel)
         #assert isinstance(aggLevel, int), 'got bad aggLevel type: %s (%s)'%(aggLevel, type(aggLevel))
+        if not aggType == 'none': 
+            assert aggLevel>0, 'got bad aggLevel: %s'%aggLevel
+        else:
+            assert aggLevel==0, 'got bad aggLevel: %s'%aggLevel
         #=======================================================================
         # retrive aggregated finvs------
         #=======================================================================
@@ -365,13 +369,14 @@ class Model(agSession):  # single model run
         finv_agg_d, finv_gkey_df_d = dict(), dict()
         
         if aggType == 'none':  # see Test_p1_finv_none
-            assert aggLevel==0, 'got bad aggLevel: %s'%aggLevel
+            
             res_d = self.sa_get(meth='get_finv_clean', write=False, dkey=dkey, get_lookup=True, **kwargs)
  
         elif aggType == 'gridded':  # see Test_p1_finv_gridded
- 
-            
             res_d = self.sa_get(meth='get_finv_gridPoly', write=False, dkey=dkey, aggLevel=aggLevel, **kwargs)
+            
+        elif aggType=='convexHulls':
+            res_d = self.sa_get(meth='get_finv_convexHull', write=False, dkey=dkey, aggLevel=aggLevel, **kwargs)
  
         else:
             raise Error('not implemented')
@@ -1600,6 +1605,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #===================================================================
         # populate/clean fields            
         #===================================================================
+        """TODO: migrate to get_finv_links()"""
         # rename id field
         log.info('   renameField \'id\':\'%s\'' % gcn)
         gvlay3 = self.renameField(gvlay2, 'id', gcn, logger=log)
@@ -1669,40 +1675,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         gvlay5 = self.saveselectedfeatures(gvlay4, logger=log)
         self.mstore.addMapLayer(gvlay4)
-        #===================================================================
-        # check against grid points
-        #===================================================================
-        #=======================================================================
-        # """
-        # this is an artifact of doing selectbylocation then joinattributesbylocation
-        #     sometimes 1 or 2 grid cells are erroneously joined
-        #     here we just delete them
-        # """
-        # gpts_ser = vlay_get_fdf(gvlay4)[gcn]
-        #=======================================================================
-        
-        #=======================================================================
-        # set_d = set_info(gpts_ser.values, df[gcn].values)
-        # 
-        # 
-        # if not len(set_d['symmetric_difference'])==0:
-        #     del set_d['union']
-        #     del set_d['intersection']
-        #     log.warning('%s.%i got %i mismatched values... deleteing these grid cells\n   %s'%(
-        #         self.name, grid_size, len(set_d['symmetric_difference']), set_d))
-        #     
-        #     assert len(set_d['diff_right'])==0
-        #     
-        #     #get matching ids
-        #     fid_l = gpts_ser.index[gpts_ser.isin(set_d['diff_left'])].tolist()
-        #     gvlay4.removeSelection()
-        #     gvlay4.selectByIds(fid_l)
-        #     assert gvlay4.selectedFeatureCount()==len(set_d['diff_left'])
-        #     
-        #     #delete these
-        #     gvlay4.invertSelection()
-        #     gvlay4 = self.saveselectedfeatures(gvlay4, logger=log)
-        #=======================================================================
+
             
         #===================================================================
         # write
@@ -1732,6 +1705,220 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
         return df, gvlay5
     
+    
+    def get_finv_convexHull(self,
+                  aggLevel=5, #number of members per group
+                  idfn=None,
+ 
+                  overwrite=None,
+                  finv_vlay=None,
+                  **kwargs):
+        """
+ 
+
+        need a meta table
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('get_finvs_gridPoly')
+        gcn = self.gcn
+        if overwrite is None: overwrite = self.overwrite
+        
+        if idfn is None: idfn = self.idfn
+ 
+        
+        if finv_vlay is None: finv_vlay = self.get_finv_clean(idfn=idfn, **kwargs)
+        
+        fcnt = finv_vlay.dataProvider().featureCount() 
+        
+
+        
+        assert fcnt >aggLevel*2
+        
+        mstore = QgsMapLayerStore()
+        #=======================================================================
+        # raw aggregated geo-----------
+        #=======================================================================
+        #=======================================================================
+        # calc clusters
+        #=======================================================================
+        clusters = math.ceil(fcnt/aggLevel)
+        
+        log.info('on \'%s\' w/ %i feats and aggLevel=%i clusters=%i' % (
+            finv_vlay.name(),fcnt, aggLevel, clusters))
+        #=======================================================================
+        # assign to clusters
+        #=======================================================================
+ 
+        """autmatically takes centroids"""
+        vlay1 = self.kmeansclustering(finv_vlay, clusters, logger=log, fieldName=gcn)
+        
+        mstore.addMapLayer(vlay1)
+        #=======================================================================
+        # build convex hulls
+        #=======================================================================
+        ofp = self.minimumboundinggeometry(vlay1, logger=log, fieldName=gcn,
+                                             output=os.path.join(self.temp_dir, '%s_convexHull%i_raw.gpkg'%(finv_vlay.name(), aggLevel)))
+        vlay2 = self.get_layer(ofp, mstore=mstore)
+                                             
+                                             
+        mstore.addMapLayer(vlay2)
+
+        #===================================================================
+        # build refecrence dictionary to true assets----------
+        #===================================================================
+        finv_gkey_df, vlay3 = self.get_finv_links(vlay2,finv_raw_vlay = finv_vlay,
+                            logger=log, idfn=idfn,
+                            allow_miss=False, #should have no orphaned hulls
+                            )
+        
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        vlay3.setName('finv_cvh_%i_%s' % (aggLevel, self.longname.replace('_', '')))
+        
+        mstore.removeAllMapLayers()
+        
+        
+        return finv_gkey_df, vlay3
+            
+        
+        
+        
+    def get_finv_links(self, #get linking information between raw and aggregated finvs
+                       finv_agg_vlay,
+                       finv_raw_vlay=None,
+                       idfn=None,
+                       allow_miss=True, 
+                  **kwargs):
+        """
+ 
+
+        need a meta table
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('get_finvs_gridPoly')
+        gcn = self.gcn
+ 
+        
+        if idfn is None: idfn = self.idfn
+ 
+        
+        if finv_raw_vlay is None: finv_raw_vlay = self.get_finv_clean(idfn=idfn, **kwargs)
+        
+        mstore = QgsMapLayerStore()
+        #=======================================================================
+        # prep layers--------
+        #=======================================================================
+        #=======================================================================
+        # clean up fields on agg
+        #=======================================================================
+        #drop all those except the identifer
+        raw_fnl = [f.name() for f in finv_agg_vlay.fields()]
+        assert gcn in raw_fnl
+        fnl = set(raw_fnl).difference([gcn])
+        agg_vlay1 = self.deletecolumn(finv_agg_vlay, list(fnl), logger=log)
+        agg_vlay1.setName(finv_agg_vlay.name())
+        
+        self.createspatialindex(agg_vlay1)
+        
+
+        log.info('building key references for  %i on %s'%(
+            agg_vlay1.dataProvider().featureCount(), agg_vlay1.name()))
+        """todo: combine this with finv_gridPoly"""
+        
+        
+        #=======================================================================
+        # get points on finv_vlay
+        #=======================================================================
+        if not 'Point' in QgsWkbTypes().displayString(finv_raw_vlay.wkbType()):
+            f_vlay1 = self.centroids(finv_raw_vlay, logger=log)
+            mstore.addMapLayer(f_vlay1)
+            f_vlay1.setName('%s_pts'%finv_raw_vlay.name())
+        else:
+            f_vlay1 = finv_raw_vlay
+        
+        self.createspatialindex(f_vlay1)
+        
+        
+        #=======================================================================
+        # spatial join---------
+        #=======================================================================
+        afcnt = agg_vlay1.dataProvider().featureCount()
+        log.info('   joinattributesbylocation \'%s\' (%i) to \'%s\' (%i)'%(
+            f_vlay1.name(), f_vlay1.dataProvider().featureCount(),
+            agg_vlay1.name(), afcnt))
+        
+        """very slow for big layers"""
+        jd = self.joinattributesbylocation(f_vlay1, agg_vlay1, jvlay_fnl=gcn,
+                                           method=1, logger=log,
+                                           # predicate='touches',
+                 output_nom=os.path.join(self.temp_dir, 'finv_noMatch_%i_%s.gpkg' % (
+                                             afcnt, self.longname)))
+        
+        
+        #retrieve
+        jvlay = jd['OUTPUT']
+        mstore.addMapLayer(jvlay)
+        
+        
+        noMatch_cnt = f_vlay1.dataProvider().featureCount() - jd['JOINED_COUNT']
+        
+        
+        df = vlay_get_fdf(jvlay, logger=log).set_index(idfn)
+        
+        #=======================================================================
+        # handle misses
+        #=======================================================================
+        if not noMatch_cnt==0:
+            assert allow_miss, 'got %i misses on %s'%(noMatch_cnt, agg_vlay1.name())
+            #=======================================================================
+            # clear non-matchers
+            #=======================================================================
+            """3rd time around with this one... I think this approach is cleanest though"""
+            log.info('    cleaning \'%s\' w/ %i'%(agg_vlay1.name(), agg_vlay1.dataProvider().featureCount()))
+            
+            grid_df = vlay_get_fdf(agg_vlay1)
+            
+            bx = grid_df[gcn].isin(df[gcn].unique())  # just those matching the raws
+            
+            assert bx.any()
+     
+            agg_vlay1.removeSelection()
+            agg_vlay1.selectByIds(grid_df[bx].index.tolist())
+            assert agg_vlay1.selectedFeatureCount() == bx.sum()
+            
+            agg_vlay2 = self.saveselectedfeatures(agg_vlay1, logger=log)
+            mstore.addMapLayer(agg_vlay1)
+            
+        else:
+            
+            agg_vlay2 = agg_vlay1
+            
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        
+ 
+        mcnt_ser = df[gcn].groupby(df[gcn]).count()
+        meta_d = {
+            'total_agg_fcnt':agg_vlay1.dataProvider().featureCount(),
+            'active_agg_fcnt':agg_vlay2.dataProvider().featureCount(),
+            'max_member_cnt':mcnt_ser.max()
+            }
+        
+        
+        mstore.removeAllMapLayers()
+        
+        log.info('finished on %s w/ \n    %s'%(str(df.shape), meta_d))
+        
+        return df, agg_vlay2
+        
 
 
 

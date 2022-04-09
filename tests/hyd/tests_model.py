@@ -139,7 +139,7 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
 @pytest.mark.parametrize('dsampStage, resolution, downSampling',[
     ['none',5, 'none'], #raw... no rexampling
@@ -228,8 +228,13 @@ def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling,
 # tests Session-------
 #===============================================================================
     
-
-@pytest.mark.parametrize('aggType,aggLevel',[['none',0], ['gridded',20], ['gridded',50]], indirect=False) 
+@pytest.mark.dev
+@pytest.mark.parametrize('aggType,aggLevel',[
+    ['none',0], 
+    ['gridded',20], 
+    ['gridded',50],
+    ['convexHulls', 5],
+    ], indirect=False) 
 def test_finv_agg(session, aggType, aggLevel, true_dir, write):
     #===========================================================================
     # #execute the functions to be tested
