@@ -140,13 +140,13 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
 
 @pytest.mark.dev
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
-@pytest.mark.parametrize('resampStage, resolution, resampling',[
+@pytest.mark.parametrize('dsampStage, resolution, resampling',[
     ['none',5, 'none'], #raw... no rexampling
     ['depth',50,'Average'],
     ['wse',50,'Average'],
     ['depth',50,'Maximum'],
     ])  
-def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling, 
+def test_get_drlay(studyAreaWrkr, dsampStage, resolution, resampling, 
                    dem_fp, wse_fp, #randomly generated rasters 
                    tmp_path):
     
@@ -156,7 +156,7 @@ def test_get_drlay(studyAreaWrkr, resampStage, resolution, resampling,
     rlay = studyAreaWrkr.get_drlay(
         wse_fp_d = {'hi':wse_fp},
         dem_fp_d = {5:dem_fp},
-        resolution=resolution, resampling=resampling, resampStage=resampStage, trim=False)
+        resolution=resolution, resampling=resampling, dsampStage=dsampStage, trim=False)
     
     #===========================================================================
     # check result----

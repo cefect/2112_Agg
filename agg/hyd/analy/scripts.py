@@ -63,7 +63,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         'dkey_range':'winter',
         'studyArea':'Dark2',
         'modelID':'Pastel1',
-        'resampStage':'Set1'
+        'dsampStage':'Set1'
         }
     
     def __init__(self,

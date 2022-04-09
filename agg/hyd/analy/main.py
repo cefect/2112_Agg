@@ -141,13 +141,13 @@ def run( #run a basic model configuration
                              plot_rown='studyArea', plot_coln='resolution', fmt='png',
                              sharey='row', sharex='row')
         #=======================================================================
-        # resolution vs. resampStage
+        # resolution vs. dsampStage
         #=======================================================================
         mids=[0,1,2,21,22] 
 
         #=======================================================================
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-        #                      plot_rown='resampStage', plot_coln='resolution', fmt='png')
+        #                      plot_rown='dsampStage', plot_coln='resolution', fmt='png')
         #=======================================================================
         
         #=======================================================================

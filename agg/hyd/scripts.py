@@ -85,7 +85,7 @@ class Model(agSession):  # single model run
         'severity':{'vals':['hi', 'lo'],                            'dkey':'drlay_d'},
         'resolution':{'vals':[5, 50, 100, 200],                     'dkey':'drlay_d'},
         'resampling':{'vals':['none','Average'],                    'dkey':'drlay_d'},
-        'resampStage':{'vals':['none', 'wse', 'depth'],             'dkey':'drlay_d'},
+        'dsampStage':{'vals':['none', 'wse', 'depth'],             'dkey':'drlay_d'},
         
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum', 'Mode', 'none'], 'dkey':'rsamps'},
@@ -1743,7 +1743,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    #dem_res=5,
                    
                    #raster downsampling
-                   resampStage='none', #which stage of the depth raster calculation to apply the downsampling
+                   dsampStage='none', #which stage of the depth raster calculation to apply the downsampling
                         #none: no resampling happening
                         #wse: resample both rasters before subtraction  
                         #depth: subtract rasters first, then resample the result
@@ -1777,20 +1777,20 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         resolution = int(resolution)
         
         """TODO: get this to return somewhere"""
-        meta_d = {'resolution':resolution, 'resampStage':resampStage, 'resampling':resampling}
+        meta_d = {'resolution':resolution, 'dsampStage':dsampStage, 'resampling':resampling}
         mstore=QgsMapLayerStore()
         #=======================================================================
         # parameter checks
         #=======================================================================
  
-        assert resampStage in ['none', 'depth', 'wse'], resampStage
+        assert dsampStage in ['none', 'depth', 'wse'], dsampStage
         #parameter logic
-        if resampStage =='none':
+        if dsampStage =='none':
             assert resolution==base_resolution, resolution
             assert resampling=='none'
             
         if resampling =='none':
-            assert resampStage == 'none', 'for resampling=none expects resampStage=none'
+            assert dsampStage == 'none', 'for resampling=none expects dsampStage=none'
             
             
         assert resolution>=base_resolution
@@ -1844,7 +1844,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # preCalc 
         #=======================================================================
  
-        if resampStage in ['none', 'depth']:
+        if dsampStage in ['none', 'depth']:
             log.info('warpreproject w/ resolution=%i to %s'%(base_resolution, extents))
             wse_fp = self.warpreproject(wse_raw_fp, compression='none', extents=extents, logger=log,
                                         resolution=base_resolution,
@@ -1857,13 +1857,13 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
 
  
  
-        elif resampStage == 'wse':
-            log.info('resampling w/ resampStage=%s'%resampStage)
+        elif dsampStage == 'wse':
+            log.info('resampling w/ dsampStage=%s'%dsampStage)
             wse_fp = self.get_resamp(wse_raw_fp, resolution, resampling,  extents=extents, logger=log)
             dem_fp = self.get_resamp(dem_raw_fp, resolution, resampling,  extents=extents, logger=log)
  
         else:
-            raise Error('badd resampStage: %s'%resampStage)
+            raise Error('badd dsampStage: %s'%dsampStage)
         
  
         assert_func(lambda:self.rlay_check_match(wse_fp, dem_fp), msg='dem and wse dont match')
@@ -1927,8 +1927,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # post-downsample
         #=======================================================================
-        if resampStage =='depth':
-            log.info('resampling w/ resampStage=%s'%resampStage)
+        if dsampStage =='depth':
+            log.info('resampling w/ dsampStage=%s'%dsampStage)
  
             dep_fp3a = self.get_resamp(dep_fp2, resolution, resampling,  extents=extents, logger=log)
             

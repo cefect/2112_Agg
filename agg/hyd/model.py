@@ -288,7 +288,7 @@ def run( #run a basic model configuration
         sgType = 'poly', 
         
         #raster resampling and selection  (StudyArea.get_raster())
-        resampStage='none', resolution=5, resampling='none', 
+        dsampStage='none', resolution=5, resampling='none', 
         severity = 'hi', 
         
         #sampling (method). see Model.build_rsamps()
@@ -321,7 +321,7 @@ def run( #run a basic model configuration
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
                      
                      
-                     'drlay_d':dict( severity=severity, resolution=resolution, resampling=resampling, resampStage=resampStage),
+                     'drlay_d':dict( severity=severity, resolution=resolution, resampling=resampling, dsampStage=dsampStage),
 
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat,
                                    ),
@@ -373,7 +373,7 @@ def dev():
         iters=3,
         aggType='gridded', aggLevel=50,
         
-        resampStage='wsl',
+        dsampStage='wsl',
         resolution=100, resampling='Average',
  
         trim=True,
