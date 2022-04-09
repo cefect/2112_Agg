@@ -1994,7 +1994,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         ofp = os.path.join(self.temp_dir, os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif' % resolution)
         wd_fp = self.warpreproject(
             fp_raw, output=ofp, 
-            resolution=resolution, downSampling=downSampling, 
+            resolution=resolution, resampling=downSampling, 
             compression='none', crsOut=self.qproj.crs(), extents=extents, 
             logger=log)
             
