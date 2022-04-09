@@ -77,7 +77,7 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
     pars_df2 = pars_df1.astype(
         {'modelID': int, 'tag': str, 'tval_type': str, 
          'aggLevel': int, 'aggType': str, 'dscale_meth': dtype('O'), 'severity': dtype('O'), 
-         'resolution': int, 'resampling': dtype('O'), 'sgType': dtype('O'), 
+         'resolution': int, 'downSampling': dtype('O'), 'sgType': dtype('O'), 
          'samp_method': dtype('O'), 'zonal_stat': dtype('O'), 'vid': int}        
         ).set_index('modelID')
     
@@ -287,8 +287,8 @@ def run( #run a basic model configuration
         #sampling (geo). see Model.build_sampGeo()
         sgType = 'poly', 
         
-        #raster resampling and selection  (StudyArea.get_raster())
-        dsampStage='none', resolution=5, resampling='none', 
+        #raster downSampling and selection  (StudyArea.get_raster())
+        dsampStage='none', resolution=5, downSampling='none', 
         severity = 'hi', 
         
         #sampling (method). see Model.build_rsamps()
@@ -321,7 +321,7 @@ def run( #run a basic model configuration
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
                      
                      
-                     'drlay_d':dict( severity=severity, resolution=resolution, resampling=resampling, dsampStage=dsampStage),
+                     'drlay_d':dict( severity=severity, resolution=resolution, downSampling=downSampling, dsampStage=dsampStage),
 
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat,
                                    ),
@@ -374,7 +374,7 @@ def dev():
         aggType='gridded', aggLevel=50,
         
         dsampStage='wsl',
-        resolution=100, resampling='Average',
+        resolution=100, downSampling='Average',
  
         trim=True,
         overwrite=True,
@@ -388,15 +388,13 @@ def dev():
 if __name__ == "__main__": 
  
  
-    #===========================================================================
-    # output=run_auto_dev(modelID=23, write=False,
-    #                     compiled_fp_d={ 
-    #                         }
-    #                     )
-    #===========================================================================
+    output=run_auto_dev(modelID=4, write=False,
+                        compiled_fp_d={ 
+                            }
+                        )
     #output=dev()
  
-    output=run_autoPars(modelID=0, write=True, name='hyd4_dev')
+    #output=run_autoPars(modelID=0, write=False, name='hyd4_dev')
     #output=run_autoPars(tag='g100', modelID=3)
     #output=run_autoPars(tag='g100_true', modelID=4, trim=True)
     #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)

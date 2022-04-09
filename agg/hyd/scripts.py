@@ -84,7 +84,7 @@ class Model(agSession):  # single model run
         
         'severity':{'vals':['hi', 'lo'],                            'dkey':'drlay_d'},
         'resolution':{'vals':[5, 50, 100, 200],                     'dkey':'drlay_d'},
-        'resampling':{'vals':['none','Average'],                    'dkey':'drlay_d'},
+        'downSampling':{'vals':['none','Average'],                    'dkey':'drlay_d'},
         'dsampStage':{'vals':['none', 'wse', 'depth'],             'dkey':'drlay_d'},
         
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
@@ -1744,10 +1744,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    
                    #raster downsampling
                    dsampStage='none', #which stage of the depth raster calculation to apply the downsampling
-                        #none: no resampling happening
+                        #none: no downSampling happening
                         #wse: resample both rasters before subtraction  
                         #depth: subtract rasters first, then resample the result
-                   resampling='none',
+                   downSampling='none',
                   resolution=5, #0=raw (nicer for variable consistency)
                   base_resolution=5, #resolution of raw data
                    
@@ -1777,7 +1777,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         resolution = int(resolution)
         
         """TODO: get this to return somewhere"""
-        meta_d = {'resolution':resolution, 'dsampStage':dsampStage, 'resampling':resampling}
+        meta_d = {'resolution':resolution, 'dsampStage':dsampStage, 'downSampling':downSampling}
         mstore=QgsMapLayerStore()
         #=======================================================================
         # parameter checks
@@ -1787,10 +1787,10 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #parameter logic
         if dsampStage =='none':
             assert resolution==base_resolution, resolution
-            assert resampling=='none'
+            assert downSampling=='none'
             
-        if resampling =='none':
-            assert dsampStage == 'none', 'for resampling=none expects dsampStage=none'
+        if downSampling =='none':
+            assert dsampStage == 'none', 'for downSampling=none expects dsampStage=none'
             
             
         assert resolution>=base_resolution
@@ -1858,9 +1858,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
  
         elif dsampStage == 'wse':
-            log.info('resampling w/ dsampStage=%s'%dsampStage)
-            wse_fp = self.get_resamp(wse_raw_fp, resolution, resampling,  extents=extents, logger=log)
-            dem_fp = self.get_resamp(dem_raw_fp, resolution, resampling,  extents=extents, logger=log)
+            log.info('downSampling w/ dsampStage=%s'%dsampStage)
+            wse_fp = self.get_resamp(wse_raw_fp, resolution, downSampling,  extents=extents, logger=log)
+            dem_fp = self.get_resamp(dem_raw_fp, resolution, downSampling,  extents=extents, logger=log)
  
         else:
             raise Error('badd dsampStage: %s'%dsampStage)
@@ -1928,9 +1928,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # post-downsample
         #=======================================================================
         if dsampStage =='depth':
-            log.info('resampling w/ dsampStage=%s'%dsampStage)
+            log.info('downSampling w/ dsampStage=%s'%dsampStage)
  
-            dep_fp3a = self.get_resamp(dep_fp2, resolution, resampling,  extents=extents, logger=log)
+            dep_fp3a = self.get_resamp(dep_fp2, resolution, downSampling,  extents=extents, logger=log)
             
             #fill nulls again
             """still possible to get nulls after we resample here with the new extents"""
@@ -1970,7 +1970,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         return rlay
     
     def get_resamp(self, #wrapper for  warpreproject
-                   fp_raw, resolution, resampling,  
+                   fp_raw, resolution, downSampling,  
                 extents=None,
                 logger=None,
                 ):
@@ -1985,8 +1985,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if logger is None: logger=self.logger
         log = logger.getChild('get_resamp')
         
-        log.info('downsampling \'%s\' w/ resolution=%i and resampling=%s' % (
-            os.path.basename(fp_raw).replace('.tif', ''), resolution, resampling))
+        log.info('downsampling \'%s\' w/ resolution=%i and downSampling=%s' % (
+            os.path.basename(fp_raw).replace('.tif', ''), resolution, downSampling))
 
         #===================================================================
         # execute
@@ -1994,7 +1994,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         ofp = os.path.join(self.temp_dir, os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif' % resolution)
         wd_fp = self.warpreproject(
             fp_raw, output=ofp, 
-            resolution=resolution, resampling=resampling, 
+            resolution=resolution, downSampling=downSampling, 
             compression='none', crsOut=self.qproj.crs(), extents=extents, 
             logger=log)
             
