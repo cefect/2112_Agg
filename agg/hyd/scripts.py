@@ -84,7 +84,7 @@ class Model(agSession):  # single model run
         
         'severity':{'vals':['hi', 'lo'],                            'dkey':'drlay_d'},
         'resolution':{'vals':[5, 50, 100, 200],                     'dkey':'drlay_d'},
-        'downSampling':{'vals':['none','Average'],                    'dkey':'drlay_d'},
+        'downSampling':{'vals':['none','Average', 'Mode', 'Nearest neighbour'],                    'dkey':'drlay_d'},
         'dsampStage':{'vals':['none', 'wse', 'depth'],             'dkey':'drlay_d'},
         
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
@@ -2165,6 +2165,7 @@ class ModelStoch(Model):
         #=======================================================================
         catalog_fp = os.path.join(lib_dir, 'model_run_index.csv')
         vlay_dir = os.path.join(lib_dir, 'vlays', modTag)
+        rlay_dir = os.path.join(lib_dir, 'rlays', modTag)
         
         #clear any existing library methods
         """needs to be before all the writes"""
@@ -2207,6 +2208,13 @@ class ModelStoch(Model):
         ofp_d = self.store_layer_d(finv_agg_d, 'finv_agg_d', out_dir=vlay_dir, logger=log, write_pick=False)
         
         #=======================================================================
+        # write depth rasters
+        #=======================================================================
+        drlay_d = self.retrieve('drlay_d')
+        if not os.path.exists(rlay_dir):os.makedirs(rlay_dir)
+        drlay_ofp_d = self.store_layer_d(drlay_d, 'drlay_d', out_dir=rlay_dir, logger=log, write_pick=False)
+        
+        #=======================================================================
         # build meta
         #=======================================================================
         meta_d = self._get_meta()
@@ -2218,10 +2226,12 @@ class ModelStoch(Model):
         #=======================================================================
         out_fp = os.path.join(lib_dir, '%s.pickle'%modTag)
         
-        meta_d = {**meta_d, **{'pick_fp':out_fp, 'vlay_dir':vlay_dir}}
+        meta_d = {**meta_d, **{'pick_fp':out_fp, 'vlay_dir':vlay_dir, 'rlay_dir':rlay_dir}}
         
         d = {'name':self.name, 'tag':self.tag,  
-             'meta_d':meta_d, 'tloss':tl_dx, 'finv_agg_mindex':mindex, 'finv_agg_d':ofp_d, 'vlay_dir':vlay_dir}
+             'meta_d':meta_d, 'tloss':tl_dx, 'finv_agg_mindex':mindex, 
+             'finv_agg_d':ofp_d, 'vlay_dir':vlay_dir,
+             'drlay_d':drlay_ofp_d, 'rlay_dir':rlay_dir}
         
         self.write_pick(d, out_fp, overwrite=overwrite, logger=log)
         
@@ -2231,7 +2241,8 @@ class ModelStoch(Model):
         # update catalog
         #=======================================================================
         #kwargs from meta
-        cat_d.update({k:meta_d[k] for k in ['modelID', 'name', 'tag', 'date', 'pick_fp', 'vlay_dir', 'runtime_mins', 'out_dir', 'iters']})
+        cat_d.update({k:meta_d[k] for k in [
+            'modelID', 'name', 'tag', 'date', 'pick_fp', 'vlay_dir','rlay_dir', 'runtime_mins', 'out_dir', 'iters',]})
         
  
         cat_d = {**cat_d, **res_meta_d}

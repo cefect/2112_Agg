@@ -155,10 +155,28 @@ def run( #run a basic model configuration
         
         #per-study area (just dsampStage=depth)
         mids=[0,21,22] 
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='studyArea', plot_coln='resolution', fmt='png',
+        #                      sharey='row', sharex='row')
+        #=======================================================================
+        
+        #=======================================================================
+        # resolution vs downSampling method
+        #=======================================================================
+        mids=[0,1,2,23,24]
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='downSampling', plot_coln='resolution', fmt='png',
+        #                      sharey='all', sharex='all')
+        #=======================================================================
+        
+        #per-study area (just dsampStage=depth)
+        mids=[0,23,24] 
+        #=======================================================================
         ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
                              plot_rown='studyArea', plot_coln='resolution', fmt='png',
                              sharey='row', sharex='row')
-        
         #=======================================================================
         # #total vals per ag method
         #=======================================================================
