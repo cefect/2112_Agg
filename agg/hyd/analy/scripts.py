@@ -64,7 +64,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         'studyArea':'Dark2',
         'modelID':'Pastel1',
         'dsampStage':'Set1',
-        'downSampling':'Set2'
+        'downSampling':'Set2',
+        'aggType':'Pastel2'
         }
     
     def __init__(self,
@@ -2011,7 +2012,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             tgdx1 = getattr(tgdx0.groupby(level=[gdx1.index.names]), aggMethod)()
             tgdx2 = tgdx1.reorder_levels(gdx1.index.names).sort_index()
             
-            assert_index_equal(gdx1.index, tgdx2.index)
+            assert_index_equal(gdx1.index, tgdx2.index), 'true'
             
             
             #===================================================================

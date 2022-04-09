@@ -228,7 +228,7 @@ def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling,
 # tests Session-------
 #===============================================================================
     
-@pytest.mark.dev
+
 @pytest.mark.parametrize('aggType,aggLevel',[
     ['none',0], 
     ['gridded',20], 
@@ -270,12 +270,13 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
         elif dkey=='finv_agg_mindex':
             assert_frame_equal(test.to_frame(), true.to_frame())
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('finv_agg_fn, dscale_meth',[
-                                        ['test_finv_agg_gridded_50_0', 'centroid'], 
-                                        ['test_finv_agg_none_None_0', 'none'],
+                                        #['test_finv_agg_gridded_50_0', 'centroid'], 
+                                        #['test_finv_agg_none_None_0', 'none'],
+                                        ['test_finv_agg_gridded_50_0', 'area_split'], 
                                         ], indirect=False)  #see test_finv_agg
 def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, tval_type, normed, dscale_meth):
     norm_scale=1.0

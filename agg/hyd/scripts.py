@@ -69,7 +69,7 @@ class Model(agSession):  # single model run
     """
     
     gcn = 'gid'
-    scale_cn = 'scale'
+    scale_cn = 'tvals'
     colorMap = 'cool'
     
     #supported parameter values
@@ -78,7 +78,7 @@ class Model(agSession):  # single model run
         'dscale_meth':{'vals':['centroid', 'none', 'area_split'],       'dkey':'tvals'},
         
         'aggType':{'vals':['none', 'gridded', 'convexHulls'],            'dkey':'finv_agg_d'},
-        'aggLevel':{'vals':[0, 10, 20, 40, 50, 100, 200],                           'dkey':'finv_agg_d'},
+        'aggLevel':{'vals':[0, 5,10, 20, 40, 50, 100, 200],                           'dkey':'finv_agg_d'},
         'sgType':{'vals':['centroids', 'poly'],                         'dkey':'finv_sg_d'},
 
         
@@ -302,15 +302,17 @@ class Model(agSession):  # single model run
         # build the aggregated inventories
         #=======================================================================
         finv_agg_d = self.retrieve('finv_agg_d', logger=log)
+ 
         
         #retrieve the index linking back to the raw
         finv_agg_mindex = self.retrieve('finv_agg_mindex', logger=log)
-        
+ 
         #=======================================================================
         # populate the 'total asset values' on each asset
         #=======================================================================
         #raw values
         finv_true_serx = self.retrieve('tvals_raw', logger=log)
+ 
         
         #aggregated values
         finv_agg_serx = self.retrieve('tvals', logger=log)
@@ -385,6 +387,8 @@ class Model(agSession):  # single model run
         for studyArea, d in res_d.items():
             finv_gkey_df_d[studyArea], finv_agg_d[studyArea] = d
             
+        assert len(finv_gkey_df_d) > 0, 'got no links!'
+        assert len(finv_agg_d) > 0, 'got no layers!'
         #=======================================================================
         # check
         #=======================================================================
@@ -406,7 +410,7 @@ class Model(agSession):  # single model run
         seems nicer to store this as an index
         
         """
-        assert len(finv_gkey_df_d) > 0
+        assert len(finv_gkey_df_d) > 0, 'got no links!'
         
         dkey1 = 'finv_agg_mindex'
         serx = pd.concat(finv_gkey_df_d, verify_integrity=True).iloc[:, 0].sort_index()
@@ -525,23 +529,34 @@ class Model(agSession):  # single model run
     
     def build_tvals(self, #downscaling raw asset values onto the aggregated inventory
                     dkey = 'tvals',
+                    #data
                     mindex=None,
-                    #finv_agg_d=None,
+                    finv_raw_serx=None,                    
+                    finv_agg_d=None,
+                    
                     dscale_meth='centroid',
                     tval_type='uniform',
                     write=None,
                     **kwargs):
+        """Warnning: usually called by
+            ModelStoc.build_tvals()
+                ModelStoch.model_retrieve() #starts a new Model instance
+                    
+                    Model.build_tvals()
+                    """
         #=======================================================================
         # defaults
         #=======================================================================
         log = self.logger.getChild('build_tvals')
         if write is None: write=self.write
         assert dkey == 'tvals'
+        
         if mindex is None: 
             mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
             
         #generate asset values on the raw
-        finv_raw_serx = self.retrieve('tvals_raw', mindex=mindex,tval_type=tval_type, **kwargs)
+        if finv_raw_serx is None:
+            finv_raw_serx = self.retrieve('tvals_raw', mindex=mindex,tval_type=tval_type)
         
         #=======================================================================
         # check if we are already a true finv
@@ -561,12 +576,24 @@ class Model(agSession):  # single model run
             
         #no aggregation: base runs
         elif dscale_meth=='none': 
-            """this should return the same result as the above groupby"""
+            """this should return the same result as the above groupby on 1:1"""
             finv_agg_serx = finv_raw_serx.droplevel(2)
  
             
         elif dscale_meth == 'area_split':
-            raise Error('dome')
+            """this is tricky as we are usually executting a child run at this point"""
+            if finv_agg_d is None:
+                assert 'finv_agg_d' in self.data_d, 'problem with cascade... check ModelStoch.build_tvals()'
+                finv_agg_d = self.retrieve('finv_agg_d')
+                
+            d = self.sa_get(meth='get_tvals_aSplit', write=False, dkey=dkey, 
+                                        finv_raw_serx=finv_raw_serx, finv_agg_d=finv_agg_d,
+                                        proj_lib=self.session.proj_lib,
+                                        **kwargs)
+            
+            finv_agg_serx = pd.concat(d, names=finv_raw_serx.index.names[0:2])
+            
+ 
         else:
             raise Error('unrecognized dscale_meth=%s'%dscale_meth)
         
@@ -1245,6 +1272,7 @@ class Model(agSession):  # single model run
         log = logger.getChild('run_studyAreas')
         
         if proj_lib is None: proj_lib = self.proj_lib
+        assert len(proj_lib)>0
         
         log.info('on %i \n    %s' % (len(proj_lib), list(proj_lib.keys())))
         
@@ -1676,7 +1704,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         gvlay5 = self.saveselectedfeatures(gvlay4, logger=log)
         self.mstore.addMapLayer(gvlay4)
 
-            
+        assert len(df)>0
         #===================================================================
         # write
         #===================================================================
@@ -1919,7 +1947,153 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         return df, agg_vlay2
         
-
+    def get_tvals_aSplit(self,
+                  #data                  
+                  finv_raw_serx=None,
+                  finv_vlay=None, 
+                  finv_agg_d=None,
+                  
+                  #control
+                  overwrite=None, idfn=None,
+                   
+                  write=True, #just for debugging
+                  ):
+        """
+        weights the true (raw) tvals coming from raw footprints
+            by the area of each footprint within an aggregated cell
+            
+        for grids:
+            often part of a footprint falls somewhere without a grid cell
+                (we clean by centroid intersect to maintain the 1:m relation of true:agg)
+                more relevant for small grids
+        """
+ 
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('get_tvals_aSplit')
+        gcn = self.gcn
+        if overwrite is None: overwrite = self.overwrite
+        
+        if idfn is None: idfn = self.idfn
+        gcn = self.gcn
+ 
+        scale_cn= self.scale_cn
+        #=======================================================================
+        # #retrieve
+        #=======================================================================
+        if finv_vlay is None: 
+            finv_vlay = self.get_finv_clean(idfn=idfn)
+        
+        #aggregated finv for this studyArea
+        finv_agg_vlay = finv_agg_d[self.name]
+        
+        #tvals generated for this study area (double index.. no area weighting)
+        tvals_raw_serx = finv_raw_serx.loc[idx[self.name, :]]
+        
+        if len(tvals_raw_serx.index.names)==3:
+            tvals_raw_serx = tvals_raw_serx.droplevel(0)
+        
+        fcnt = finv_vlay.dataProvider().featureCount() 
+ 
+        mstore = QgsMapLayerStore()
+        
+        log.info('on \n    %s (%i) and  %s (%i)'%(
+            finv_vlay.name(), finv_vlay.dataProvider().featureCount(),
+            finv_agg_vlay.name(), finv_agg_vlay.dataProvider().featureCount()))
+        
+        #=======================================================================
+        # check keys
+        #=======================================================================
+        #true keys
+        finv_df = vlay_get_fdf(finv_vlay)
+        assert idfn in finv_df.columns
+        
+        
+        set_d = set_info(finv_df[idfn], tvals_raw_serx.index.unique(idfn), result='counts')
+        assert set_d['symmetric_difference']==0
+        
+        #aggregated keys
+        agg_df = vlay_get_fdf(finv_agg_vlay)
+        assert gcn in agg_df.columns
+        
+        assert gcn in tvals_raw_serx.index.names
+        
+        set_d = set_info(agg_df[gcn], tvals_raw_serx.index.unique(gcn), result='counts')
+        assert set_d['symmetric_difference']==0
+        
+        #=======================================================================
+        # get raw areas
+        #=======================================================================
+        fvlay1 = self.addgeometry(finv_vlay, logger=log)
+        mstore.addMapLayer(fvlay1)
+        
+        #rename the area field
+        fvlay2 = self.renameField(fvlay1, 'area', 'area_raw', logger=log)
+        mstore.addMapLayer(fvlay2)
+        
+        #=======================================================================
+        # split on aggregated boundarires
+        #=======================================================================
+        #convert agggretaged polys to lines
+        agg_lines = self.polygonstolines(finv_agg_vlay, logger=log)
+        
+        #split
+        fvlay3 = self.splitwithlines(fvlay2, agg_lines, logger=log)
+        
+        #=======================================================================
+        # calc area ratios
+        #=======================================================================
+        #add the new geometries
+        fvlay4 = self.addgeometry(fvlay3, logger=log)
+        
+        #extract
+        df1 = vlay_get_fdf(fvlay4, logger=log).drop(['perimeter', 'perimeter_2'], axis=1)
+        
+        df1['areaRatio'] = df1['area']/df1['area_raw']
+        
+        assert (df1['areaRatio']<=1.0).all()
+        
+        #=======================================================================
+        # weight tvals
+        #=======================================================================
+        """need to add keys to link to aggregated"""
+        #join the raw tvals by id
+        df2 = df1.join(tvals_raw_serx.reset_index(drop=False).set_index(idfn), on=idfn)
+        df2['asset_count'] = 1
+        #scale
+        df2['tvals_weighted'] = df2['tvals']*df2['areaRatio']
+        
+        #total
+        df3 = df2.groupby(gcn).sum().loc[:, ['area_raw', 'area', 'areaRatio', 'asset_count', 'tvals_weighted']]
+        
+        
+        #=======================================================================
+        # write layer
+        #=======================================================================
+        if write:
+            """only for debugging... if we are iterating this will write 1 layer per iteration"""
+            geo_d = vlay_get_geo(finv_agg_vlay, logger=log)
+            
+ 
+            res_vlay = self.vlay_new_df(agg_df.join(df3, on=gcn), geo_d=geo_d, logger=log,
+                                        layname='tvals_aSplit')
+            out_dir = os.path.join(self.temp_dir, 'get_tvals_aSplit')
+            if not os.path.exists(out_dir): os.makedirs(out_dir)
+            ofp = os.path.join(out_dir, '%s_tvals_aSplit_%s.gpkg'%(finv_agg_vlay.name(), self.tag))
+            self.vlay_write(res_vlay,ofp, logger=log)
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        tval_ser = df3['tvals_weighted'].rename(scale_cn)
+        assert np.array_equal(tval_ser.index, tvals_raw_serx.index.unique(0))
+        
+        stats_d = {stat:'%.3f'%getattr(tval_ser, stat)() for stat in ['min',  'mean', 'max']}
+        log.info('finished on %i w/ \n    %s'%(len(tval_ser), stats_d))
+        
+        
+        return tval_ser
 
 
     def get_drlay(self, #build a depth layer intelligently
@@ -2452,7 +2626,7 @@ class ModelStoch(Model):
     def build_tvals(self, #stochastic calculation of tvals
                     dkey='tvals',
                     mindex=None, 
-                    #finv_agg_d=None,
+                    finv_agg_d=None,
                     tval_type='rand',  # type for total values
                     iters=None, write=None,
                     **kwargs): 
@@ -2465,7 +2639,7 @@ class ModelStoch(Model):
         if mindex is None: 
             mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
         
-        #if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d')
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d')
         if iters is None: iters=self.iters
         
         assert dkey=='tvals'
@@ -2480,7 +2654,7 @@ class ModelStoch(Model):
         #=======================================================================
         res_d = self.model_retrieve(dkey, tval_type=tval_type,
                                mindex=mindex,iters=iters,
-                               #finv_agg_d=finv_agg_d, 
+                               finv_agg_d=finv_agg_d, 
                                logger=log, **kwargs)
         
         #=======================================================================
@@ -2488,10 +2662,17 @@ class ModelStoch(Model):
         #=======================================================================
         dxind = pd.concat(res_d, axis=1)
         
-        dx = pd.concat({dkey:dxind},axis=1, names=['dkey', 'iter']) 
+        dx = pd.concat({dkey:dxind},axis=1, names=['dkey', 'iter'])
         
         #=======================================================================
-        # write
+        # write lyaer 
+        #=======================================================================
+        """only writing the area splits for now"""
+ 
+
+        
+        #=======================================================================
+        # write pick
         #=======================================================================
         log.info('finished w/ %s'%str(dx.shape))
         if write:
