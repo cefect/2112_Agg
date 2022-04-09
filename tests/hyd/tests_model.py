@@ -100,13 +100,14 @@ def extent(studyAreaWrkr):
 
 @pytest.fixture   
 def dem_fp(studyAreaWrkr, tmp_path, extent):
+    np.random.seed(100)
     return studyAreaWrkr.randomuniformraster(5, bounds=(0,5), extent=extent,
                                              output=os.path.join(tmp_path, 'dem_random.tif'))
 
 @pytest.fixture
 # were setup to filter out ground water... but tests are much simpler if we ignore this   
 def wse_fp(studyAreaWrkr, tmp_path, extent):
-    
+    np.random.seed(100)
     return studyAreaWrkr.randomuniformraster(5, bounds=(5,7), extent=extent,
                                              output=os.path.join(tmp_path, 'wse_random.tif'))
     
