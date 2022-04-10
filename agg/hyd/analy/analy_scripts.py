@@ -17,8 +17,7 @@ from pandas.testing import assert_index_equal, assert_frame_equal, assert_series
 idx = pd.IndexSlice
 
 
-from hp.basic import set_info, get_dict_str
-from hp.exceptions import Error
+
 
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -26,8 +25,11 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 #===============================================================================
 # custom imports
 #===============================================================================
+from hp.basic import set_info, get_dict_str
+from hp.exceptions import Error, assert_func
+
 from hp.plot import Plotr
-from hp.oop import Session, Error
+from hp.oop import Session
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
     QgsWkbTypes
@@ -116,6 +118,22 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # RESULTS ASSEMBLY---------
     #===========================================================================
+    def runCompileSuite(self, #conveneince for compilling all the results in order
+                        ):
+ 
+        
+        cat_df = self.retrieve('catalog')
+               
+        dx_raw = self.retrieve('outs')
+        
+        agg_mindex = self.retrieve('agg_mindex')
+        
+        
+        
+        true_dx_raw = self.retrieve('trues')
+        
+        
+        
     
     def build_catalog(self,
                       dkey='catalog',
@@ -188,7 +206,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         if logger is None: logger=self.logger
         log=logger.getChild('build_outs')
         assert dkey=='outs'
-        if cat_df is None: cat_df = self.retrieve('catalog')
+        if cat_df is None: 
+            cat_df = self.retrieve('catalog')
         if write is None: write=self.write
         if idn is None: idn=self.idn
         #=======================================================================
@@ -376,11 +395,14 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         if agg_mindex is None:
             agg_mindex = self.retrieve('agg_mindex')
         
+        
+        
         log.info('on %s'%str(dx_raw.shape))
         
         #=======================================================================
         # check
         #=======================================================================
+        assert_func(lambda: self._check_mindex_raw(agg_mindex, dx_raw=dx_raw), 'agg_mindex')
         assert baseID in dx_raw.index.unique(idn)
         
         miss_l = set(dx_raw.index.unique(idn)).symmetric_difference(agg_mindex.unique(idn))
@@ -460,6 +482,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         assert_series_equal(dx1.max(axis=0), base_dx.max(axis=0))
  
+        assert_func(lambda: self.check_mindex_match(dx1.index, dx_raw.index), msg='raw vs trues')
         #=======================================================================
         # wrap
         #=======================================================================
@@ -1892,7 +1915,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                     #drop_zeros=True, #must always be false for the matching to work
                     
                     #labelling
-                    baseID=None,
+                    #baseID=None, 
                     add_label=True,
  
                     
@@ -1920,13 +1943,13 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             assert plot_type=='scatter'
             
         idn = self.idn
-        if baseID is None: baseID=self.baseID
+        #if baseID is None: baseID=self.baseID
  
         if dx_raw is None:
             dx_raw = self.retrieve('outs')
             
         if true_dx_raw is None:
-            true_dx_raw = self.retrieve('trues', baseID=baseID)
+            true_dx_raw = self.retrieve('trues')
             
         if sharey is None:
             if plot_type=='scatter':
@@ -1945,6 +1968,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # data prep
         #=======================================================================
+        assert_func(lambda: self.check_mindex_match(true_dx_raw.index, dx_raw.index), msg='raw vs trues')
+        
         #add requested indexers
         dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
                                 meta_indexers = set([plot_rown, plot_coln]),
@@ -1958,6 +1983,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                                 meta_indexers = set([plot_rown, plot_coln]),
                                 modelID_l=modelID_l)
         
+        
+ 
+
+ 
         #=======================================================================
         # setup the figure
         #=======================================================================
@@ -2003,12 +2032,10 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             keys_d = dict(zip([plot_coln, plot_rown], gkeys))
             ax = ax_d[gkeys[1]][gkeys[0]]
             log.info('on %s'%keys_d)
-            
- 
+
             #===================================================================
             # data prep----------
             #===================================================================
- 
             gdx1 = gdx0
  
             #get the corresponding true values
@@ -2017,11 +2044,26 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
             #===================================================================
             # aggregate the trues
             #===================================================================
-            """because trues are mapped from the base model.. where we compress down to the model index"""
+            """because trues are mapped from the base model.. here we compress down to the model index"""
             tgdx1 = getattr(tgdx0.groupby(level=[gdx1.index.names]), aggMethod)()
             tgdx2 = tgdx1.reorder_levels(gdx1.index.names).sort_index()
             
-            assert_index_equal(gdx1.index, tgdx2.index), 'true'
+            if not np.array_equal(gdx1.index, tgdx2.index):
+                
+                miss_l = set(gdx1.index.unique(5)).symmetric_difference(tgdx2.index.unique(5))
+                #assert_index_equal(gdx1.index, tgdx2.index)
+                
+                """
+                bx = gdx1.index.get_level_values(5).isin(miss_l)
+                view(gdx1.loc[bx, :])
+                
+                """
+                
+                if len(miss_l)>0:
+                    raise Error('%i/%i true keys dont match on %s \n    %s'%(len(miss_l), len(gdx1), keys_d, miss_l))
+                else:
+                    raise Error('bad indexers on %s modelIDs:\n    %s'%(keys_d, tgdx2.index.unique('modelID').tolist()))
+            
             
             
             #===================================================================
@@ -3598,3 +3640,108 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         assert len(miss_l)==0
         
         return dx
+    
+    def check_mindex_match(self, #special check of indexes
+            mindex,
+            mindex_short,
+            sort=True,
+            ):
+        
+        if sort:
+            #mindex = mindex.copy().sortlevel()[0]
+            mindex_short = mindex_short.copy().sortlevel()[0]
+        
+        assert isinstance(mindex, pd.MultiIndex), 'bad type: %s'%type(mindex)
+        assert isinstance(mindex_short, pd.MultiIndex), 'bad type: %s'%type(mindex)
+        
+        
+        #compress the midex
+        chk_index = pd.MultiIndex.from_frame(mindex.droplevel('id').to_frame().reset_index(drop=True).drop_duplicates()).sortlevel()[0]
+        
+        
+        #check names match
+        miss_l = set(chk_index.names).symmetric_difference(mindex_short.names)
+        if len(miss_l)>0:
+            return False, 'names mismatch: %s'%miss_l
+        
+        #=======================================================================
+        # #loop and check values on each level
+        #=======================================================================
+        err_d = dict()
+        for lvlName in chk_index.names:
+            left_vals = chk_index.unique(lvlName)
+            right_vals = mindex_short.unique(lvlName)
+            
+            if not np.array_equal(left_vals, right_vals):
+                set_d = set_info(left_vals, right_vals, result='counts')
+                err_d[lvlName] = 'mismatch \'%s\' w/ %s'%(lvlName, set_d['symmetric_difference'])
+                
+        
+        if len(err_d)>0:
+            msg = pprint.PrettyPrinter(indent=4).pformat(err_d)
+            print(msg)
+            return False, err_d
+        
+        
+        #=======================================================================
+        # check lengths
+        #=======================================================================
+        """even though all the values are the same... teh lengths can be different"""
+        if not len(chk_index)==len(mindex_short):
+            return False, 'length mismatch mindex(%i) vs. R(%i) = %i'%(
+                len(chk_index), len(mindex_short), abs(len(chk_index)-len(mindex_short)))
+            
+ 
+        assert_index_equal(chk_index, mindex_short)
+        return True, ''
+    
+    def _check_mindex_raw(self, #special categorical check on the mindex
+                          mindex,
+                          dx_raw=None,
+                          ):
+        idn = self.idn
+        if dx_raw is None: 
+            dx_raw = self.retrieve('outs')
+            
+        omindex = dx_raw.index
+        
+        
+        glvls = [idn, 'studyArea']
+        
+        mindex_gb = mindex.to_frame().groupby(level=glvls)
+        
+        
+        err_d = dict()
+        for i, (gkeys, gdx) in enumerate(dx_raw.groupby(level=glvls)):
+            keys_d = dict(zip(glvls, gkeys))
+            
+            #clean up the outs data
+            omindex_i = gdx.index
+            
+            assert len(omindex_i.unique('tag'))==1
+            assert len(omindex_i.unique('event'))==1
+            
+            omindex_i = omindex_i.droplevel(['tag', 'event'])
+            
+            #get the mindex for thsi model
+            mindex_i = mindex_gb.get_group(gkeys).index
+            
+            #compares
+            result, err_d_i = self.check_mindex_match(mindex_i, omindex_i)
+            if not result:
+                err_d[i] = {**keys_d, **err_d_i}
+                
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        if len(err_d)>0:
+            df = pd.DataFrame.from_dict(err_d).T.reset_index(drop=True)
+            with pd.option_context('display.max_rows', None,'display.max_columns', None,'display.width',1000, 'display.max_colwidth', 200):
+                print(df)
+            
+            return False, '%i modelIDS and %i studyArea pairs failed\n    %s'%(
+                len(df[idn].unique()), len(df), df)
+            
+            
+            
+        

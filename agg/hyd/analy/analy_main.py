@@ -49,7 +49,7 @@ matplotlib.rcParams['legend.title_fontsize'] = 'large'
 print('loaded matplotlib %s'%matplotlib.__version__)
 
 
-from agg.hyd.analy.scripts import ModelAnalysis
+from agg.hyd.analy.analy_scripts import ModelAnalysis
 
  
 
@@ -89,7 +89,8 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
-        #ses.retrieve('deltas')
+        ses.runCompileSuite()
+ 
         
         
         
@@ -421,7 +422,9 @@ def r4():
         tag='r4',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd4\model_run_index.csv',
         compiled_fp_d = {
- 
+         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r4\20220410\working\outs_analy_r4_0410.pickle',
+        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r4\20220410\working\agg_mindex_analy_r4_0410.pickle',
+        #'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r4\20220410\working\trues_analy_r4_0410.pickle',
             },
         )
     
