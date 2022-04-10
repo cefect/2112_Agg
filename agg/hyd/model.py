@@ -398,15 +398,16 @@ def dev():
 if __name__ == "__main__": 
  
  
-    output=run_auto_dev(modelID=11, write=True,
+    output=run_auto_dev(modelID=25, write=True,
                         compiled_fp_d={ 
-            'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a0_rand\20220410\working\finv_agg_d_hyd4_dev_a0_rand_0410.pickle',
-        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a0_rand\20220410\working\finv_agg_mindex_hyd4_dev_a0_rand_0410.pickle',
-        'tvals_raw':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a0_rand\20220410\working\tvals_raw_hyd4_dev_a0_rand_0410.pickle',
+        'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a5r0_cvh\20220410\working\finv_agg_d_hyd4_dev_a5r0_cvh_0410.pickle',
+        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a5r0_cvh\20220410\working\finv_agg_mindex_hyd4_dev_a5r0_cvh_0410.pickle',
+        'tvals_raw':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a5r0_cvh\20220410\working\tvals_raw_hyd4_dev_a5r0_cvh_0410.pickle',
+
 
 
                             },
-                        studyArea_l = ['obwb'],
+                        studyArea_l = ['obwb', 'Calgary'],
                         )
     #output=dev()
  

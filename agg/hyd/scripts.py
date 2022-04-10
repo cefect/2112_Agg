@@ -653,7 +653,7 @@ class Model(agSession):  # single model run
         assert finv_agg_serx.name==rcoln, 'bad name on result: %s'%finv_agg_serx.name
         
         #collapsed gid index
-        chk_index = pd.MultiIndex.from_frame(mindex.droplevel(2).to_frame().reset_index(drop=True).drop_duplicates(gcn))  
+        chk_index = pd.MultiIndex.from_frame(mindex.droplevel(2).to_frame().reset_index(drop=True).drop_duplicates([gcn, 'studyArea']))  
            
         assert np.array_equal(finv_agg_serx.index, chk_index)
         #=======================================================================
