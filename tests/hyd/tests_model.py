@@ -271,7 +271,7 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
             assert_frame_equal(test.to_frame(), true.to_frame())
             
             
-@pytest.mark.dev
+ 
 @pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
@@ -314,40 +314,51 @@ def test_tvals_raw(session,true_dir, base_dir, write,
     #===========================================================================
     assert_series_equal(finv_true_serx, true)
 
-#@pytest.mark.dev
-@pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
-@pytest.mark.parametrize('normed', [True, False])
-@pytest.mark.parametrize('finv_agg_fn, dscale_meth',[
-                                        #['test_finv_agg_gridded_50_0', 'centroid'], 
-                                        #['test_finv_agg_none_None_0', 'none'],
-                                        ['test_finv_agg_gridded_50_0', 'area_split'], 
+@pytest.mark.dev
+#have to combine finv_agg with correct tvals_raw output
+@pytest.mark.parametrize('finv_agg_fn, dscale_meth, tvals_raw',[
+        #['test_finv_agg_gridded_50_0', 'centroid', 'test_tvals_raw_test_finv_agg_n0'], 
+        #['test_finv_agg_none_None_0', 'none', 'test_tvals_raw_test_finv_agg_g0'],
+        ['test_finv_agg_gridded_50_0', 'area_split', 'test_tvals_raw_test_finv_agg_g0'], 
                                         ], indirect=False)  #see test_finv_agg
 def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, 
-               tval_type, normed, dscale_meth):
-    norm_scale=1.0
-    dkey='tvals'
- 
-    #===========================================================================
-    # load inputs   
-    #===========================================================================
+               tvals_raw, dscale_meth):
  
     
-    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
+    
+    #===========================================================================
+    # load inputs   
+    #===========================================================================    
+    #set the compiled references    
+    session.compiled_fp_d = build_compileds({'finv_agg_d':finv_agg_fn, 'finv_agg_mindex':finv_agg_fn, 'tvals_raw':tvals_raw},
+                                            base_dir)
+    
+    #retrieve uncompiled
+    tvals_raw = session.retrieve('tvals_raw')
+    finv_agg_d = session.retrieve('finv_agg_d')
+    finv_agg_mindex = session.retrieve('finv_agg_mindex')
+    
+
     
     #===========================================================================
     # execute
     #===========================================================================
-    
-    finv_agg_serx = session.build_tvals(dkey=dkey, norm_scale=norm_scale,
-                                    tval_type=tval_type, normed=normed, dscale_meth=dscale_meth,
-                            finv_agg_d=finv_agg_d,
-                             mindex =finv_agg_mindex, write=write)
+    dkey='tvals'
+    finv_agg_serx = session.build_tvals(dkey=dkey, write=write,
+                                    finv_raw_serx=tvals_raw,
+                                    finv_agg_d=finv_agg_d,
+                                    mindex =finv_agg_mindex, 
+                                    dscale_meth=dscale_meth)
     
     #data checks
     assert_index_equal(finv_agg_mindex.droplevel('id').drop_duplicates(), finv_agg_serx.index)
     
  
+    #norm checks
+    norm_scale=1.0 #for test proofing
+    normed=True #should only pass tvals_raw that are normed
     if normed:
+        """I'm not sure this needs to hold for all gridded inventories"""
         assert (finv_agg_serx.groupby(level='studyArea').sum().round(3)==norm_scale).all()
     #===========================================================================
     # retrieve true
@@ -558,6 +569,13 @@ def test_tloss(session, base_dir, rloss_fn):
 #===============================================================================
 # helpers-----------
 #===============================================================================
+def build_compileds(dkey_d, base_dir): 
+    d = dict()
+    for dkey, folder in dkey_d.items():
+        input_fp = search_fp(os.path.join(base_dir, folder), '.pickle', dkey) #find the data file.
+        d[dkey] = input_fp
+    return d
+
 def check_layer_d(d1, d2, #two containers of layers
                    test_data=True, #check vlay attributes
                    ignore_fid=True,  #whether to ignore the native ordering of the vlay

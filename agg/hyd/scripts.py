@@ -1974,7 +1974,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                   #control
                   overwrite=None, idfn=None,
                    
-                  write=True, #just for debugging
+                  write=False, #just for debugging (will crash tests)
                   ):
         """
         weights the true (raw) tvals coming from raw footprints
@@ -2038,7 +2038,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert gcn in tvals_raw_serx.index.names
         
         set_d = set_info(agg_df[gcn], tvals_raw_serx.index.unique(gcn), result='counts')
-        assert set_d['symmetric_difference']==0
+        assert set_d['symmetric_difference']==0, 'mismatch between finv_agg_vlay and tvals_raw_serx \n    %s'%set_d
         
         #=======================================================================
         # get raw areas
