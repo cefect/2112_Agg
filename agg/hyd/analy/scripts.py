@@ -120,18 +120,19 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     def build_catalog(self,
                       dkey='catalog',
                       catalog_fp=None,
+                      logger=None,
                       **kwargs):
-        
+        if logger is None: logger=self.logger
         assert dkey=='catalog'
         if catalog_fp is None: catalog_fp=self.catalog_fp
         
-        return Catalog(catalog_fp=catalog_fp, logger=self.logger, overwrite=False, **kwargs).get()
+        return Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False, **kwargs).get()
     
     def build_agg_mindex(self,
                          dkey='agg_mindex',
     
                         write=None,
-                        idn=None,
+                        idn=None, logger=None,
                      **kwargs):
         """
         todo: check against loaded outs?
@@ -139,7 +140,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # defaults
         #=======================================================================
-        log=self.logger.getChild('build_agg_mindex')
+        if logger is None: logger=self.logger
+        log=logger.getChild('build_agg_mindex')
         assert dkey=='agg_mindex'
         if write is None: write=self.write
         if idn is None: idn=self.idn
@@ -178,11 +180,13 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                          write=None,
                          idn=None,
                          cat_df=None,
+                         logger=None,
                          **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log=self.logger.getChild('build_outs')
+        if logger is None: logger=self.logger
+        log=logger.getChild('build_outs')
         assert dkey=='outs'
         if cat_df is None: cat_df = self.retrieve('catalog')
         if write is None: write=self.write
@@ -229,11 +233,13 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
     
                         write=None,
                         idn=None,
+                        logger=None,
                      **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log=self.logger.getChild('build_finv_agg')
+        if logger is None: logger=self.logger
+        log=logger.getChild('build_finv_agg')
         assert dkey=='finv_agg_fps'
         if write is None: write=self.write
         if idn is None: idn=self.idn
@@ -342,7 +348,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                      dkey='trues',
                      dx_raw=None, agg_mindex=None,
                      
-                     idn=None, write=None,
+                     idn=None, write=None, logger=None,
                      ):
         """
         
@@ -356,7 +362,8 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('trues')
+        if logger is None: logger=self.logger
+        log = logger.getChild('trues')
         if idn is None: idn=self.idn
         if write is None: write=self.write
         assert dkey == 'trues'
@@ -481,12 +488,14 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
                      true_dx=None, #base values mapped onto all the other models
                      
                      
-                     dkey=None,write=None,
+                     dkey=None,write=None, logger=None,
                      ):
         
         #=======================================================================
         # defaults
         #=======================================================================
+        raise Error('not implemented')
+        if logger is None: logger=self.logger
         assert dkey=='deltas'
         log = self.logger.getChild(dkey)
         idn=self.idn
