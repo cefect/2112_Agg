@@ -19,9 +19,11 @@ from hp.pd import view, get_bx_multiVal
 from hp.plot import Plotr
 
 
+class BaseSession(Session): #common to everything
+    pass
 
 
-class Session(Session, Qproj):
+class QSession(BaseSession, Qproj):
     
     vidnm = 'df_id' #indexer for damage functions
     ycn = 'rl'

@@ -36,6 +36,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     
     
 from agg.coms.scripts import Catalog
+from agg.hyd.scripts import HydSession
 
 
 
@@ -55,7 +56,7 @@ def get_ax(
             
     return fig.add_subplot(111)
  
-class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
+class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     
     idn = 'modelID'
     
@@ -3641,106 +3642,7 @@ class ModelAnalysis(Session, Qproj, Plotr): #analysis of model results
         
         return dx
     
-    def check_mindex_match(self, #special check of indexes
-            mindex,
-            mindex_short,
-            sort=True,
-            ):
-        
-        if sort:
-            #mindex = mindex.copy().sortlevel()[0]
-            mindex_short = mindex_short.copy().sortlevel()[0]
-        
-        assert isinstance(mindex, pd.MultiIndex), 'bad type: %s'%type(mindex)
-        assert isinstance(mindex_short, pd.MultiIndex), 'bad type: %s'%type(mindex)
-        
-        
-        #compress the midex
-        chk_index = pd.MultiIndex.from_frame(mindex.droplevel('id').to_frame().reset_index(drop=True).drop_duplicates()).sortlevel()[0]
-        
-        
-        #check names match
-        miss_l = set(chk_index.names).symmetric_difference(mindex_short.names)
-        if len(miss_l)>0:
-            return False, 'names mismatch: %s'%miss_l
-        
-        #=======================================================================
-        # #loop and check values on each level
-        #=======================================================================
-        err_d = dict()
-        for lvlName in chk_index.names:
-            left_vals = chk_index.unique(lvlName)
-            right_vals = mindex_short.unique(lvlName)
-            
-            if not np.array_equal(left_vals, right_vals):
-                set_d = set_info(left_vals, right_vals, result='counts')
-                err_d[lvlName] = 'mismatch \'%s\' w/ %s'%(lvlName, set_d['symmetric_difference'])
-                
-        
-        if len(err_d)>0:
-            msg = pprint.PrettyPrinter(indent=4).pformat(err_d)
-            print(msg)
-            return False, err_d
-        
-        
-        #=======================================================================
-        # check lengths
-        #=======================================================================
-        """even though all the values are the same... teh lengths can be different"""
-        if not len(chk_index)==len(mindex_short):
-            return False, 'length mismatch mindex(%i) vs. R(%i) = %i'%(
-                len(chk_index), len(mindex_short), abs(len(chk_index)-len(mindex_short)))
-            
- 
-        assert_index_equal(chk_index, mindex_short)
-        return True, ''
-    
-    def _check_mindex_raw(self, #special categorical check on the mindex
-                          mindex,
-                          dx_raw=None,
-                          ):
-        idn = self.idn
-        if dx_raw is None: 
-            dx_raw = self.retrieve('outs')
-            
-        omindex = dx_raw.index
-        
-        
-        glvls = [idn, 'studyArea']
-        
-        mindex_gb = mindex.to_frame().groupby(level=glvls)
-        
-        
-        err_d = dict()
-        for i, (gkeys, gdx) in enumerate(dx_raw.groupby(level=glvls)):
-            keys_d = dict(zip(glvls, gkeys))
-            
-            #clean up the outs data
-            omindex_i = gdx.index
-            
-            assert len(omindex_i.unique('tag'))==1
-            assert len(omindex_i.unique('event'))==1
-            
-            omindex_i = omindex_i.droplevel(['tag', 'event'])
-            
-            #get the mindex for thsi model
-            mindex_i = mindex_gb.get_group(gkeys).index
-            
-            #compares
-            result, err_d_i = self.check_mindex_match(mindex_i, omindex_i)
-            if not result:
-                err_d[i] = {**keys_d, **err_d_i}
-                
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        if len(err_d)>0:
-            df = pd.DataFrame.from_dict(err_d).T.reset_index(drop=True)
-            with pd.option_context('display.max_rows', None,'display.max_columns', None,'display.width',1000, 'display.max_colwidth', 200):
-                print(df)
-            
-            return False, '%i modelIDS and %i studyArea pairs failed\n    %s'%(
-                len(df[idn].unique()), len(df), df)
+
             
             
             

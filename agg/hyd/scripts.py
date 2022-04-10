@@ -27,7 +27,7 @@ import hp.gdal
 from hp.exceptions import assert_func
 
 
-from agg.coms.scripts import Session as agSession
+from agg.coms.scripts import QSession, BaseSession
 from agg.coms.scripts import Catalog
 
 
@@ -62,17 +62,174 @@ def get_all_pars(): #generate a matrix of all possible parameter combinations
     """
     view(df)
     """
-        
- 
-
-class Model(agSession):  # single model run
-    """
-    
-    """
-    
+class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
     gcn = 'gid'
     scale_cn = 'tvals'
-    colorMap = 'cool'
+    
+    def check_mindex(self,  # check names and types
+                     mindex,
+                     chk_d=None,
+                     ):
+        """todo: return error messages"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        # if logger is None: logger=self.logger
+        # log=logger.getChild('check_mindex')
+        if chk_d is None: chk_d = self.mindex_dtypes
+        
+        assert isinstance(mindex, pd.MultiIndex), 'bad type: %s'%type(mindex)
+        #=======================================================================
+        # check types and names
+        #=======================================================================
+        names_d = {lvlName:i for i, lvlName in enumerate(mindex.names)}
+        
+        assert not None in names_d, 'got unlabled name'
+        
+        for name, lvl in names_d.items():
+ 
+            assert name in chk_d, 'name \'%s\' not recognized' % name
+            assert mindex.get_level_values(lvl).dtype == chk_d[name], \
+                'got bad type on \'%s\': %s' % (name, mindex.get_level_values(lvl).dtype.name)
+                
+        #=======================================================================
+        # check index values
+        #=======================================================================
+        # totality is unique
+        bx = mindex.to_frame().duplicated()
+        assert not bx.any(), 'got %i/%i dumplicated index entries on %i levels \n    %s' % (
+            bx.sum(), len(bx), len(names_d), names_d)
+        
+        return True, ''
+    
+    def check_mindex_match(self, #special check of indexes
+            mindex,
+            mindex_short,
+            sort=True,
+            ):
+        
+        #=======================================================================
+        # prep
+        #=======================================================================
+        if sort:
+            #mindex = mindex.copy().sortlevel()[0]
+            """not working for some reason"""
+            mindex_short = mindex_short.copy().sort_values()
+            
+        assert_func(lambda: self.check_mindex(mindex), 'left')
+        assert_func(lambda: self.check_mindex(mindex_short), 'right')
+ 
+        
+        
+         
+        
+        
+        #compress the midex
+        chk_index = pd.MultiIndex.from_frame(mindex.droplevel('id').to_frame().reset_index(drop=True).drop_duplicates()).sort_values()
+        
+        
+        #check names match
+        miss_l = set(chk_index.names).symmetric_difference(mindex_short.names)
+        if len(miss_l)>0:
+            return False, 'names mismatch: %s'%miss_l
+        
+        #=======================================================================
+        # #loop and check values on each level
+        #=======================================================================
+        err_d = dict()
+        for lvlName in chk_index.names:
+            left_vals = chk_index.unique(lvlName).sort_values()
+            right_vals = mindex_short.unique(lvlName).sort_values()
+            
+            if not np.array_equal(left_vals, right_vals):
+                set_d = set_info(left_vals, right_vals, result='counts')
+                err_d[lvlName] = 'mismatch \'%s\' w/ %s'%(lvlName, set_d['symmetric_difference'])
+                
+        
+        if len(err_d)>0:
+            msg = pprint.PrettyPrinter(indent=4).pformat(err_d)
+            print(msg)
+            return False, err_d
+        
+        
+        #=======================================================================
+        # check lengths
+        #=======================================================================
+        """even though all the values are the same... teh lengths can be different"""
+        if not len(chk_index)==len(mindex_short):
+            return False, 'length mismatch mindex(%i) vs. R(%i) = %i'%(
+                len(chk_index), len(mindex_short), abs(len(chk_index)-len(mindex_short)))
+            
+ 
+        assert_index_equal(chk_index, mindex_short)
+        return True, ''
+    
+    def check_mindex_match_cats(self, #special categorical check on the mindex
+                          mindex,
+                          mindex_short,
+                          glvls = ['studyArea'],#categories to check on 
+                          ):
+ 
+ 
+        #=======================================================================
+        # defautls       
+        #=======================================================================
+        gcn = self.gcn
+        assert_func(lambda: self.check_mindex(mindex), msg='mindex')
+        assert_func(lambda: self.check_mindex(mindex_short), msg='mindex_short')
+ 
+        #=======================================================================
+        # prep
+        #=======================================================================
+        #clean up the short
+        drop_l = set(mindex_short.names).difference(glvls + [gcn])
+        if len(drop_l)>0:
+            for coln in drop_l:
+                assert len(mindex_short.unique(coln))==1
+            drop_l = mindex_short.copy().droplevel(drop_l)
+        
+        #setup the true indexer
+        mindex_gb = mindex.to_frame().groupby(level=glvls)
+        
+        #=======================================================================
+        # loop by gruop and check
+        #=======================================================================
+        err_d = dict()
+        for i, (gkeys, gdx) in enumerate(mindex_short.to_frame().groupby(level=glvls)):
+            if isinstance(gkeys, str):
+                keys_d = {glvls[0]:gkeys} 
+            else: 
+                keys_d = dict(zip(glvls, gkeys))
+ 
+            #get the mindex for thsi model
+            mindex_i = mindex_gb.get_group(gkeys).index
+            
+            #check this category
+            result, err_d_i = self.check_mindex_match(mindex_i, gdx.index)
+            if not result:
+                err_d[i] = {**keys_d, **err_d_i}
+                
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        if len(err_d)>0:
+            df = pd.DataFrame.from_dict(err_d).T.reset_index(drop=True)
+            with pd.option_context('display.max_rows', None,'display.max_columns', None,'display.width',1000, 'display.max_colwidth', 200):
+                print(df)
+            
+            return False, 'mismatch on %i combos of %s \n    %s'%(
+                len(df),glvls, df)
+            
+        return True, ''
+ 
+
+class Model(HydSession, QSession):  # single model run
+    """
+    
+    """
+    
+
+ 
     
     #supported parameter values
     pars_lib = {
@@ -414,16 +571,40 @@ class Model(agSession):  # single model run
         seems nicer to store this as an index
         
         """
-        assert len(finv_gkey_df_d) > 0, 'got no links!'
+        #=======================================================================
+        # assemble
+        #=======================================================================
         
         dkey1 = 'finv_agg_mindex'
         serx = pd.concat(finv_gkey_df_d, verify_integrity=True).iloc[:, 0].sort_index()
  
         serx.index.set_names('studyArea', level=0, inplace=True)
         agg_mindex = serx.to_frame().set_index(gcn, append=True).swaplevel().sort_index().index
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        """re-extracting indexes from layers"""
+        d = dict()
+        for studyArea, finv_vlay in finv_agg_d.items():
+            df = vlay_get_fdf(finv_vlay)
+            assert len(df.columns)==1
+            
+            d[studyArea] = df.set_index(gcn)
  
-        self.check_mindex(agg_mindex)
+        
+        chk_mindex = pd.concat(d, names=agg_mindex.names[0:2]).index.sortlevel()[0]
+        """
+        view(chk_mindex.to_frame())
+        view(agg_mindex.to_frame())
+        """
+        
+        assert_func(lambda: self.check_mindex_match_cats(agg_mindex, chk_mindex), msg='fing_df vs fing_agg_vlays for aggType=%s'%aggType)
 
+        
+        #=======================================================================
+        # write
+        #=======================================================================
         # save the pickle
         if write:
             self.ofp_d[dkey1] = self.write_pick(agg_mindex,
@@ -1403,39 +1584,7 @@ class Model(agSession):  # single model run
         
         return res_d
     
-    def check_mindex(self,  # check names and types
-                     mindex,
-                     chk_d=None,
-                     logger=None):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        # if logger is None: logger=self.logger
-        # log=logger.getChild('check_mindex')
-        if chk_d is None: chk_d = self.mindex_dtypes
-        
-        #=======================================================================
-        # check types and names
-        #=======================================================================
-        names_d = {lvlName:i for i, lvlName in enumerate(mindex.names)}
-        
-        assert not None in names_d, 'got unlabled name'
-        
-        for name, lvl in names_d.items():
- 
-            assert name in chk_d, 'name \'%s\' not recognized' % name
-            assert mindex.get_level_values(lvl).dtype == chk_d[name], \
-                'got bad type on \'%s\': %s' % (name, mindex.get_level_values(lvl).dtype.name)
-                
-        #=======================================================================
-        # check index values
-        #=======================================================================
-        # totality is unique
-        bx = mindex.to_frame().duplicated()
-        assert not bx.any(), 'got %i/%i dumplicated index entries on %i levels \n    %s' % (
-            bx.sum(), len(bx), len(names_d), names_d)
-        
-        return
+
     
     def _get_meta(self, #get a dictoinary of metadat for this model
                  ):
@@ -1849,7 +1998,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('get_finvs_gridPoly')
+        log = self.logger.getChild('get_finv_convexHull')
         gcn = self.gcn
         if overwrite is None: overwrite = self.overwrite
         
@@ -1888,17 +2037,20 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         ofp = self.minimumboundinggeometry(vlay1, logger=log, fieldName=gcn,
                                              output=os.path.join(self.temp_dir, '%s_convexHull%i_raw.gpkg'%(finv_vlay.name(), aggLevel)))
-        vlay2 = self.get_layer(ofp, mstore=mstore)
+        
+        vlay2 = self.fixgeo(ofp, logger=log)
+        
+        #vlay2 = self.get_layer(ofp, mstore=mstore)
                                              
                                              
         mstore.addMapLayer(vlay2)
-
+        vlay2.setName('finv_cvh_raw_%s_%s' % (aggLevel, self.longname.replace('_', '')))
         #===================================================================
         # build refecrence dictionary to true assets----------
         #===================================================================
         finv_gkey_df, vlay3 = self.get_finv_links(vlay2,finv_raw_vlay = finv_vlay,
                             logger=log, idfn=idfn,
-                            allow_miss=False, #should have no orphaned hulls
+                            allow_miss=False, #should have no orphaned hulls... occasionally were still getting some
                             )
         
         
@@ -1920,6 +2072,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                        finv_raw_vlay=None,
                        idfn=None,
                        allow_miss=True, 
+                       write=None,
                   **kwargs):
         """
  
@@ -1932,7 +2085,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log = self.logger.getChild('get_finvs_gridPoly')
         gcn = self.gcn
  
-        
+        if write is None: write=self.write
         if idfn is None: idfn = self.idfn
  
         
@@ -1950,6 +2103,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert gcn in raw_fnl
         fnl = set(raw_fnl).difference([gcn])
         agg_vlay1 = self.deletecolumn(finv_agg_vlay, list(fnl), logger=log)
+        
+ 
+        
         agg_vlay1.setName(finv_agg_vlay.name())
         
         self.createspatialindex(agg_vlay1)
@@ -1964,11 +2120,14 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # get points on finv_vlay
         #=======================================================================
         if not 'Point' in QgsWkbTypes().displayString(finv_raw_vlay.wkbType()):
-            f_vlay1 = self.centroids(finv_raw_vlay, logger=log)
-            mstore.addMapLayer(f_vlay1)
+            cent_fp = self.centroids(finv_raw_vlay, logger=log,
+                         output=os.path.join(self.temp_dir, '%s_pts.gpkg'%finv_raw_vlay.name()))
+            f_vlay1 = self.get_layer(cent_fp, mstore=mstore)
+ 
             f_vlay1.setName('%s_pts'%finv_raw_vlay.name())
         else:
             f_vlay1 = finv_raw_vlay
+            cent_fp = finv_raw_vlay.source()
         
         self.createspatialindex(f_vlay1)
         
@@ -1994,40 +2153,95 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         mstore.addMapLayer(jvlay)
         
         
-        noMatch_cnt = f_vlay1.dataProvider().featureCount() - jd['JOINED_COUNT']
+        #=======================================================================
+        # match result
+        #=======================================================================
+        #joined ids
+        df = vlay_get_fdf(jvlay, logger=log).set_index(idfn).drop('fid', axis=1, errors='ignore')
         
+        #aggregated ids
+        agg_df = vlay_get_fdf(agg_vlay1)
+        #agg_gids = pd.Series(vlay_get_fdata(agg_vlay1, gcn), name=gcn).sort_values().reset_index(drop=True)
+        assert agg_df[gcn].is_unique
         
-        df = vlay_get_fdf(jvlay, logger=log).set_index(idfn)
+        set_d = set_info(df[gcn].values, agg_df[gcn].values, result='counts')
+ 
         
         #=======================================================================
         # handle misses
         #=======================================================================
-        if not noMatch_cnt==0:
-            assert allow_miss, 'got %i misses on %s'%(noMatch_cnt, agg_vlay1.name())
+        if not set_d['symmetric_difference']==0:
+            """here we reduce the aggregated finv to the innner set of the spatial join"""
+
+            #set_d1 = set_info(df[gcn].values, agg_gids.values)
             #=======================================================================
             # clear non-matchers
             #=======================================================================
-            """3rd time around with this one... I think this approach is cleanest though"""
+            """5th time around with this one... I think this approach is cleanest though
+            WARNING: dont mix up fid (used for selection) and gid (used for set comparison)
+            """
             log.info('    cleaning \'%s\' w/ %i'%(agg_vlay1.name(), agg_vlay1.dataProvider().featureCount()))
-            
-            grid_df = vlay_get_fdf(agg_vlay1)
-            
-            bx = grid_df[gcn].isin(df[gcn].unique())  # just those matching the raws
-            
-            assert bx.any()
+
+            #id those with succesful matches 
+            bx = agg_df[gcn].isin(df[gcn])
+            assert bx.sum()==set_d['intersection']
+ 
      
+            #select these
             agg_vlay1.removeSelection()
-            agg_vlay1.selectByIds(grid_df[bx].index.tolist())
-            assert agg_vlay1.selectedFeatureCount() == bx.sum()
+            agg_vlay1.selectByIds(agg_df.index[bx].tolist())
+            assert agg_vlay1.selectedFeatureCount() == set_d['intersection']
             
+            #save just those with some intersect
             agg_vlay2 = self.saveselectedfeatures(agg_vlay1, logger=log)
             mstore.addMapLayer(agg_vlay1)
             
+            
+            #save aggregated feats that failed to match
+            if write:
+                """ignores true feats missed by the aggregation"""
+                agg_vlay1.invertSelection()
+                assert agg_vlay1.selectedFeatureCount() == set_d['diff_right']
+ 
+                aggMiss_fp = self.saveselectedfeatures(agg_vlay1, logger=log,
+                            output=os.path.join(self.temp_dir, '%s_miss.gpkg'%finv_agg_vlay.name()))
+                log.info('    wrote %i misses to %s'%(agg_vlay1.selectedFeatureCount(), aggMiss_fp))
+                
+                if not allow_miss:
+                    aggRaw_fp = self.vlay_write(agg_vlay1, os.path.join(self.temp_dir, '%s.gpkg'%finv_agg_vlay.name()))
+                    join_fp = self.vlay_write(jvlay, os.path.join(self.temp_dir, 'get_finv_links_joinattributesbylocation.gpkg'))
+            
+            assert allow_miss, 'got %i misses on %s w/ allow_miss=False'%(set_d['symmetric_difference'], agg_vlay1.name()) +\
+            ' \n    %s\n    join_vlay:%s\n    NON_MATCHING: %s\n    Raw Points:%s\n    AggRaw:%s\n    AggMisses:%s'%(
+                 set_d, join_fp, jd['NON_MATCHING'], cent_fp, aggRaw_fp, aggMiss_fp)
+            
+            
+                        
         else:
             
             agg_vlay2 = agg_vlay1
             
+ 
+        #=======================================================================
+        # check
+        #=======================================================================
+        chk_ser = pd.Series(vlay_get_fdata(agg_vlay2, gcn), name=gcn).sort_values().reset_index(drop=True)
+        assert chk_ser.is_unique
         
+        set_d = set_info(df[gcn].values, chk_ser.values, result='counts')
+        if not set_d['symmetric_difference']==0:
+            """
+            set_d1 = set_info(df[gcn].values, chk_ser.values)
+            set_d1['diff_right']
+            
+            
+            agg_vlay2.source()
+            """
+
+            raise Error('keys failed to match \n    %s'%set_d)
+        
+        assert df.index.name=='id'
+        assert np.array_equal(df.columns, np.array([gcn]))
         #=======================================================================
         # wrap
         #=======================================================================

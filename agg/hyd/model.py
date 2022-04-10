@@ -234,7 +234,7 @@ def run( #run a basic model configuration
               
             'Calgary': {
                 'EPSG': 3776, 
-                'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\finv\ISS_bldgs_das2017_20180501_aoi02.gpkg', 
+                'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\finv\ISS_bldgs_das2017_20180501_aoi02_0410.gpkg', 
     
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
    
@@ -398,20 +398,22 @@ def dev():
 if __name__ == "__main__": 
  
  
-    output=run_auto_dev(modelID=25, write=True,
-                        compiled_fp_d={ 
-        'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a5r0_cvh\20220410\working\finv_agg_d_hyd4_dev_a5r0_cvh_0410.pickle',
-        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a5r0_cvh\20220410\working\finv_agg_mindex_hyd4_dev_a5r0_cvh_0410.pickle',
-        'tvals_raw':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a5r0_cvh\20220410\working\tvals_raw_hyd4_dev_a5r0_cvh_0410.pickle',
-
-
-
-                            },
-                        studyArea_l = ['obwb', 'Calgary'],
-                        )
+ #==============================================================================
+ #    output=run_auto_dev(modelID=25, write=True,
+ #                        compiled_fp_d={ 
+ #  
+ # 
+ # 
+ #                            },
+ #                        studyArea_l = ['Calgary'],
+ #                        )
+ #==============================================================================
     #output=dev()
  
-    #output=run_autoPars(modelID=0, write=False, name='hyd4_dev')
+    output=run_autoPars(modelID=25, write=True, name='hyd4_dev', studyArea_l = ['obwb'],
+                        compiled_fp_d={
+ 
+                            })
     #output=run_autoPars(tag='g100', modelID=3)
     #output=run_autoPars(tag='g100_true', modelID=4, trim=True)
     #output=run_autoPars(tag='dev', modelID=0, trim=True, iters=3)
