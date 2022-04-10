@@ -55,7 +55,7 @@ def modelstoch(tmp_path,
 # tests-------
 #===============================================================================
 
-@pytest.mark.parametrize('tval_type',['rand'], indirect=False) #rand is silly here. see test_stoch also
+@pytest.mark.parametrize('tval_type',['rand'], indirect=False) #see tests_model for other types
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
 def testS_04tvals_raw(modelstoch,true_dir, base_dir, write, 
