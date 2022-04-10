@@ -1799,20 +1799,24 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         else:
             vlay1 = finv_vlay_raw
             
-        vlay2 = self.multiparttosingleparts(vlay1, logger=log)
+        if not vlay1.wkbType()==3:
+            vlay2 = self.multiparttosingleparts(vlay1, logger=log)
+            mstore.addMapLayer(vlay1)
+        else:
+            vlay2=vlay1
         
         #=======================================================================
         # wrap
         #=======================================================================
         finv_vlay = vlay2
-        mstore.removeAllMapLayers()
+        
         fnl = [f.name() for f in finv_vlay.fields()]
         assert len(fnl) == 1
         assert idfn in fnl
         
         finv_vlay.setName('%s_clean' % finv_vlay_raw.name())
         log.debug('finished on %s' % finv_vlay.name())
-            
+        mstore.removeAllMapLayers()
         if not get_lookup:
             return finv_vlay
  
