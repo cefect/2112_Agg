@@ -271,11 +271,11 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
             assert_frame_equal(test.to_frame(), true.to_frame())
             
             
- 
+#@pytest.mark.dev
 @pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
-def test_tvals_raw(session,true_dir, base_dir, write, 
+def test_04tvals_raw(session,true_dir, base_dir, write, 
                finv_agg_fn, tval_type, normed):
     norm_scale=1.0
     dkey='tvals_raw'
@@ -315,13 +315,12 @@ def test_tvals_raw(session,true_dir, base_dir, write,
     assert_series_equal(finv_true_serx, true)
 
 @pytest.mark.dev
-
 @pytest.mark.parametrize('finv_agg_fn, dscale_meth, tvals_raw',[ #have to combine finv_agg with correct tvals_raw output
-        ['test_finv_agg_gridded_50_0', 'centroid', 'test_tvals_raw_test_finv_agg_g0'], 
-        ['test_finv_agg_none_None_0', 'none', 'test_tvals_raw_test_finv_agg_n0'],
-        ['test_finv_agg_gridded_50_0', 'area_split', 'test_tvals_raw_test_finv_agg_g0'], 
+        ['test_finv_agg_gridded_50_0', 'centroid', 'test_04tvals_raw_test_finv_agg0'], 
+        ['test_finv_agg_none_None_0', 'none', 'test_04tvals_raw_test_finv_agg2'],
+        ['test_finv_agg_gridded_50_0', 'area_split', 'test_04tvals_raw_test_finv_agg0'], 
                                         ], indirect=False)  #see test_finv_agg
-def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, 
+def test_05tvals(session,finv_agg_fn, true_dir, base_dir, write, 
                tvals_raw, dscale_meth):
  
     
