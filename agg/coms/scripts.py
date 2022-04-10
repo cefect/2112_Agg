@@ -70,11 +70,12 @@ class Session(Session, Qproj):
     
     def build_df_d(self,
                 fp=r'C:\LS\09_REPOS\02_JOBS\2112_Agg\figueiredo2018\cef\csv_dump.xls',
-                dkey=None,
+                dkey=None, logger=None,
                 ):
         
         assert dkey=='df_d'
-        log = self.logger.getChild('build_df_d')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_df_d')
         df_d = pd.read_excel(fp, sheet_name=None)
         
         log.info('loaded %i pages from \n    %s\n    %s'%(
@@ -109,12 +110,13 @@ class Session(Session, Qproj):
                      
                      #keynames
                      vidnm = None, #indexer for damage functions
-                     dkey='vid_df',
+                     dkey='vid_df', logger=None,
                      ):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_vid_df')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_vid_df')
         assert dkey == 'vid_df'
  
         if vidnm is None: vidnm=self.vidnm
@@ -248,7 +250,7 @@ class Session(Session, Qproj):
                      #key names
                      dkey=None,
                      vidnm = None, #indexer for damage functions
-                     
+                     logger=None,
                      ):
         """
         leaving this as a normal function
@@ -257,7 +259,8 @@ class Session(Session, Qproj):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_vf_d')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_vf_d')
         assert dkey=='vf_d'
         
         if df_d is None: 

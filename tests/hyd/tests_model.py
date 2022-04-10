@@ -329,13 +329,17 @@ def test_05tvals(session,finv_agg_fn, true_dir, base_dir, write,
     # load inputs   
     #===========================================================================    
     #set the compiled references    
-    session.compiled_fp_d = build_compileds({'finv_agg_d':finv_agg_fn, 'finv_agg_mindex':finv_agg_fn, 'tvals_raw':tvals_raw},
+    session.compiled_fp_d = build_compileds({'finv_agg_d':finv_agg_fn,   'tvals_raw':tvals_raw},
                                             base_dir)
     
     #retrieve uncompiled
     tvals_raw = session.retrieve('tvals_raw')
-    finv_agg_d = session.retrieve('finv_agg_d')
-    finv_agg_mindex = session.retrieve('finv_agg_mindex')
+    
+    if dscale_meth =='area_split':
+        finv_agg_d = session.retrieve('finv_agg_d') #only needed by dscale_
+    else:
+        finv_agg_d=None
+    #finv_agg_mindex = session.retrieve('finv_agg_mindex')
     
 
     
@@ -344,13 +348,13 @@ def test_05tvals(session,finv_agg_fn, true_dir, base_dir, write,
     #===========================================================================
     dkey='tvals'
     finv_agg_serx = session.build_tvals(dkey=dkey, write=write,
-                                    finv_raw_serx=tvals_raw,
+                                    tvals_raw_serx=tvals_raw,
                                     finv_agg_d=finv_agg_d,
-                                    mindex =finv_agg_mindex, 
+                                     
                                     dscale_meth=dscale_meth)
     
     #data checks
-    assert_index_equal(finv_agg_mindex.droplevel('id').drop_duplicates(), finv_agg_serx.index)
+    #assert_index_equal(finv_agg_mindex.droplevel('id').drop_duplicates(), finv_agg_serx.index)
     
  
     #norm checks
@@ -488,7 +492,7 @@ def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, wd_
     #===========================================================================
     assert_series_equal(rsamps_serx, true)
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
 @pytest.mark.parametrize('vid', [49, 798,811, 0])
