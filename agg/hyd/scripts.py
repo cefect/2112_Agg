@@ -1785,7 +1785,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         if finv_vlay_raw is None: finv_vlay_raw = self.finv_vlay
         if idfn is None: idfn = self.idfn
- 
+        mstore = QgsMapLayerStore() 
         #=======================================================================
         # clean finv
         #=======================================================================
@@ -1794,14 +1794,18 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         drop_fnl = set([f.name() for f in finv_vlay_raw.fields()]).difference([idfn])
  
         if len(drop_fnl) > 0:
-            finv_vlay = self.deletecolumn(finv_vlay_raw, list(drop_fnl), logger=log)
-            self.mstore.addMapLayer(finv_vlay_raw)  
+            vlay1 = self.deletecolumn(finv_vlay_raw, list(drop_fnl), logger=log)
+            mstore.addMapLayer(finv_vlay_raw)  
         else:
-            finv_vlay = finv_vlay_raw
+            vlay1 = finv_vlay_raw
             
+        vlay2 = self.multiparttosingleparts(vlay1, logger=log)
+        
         #=======================================================================
         # wrap
         #=======================================================================
+        finv_vlay = vlay2
+        mstore.removeAllMapLayers()
         fnl = [f.name() for f in finv_vlay.fields()]
         assert len(fnl) == 1
         assert idfn in fnl
@@ -1819,10 +1823,12 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         # rename indexer to match
         finv_vlay1 = self.renameField(finv_vlay, idfn, gcn, logger=log)
+        self.mstore.addMapLayer(finv_vlay)
         finv_vlay1.setName(finv_vlay.name())
         
         df = vlay_get_fdf(finv_vlay)
         df[gcn] = df[idfn]
+        
         return df.set_index(idfn), finv_vlay1
         
     def get_finv_gridPoly(self,  # get a set of polygon grid finvs (for each grid_size)
