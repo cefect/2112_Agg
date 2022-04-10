@@ -6,8 +6,23 @@ Created on Apr. 9, 2022
 import pandas as pd
 import numpy as np
 
+
+def depthFunc(x):
+    
+    df = pd.Series(x, dtype=float, name='raw').to_frame()
+    df['zeros'] = 0
+    
+    result = df.max(axis=1).values
+    
+    if len(result)==1:
+        return result[0]
+    else:
+        return result
+    
+ 
+
 def compare_means(
-        n=3, #iterations
+        n=50, #iterations
         shape=10, #length of test arrays
         #delta = 1.0, 
         #dry_frac=0.1,
@@ -25,11 +40,11 @@ def compare_means(
         ar_top = np.random.rand(shape) + 1  #between 1 and 2
         
         
- 
+        
         
         res_d[i] = {
-            'pre':abs(ar_top.mean() - ar_bottom.mean()), #averaging before subtraction
-            'post':abs(ar_top - ar_bottom).mean(), #averaging after subtraction
+            'pre':depthFunc(ar_top.mean() - ar_bottom.mean()), #averaging before subtraction
+            'post':depthFunc(ar_top - ar_bottom).mean(), #averaging after subtraction
             'bot_mean':ar_bottom.mean(),
             'top_mean':ar_top.mean(),
  
