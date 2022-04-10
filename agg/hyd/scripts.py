@@ -333,8 +333,9 @@ class Model(agSession):  # single model run
                        # control aggregated finv type 
                        aggType=None,
                        aggLevel=None,
-                       write=None,
-                       **kwargs):
+                       
+                       #defaults
+                       write=None, logger=None,**kwargs):
         """
         wrapper for calling more specific aggregated finvs (and their indexer)
             filepaths_dict and indexer are copied
@@ -347,7 +348,8 @@ class Model(agSession):  # single model run
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_finv_agg')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_finv_agg')
         if write is None: write=self.write
  
         assert dkey in ['finv_agg_d',
@@ -448,10 +450,10 @@ class Model(agSession):  # single model run
         here we just call the other"""
         
         assert dkey=='finv_agg_mindex'
-        assert len(kwargs)==0, 'specify kwargs on dkey=finv_agg_d'
+        #assert len(kwargs)==0, 'specify kwargs on dkey=finv_agg_d'
         
         #call the sibling
-        self.retrieve('finv_agg_d')
+        self.retrieve('finv_agg_d', **kwargs)
         
         return self.data_d[dkey]
         
@@ -664,12 +666,13 @@ class Model(agSession):  # single model run
     def build_drlay(self, #buidl the depth rasters
                     dkey=None,
  
-                   write=None,
+                   write=None, logger=None,
                     **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_drlay')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_drlay')
  
  
         if write is None: write=self.write
@@ -723,8 +726,11 @@ class Model(agSession):  # single model run
     def build_sampGeo(self,  # sampling geometry no each asset
                      dkey='finv_sg_d',
                      sgType='centroids',
-                     write=None,
+                     
                      finv_agg_d=None,
+                     
+                     #defaults
+                     logger=None,write=None,
                      ):
         """
         see test_sampGeo
@@ -733,7 +739,8 @@ class Model(agSession):  # single model run
         # defauts
         #=======================================================================
         assert dkey == 'finv_sg_d'
-        log = self.logger.getChild('build_sampGeo')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_sampGeo')
         if write is None: write=self.write
         
         if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', write=write)
@@ -777,11 +784,13 @@ class Model(agSession):  # single model run
                      dkey=None,
                      samp_method='points',  # method for raster sampling
                      finv_sg_d=None, drlay_d=None,
-                     write=None,
+                     
                      mindex=None, #special catch for test consitency
                      zonal_stat=None, 
-                     idfn=None,
-                     prec=None,
+                     
+                     
+                     #gen
+                     prec=None, idfn=None,write=None, logger=None,
                      **kwargs):
         """
         keeping these as a dict because each studyArea/event is unique
@@ -790,7 +799,8 @@ class Model(agSession):  # single model run
         # defaults
         #=======================================================================
         assert dkey == 'rsamps', dkey
-        log = self.logger.getChild('build_rsamps')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_rsamps')
  
         if prec is None: prec=self.prec
         if write is None: write=self.write
@@ -896,15 +906,19 @@ class Model(agSession):  # single model run
     
     def build_rloss(self,  # calculate relative loss from rsamps on each vfunc
                     dkey=None,
-                    prec=None,  # precision for RL
+                    
                     dxser=None,
                     vid=798,
-                    write=None,
+                    
+                    #gens
+                    write=None, prec=None,  # precision for RL
+                    logger=None,
                     **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_rloss')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_rloss')
         assert dkey == 'rloss'
         if prec is None: prec = self.prec
         if write is None: write=self.write
@@ -959,8 +973,8 @@ class Model(agSession):  # single model run
                     rl_dxind = None,
                     
  
-                    #control
-                    write=None,
+                    #gen
+                    write=None, logger=None,
                     
                     ):
         
@@ -968,7 +982,8 @@ class Model(agSession):  # single model run
         # defaults
         #=======================================================================
         #scale_cn = self.scale_cn
-        log = self.logger.getChild('build_tloss')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_tloss')
         assert dkey == 'tloss'
         if write is None: write=self.write
         #=======================================================================
