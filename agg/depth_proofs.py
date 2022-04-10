@@ -2,6 +2,8 @@
 Created on Apr. 9, 2022
 
 @author: cefect
+
+simple math checks on some rsutls
 '''
 import pandas as pd
 import numpy as np
