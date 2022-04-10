@@ -29,9 +29,6 @@ def modelstoch(tmp_path,
                     'testSet1':{
                           'EPSG': 2955, 
                          'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
-                         'dem': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
-                         'wd_fp_d': {'hi':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_test_0218.tif'},
-                         #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                             }, 
                         },
                     ):
@@ -57,7 +54,7 @@ def modelstoch(tmp_path,
 #===============================================================================
 # tests-------
 #===============================================================================
-@pytest.mark.dev
+
 @pytest.mark.parametrize('tval_type',['rand'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
@@ -103,37 +100,56 @@ def testS_04tvals_raw(modelstoch,true_dir, base_dir, write,
     #===========================================================================
     assert_frame_equal(tvals_raw_dx, true)
         
-
-@pytest.mark.parametrize('tval_type',['rand'], indirect=False) #uniform is somewhat silly here. see tests_model
-@pytest.mark.parametrize('finv_agg_fn, dscale_meth',[
-    ['test_finv_agg_gridded_50_0', 'centroid'], 
-    ['test_finv_agg_none_None_0', 'none']])  #see test_finv_agg
-@pytest.mark.parametrize('normed', [True, False])
-def testS_05tvals(modelstoch,tval_type, finv_agg_fn, true_dir, base_dir, write, normed, dscale_meth):
-    """leaving tvals_raw and tvals combined"""
+@pytest.mark.dev
+@pytest.mark.parametrize('finv_agg_fn, dscale_meth, tvals_raw',[ #have to combine finv_agg with correct tvals_raw output
+        ['test_finv_agg_gridded_50_0', 'centroid',              'testS_04tvals_raw_test_finv_ag0'], 
+        ['test_finv_agg_none_None_0', 'none',                   'testS_04tvals_raw_test_finv_ag2'],
+        ['test_finv_agg_gridded_50_0', 'area_split',            'testS_04tvals_raw_test_finv_ag0'], 
+                                        ], indirect=False)  #see test_finv_agg
+def testS_05tvals(modelstoch,finv_agg_fn, true_dir, base_dir, write, 
+               tvals_raw, dscale_meth):
+ 
+    session = modelstoch
     
     #===========================================================================
     # load inputs   
-    #===========================================================================
-    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, modelstoch, base_dir)
+    #===========================================================================    
+    #set the compiled references    
+    session.compiled_fp_d = build_compileds({'finv_agg_d':finv_agg_fn,   'tvals_raw':tvals_raw},
+                                            base_dir)
+    
+    #retrieve uncompiled
+    tvals_raw = session.retrieve('tvals_raw')
+    
+    if dscale_meth =='area_split':
+        finv_agg_d = session.retrieve('finv_agg_d') #only needed by dscale_
+    else:
+        finv_agg_d=None
+    #finv_agg_mindex = session.retrieve('finv_agg_mindex')
+    
+
     
     #===========================================================================
-    # execute tvals raw
+    # execute
     #===========================================================================
-    dkey = 'tvals_raw'
-    
-    
-    
     dkey='tvals'
-    tv_dx = modelstoch.build_tvals(dkey=dkey, 
-                                   tval_type=tval_type, normed=normed, dscale_meth=dscale_meth,
-                            finv_agg_d=finv_agg_d, mindex =finv_agg_mindex, write=write)
+    tv_dx = session.build_tvals(dkey=dkey, write=write,
+                                    tvals_raw_serx=tvals_raw,
+                                    finv_agg_d=finv_agg_d,                                     
+                                    dscale_meth=dscale_meth)
     
+ 
+    #norm checks
+    norm_scale=1.0 #for test proofing
+    normed=True #should only pass tvals_raw that are normed
+    if normed:
+        """I'm not sure this needs to hold for all gridded inventories"""
+        assert (tv_dx.groupby(level='studyArea').sum().round(3)==norm_scale).all().all()
     #===========================================================================
     # retrieve true
     #===========================================================================
     true_fp = search_fp(true_dir, '.pickle', dkey) #find the data file.
-    true = retrieve_data(dkey, true_fp, modelstoch)
+    true = retrieve_data(dkey, true_fp, session)
     
     #===========================================================================
     # compare

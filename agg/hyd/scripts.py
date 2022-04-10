@@ -607,7 +607,7 @@ class Model(agSession):  # single model run
             """because the finv_agg_mindex is generated using the centroid intersect
                 see StudyArea.get_finv_gridPoly
                 se can do a simple groupby to perform this type of downscaling"""
-            finv_agg_serx = tvals_raw_serx.groupby(level=mindex.names[0:2]).sum()
+            finv_agg_serx = tvals_raw_serx.groupby(level=mindex.names[0:2]).sum().rename(rcoln)
             
         #no aggregation: base runs
         elif dscale_meth=='none': 
@@ -624,16 +624,21 @@ class Model(agSession):  # single model run
                 finv_agg_d = self.retrieve('finv_agg_d')
                 
             if proj_lib is None:
-                if hasattr(self, 'proj_lib'): #test runs
-                    proj_lib=self.proj_lib
-                elif hasattr(self, 'session'): #modelStoch
+
+                if hasattr(self, 'session'): #modelStoch
                     proj_lib=self.session.proj_lib
+                    
+                elif hasattr(self, 'proj_lib'): #test_model (all instances shoul dhave this attribute ... may be empty)
+                    proj_lib=self.proj_lib
+                    
                 else:
                     raise Error('no proj_lib found')
                 
+                assert len(proj_lib)>0, 'failed to get any proj_lib'
+                
             #call for each study area
             d = self.sa_get(meth='get_tvals_aSplit', write=False, dkey=dkey, 
-                                        finv_raw_serx=tvals_raw_serx, finv_agg_d=finv_agg_d,
+                                        tvals_raw_serx=tvals_raw_serx, finv_agg_d=finv_agg_d,
                                         proj_lib=proj_lib,
                                         **kwargs)
             
@@ -646,7 +651,7 @@ class Model(agSession):  # single model run
         #=======================================================================
         # checks
         #=======================================================================
-        assert finv_agg_serx.name==rcoln
+        assert finv_agg_serx.name==rcoln, 'bad name on result: %s'%finv_agg_serx.name
         
         #collapsed gid index
         chk_index = pd.MultiIndex.from_frame(mindex.droplevel(2).to_frame().reset_index(drop=True).drop_duplicates(gcn))  
@@ -1340,7 +1345,8 @@ class Model(agSession):  # single model run
         if logger is None: logger = self.logger
         log = logger.getChild('run_studyAreas')
         
-        if proj_lib is None: proj_lib = self.proj_lib
+        if proj_lib is None: 
+            proj_lib = self.proj_lib
         assert len(proj_lib)>0
         
         log.info('on %i \n    %s' % (len(proj_lib), list(proj_lib.keys())))
@@ -2018,7 +2024,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
     def get_tvals_aSplit(self,
                   #data                  
-                  finv_raw_serx=None,
+                  tvals_raw_serx=None,
                   finv_vlay=None, 
                   finv_agg_d=None,
                   
@@ -2047,7 +2053,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if idfn is None: idfn = self.idfn
         gcn = self.gcn
  
-        scale_cn= self.scale_cn
+        rcoln= self.scale_cn
         #=======================================================================
         # #retrieve
         #=======================================================================
@@ -2058,7 +2064,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         finv_agg_vlay = finv_agg_d[self.name]
         
         #tvals generated for this study area (double index.. no area weighting)
-        tvals_raw_serx = finv_raw_serx.loc[idx[self.name, :]]
+        """todo: fix sa_get to handle passthrough kwargs to each child"""
+        tvals_raw_serx = tvals_raw_serx.loc[idx[self.name, :]]
         
         if len(tvals_raw_serx.index.names)==3:
             tvals_raw_serx = tvals_raw_serx.droplevel(0)
@@ -2131,7 +2138,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         df2 = df1.join(tvals_raw_serx.reset_index(drop=False).set_index(idfn), on=idfn)
         df2['asset_count'] = 1
         #scale
-        df2['tvals_weighted'] = df2['tvals']*df2['areaRatio']
+        df2['tvals_weighted'] = df2[tvals_raw_serx.name]*df2['areaRatio']
         
         #total
         df3 = df2.groupby(gcn).sum().loc[:, ['area_raw', 'area', 'areaRatio', 'asset_count', 'tvals_weighted']]
@@ -2155,7 +2162,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # wrap
         #=======================================================================
-        tval_ser = df3['tvals_weighted'].rename(scale_cn)
+        tval_ser = df3['tvals_weighted'].rename(rcoln)
         assert np.array_equal(tval_ser.index, tvals_raw_serx.index.unique(0))
         
         stats_d = {stat:'%.3f'%getattr(tval_ser, stat)() for stat in ['min',  'mean', 'max']}
@@ -2766,12 +2773,12 @@ class ModelStoch(Model):
                     dkey='tvals',
                     
                     #data
-                    mindex=None, 
+                    #mindex=None, 
                     finv_agg_d=None,
                     tvals_raw_serx = None,
                     
                     #parameters
-                    tval_type='rand',  # type for total values
+                    dscale_meth=None,
                     
                     #pars (default)
                     iters=None, write=None,logger=None,
@@ -2793,9 +2800,11 @@ class ModelStoch(Model):
             finv_agg_d = self.retrieve('finv_agg_d')
             
             
-        if mindex is None: 
-            mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
-            
+        #=======================================================================
+        # if mindex is None: 
+        #     mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
+        #     
+        #=======================================================================
         if tvals_raw_serx is None:
             tvals_raw_serx = self.retrieve('tvals_raw')
             
@@ -2815,16 +2824,15 @@ class ModelStoch(Model):
         #=======================================================================
         # setup pars
         #=======================================================================
-        
-        if tval_type == 'uniform':
-            iters = 1
+ 
  
         #=======================================================================
         # execute children
         #=======================================================================
-        log.info('on %i w/ iters=%i'%(len(mindex), iters))
-        res_d = self.model_retrieve(dkey, tval_type=tval_type,
-                               mindex=mindex,iters=iters,
+        log.info('on %i w/ iters=%i and dscale_meth=%s'%(len(tvals_raw_serx), iters, dscale_meth))
+        res_d = self.model_retrieve(dkey, dscale_meth=dscale_meth,
+                               #mindex=mindex,
+                               iters=iters,
                                finv_agg_d=finv_agg_d,
                                iter_kwargs =d,
 
