@@ -13,6 +13,8 @@ import os, datetime, math, pickle, copy, random, pprint, shutil
 import pandas as pd
 import numpy as np
 
+from pandas.testing import assert_index_equal
+
 idx = pd.IndexSlice
 
 from hp.basic import set_info
@@ -474,7 +476,7 @@ class Model(agSession):  # single model run
                         #for very big study areas we scale things up to avoid dangerously low values
 
                     write=None, logger=None,
-                    ):
+                    **kwargs):
         
         #=======================================================================
         # defaults
@@ -485,7 +487,7 @@ class Model(agSession):  # single model run
         if prec is None: prec = self.prec
         if write is None: write=self.write
  
-        scale_cn = self.scale_cn
+        scale_cn = self.scale_cn + '_raw'
         
         #=======================================================================
         # retrieve
@@ -497,21 +499,34 @@ class Model(agSession):  # single model run
         #=======================================================================
         # get trues
         #=======================================================================
- 
+        vals = None
         if tval_type == 'uniform':
             vals = np.full(len(mindex), 1.0)
         elif tval_type == 'rand':
             vals = np.random.random(len(mindex))
             
         elif tval_type=='footprintArea':
-            raise Error('not implemented')
+ 
+            res_d = self.sa_get(meth='get_tvalsR_area', write=False, dkey=dkey, **kwargs)
+            
+            #join to mindex
+            serx1 = pd.concat(res_d, names=[mindex.names[0], mindex.names[2]])            
+            finv_true_serx = pd.DataFrame(index=mindex).join(serx1).iloc[:,0]
+            
+            finv_true_serx = finv_true_serx.reorder_levels(mindex.names)
  
             
         else:
             raise Error('unrecognized')
 
-        finv_true_serx = pd.Series(vals, index=mindex, name=scale_cn)
+        if not vals is None:
+            finv_true_serx = pd.Series(vals, index=mindex, name=scale_cn)
  
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert finv_true_serx.notna().all()
+        #assert finv_true_serx.min()>10.0
         self.check_mindex(finv_true_serx.index)
         
         #=======================================================================
@@ -530,7 +545,13 @@ class Model(agSession):  # single model run
             assert (serx.groupby(level='studyArea').sum().round(self.prec)==norm_scale).all()
                 
             finv_true_serx = serx
+            
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert_index_equal(mindex, finv_true_serx.index)
 
+ 
         
 
         #=======================================================================
@@ -1588,16 +1609,21 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         return rname
     
     def get_finv_clean(self,
+                       #data
                        finv_vlay_raw=None,
-                       idfn=None,
+                       
+                       #pars
                        get_lookup=False,
-                       gcn=None,
+                       
+                       #gen
+                       gcn=None, idfn=None, logger=None,
                       ):
         
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('get_finv_clean')
+        if logger is None: logger=self.logger
+        log = logger.getChild('get_finv_clean')
         
         if finv_vlay_raw is None: finv_vlay_raw = self.finv_vlay
         if idfn is None: idfn = self.idfn
@@ -2020,17 +2046,17 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log.info('finished on %s w/ \n    %s'%(str(df.shape), meta_d))
         
         return df, agg_vlay2
-        
-    def get_tvals_aSplit(self,
+    
+    def get_tvalsR_area(self, #get raw tvals from polygon areas
                   #data                  
-                  tvals_raw_serx=None,
+
                   finv_vlay=None, 
-                  finv_agg_d=None,
+
                   
-                  #control
-                  overwrite=None, idfn=None,
-                   
+                  #gen
+                  overwrite=None, idfn=None,                   
                   write=False, #just for debugging (will crash tests)
+                  logger=None,
                   ):
         """
         weights the true (raw) tvals coming from raw footprints
@@ -2045,7 +2071,86 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('get_tvals_aSplit')
+        if logger is None: logger=self.logger
+        log = logger.getChild('get_tvals_aSplit')
+ 
+        if overwrite is None: overwrite = self.overwrite
+        
+        if idfn is None: idfn = self.idfn
+ 
+ 
+        rcoln= self.scale_cn + '_raw'
+        
+        mstore = QgsMapLayerStore()
+        #=======================================================================
+        # #retrieve
+        #=======================================================================
+        if finv_vlay is None: 
+            finv_vlay = self.get_finv_clean(idfn=idfn, logger=log)
+            
+        log.info('on \' %s\' w/ %i feats'%(finv_vlay.name(), finv_vlay.dataProvider().featureCount()))
+        
+        #=======================================================================
+        # get area from features
+        #=======================================================================
+        vlay1 = self.addgeometry(finv_vlay, logger=log)
+        mstore.addMapLayer(vlay1)
+        
+        #retrieve
+        df1 = vlay_get_fdf(vlay1)
+ 
+        rser = df1.set_index(idfn)['area'].rename(rcoln)
+        
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert rser.min()>10
+        assert rser.max()<1e6
+        assert rser.notna().all()
+        
+        #=======================================================================
+        # wrap4
+        #=======================================================================
+        mstore.removeAllMapLayers()
+        
+        log.debug('finished on %i'%len(rser))
+        
+        return rser.sort_index()
+        
+        
+        
+        
+            
+            
+        
+        
+    def get_tvals_aSplit(self,
+                  #data                  
+                  tvals_raw_serx=None,
+                  finv_vlay=None, 
+                  finv_agg_d=None,
+                  
+                  #gen
+                  overwrite=None, idfn=None,                   
+                  write=False, #just for debugging (will crash tests)
+                  logger=None,
+                  ):
+        """
+        weights the true (raw) tvals coming from raw footprints
+            by the area of each footprint within an aggregated cell
+            
+        for grids:
+            often part of a footprint falls somewhere without a grid cell
+                (we clean by centroid intersect to maintain the 1:m relation of true:agg)
+                more relevant for small grids
+        """
+ 
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('get_tvals_aSplit')
         gcn = self.gcn
         if overwrite is None: overwrite = self.overwrite
         

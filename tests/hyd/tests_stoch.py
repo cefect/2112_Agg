@@ -83,12 +83,7 @@ def testS_04tvals_raw(modelstoch,true_dir, base_dir, write,
                                             normed=normed,
                                             mindex =finv_agg_mindex, write=write)
     
-    #data checks
-    assert_index_equal(finv_agg_mindex, tvals_raw_dx.index)
-    
  
-    if normed:
-        assert (tvals_raw_dx.groupby(level='studyArea').sum().round(3)==norm_scale).all().all()
     #===========================================================================
     # retrieve true
     #===========================================================================
