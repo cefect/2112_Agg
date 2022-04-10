@@ -625,14 +625,13 @@ class Model(agSession):  # single model run
                 
             if proj_lib is None:
 
-                if hasattr(self, 'session'): #modelStoch
+                if not self.session is None:
                     proj_lib=self.session.proj_lib
                     
-                elif hasattr(self, 'proj_lib'): #test_model (all instances shoul dhave this attribute ... may be empty)
+                else: #test_model (all instances shoul dhave this attribute ... may be empty)
                     proj_lib=self.proj_lib
                     
-                else:
-                    raise Error('no proj_lib found')
+ 
                 
                 assert len(proj_lib)>0, 'failed to get any proj_lib'
                 
