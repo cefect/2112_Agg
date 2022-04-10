@@ -554,7 +554,8 @@ class Model(HydSession, QSession):  # single model run
         # check
         #=======================================================================
         for studyArea, vlay in finv_agg_d.items():
-            assert vlay.wkbType()==3, 'requiring singleParts'
+            """relaxing this
+            assert vlay.wkbType()==3, 'requiring singleParts'"""
             assert 'Polygon' in QgsWkbTypes().displayString(vlay.wkbType())
         
         #=======================================================================
@@ -1799,21 +1800,33 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         else:
             vlay1 = finv_vlay_raw
             
-        if not vlay1.wkbType()==3:
-            vlay2 = self.multiparttosingleparts(vlay1, logger=log)
-            mstore.addMapLayer(vlay1)
-        else:
-            vlay2=vlay1
+        
+            
+ 
+        
+        #=======================================================================
+        # check
+        #=======================================================================
+        finv_vlay = vlay1
+        
+        fnl = [f.name() for f in finv_vlay.fields()]
+        
+        """relaxing this
+        assert finv_vlay.wkbType()==3, 'got bad type on %s'%finv_vlay_raw.name()"""
+        assert len(fnl) == 1
+        assert idfn in fnl
+        
+        #check keys
+        chk_ser = pd.Series(vlay_get_fdata(finv_vlay, idfn))
+        
+        bx = chk_ser.duplicated()
+        if bx.any():
+            raise Error('%s got %i/%i duplicated id vals:\n    %s'%(
+                finv_vlay_raw.name(), bx.sum(), len(bx), chk_ser.loc[bx]))
         
         #=======================================================================
         # wrap
         #=======================================================================
-        finv_vlay = vlay2
-        
-        fnl = [f.name() for f in finv_vlay.fields()]
-        assert len(fnl) == 1
-        assert idfn in fnl
-        
         finv_vlay.setName('%s_clean' % finv_vlay_raw.name())
         log.debug('finished on %s' % finv_vlay.name())
         mstore.removeAllMapLayers()
@@ -1833,7 +1846,19 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         df = vlay_get_fdf(finv_vlay)
         df[gcn] = df[idfn]
         
-        return df.set_index(idfn), finv_vlay1
+        
+        finv_gkey_df = df.set_index(idfn)
+        
+        bx = finv_gkey_df.index.duplicated()
+        if bx.any():
+            raise Error('%s got %i/%i duplicated id vals:\n    %s'%(
+                self.name, bx.sum(), len(bx), finv_gkey_df.loc[bx, :]))
+        
+        assert finv_gkey_df.index.is_unique
+        assert finv_gkey_df[gcn].is_unique
+        
+        
+        return finv_gkey_df, finv_vlay1
         
     def get_finv_gridPoly(self,  # get a set of polygon grid finvs (for each grid_size)
                   
