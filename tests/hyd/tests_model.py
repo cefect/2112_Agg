@@ -269,8 +269,52 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
                 
         elif dkey=='finv_agg_mindex':
             assert_frame_equal(test.to_frame(), true.to_frame())
-
+            
+            
 @pytest.mark.dev
+@pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
+@pytest.mark.parametrize('normed', [True, False])
+@pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
+def test_tvals_raw(session,true_dir, base_dir, write, 
+               finv_agg_fn, tval_type, normed):
+    norm_scale=1.0
+    dkey='tvals_raw'
+ 
+    #===========================================================================
+    # load inputs   
+    #===========================================================================
+ 
+    
+    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
+    
+    #===========================================================================
+    # execute
+    #===========================================================================
+    
+    finv_true_serx = session.build_tvals_raw(dkey=dkey, 
+                                            norm_scale=norm_scale,
+                                            tval_type=tval_type, 
+                                            normed=normed,
+                                            mindex =finv_agg_mindex, write=write)
+    
+    #data checks
+    assert_index_equal(finv_agg_mindex, finv_true_serx.index)
+    
+ 
+    if normed:
+        assert (finv_true_serx.groupby(level='studyArea').sum().round(3)==norm_scale).all()
+    #===========================================================================
+    # retrieve true
+    #===========================================================================
+    true_fp = search_fp(true_dir, '.pickle', dkey) #find the data file.
+    true = retrieve_data(dkey, true_fp, session)
+    
+    #===========================================================================
+    # compare
+    #===========================================================================
+    assert_series_equal(finv_true_serx, true)
+
+#@pytest.mark.dev
 @pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('finv_agg_fn, dscale_meth',[
@@ -278,7 +322,8 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
                                         #['test_finv_agg_none_None_0', 'none'],
                                         ['test_finv_agg_gridded_50_0', 'area_split'], 
                                         ], indirect=False)  #see test_finv_agg
-def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, tval_type, normed, dscale_meth):
+def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, 
+               tval_type, normed, dscale_meth):
     norm_scale=1.0
     dkey='tvals'
  
@@ -295,7 +340,7 @@ def test_tvals(session,finv_agg_fn, true_dir, base_dir, write, tval_type, normed
     
     finv_agg_serx = session.build_tvals(dkey=dkey, norm_scale=norm_scale,
                                     tval_type=tval_type, normed=normed, dscale_meth=dscale_meth,
-                            #finv_agg_d=finv_agg_d,
+                            finv_agg_d=finv_agg_d,
                              mindex =finv_agg_mindex, write=write)
     
     #data checks

@@ -534,8 +534,12 @@ class Model(agSession):  # single model run
                     dkey = 'tvals',
                     #data
                     mindex=None,
-                    finv_raw_serx=None,                    
+                    finv_raw_serx=None,
+                    
+                    #for area_split                    
                     finv_agg_d=None,
+                    proj_lib=None,
+                    
                     
                     dscale_meth='centroid',
                     tval_type='uniform',
@@ -585,13 +589,24 @@ class Model(agSession):  # single model run
             
         elif dscale_meth == 'area_split':
             """this is tricky as we are usually executting a child run at this point"""
+            
+            #retreives
             if finv_agg_d is None:
                 assert 'finv_agg_d' in self.data_d, 'problem with cascade... check ModelStoch.build_tvals()'
                 finv_agg_d = self.retrieve('finv_agg_d')
                 
+            if proj_lib is None:
+                if hasattr(self, 'proj_lib'): #test runs
+                    proj_lib=self.proj_lib
+                elif hasattr(self, 'session'): #modelStoch
+                    proj_lib=self.session.proj_lib
+                else:
+                    raise Error('no proj_lib found')
+                
+            #call for each study area
             d = self.sa_get(meth='get_tvals_aSplit', write=False, dkey=dkey, 
                                         finv_raw_serx=finv_raw_serx, finv_agg_d=finv_agg_d,
-                                        proj_lib=self.session.proj_lib,
+                                        proj_lib=proj_lib,
                                         **kwargs)
             
             finv_agg_serx = pd.concat(d, names=finv_raw_serx.index.names[0:2])
