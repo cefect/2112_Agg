@@ -56,9 +56,12 @@ def modelstoch(tmp_path,
         
 @pytest.mark.dev
 @pytest.mark.parametrize('tval_type',['rand'], indirect=False) #uniform is somewhat silly here. see tests_model
-@pytest.mark.parametrize('finv_agg_fn, dscale_meth',[['test_finv_agg_gridded_50_0', 'centroid'], ['test_finv_agg_none_None_0', 'none']], indirect=False)  #see test_finv_agg
+@pytest.mark.parametrize('finv_agg_fn, dscale_meth',[
+    ['test_finv_agg_gridded_50_0', 'centroid'], 
+    ['test_finv_agg_none_None_0', 'none']])  #see test_finv_agg
 @pytest.mark.parametrize('normed', [True, False])
 def testS_tvals(modelstoch,tval_type, finv_agg_fn, true_dir, base_dir, write, normed, dscale_meth):
+    """leaving tvals_raw and tvals combined"""
     
     #===========================================================================
     # load inputs   
@@ -66,8 +69,12 @@ def testS_tvals(modelstoch,tval_type, finv_agg_fn, true_dir, base_dir, write, no
     finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, modelstoch, base_dir)
     
     #===========================================================================
-    # execute
+    # execute tvals raw
     #===========================================================================
+    dkey = 'tvals_raw'
+    
+    
+    
     dkey='tvals'
     tv_dx = modelstoch.build_tvals(dkey=dkey, 
                                    tval_type=tval_type, normed=normed, dscale_meth=dscale_meth,

@@ -200,6 +200,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #data
         #=======================================================================
+        studyArea_l = None, #convenience filtering of proj_lib
         proj_lib =     {
             'obwb':{
                   'EPSG': 2955, 
@@ -312,6 +313,15 @@ def run( #run a basic model configuration
     """these overrides are an artifact of having overly flexible parameters"""
     if tval_type=='uniform':
         iters=1
+        
+    #===========================================================================
+    # study area filtering
+    #===========================================================================
+    if not studyArea_l is None:
+        print('filtering studyarea to %i: %s'%(len(studyArea_l), studyArea_l))
+        miss_l = set(studyArea_l).difference(proj_lib.keys())
+        assert len(miss_l)==0, 'passed %i studyAreas not in proj_lib: %s'%(len(miss_l), miss_l)
+        proj_lib = {k:v for k,v in proj_lib.items() if k in studyArea_l}
     #===========================================================================
     # execute
     #===========================================================================
@@ -388,9 +398,15 @@ def dev():
 if __name__ == "__main__": 
  
  
-    output=run_auto_dev(modelID=4, write=False,
+    output=run_auto_dev(modelID=11, write=True,
                         compiled_fp_d={ 
-                            }
+            'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a0_rand\20220410\working\finv_agg_d_hyd4_dev_a0_rand_0410.pickle',
+        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a0_rand\20220410\working\finv_agg_mindex_hyd4_dev_a0_rand_0410.pickle',
+        'tvals_raw':r'C:\LS\10_OUT\2112_Agg\outs\hyd4_dev\a0_rand\20220410\working\tvals_raw_hyd4_dev_a0_rand_0410.pickle',
+
+
+                            },
+                        studyArea_l = ['obwb'],
                         )
     #output=dev()
  

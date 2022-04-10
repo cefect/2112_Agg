@@ -74,23 +74,23 @@ class Model(agSession):  # single model run
     
     #supported parameter values
     pars_lib = {
-        'tval_type':{'vals':['uniform', 'rand'],                        'dkey':'tvals'},
+
+        'aggType':{'vals':['none', 'gridded', 'convexHulls'],            'dkey':'finv_agg_d'},
+        'aggLevel':{'vals':[0, 5,10, 20, 40, 50, 100, 200],              'dkey':'finv_agg_d'},
+        'sgType':{'vals':['centroids', 'poly'],                         'dkey':'finv_sg_d'},
+        
+        'tval_type':{'vals':['uniform', 'rand', 'footprintArea'],        'dkey':'tvals_raw'},
         'dscale_meth':{'vals':['centroid', 'none', 'area_split'],       'dkey':'tvals'},
         
-        'aggType':{'vals':['none', 'gridded', 'convexHulls'],            'dkey':'finv_agg_d'},
-        'aggLevel':{'vals':[0, 5,10, 20, 40, 50, 100, 200],                           'dkey':'finv_agg_d'},
-        'sgType':{'vals':['centroids', 'poly'],                         'dkey':'finv_sg_d'},
-
-        
-        'severity':{'vals':['hi', 'lo'],                            'dkey':'drlay_d'},
-        'resolution':{'vals':[5, 50, 100, 200],                     'dkey':'drlay_d'},
+        'severity':{'vals':['hi', 'lo'],                                'dkey':'drlay_d'},
+        'resolution':{'vals':[5, 50, 100, 200],                         'dkey':'drlay_d'},
         'downSampling':{'vals':['none','Average', 'Mode', 'Nearest neighbour'],                    'dkey':'drlay_d'},
-        'dsampStage':{'vals':['none', 'wse', 'depth'],             'dkey':'drlay_d'},
+        'dsampStage':{'vals':['none', 'wse', 'depth'],                  'dkey':'drlay_d'},
         
-        'samp_method':{'vals':['points', 'zonal', 'true_mean'],     'dkey':'rsamps'},
+        'samp_method':{'vals':['points', 'zonal', 'true_mean'],         'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum', 'Mode', 'none'], 'dkey':'rsamps'},
                 
-        'vid':{'vals':[49, 798,811, 0],                             'dkey':'vfunc'},
+        'vid':{'vals':[49, 798,811, 0],                                 'dkey':'vfunc'},
 
 
         }
@@ -457,30 +457,41 @@ class Model(agSession):  # single model run
         
     def build_tvals_raw(self,  # get the total values on each asset
                     dkey=None,
-                    prec=2,
+                    
+                    #data
+                    #finv_agg_d=None, #for consistency?
+                    mindex=None,
+                    
+                    #parameters
                     tval_type='uniform',  # type for total values
+                    
+                    #parameters (default)
+                    prec=2,
                     normed=True, #normalize per-studArea
                     norm_scale=1e2, #norm scalar
                         #for very big study areas we scale things up to avoid dangerously low values
-                    #finv_agg_d=None, #for consistency?
-                    mindex=None,
-                    write=None,
+
+                    write=None, logger=None,
                     ):
         
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_tvals_raw')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_tvals_raw')
         assert dkey == 'tvals_raw'
         if prec is None: prec = self.prec
         if write is None: write=self.write
  
         scale_cn = self.scale_cn
         
-
+        #=======================================================================
+        # retrieve
+        #=======================================================================
         if mindex is None: 
             mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
  
+        log.info('on %i w/ tval_type=%s'%(len(mindex), tval_type))
         #=======================================================================
         # get trues
         #=======================================================================
@@ -533,18 +544,19 @@ class Model(agSession):  # single model run
     def build_tvals(self, #downscaling raw asset values onto the aggregated inventory
                     dkey = 'tvals',
                     #data
-                    mindex=None,
-                    finv_raw_serx=None,
+                    #mindex=None, 
+                    tvals_raw_serx=None,
                     
-                    #for area_split                    
+                    #data (for area_split)                    
                     finv_agg_d=None,
                     proj_lib=None,
                     
-                    
+                    #parameterse
                     dscale_meth='centroid',
-                    tval_type='uniform',
-                    write=None,
-                    **kwargs):
+ 
+                    
+                    #parameters (defualt)
+                    write=None,logger=None,**kwargs):
         """Warnning: usually called by
             ModelStoc.build_tvals()
                 ModelStoch.model_retrieve() #starts a new Model instance
@@ -554,20 +566,33 @@ class Model(agSession):  # single model run
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('build_tvals')
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_tvals')
         if write is None: write=self.write
+        rcoln = self.scale_cn
+        gcn = self.gcn
         assert dkey == 'tvals'
         
-        if mindex is None: 
-            mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
+        #=======================================================================
+        # if mindex is None: 
+        #     mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
+        #=======================================================================
             
         #generate asset values on the raw
-        if finv_raw_serx is None:
-            finv_raw_serx = self.retrieve('tvals_raw', mindex=mindex,tval_type=tval_type)
+        if tvals_raw_serx is None:
+            assert self.session is None, 'need to pass this explicitly for nested runs'
+            """changed this to be indenpendent of build_tvals"""
+            tvals_raw_serx = self.retrieve('tvals_raw')
+        
+        mindex = tvals_raw_serx.index
         
         #=======================================================================
-        # check if we are already a true finv
+        # check 
         #=======================================================================
+        self.check_mindex(mindex)
+        
+        assert isinstance(tvals_raw_serx, pd.Series)
+        #if we are already a true finv
         if np.array_equal(mindex.get_level_values(1).values,mindex.get_level_values(2).values):
             assert dscale_meth=='none', 'finv is already aggregated'
             
@@ -575,17 +600,18 @@ class Model(agSession):  # single model run
         #=======================================================================
         # aggregate trues
         #=======================================================================
+        log.info('on %i w/ dscale_meth=%s'%(len(tvals_raw_serx), dscale_meth))
         if dscale_meth == 'centroid':
             """because the finv_agg_mindex is generated using the centroid intersect
                 see StudyArea.get_finv_gridPoly
                 se can do a simple groupby to perform this type of downscaling"""
-            finv_agg_serx = finv_raw_serx.groupby(level=mindex.names[0:2]).sum()
+            finv_agg_serx = tvals_raw_serx.groupby(level=mindex.names[0:2]).sum()
             
         #no aggregation: base runs
         elif dscale_meth=='none': 
             """this should return the same result as the above groupby on 1:1"""
-            finv_agg_serx = finv_raw_serx.droplevel(2)
- 
+            finv_agg_serx = tvals_raw_serx.droplevel(2).rename(rcoln)
+
             
         elif dscale_meth == 'area_split':
             """this is tricky as we are usually executting a child run at this point"""
@@ -605,20 +631,30 @@ class Model(agSession):  # single model run
                 
             #call for each study area
             d = self.sa_get(meth='get_tvals_aSplit', write=False, dkey=dkey, 
-                                        finv_raw_serx=finv_raw_serx, finv_agg_d=finv_agg_d,
+                                        finv_raw_serx=tvals_raw_serx, finv_agg_d=finv_agg_d,
                                         proj_lib=proj_lib,
                                         **kwargs)
             
-            finv_agg_serx = pd.concat(d, names=finv_raw_serx.index.names[0:2])
+            finv_agg_serx = pd.concat(d, names=tvals_raw_serx.index.names[0:2])
             
  
         else:
             raise Error('unrecognized dscale_meth=%s'%dscale_meth)
         
         #=======================================================================
+        # checks
+        #=======================================================================
+        assert finv_agg_serx.name==rcoln
+        
+        #collapsed gid index
+        chk_index = pd.MultiIndex.from_frame(mindex.droplevel(2).to_frame().reset_index(drop=True).drop_duplicates(gcn))  
+           
+        assert np.array_equal(finv_agg_serx.index, chk_index)
+        #=======================================================================
         # wrap
         #=======================================================================
         if write:
+            """usually false... written by modelStoch"""
             self.ofp_d[dkey] = self.write_pick(finv_agg_serx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
@@ -2640,27 +2676,36 @@ class ModelStoch(Model):
         log.info('updated catalog %s'%catalog_fp)
         
         return catalog_fp
-        
-    def build_tvals(self, #stochastic calculation of tvals
+    
+    def build_tvals_raw(self, #stochastic calculation of tvals
                     dkey='tvals',
                     mindex=None, 
-                    finv_agg_d=None,
+                    #finv_agg_d=None,
                     tval_type='rand',  # type for total values
                     iters=None, write=None,
+                    logger=None,
                     **kwargs): 
         
         #=======================================================================
         # defaults
         #=======================================================================
         if write is None: write=self.write
-        log=self.logger.getChild('build_tvals')
+        if logger is None: logger=self.logger
+        log=logger.getChild('build_tvals_rawS')
+        
+
+        if iters is None: iters=self.iters
+        
+        assert dkey=='tvals_raw'
+        
+        #=======================================================================
+        # retrieve
+        #=======================================================================
         if mindex is None: 
             mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
         
-        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d')
-        if iters is None: iters=self.iters
+        #if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d')
         
-        assert dkey=='tvals'
         #=======================================================================
         # setup pars
         #=======================================================================
@@ -2670,14 +2715,111 @@ class ModelStoch(Model):
         #=======================================================================
         # execute children
         #=======================================================================
+        log.info('on %i w/ iters=%i'%(len(mindex), iters))
         res_d = self.model_retrieve(dkey, tval_type=tval_type,
                                mindex=mindex,iters=iters,
-                               finv_agg_d=finv_agg_d, 
+                               #finv_agg_d=finv_agg_d, 
                                logger=log, **kwargs)
         
         #=======================================================================
         # assemble and collapse
         #=======================================================================
+        dxind = pd.concat(res_d, axis=1)
+        
+        dx = pd.concat({dkey:dxind},axis=1, names=['dkey', 'iter'])
+        
+        #=======================================================================
+        # write lyaer 
+        #=======================================================================
+        """todo?"""
+ 
+
+        
+        #=======================================================================
+        # write pick
+        #=======================================================================
+        log.info('finished w/ %s'%str(dx.shape))
+        if write:
+            self.ofp_d[dkey] = self.write_pick(dx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+            
+        return dx
+        
+    def build_tvals(self, #stochastic calculation of tvals
+                    dkey='tvals',
+                    
+                    #data
+                    mindex=None, 
+                    finv_agg_d=None,
+                    tvals_raw_serx = None,
+                    
+                    #parameters
+                    tval_type='rand',  # type for total values
+                    
+                    #pars (default)
+                    iters=None, write=None,logger=None,
+                    **kwargs): 
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if write is None: write=self.write
+        if logger is None: logger=self.logger
+        log=logger.getChild('build_tvalsS')
+
+        assert dkey=='tvals'
+        if iters is None: iters=self.iters
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if finv_agg_d is None: 
+            finv_agg_d = self.retrieve('finv_agg_d')
+            
+            
+        if mindex is None: 
+            mindex = self.retrieve('finv_agg_mindex')  # studyArea, id : corresponding gid
+            
+        if tvals_raw_serx is None:
+            tvals_raw_serx = self.retrieve('tvals_raw')
+            
+        assert len(tvals_raw_serx.columns)==iters
+        assert np.array_equal(tvals_raw_serx.columns.unique('iter'), np.array(range(iters)))
+        
+        #split per iter
+        """beacuse each call of Model.build_tvals needs its respective tvals_raw"""
+        d = dict()
+        for i, gdx in tvals_raw_serx.groupby(level='iter', axis=1):
+            assert len(gdx.columns)==1
+            serx = gdx.droplevel('iter', axis=1).iloc[:,0]
+ 
+            assert isinstance(serx, pd.Series)
+            assert serx.name== 'tvals_raw'
+            d[i] = {'tvals_raw_serx':serx}
+        #=======================================================================
+        # setup pars
+        #=======================================================================
+        
+        if tval_type == 'uniform':
+            iters = 1
+ 
+        #=======================================================================
+        # execute children
+        #=======================================================================
+        log.info('on %i w/ iters=%i'%(len(mindex), iters))
+        res_d = self.model_retrieve(dkey, tval_type=tval_type,
+                               mindex=mindex,iters=iters,
+                               finv_agg_d=finv_agg_d,
+                               iter_kwargs =d,
+
+                               logger=log, **kwargs)
+        
+        #=======================================================================
+        # assemble and collapse
+        #=======================================================================
+        """
+        res_d.keys()
+        res_d[0].keys()"""
         dxind = pd.concat(res_d, axis=1)
         
         dx = pd.concat({dkey:dxind},axis=1, names=['dkey', 'iter'])
@@ -2705,20 +2847,32 @@ class ModelStoch(Model):
         
     
     def model_retrieve(self,
-                       dkey='tvals',  # method to run
+                       dkey=None,  # method to run
  
                        iters=None,
                        logger=None,
+                       iter_kwargs=None,
                        **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger = self.logger
-        log = logger.getChild('model_get')
+        log = logger.getChild('retM')
         if iters is None: iters=self.iters
  
+        if iter_kwargs is None: iter_kwargs = {i:dict() for i in range(iters)}
         
-        log.info('calling \'%s\' on %i' %(dkey, iters))
+        log.info('\n\ncalling \'%s\' on %i\n\n' %(dkey, iters))
+        
+        """
+        self.data_d.keys()
+        """
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        
+        assert len(iter_kwargs)==iters
+        assert np.array_equal(np.array(list(iter_kwargs.keys())), np.array(range(iters)))
  
         #=======================================================================
         # loop and load
@@ -2732,9 +2886,12 @@ class ModelStoch(Model):
             
             with Model(session=self, tag='%s_%i'%(self.tag, i),  **init_kwargs) as wrkr:
  
-                res_d[i] = wrkr.retrieve(dkey, write=False, **kwargs)
+                res_d[i] = wrkr.retrieve(dkey, write=False, logger=logger.getChild('%i'%i), 
+                                         **{**kwargs,**iter_kwargs[i]}, #combine function level with iteration kwargs
+                                          )
                 
- 
+                
+        log.info('finished \'%s\' w/ %i'%(dkey, len(res_d)))
         
         return res_d
     
