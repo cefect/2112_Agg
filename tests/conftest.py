@@ -12,7 +12,7 @@ import pytest
 #===============================================================================
 @pytest.fixture(scope='session')
 def write():
-    write=False
+    write=True
     if write:
         print('WARNING!!! runnig in write mode')
     return write
@@ -60,6 +60,13 @@ def true_dir(write, tmp_path, base_dir):
 #===============================================================================
 # helpers-------
 #===============================================================================
+def build_compileds(dkey_d, base_dir): 
+    d = dict()
+    for dkey, folder in dkey_d.items():
+        input_fp = search_fp(os.path.join(base_dir, folder), '.pickle', dkey) #find the data file.
+        d[dkey] = input_fp
+    return d
+
 def retrieve_finv_d(finv_agg_fn, session, base_dir):
     d= dict()
     for dkey in ['finv_agg_d', 'finv_agg_mindex']:

@@ -2739,6 +2739,7 @@ class ModelStoch(Model):
         #=======================================================================
         # assemble and collapse
         #=======================================================================
+
         dxind = pd.concat(res_d, axis=1)
         
         dx = pd.concat({dkey:dxind},axis=1, names=['dkey', 'iter'])

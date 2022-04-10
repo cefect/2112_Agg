@@ -30,7 +30,7 @@ from agg.hyd.scripts import Model as CalcSession
 from agg.hyd.scripts import StudyArea as CalcStudyArea
 from agg.hyd.scripts import vlay_get_fdf, RasterCalc
 
-from tests.conftest import retrieve_finv_d, retrieve_data, search_fp
+from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds
 #===============================================================================
 # fixtures-----
 #===============================================================================
@@ -271,7 +271,7 @@ def test_finv_agg(session, aggType, aggLevel, true_dir, write):
             assert_frame_equal(test.to_frame(), true.to_frame())
             
             
-
+@pytest.mark.dev
 @pytest.mark.parametrize('tval_type',['uniform'], indirect=False) #rand is silly here. see test_stoch also
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
@@ -283,10 +283,12 @@ def test_04tvals_raw(session,true_dir, base_dir, write,
     #===========================================================================
     # load inputs   
     #===========================================================================
- 
+    #set the compiled references    
+    session.compiled_fp_d = build_compileds({'finv_agg_mindex':finv_agg_fn},
+                                            base_dir)
     
-    finv_agg_d, finv_agg_mindex = retrieve_finv_d(finv_agg_fn, session, base_dir)
-    
+    finv_agg_mindex = session.retrieve('finv_agg_mindex')
+
     #===========================================================================
     # execute
     #===========================================================================
@@ -492,7 +494,7 @@ def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, wd_
     #===========================================================================
     assert_series_equal(rsamps_serx, true)
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
 @pytest.mark.parametrize('vid', [49, 798,811, 0])
@@ -572,12 +574,7 @@ def test_tloss(session, base_dir, rloss_fn):
 #===============================================================================
 # helpers-----------
 #===============================================================================
-def build_compileds(dkey_d, base_dir): 
-    d = dict()
-    for dkey, folder in dkey_d.items():
-        input_fp = search_fp(os.path.join(base_dir, folder), '.pickle', dkey) #find the data file.
-        d[dkey] = input_fp
-    return d
+
 
 def check_layer_d(d1, d2, #two containers of layers
                    test_data=True, #check vlay attributes
