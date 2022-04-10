@@ -97,7 +97,7 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
         #=======================================================================
         # totality is unique
         bx = mindex.to_frame().duplicated()
-        assert not bx.any(), 'got %i/%i dumplicated index entries on %i levels \n    %s' % (
+        assert not bx.any(), 'got %i/%i duplicated index entries on %i levels \n    %s' % (
             bx.sum(), len(bx), len(names_d), names_d)
         
         return True, ''
@@ -116,8 +116,8 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
             """not working for some reason"""
             mindex_short = mindex_short.copy().sort_values()
             
-        assert_func(lambda: self.check_mindex(mindex), 'left')
-        assert_func(lambda: self.check_mindex(mindex_short), 'right')
+        assert_func(lambda: self.check_mindex(mindex), msg='left')
+        assert_func(lambda: self.check_mindex(mindex_short), msg='right')
  
         
         
@@ -554,6 +554,7 @@ class Model(HydSession, QSession):  # single model run
         # check
         #=======================================================================
         for studyArea, vlay in finv_agg_d.items():
+            assert vlay.wkbType()==3, 'requiring singleParts'
             assert 'Polygon' in QgsWkbTypes().displayString(vlay.wkbType())
         
         #=======================================================================
@@ -587,6 +588,7 @@ class Model(HydSession, QSession):  # single model run
         """re-extracting indexes from layers"""
         d = dict()
         for studyArea, finv_vlay in finv_agg_d.items():
+            
             df = vlay_get_fdf(finv_vlay)
             assert len(df.columns)==1
             
@@ -809,12 +811,16 @@ class Model(HydSession, QSession):  # single model run
             """because the finv_agg_mindex is generated using the centroid intersect
                 see StudyArea.get_finv_gridPoly
                 se can do a simple groupby to perform this type of downscaling"""
+            
+                
             finv_agg_serx = tvals_raw_serx.groupby(level=mindex.names[0:2]).sum().rename(rcoln)
             
         #no aggregation: base runs
         elif dscale_meth=='none': 
             """this should return the same result as the above groupby on 1:1"""
             finv_agg_serx = tvals_raw_serx.droplevel(2).rename(rcoln)
+            
+            assert len(mindex.unique(gcn)) == len(mindex.unique('id')), 'passed dscale_meth=none on an index that needs downscaling'
 
             
         elif dscale_meth == 'area_split':
@@ -855,9 +861,12 @@ class Model(HydSession, QSession):  # single model run
         assert finv_agg_serx.name==rcoln, 'bad name on result: %s'%finv_agg_serx.name
         
         #collapsed gid index
-        chk_index = pd.MultiIndex.from_frame(mindex.droplevel(2).to_frame().reset_index(drop=True).drop_duplicates([gcn, 'studyArea']))  
-           
-        assert np.array_equal(finv_agg_serx.index, chk_index)
+        assert_func(lambda: self.check_mindex_match(mindex, finv_agg_serx.index), msg='tvals')
+        #=======================================================================
+        # chk_index = pd.MultiIndex.from_frame(mindex.droplevel(2).to_frame().reset_index(drop=True).drop_duplicates([gcn, 'studyArea']))  
+        #    
+        # assert np.array_equal(finv_agg_serx.index, chk_index)
+        #=======================================================================
         #=======================================================================
         # wrap
         #=======================================================================
@@ -2053,16 +2062,16 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                             allow_miss=False, #should have no orphaned hulls... occasionally were still getting some
                             )
         
-        
+        vlay4 = self.multiparttosingleparts(vlay3, logger=log)
         #=======================================================================
         # wrap
         #=======================================================================
-        vlay3.setName('finv_cvh_%i_%s' % (aggLevel, self.longname.replace('_', '')))
+        vlay4.setName('finv_cvh_%i_%s' % (aggLevel, self.longname.replace('_', '')))
         
         mstore.removeAllMapLayers()
         
         
-        return finv_gkey_df, vlay3
+        return finv_gkey_df, vlay4
             
         
         
