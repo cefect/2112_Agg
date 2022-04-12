@@ -170,7 +170,8 @@ def check_layer_d(d1, d2, #two containers of layers
             
             #data checks
             if test_data:
-                true_df, test_df = vlay_get_fdf(vtrue), vlay_get_fdf(vtest)
+                true_df = vlay_get_fdf(vtrue).drop('fid', axis=1, errors='ignore')
+                test_df = vlay_get_fdf(vtest) #.drop('fid', axis=1, errors='ignore'), 
                 
                 if ignore_fid:
                     true_df = true_df.sort_values(true_df.columns[0],  ignore_index=True) #sort by first column and reset index

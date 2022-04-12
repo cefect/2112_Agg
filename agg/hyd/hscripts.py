@@ -1391,11 +1391,11 @@ class Model(HydSession, QSession):  # single model run
             if ext in ['.gpkg', '.geojson']:
             
                 lay_d[studyArea] = self.vlay_load(fp, logger=log, 
-                                               set_proj_crs=False, #these usually have different crs's
+                                               #set_proj_crs=False, #these usually have different crs's
                                                        **kwargs)
             elif ext in ['.tif']:
                 lay_d[studyArea] = self.rlay_load(fp, logger=log, 
-                                               set_proj_crs=False, #these usually have different crs's
+                                               #set_proj_crs=False, #these usually have different crs's
                                                        **kwargs)
             else:
                 raise Error('unrecognized filetype: %s'%ext)

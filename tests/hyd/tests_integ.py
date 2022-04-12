@@ -8,6 +8,7 @@ integration test for hyd.model
 import os, tempfile, datetime, shutil
 import pytest
 import numpy as np
+import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal, assert_index_equal
 #===============================================================================
 # QGJIS imports
@@ -140,7 +141,12 @@ def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir, session):
         elif dkey in ['finv_agg_mindex']:
             assert_frame_equal(testData.to_frame(), trueData.to_frame())
         elif dkey in ['tvals_raw', 'tvals', 'rsamps', 'rloss', 'tloss']:
-            assert_series_equal(testData, trueData)
+            if isinstance(testData, pd.Series):
+                assert_series_equal(testData, trueData)
+            elif isinstance(testData, pd.DataFrame):
+                assert_frame_equal(testData, trueData)
+            else:
+                raise TypeError('unexpected type on %s: %s'%(dkey, type(testData)))
         else:
             raise IOError(dkey)
             
