@@ -434,7 +434,8 @@ def r5():
         tag='r5',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd5\model_run_index.csv',
         compiled_fp_d = {
- 
+         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\outs_analy_r5_0412.pickle',
+        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\agg_mindex_analy_r5_0412.pickle',
             },
         )
  

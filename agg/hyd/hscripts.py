@@ -65,6 +65,26 @@ def get_all_pars(): #generate a matrix of all possible parameter combinations
 class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
     gcn = 'gid'
     scale_cn = 'tvals'
+    idn = 'modelID'
+    
+    def __init__(self, **kwargs):
+        
+        super().__init__( 
+                         **kwargs)
+        
+        # checking container
+        self.mindex_dtypes = {
+                 'studyArea':np.dtype('object'),
+                 'id':np.dtype('int64'),
+                 self.gcn:np.dtype('int64'),  # both ids are valid
+                 'grid_size':np.dtype('int64'),
+                 'event':np.dtype('O'),
+                 self.scale_cn:np.dtype('int64'),
+                 self.idn:np.dtype('int64'),
+                 'tag':np.dtype('object')
+                         }
+        
+
     
     def check_mindex(self,  # check names and types
                      mindex,
@@ -330,15 +350,7 @@ class Model(HydSession, QSession):  # single model run
         self.trim = trim
  
         
-        # checking container
-        self.mindex_dtypes = {
-                 'studyArea':np.dtype('object'),
-                 'id':np.dtype('int64'),
-                 self.gcn:np.dtype('int64'),  # both ids are valid
-                 'grid_size':np.dtype('int64'),
-                 'event':np.dtype('O'),
-                 self.scale_cn:np.dtype('int64'),
-                         }
+
         
  
 

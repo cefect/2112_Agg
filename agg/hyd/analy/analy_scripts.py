@@ -58,7 +58,7 @@ def get_ax(
  
 class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     
-    idn = 'modelID'
+    
     
     #colormap per data type
     colorMap_d = {
@@ -403,7 +403,12 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # check
         #=======================================================================
-        assert_func(lambda: self._check_mindex_raw(agg_mindex, dx_raw=dx_raw), 'agg_mindex')
+        #clean out extra index levels for checking
+        l = set(dx_raw.index.names).difference(agg_mindex.names)
+        chk_mindex = dx_raw.index.droplevel(list(l))
+        
+        
+        assert_func(lambda: self.check_mindex_match_cats(agg_mindex,chk_mindex, glvls = [self.idn, 'studyArea']), 'agg_mindex')
         assert baseID in dx_raw.index.unique(idn)
         
         miss_l = set(dx_raw.index.unique(idn)).symmetric_difference(agg_mindex.unique(idn))
