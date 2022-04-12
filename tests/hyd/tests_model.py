@@ -30,7 +30,7 @@ from agg.hyd.hscripts import Model as CalcSession
 from agg.hyd.hscripts import StudyArea as CalcStudyArea
 from agg.hyd.hscripts import vlay_get_fdf, RasterCalc
 
-from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds
+from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds, proj_lib
 #===============================================================================
 # fixtures-----
 #===============================================================================
@@ -49,23 +49,7 @@ def df_d():
 def session(tmp_path,
             #wrk_base_dir=None, 
             base_dir, write,logger, feedback,#see conftest.py (scope=session)
-            proj_lib =     {
-                    #===========================================================
-                    # 'point':{
-                    #       'EPSG': 2955, 
-                    #      'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0218.geojson', 
-                    #      'dem': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\dem_obwb_test_0218.tif', 
-                    #      'wd_dir': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd',
-                    #      #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
-                    #         }, 
-                    #===========================================================
-                    'testSet1':{
-                          'EPSG': 2955, 
-                         'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
-                         #'wd_fp':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_rand_test_0304.tif',
 
-                            }, 
-                        },
                     ):
  
     np.random.seed(100)

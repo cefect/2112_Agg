@@ -6,7 +6,7 @@ Created on Mar. 25, 2022
 import os
 proj_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef'
 
-proj_lib =     {
+proj_lib =     { #studyArea data for hyd.runr
             'obwb':{
                   'EPSG': 2955, 
                  'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_aoi06_0410.gpkg', 
