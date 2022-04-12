@@ -303,7 +303,7 @@ def run( #run a basic model configuration
         # hazard vs asset resolution 
         #=======================================================================
         for plotName, mids in {
-            '798':list(range(9)),
+            #'798':list(range(9)),
             '811':list(range(34, 43))}.items():
  
             ses.plot_compare_mat(dkey='rloss', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='png',
