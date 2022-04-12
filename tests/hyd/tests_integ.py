@@ -112,6 +112,7 @@ def proj_lib(tmpdir_factory,   #assemble a proj_lib
 #===============================================================================
 
 #test the proj_lib
+"""this is done implicitly w/ test_02midRunr"""
 
 
 
