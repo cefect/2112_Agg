@@ -2512,7 +2512,12 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         df1['areaRatio'] = df1['area']/df1['area_raw']
         
-        assert (df1['areaRatio']<=1.0).all()
+        bx = df1['areaRatio']<=1.0
+        if not bx.all():
+            """some rounding error?"""
+            log.debug(df1.loc[~bx, :])
+            log.warning('got %i/%i areaRatios exceeding 1.0...forcing these to 1.0'%(np.invert(bx).sum(), len(bx)))
+            df1.loc[~bx, 'areaRatio'] = 0.999
         
         #=======================================================================
         # weight tvals
