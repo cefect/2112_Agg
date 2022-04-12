@@ -199,7 +199,10 @@ def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir,
 
 #test all runs configured in the modelPars.xls
 @pytest.mark.dev
-@pytest.mark.parametrize('modelID', list(range(31)))
+@pytest.mark.parametrize('modelID', 
+                         #list(range(31)),
+                         [29]
+                         )
 def test_02midRunr( write, tmp_path, logger, feedback, base_dir,
                     modelID):
     

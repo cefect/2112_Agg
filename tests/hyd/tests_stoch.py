@@ -54,7 +54,7 @@ def modelstoch(tmp_path,
 #===============================================================================
 # tests-------
 #===============================================================================
-@pytest.mark.dev
+
 @pytest.mark.parametrize('tval_type',['rand'], indirect=False) #see tests_model for other types
 @pytest.mark.parametrize('normed', [True, False])
 @pytest.mark.parametrize('finv_agg_fn',['test_finv_agg_gridded_50_0', 'test_finv_agg_none_None_0'], indirect=False)  #see test_finv_agg
@@ -95,7 +95,7 @@ def testS_04tvals_raw(modelstoch,true_dir, base_dir, write,
     #===========================================================================
     assert_frame_equal(tvals_raw_dx, true)
         
-
+ 
 @pytest.mark.parametrize('finv_agg_fn, dscale_meth, tvals_raw',[ #have to combine finv_agg with correct tvals_raw output
         ['test_finv_agg_gridded_50_0', 'centroid',              'testS_04tvals_raw_test_finv_ag0'], 
         ['test_finv_agg_none_None_0', 'none',                   'testS_04tvals_raw_test_finv_ag2'],

@@ -661,6 +661,12 @@ class Model(HydSession, QSession):  # single model run
 
                     write=None, logger=None,
                     **kwargs):
+        """Warnning: usually called by
+            ModelStoc.build_tvals_raw()
+                ModelStoch.model_retrieve() #starts a new Model instance
+                    
+                    Model.build_tvals_raw()
+                    """
         
         #=======================================================================
         # defaults
@@ -756,7 +762,7 @@ class Model(HydSession, QSession):  # single model run
                     
                     #data (for area_split)                    
                     finv_agg_d=None,
-                    proj_lib=None,
+                    #proj_lib=None,
                     
                     #parameterse
                     dscale_meth='centroid',
@@ -832,22 +838,24 @@ class Model(HydSession, QSession):  # single model run
                 assert 'finv_agg_d' in self.data_d, 'problem with cascade... check ModelStoch.build_tvals()'
                 finv_agg_d = self.retrieve('finv_agg_d')
                 
-            if proj_lib is None:
-
-                if not self.session is None:
-                    proj_lib=self.session.proj_lib
-                    
-                else: #test_model (all instances shoul dhave this attribute ... may be empty)
-                    proj_lib=self.proj_lib
-                    
- 
-                
-                assert len(proj_lib)>0, 'failed to get any proj_lib'
+#===============================================================================
+#             if proj_lib is None:
+# 
+#                 if not self.session is None:
+#                     proj_lib=self.session.proj_lib
+#                     
+#                 else: #test_model (all instances shoul dhave this attribute ... may be empty)
+#                     proj_lib=self.proj_lib
+#                     
+#  
+#                 
+#                 assert len(proj_lib)>0, 'failed to get any proj_lib'
+#===============================================================================
                 
             #call for each study area
             d = self.sa_get(meth='get_tvals_aSplit', write=False, dkey=dkey, 
                                         tvals_raw_serx=tvals_raw_serx, finv_agg_d=finv_agg_d,
-                                        proj_lib=proj_lib,
+                                        #proj_lib=proj_lib,
                                         **kwargs)
             
             finv_agg_serx = pd.concat(d, names=tvals_raw_serx.index.names[0:2])
@@ -1558,7 +1566,8 @@ class Model(HydSession, QSession):  # single model run
         
         if proj_lib is None: 
             proj_lib = self.proj_lib
-        assert len(proj_lib)>0
+        if not len(proj_lib)>0:
+            raise Error('no proj_lib')
         
         log.info('on %i \n    %s' % (len(proj_lib), list(proj_lib.keys())))
         
@@ -3265,7 +3274,7 @@ class ModelStoch(Model):
         #=======================================================================
 
         init_kwargs = {k:getattr(self,k) for k in [
-            'name', 'prec', 'trim', 'out_dir', 'overwrite', 'temp_dir', 'bk_lib', 'write']}
+            'name', 'prec', 'trim', 'out_dir', 'overwrite', 'temp_dir', 'bk_lib', 'write', 'proj_lib']}
         res_d = dict()
         for i in range(iters):
             log.info('%i/%i' % (i + 1, iters))

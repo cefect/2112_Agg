@@ -280,7 +280,7 @@ def test_04tvals_raw(session,true_dir, base_dir, write,
     #===========================================================================
     assert_series_equal(finv_true_serx, true)
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('finv_agg_fn, dscale_meth, tvals_raw',[ #have to combine finv_agg with correct tvals_raw output
         ['test_finv_agg_gridded_50_0', 'centroid', 'test_04tvals_raw_test_finv_agg0'], 
         ['test_finv_agg_none_None_0', 'none', 'test_04tvals_raw_test_finv_agg4'],
