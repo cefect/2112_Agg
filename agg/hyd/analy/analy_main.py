@@ -208,26 +208,35 @@ def run( #run a basic model configuration
         #=======================================================================
         # tval_type vs. aggLevel (tvals)
         #=======================================================================
-        dscale_ids = [0,3,6,    #tval_type=uniform
-                      11,19,20, #tval_type=rand
-                      29,30,31, #tval_type=footprintArea
+        mids = [0,3,6,    #tval_type=uniform
+                11,19,20, #tval_type=rand  
+                29,30,31, #tval_type=footprintArea
+
                       ]
         
+        """no... there is no true value to compare to
         ses.plot_compare_mat(dkey='tvals', modelID_l=mids, plot_type='scatter',
                              plot_rown='tval_type', plot_coln='aggLevel', fmt='png',
-                             sharey='row', sharex='row')
+                             sharey='all', sharex='all')"""
                 
-        #=======================================================================
-        # ses.plot_dkey_mat(modelID_l=dscale_ids, dkey='tvals', plot_type='hist', xlims = (0,2))
-        # ses.plot_dkey_mat(modelID_l=dscale_ids, dkey='tvals', plot_type='box', xlims = (0,2))
-        #=======================================================================
+        ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_type='violin', 
+                          plot_rown='tval_type', plot_coln='aggLevel', plot_colr='aggLevel',
+                          sharey='all', sharex='all')
+        
+        """could also be nice to plot vs. polygon area?"""
         
         #=======================================================================
-        # true vals generation
+        # Asset Value Attribution
         #=======================================================================
-        mids = [0, 11]
-        #ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_coln='tval_type', plot_rown='studyArea', plot_type='box', add_label=False)
+        mids = [0,
+                3,6, #dscale_meth=centroid
+                27,28, #dscale_meth=area_split 
+                ]
         
+        
+        #=======================================================================
+        # Intersection-----------
+        #=======================================================================
         #=======================================================================
         # #intersection types (using g50)
         #=======================================================================
@@ -444,7 +453,9 @@ def r5():
         tag='r5',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd5\model_run_index.csv',
         compiled_fp_d = {
- 
+        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\outs_analy_r5_0412.pickle',
+        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\agg_mindex_analy_r5_0412.pickle',
+        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\trues_analy_r5_0412.pickle',
             },
         )
  

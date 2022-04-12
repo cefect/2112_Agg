@@ -68,7 +68,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'modelID':'Pastel1',
         'dsampStage':'Set1',
         'downSampling':'Set2',
-        'aggType':'Pastel2'
+        'aggType':'Pastel2',
+        'tval_type':'Set1'
         }
     
     def __init__(self,
@@ -1695,6 +1696,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #plot style
                     colorMap=None,
                     #ylabel=None,
+                    sharey='all', sharex='col',
                     
                     #histwargs
                     bins=20, rwidth=0.9, 
@@ -1740,7 +1742,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
                                     figsize_scaler=4,
                                     constrained_layout=True,
-                                    sharey='all', sharex='col',  # everything should b euniform
+                                    sharey=sharey, sharex=sharex,  # everything should b euniform
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
@@ -1828,6 +1830,38 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                             # transform=ax.transAxes, 
                             va='bottom', ha='center', fontsize=8)
                     
+            #===================================================================
+            # violin plot-----
+            #===================================================================
+            elif plot_type=='violin':
+
+                #===============================================================
+                # plot
+                #===============================================================
+                parts_d = ax.violinplot(data_d.values(),  
+                                       showmeans=True,
+                                       showextrema=True,  
+                                       )
+ 
+                #===============================================================
+                # color
+                #===============================================================
+                if len(data_d)>1:
+                    """nasty workaround for labelling"""                    
+                    labels = list(data_d.keys())
+                #ckey_d = {i:color_key for i,color_key in enumerate(labels)}
+ 
+ 
+                
+                #style fills
+                for i, pc in enumerate(parts_d['bodies']):
+                    pc.set_facecolor(color)
+                    pc.set_edgecolor(color)
+                    pc.set_alpha(0.5)
+                    
+                #style lines
+                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
+                    parts_d[partName].set(color='black', alpha=0.5)
             else:
                 raise Error(plot_type)
             
@@ -1872,13 +1906,17 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 if col_key == col_keys[0]:
                     if plot_type == 'hist':
                         ax.set_ylabel('count')
-                    elif plot_type=='box':
+                    elif plot_type in ['box', 'violin']:
                         ax.set_ylabel(dkey)
                 
                 #last row
                 if row_key == row_keys[-1]:
                     if plot_type == 'hist':
                         ax.set_xlabel(dkey)
+                    elif plot_type=='violin':
+                        
+                        ax.set_xticks(np.arange(1, len(labels) + 1))
+                        ax.set_xticklabels(labels)
                     #last col
                     if col_key == col_keys[-1]:
                         pass
@@ -2265,8 +2303,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 meta_d.update({ 
                     'min':gdata.min().min(), 'max':gdata.max().max(), 'mean':gdata.mean().mean(),
                           })
-                
- 
  
                 ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
                 
@@ -3542,11 +3578,31 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
 
     def prep_ranges(self, #for multi-simulations, compress each entry using the passed stats 
-                    qhi, qlo, drop_zeros, gdx0):
+                    qhi, qlo, drop_zeros, gdx_raw, logger=None):
+        if logger is None: logger=self.logger
+        log=logger.getChild('prep_ranges')
         #=======================================================================
         # check
         #=======================================================================
+        
+        assert not gdx_raw.isna().all(axis=1).any(), 'got some assets with all nulls'
+        
+        #=======================================================================
+        # #drop empty iters
+        #=======================================================================
+        bxcol = gdx_raw.isna().all(axis=0)
+        
+        if bxcol.any():
+ 
+            log.warning('got %i/%i empty iters....dropping'%(bxcol.sum(), len(bxcol)))
+            gdx0 = gdx_raw.loc[:,~bxcol]
+        else:
+            gdx0 = gdx_raw
+        
+        #check
         assert gdx0.notna().all().all()
+        
+        
         #===================================================================
         # prep data
         #===================================================================

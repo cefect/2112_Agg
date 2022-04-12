@@ -261,8 +261,9 @@ def run( #run a basic model configuration
     #===========================================================================
     # parameter logic override
     #===========================================================================
-    """these overrides are an artifact of having overly flexible parameters"""
-    if tval_type=='uniform':
+    """these overrides are an artifact of having overly flexible parameters
+    move to model_retrieve?"""
+    if not tval_type in ['rand']:
         iters=1
         
     #===========================================================================
