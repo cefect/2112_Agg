@@ -78,10 +78,11 @@ def wse_fp(studyAreaWrkr, tmp_path, extent):
     
 @pytest.fixture   
 def wd_rlay(session):
-        wd_fp = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_rand_test_0304.tif'
-        rlay = session.rlay_load(wd_fp)
-        session.mstore.addMapLayer(rlay)
-        return rlay
+    """todo: convert this to not depend on a file"""
+    wd_fp = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_rand_test_0304.tif'
+    rlay = session.rlay_load(wd_fp)
+    session.mstore.addMapLayer(rlay)
+    return rlay
     
 
 #===============================================================================
