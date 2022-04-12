@@ -115,31 +115,36 @@ def proj_lib(tmpdir_factory,   #assemble a proj_lib
 
 
 
-#test the main runr
+#test the main runr function
 @pytest.mark.parametrize('aggType, aggLevel, dscale_meth',[
     ['none',        0, 'none'], 
-     ['gridded',     3, 'centroid'], 
-     ['gridded',     3, 'area_split'], 
-     ['convexHulls', 3, 'centroid'],
-     ['convexHulls', 3, 'area_split'],
+      #['gridded',     3, 'centroid'], 
+      ['gridded',     3, 'area_split'], 
+       ['convexHulls', 3, 'centroid'],
+       #['convexHulls', 3, 'area_split'],
     ])  
 @pytest.mark.parametrize('sgType, samp_method, zonal_stat', [
     ['centroids',   'points',       'none'],
-     ['poly',        'zonal',        'Mean'],
-     ['poly',        'zonal',        'Median'],
-     ['poly',        'true_mean',    'none'],
+      ['poly',        'zonal',        'Mean'],
+       ['poly',        'zonal',        'Median'],
+       ['poly',        'true_mean',    'none'],
     ])
 @pytest.mark.parametrize('dsampStage, resolution, downSampling', [
     ['none', base_resolution, 'none'],
     ['wse', 20,'Nearest neighbour'],
     ['depth', 20, 'Average'],
     ])
+@pytest.mark.parametrize('vid', [
+    798,
+    #811,
+    #49,
+    ]) 
 def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir, 
                 #session,
                 aggType, aggLevel, dscale_meth,
                 sgType,samp_method, zonal_stat,
                 dsampStage, resolution, downSampling,
-                ):
+                vid):
     
     write=False #see below
     wrk_dir = None
@@ -154,8 +159,9 @@ def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir,
         
         #parameters
         aggType=aggType, aggLevel=aggLevel, dscale_meth=dscale_meth,
-        sgType=sgType,samp_method=samp_method, zonal_stat=zonal_stat
-        #dsampStage=dsampStage, resolution=resolution, downSampling=downSampling
+        sgType=sgType,samp_method=samp_method, zonal_stat=zonal_stat,
+        dsampStage=dsampStage, resolution=resolution, downSampling=downSampling,
+        vid=vid,
         )
     
     #===========================================================================
@@ -192,8 +198,27 @@ def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir,
 
 
 #test all runs configured in the modelPars.xls
-
-
+@pytest.mark.dev
+@pytest.mark.parametrize('modelID', list(range(31)))
+def test_02midRunr( write, tmp_path, logger, feedback, base_dir,
+                    modelID):
+    
+ 
+    #===========================================================================
+    # execute
+    #===========================================================================
+    data_d, ofp_d = run_autoPars(modelID=modelID,
+                 iters=3, trim=True, name='testMid',
+                 write=False, 
+                 studyArea_l=['LMFRA'],
+             out_dir=tmp_path, logger=logger, feedback=feedback, wrk_dir=None, 
+            write_lib=False, write_summary=False, exit_summary=False, #dont write any summaries
+            
+                 )
+    #===========================================================================
+    # compare
+    #===========================================================================
+    """todo: see note abvove"""
 #===============================================================================
 # helpers
 #===============================================================================
