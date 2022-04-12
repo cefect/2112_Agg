@@ -219,21 +219,48 @@ def run( #run a basic model configuration
                              plot_rown='tval_type', plot_coln='aggLevel', fmt='png',
                              sharey='all', sharex='all')"""
                 
-        ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_type='violin', 
-                          plot_rown='tval_type', plot_coln='aggLevel', plot_colr='aggLevel',
-                          sharey='all', sharex='all')
+        #=======================================================================
+        # ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_type='violin', 
+        #                   plot_rown='tval_type', plot_coln='aggLevel', plot_colr='aggLevel',
+        #                   sharey='all', sharex='all')
+        #=======================================================================
         
         """could also be nice to plot vs. polygon area?"""
         
         #=======================================================================
-        # Asset Value Attribution
+        # Asset Value Attribution (dscale_meth vs aggLevel)
         #=======================================================================
+        
         mids = [0,
-                3,6, #dscale_meth=centroid
+                3,6, #dscale_meth=centroid, 
                 27,28, #dscale_meth=area_split 
                 ]
         
+        #=======================================================================
+        # ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_type='hist', 
+        #                   plot_rown='dscale_meth', plot_coln='aggLevel', plot_colr='aggLevel',
+        #                   sharey='all', sharex='all')
+        #=======================================================================
         
+        #=======================================================================
+        # Asset Value Attribution (dscale_meth vs tval_type)
+        #=======================================================================
+        mids = [ 
+                #tval_type=uniform
+                6, #dscale_meth=centroid, 
+                28, #dscale_meth=area_split
+                #tval_type=rand
+                20, #dscale_meth=centroid, 
+                32, #dscale_meth=area_split
+                #tval_type=footprintArea
+                31, #dscale_meth=centroid, 
+                33, #dscale_meth=area_split
+                ]
+        
+ 
+        ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_type='violin', 
+                          plot_rown='dscale_meth', plot_coln='tval_type', plot_colr='tval_type',
+                          sharey='all', sharex='all')
         #=======================================================================
         # Intersection-----------
         #=======================================================================

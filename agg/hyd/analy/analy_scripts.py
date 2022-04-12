@@ -1846,9 +1846,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # color
                 #===============================================================
-                if len(data_d)>1:
-                    """nasty workaround for labelling"""                    
-                    labels = list(data_d.keys())
+                #===============================================================
+                # if len(data_d)>1:
+                #     """nasty workaround for labelling"""                    
+                #===============================================================
+                labels = list(data_d.keys())
                 #ckey_d = {i:color_key for i,color_key in enumerate(labels)}
  
  
