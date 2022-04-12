@@ -16,7 +16,7 @@ import numpy as np
 
 from numpy.testing import assert_equal
 
-from agg.hyd.scripts import ModelStoch
+from agg.hyd.hscripts import ModelStoch
 from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds
 
 @pytest.fixture

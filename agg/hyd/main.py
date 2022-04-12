@@ -8,7 +8,7 @@ executing hyd.model from command line
 see batch scripts
 '''
 import sys, argparse
-from agg.hyd.model import run_autoPars, run_auto_dev
+from agg.hyd.hrunr import run_autoPars, run_auto_dev
 
 if __name__ == "__main__":
     print(sys.argv)

@@ -26,9 +26,9 @@ from numpy.testing import assert_equal
 from qgis.core import QgsVectorLayer, QgsWkbTypes
 import hp.gdal
 
-from agg.hyd.scripts import Model as CalcSession
-from agg.hyd.scripts import StudyArea as CalcStudyArea
-from agg.hyd.scripts import vlay_get_fdf, RasterCalc
+from agg.hyd.hscripts import Model as CalcSession
+from agg.hyd.hscripts import StudyArea as CalcStudyArea
+from agg.hyd.hscripts import vlay_get_fdf, RasterCalc
 
 from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds
 #===============================================================================

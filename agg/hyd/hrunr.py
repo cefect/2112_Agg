@@ -37,7 +37,7 @@ print('start at %s' % start)
 #===============================================================================
 # custom imports--------
 #===============================================================================
-from agg.hyd.scripts import Model, ModelStoch, get_all_pars, view, Error
+from agg.hyd.hscripts import Model, ModelStoch, get_all_pars, view, Error
 
 #===========================================================================
 # #presets
