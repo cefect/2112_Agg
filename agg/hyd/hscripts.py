@@ -759,6 +759,7 @@ class Model(HydSession, QSession):  # single model run
         #=======================================================================
         # wrap
         #=======================================================================
+        """todo: add writer for layers (join back normalized values)"""
         if write:
             self.ofp_d[dkey] = self.write_pick(finv_true_serx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),

@@ -182,31 +182,41 @@ def run( #run a basic model configuration
         #=======================================================================
         
         #=======================================================================
-        # aggLevel vs. studyArea
+        # aggLevel vs. studyArea (rsamps)
         #=======================================================================
         mids = [0, 3,6]
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-                             plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
-                             sharey='row', sharex='row')
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
+        #                      sharey='row', sharex='row')
+        #=======================================================================
         
         #aggType=convexHull
+        mids = [0, 25,26]
         #=======================================================================
-        # mids = [0, 25,26]
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
         #                      plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
         #                      sharey='row', sharex='row')
         #=======================================================================
         
         #=======================================================================
-        # aggLevel vs. aggType
+        # aggLevel vs. aggType (rsamps)
         #=======================================================================
         """This one is tricky. these are not realy comparable....
         total coount per study area? total asset area per study area"""
 
         #=======================================================================
-        # #total vals per ag method
+        # tval_type vs. aggLevel (tvals)
         #=======================================================================
-        dscale_ids = [0,3,6]
+        dscale_ids = [0,3,6,    #tval_type=uniform
+                      11,19,20, #tval_type=rand
+                      29,30,31, #tval_type=footprintArea
+                      ]
+        
+        ses.plot_compare_mat(dkey='tvals', modelID_l=mids, plot_type='scatter',
+                             plot_rown='tval_type', plot_coln='aggLevel', fmt='png',
+                             sharey='row', sharex='row')
+                
         #=======================================================================
         # ses.plot_dkey_mat(modelID_l=dscale_ids, dkey='tvals', plot_type='hist', xlims = (0,2))
         # ses.plot_dkey_mat(modelID_l=dscale_ids, dkey='tvals', plot_type='box', xlims = (0,2))
@@ -434,8 +444,7 @@ def r5():
         tag='r5',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd5\model_run_index.csv',
         compiled_fp_d = {
-         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\outs_analy_r5_0412.pickle',
-        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\agg_mindex_analy_r5_0412.pickle',
+ 
             },
         )
  

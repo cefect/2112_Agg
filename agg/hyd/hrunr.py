@@ -193,7 +193,7 @@ def run_autoPars( #run a pre-defined model configuration
         )
     
 def run_auto_dev( #special dev runner
-        iters=3, trim=True, name='hyd4_dev',**kwargs):
+        iters=3, trim=True, name='hyd5_dev',**kwargs):
     
     return run_autoPars(iters=iters, trim=trim, name=name, **kwargs)
     
@@ -204,7 +204,7 @@ def run( #run a basic model configuration
         # #generic
         #=======================================================================
         tag='r2_base',
-        name='hyd4',
+        name='hyd5',
         overwrite=True,
         trim=False,
         
@@ -355,13 +355,13 @@ def dev():
 if __name__ == "__main__": 
  
  
-    output=run_auto_dev(modelID=0, write=False,
+    output=run_auto_dev(modelID=29, write=True,
                         compiled_fp_d={ 
     
    
    
                             },
-                        #studyArea_l = ['Calgary'],
+                        studyArea_l = ['obwb'],
                         )
     #output=dev()
  
@@ -380,4 +380,4 @@ if __name__ == "__main__":
         
  
     tdelta = datetime.datetime.now() - start
-    print('finished in %s \n    %s' % (tdelta, output))
+    print('finished in %s' % (tdelta))
