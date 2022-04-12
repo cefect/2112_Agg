@@ -242,7 +242,7 @@ class Model(HydSession, QSession):  # single model run
         'dscale_meth':{'vals':['centroid', 'none', 'area_split'],       'dkey':'tvals'},
         
         'severity':{'vals':['hi', 'lo'],                                'dkey':'drlay_d'},
-        'resolution':{'vals':[5, 50, 100, 200],                         'dkey':'drlay_d'},
+        'resolution':{'vals':[5, 20,50, 100, 200],                         'dkey':'drlay_d'},
         'downSampling':{'vals':['none','Average', 'Mode', 'Nearest neighbour'],                    'dkey':'drlay_d'},
         'dsampStage':{'vals':['none', 'wse', 'depth'],                  'dkey':'drlay_d'},
         

@@ -94,7 +94,9 @@ def get_proj(out_dir=tempfile.gettempdir()):
         }
 
 @pytest.fixture(scope='session')
-def proj_lib(tmpdir_factory, count=2): #assemble a proj_lib
+def proj_lib(tmpdir_factory,   #assemble a proj_lib
+             count=1, #scales runtime of EACH test...2 is more robust but quite slow
+             ):
     """everything should be a filepath
     as these are all session scoped"""
     np.random.seed(100)
@@ -116,23 +118,27 @@ def proj_lib(tmpdir_factory, count=2): #assemble a proj_lib
 #test the main runr
 @pytest.mark.parametrize('aggType, aggLevel, dscale_meth',[
     ['none',        0, 'none'], 
-    ['gridded',     3, 'centroid'], 
-    ['gridded',     3, 'area_split'], 
-    ['convexHulls', 3, 'centroid'],
-    ['convexHulls', 3, 'area_split'],
+     ['gridded',     3, 'centroid'], 
+     ['gridded',     3, 'area_split'], 
+     ['convexHulls', 3, 'centroid'],
+     ['convexHulls', 3, 'area_split'],
     ])  
 @pytest.mark.parametrize('sgType, samp_method, zonal_stat', [
     ['centroids',   'points',       'none'],
-    ['poly',        'zonal',        'Mean'],
-    ['poly',        'zonal',        'Median'],
-    ['poly',        'true_mean',    'none'],
+     ['poly',        'zonal',        'Mean'],
+     ['poly',        'zonal',        'Median'],
+     ['poly',        'true_mean',    'none'],
     ])
-#@pytest.mark.parametrize('dsampStage, resolution, downSampling', [
+@pytest.mark.parametrize('dsampStage, resolution, downSampling', [
+    ['none', base_resolution, 'none'],
+    ['wse', 20,'Nearest neighbour'],
+    ['depth', 20, 'Average'],
+    ])
 def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir, 
                 #session,
                 aggType, aggLevel, dscale_meth,
                 sgType,samp_method, zonal_stat,
-                #dsampStage, resolution, downSampling,
+                dsampStage, resolution, downSampling,
                 ):
     
     write=False #see below
