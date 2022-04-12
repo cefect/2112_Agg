@@ -23,7 +23,7 @@ import os, datetime, math, pickle, copy, sys
 import qgis.core
 import pandas as pd
 import numpy as np
-from numpy import dtype
+
 np.random.seed(100)
 #===============================================================================
 # import scipy.stats 
@@ -70,7 +70,7 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
     #===========================================================================
     # load pars file
     #===========================================================================
- 
+    from numpy import dtype #needed.  not sure why though
     
     #pars_df_raw.dtypes.to_dict()
     #pars_df_raw = pd.read_csv(pars_fp, index_col=False, comment='#')
