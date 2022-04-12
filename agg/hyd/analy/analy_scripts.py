@@ -36,7 +36,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     
     
 from agg.coms.scripts import Catalog
-from agg.hyd.scripts import HydSession
+from agg.hyd.hscripts import HydSession
 
 
 

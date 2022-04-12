@@ -185,17 +185,17 @@ def run( #run a basic model configuration
         # aggLevel vs. studyArea
         #=======================================================================
         mids = [0, 3,6]
+        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+                             plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
+                             sharey='row', sharex='row')
+        
+        #aggType=convexHull
         #=======================================================================
+        # mids = [0, 25,26]
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
         #                      plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
         #                      sharey='row', sharex='row')
         #=======================================================================
-        
-        #aggType=convexHull
-        mids = [0, 25,26]
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-                             plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
-                             sharey='row', sharex='row')
         
         #=======================================================================
         # aggLevel vs. aggType
@@ -427,13 +427,23 @@ def r4():
         #'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r4\20220410\working\trues_analy_r4_0410.pickle',
             },
         )
-    
+
+def r5():
+    return run(
+        #modelID_l = [0, 11],
+        tag='r5',
+        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd5\model_run_index.csv',
+        compiled_fp_d = {
+ 
+            },
+        )
+ 
 if __name__ == "__main__": 
     
  
     #output=dev()
     #output=r2()
-    output=r4()
+    output=r5()
         
         
  
