@@ -26,11 +26,11 @@ from numpy.testing import assert_equal
 from qgis.core import QgsVectorLayer, QgsWkbTypes
 import hp.gdal
 
-from agg.hyd.hscripts import Model as CalcSession
+
 from agg.hyd.hscripts import StudyArea as CalcStudyArea
 from agg.hyd.hscripts import vlay_get_fdf, RasterCalc
 
-from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds, proj_lib
+from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds, proj_lib, check_layer_d
 #===============================================================================
 # fixtures-----
 #===============================================================================
@@ -45,27 +45,7 @@ def df_d():
 
 
 
-@pytest.fixture(scope='function')
-def session(tmp_path,
-            #wrk_base_dir=None, 
-            base_dir, write,logger, feedback,#see conftest.py (scope=session)
 
-                    ):
- 
-    np.random.seed(100)
-    
-    #get working directory
-    wrk_dir = None
-    if write:
-        wrk_dir = os.path.join(base_dir, os.path.basename(tmp_path))
-    
-    with CalcSession(out_dir = tmp_path, proj_lib=proj_lib, wrk_dir=wrk_dir, 
-                     overwrite=write,write=write, logger=logger,feedback=feedback,
-                     driverName='GeoJSON', #nicer for writing small test datasets
-                     ) as ses:
-        
-        assert len(ses.data_d)==0
-        yield ses
 
  
 @pytest.fixture
@@ -560,37 +540,7 @@ def test_tloss(session, base_dir, rloss_fn):
 #===============================================================================
 
 
-def check_layer_d(d1, d2, #two containers of layers
-                   test_data=True, #check vlay attributes
-                   ignore_fid=True,  #whether to ignore the native ordering of the vlay
-                   ):
-    
-    assert d1.keys()==d2.keys()
-    
-    for k, vtest in d1.items():
-        vtrue = d2[k]
-        
-        dptest, dptrue = vtest.dataProvider(), vtrue.dataProvider()
-        
-        assert type(vtest)==type(vtrue)
-        
-        #=======================================================================
-        # vectorlayer checks
-        #=======================================================================
-        if isinstance(vtest, QgsVectorLayer):
-            assert dptest.featureCount()==dptrue.featureCount()
-            assert vtest.wkbType() == dptrue.wkbType()
-            
-            #data checks
-            if test_data:
-                true_df, test_df = vlay_get_fdf(vtrue), vlay_get_fdf(vtest)
-                
-                if ignore_fid:
-                    true_df = true_df.sort_values(true_df.columns[0],  ignore_index=True) #sort by first column and reset index
-                    test_df = test_df.sort_values(test_df.columns[0],  ignore_index=True)
-                
-                
-                assert_frame_equal(true_df, test_df,check_names=False)
+
  
             
             

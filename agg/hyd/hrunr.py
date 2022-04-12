@@ -195,8 +195,14 @@ def run( #run a basic model configuration
         name='hyd4',
         overwrite=True,
         trim=False,
+        
+        #=======================================================================
+        # write control
+        #=======================================================================
         write=True,
         exit_summary=True,
+        write_lib=True, #enter the results into the library
+        write_summary=True, #write the summary sheet
         #=======================================================================
         # #data
         #=======================================================================
@@ -215,7 +221,7 @@ def run( #run a basic model configuration
         
         #down scaling (asset values)
         tval_type = 'rand', normed=True, #generating true asset values
-        dscale_meth='centroid', #downscaling to the aggreated finv
+        dscale_meth='none', #downscaling to the aggreated finv
         
         #sampling (geo). see Model.build_sampGeo()
         sgType = 'poly', 
@@ -293,15 +299,18 @@ def run( #run a basic model configuration
         ses.run_lossCalcs()
         
         #write results
-        ses.write_summary()
-        ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
+        if write_summary:
+            ses.write_summary()
+        if write_lib:
+            ses.write_lib(lib_dir=lib_dir, cat_d=cat_d)
  
         
-        out_dir = ses.out_dir
+        data_d = ses.data_d
+        ofp_d = ses.ofp_d
         
     print('\nfinished %s'%tag)
     
-    return out_dir
+    return data_d, ofp_d
 
 
  

@@ -5,6 +5,13 @@ Created on Feb. 21, 2022
 '''
 import os, shutil
 import pytest
+import numpy as np
+from agg.hyd.hscripts import Model as CalcSession
+
+from qgis.core import QgsVectorLayer
+from hp.Q import vlay_get_fdf
+from pandas.testing import assert_frame_equal
+
 
 proj_lib =     {
                     #===========================================================
@@ -16,7 +23,7 @@ proj_lib =     {
                     #      #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                     #         }, 
                     #===========================================================
-                    'testSet1':{
+                    'testSet1':{ #consider making this random?
                           'EPSG': 2955, 
                          'finv_fp': r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0219_poly.geojson', 
                          #'wd_fp':r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\wd\wd_rand_test_0304.tif',
@@ -74,7 +81,27 @@ def true_dir(write, tmp_path, base_dir):
             
     return true_dir
     
+@pytest.fixture(scope='function')
+def session(tmp_path,
+            #wrk_base_dir=None, 
+            base_dir, write,logger, feedback,#see conftest.py (scope=session)
+
+                    ):
+ 
+    np.random.seed(100)
     
+    #get working directory
+    wrk_dir = None
+    if write:
+        wrk_dir = os.path.join(base_dir, os.path.basename(tmp_path))
+    
+    with CalcSession(out_dir = tmp_path, proj_lib=proj_lib, wrk_dir=wrk_dir, 
+                     overwrite=write,write=write, logger=logger,feedback=feedback,
+                     driverName='GeoJSON', #nicer for writing small test datasets
+                     ) as ses:
+        
+        assert len(ses.data_d)==0
+        yield ses
 #===============================================================================
 # helpers-------
 #===============================================================================
@@ -118,3 +145,36 @@ def search_fp(dirpath, ext, pattern): #get a matching file with extension and be
         
         
     return result
+
+def check_layer_d(d1, d2, #two containers of layers
+                   test_data=True, #check vlay attributes
+                   ignore_fid=True,  #whether to ignore the native ordering of the vlay
+                   msg=''
+                   ):
+    
+    assert d1.keys()==d2.keys()
+    
+    for k, vtest in d1.items():
+        vtrue = d2[k]
+        
+        dptest, dptrue = vtest.dataProvider(), vtrue.dataProvider()
+        
+        assert type(vtest)==type(vtrue), msg
+        
+        #=======================================================================
+        # vectorlayer checks
+        #=======================================================================
+        if isinstance(vtest, QgsVectorLayer):
+            assert dptest.featureCount()==dptrue.featureCount(),msg
+            assert vtest.wkbType() == dptrue.wkbType(), msg
+            
+            #data checks
+            if test_data:
+                true_df, test_df = vlay_get_fdf(vtrue), vlay_get_fdf(vtest)
+                
+                if ignore_fid:
+                    true_df = true_df.sort_values(true_df.columns[0],  ignore_index=True) #sort by first column and reset index
+                    test_df = test_df.sort_values(test_df.columns[0],  ignore_index=True)
+                
+                
+                assert_frame_equal(true_df, test_df,check_names=False)

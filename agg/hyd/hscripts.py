@@ -1372,7 +1372,7 @@ class Model(HydSession, QSession):  # single model run
         # defaults
         #=======================================================================
         log = self.logger.getChild('load_layer_d.%s' % dkey)
-        assert dkey in [  'finv_agg_d', 'finv_sg_d']
+        assert dkey in [  'finv_agg_d', 'finv_sg_d', 'drlay_d'], dkey
         
         vlay_fp_lib = self.load_pick(fp=fp, dkey=dkey)  # {study area: aggLevel : vlay filepath}}
         
