@@ -97,9 +97,9 @@ def run( #run a basic model configuration
         #=======================================================================
         # individual model summaries---------
         #=======================================================================
-        mids = [0,2]
+        mids = [6]
+        #ses.write_resvlay(dkey='rsamps', modelID_l=mids)
         #=======================================================================
-        # ses.write_resvlay(dkey='rsamps', modelID_l=mids)
         # for mid in mids:
         #     ses.plot_model_smry(mid)
         #=======================================================================
@@ -258,37 +258,36 @@ def run( #run a basic model configuration
                 ]
         
  
-        ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_type='violin', 
-                          plot_rown='dscale_meth', plot_coln='tval_type', plot_colr='tval_type',
-                          sharey='all', sharex='all')
+        #=======================================================================
+        # ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_type='violin', 
+        #                   plot_rown='dscale_meth', plot_coln='tval_type', plot_colr='tval_type',
+        #                   sharey='all', sharex='all')
+        #=======================================================================
+        
+ 
         #=======================================================================
         # Intersection-----------
         #=======================================================================
-        #=======================================================================
-        # #intersection types (using g50)
-        #=======================================================================
-        #=======================================================================
-        # ses.plot_dkey_mat(modelID_l=[3,9,10], dkey='rsamps', plot_rown='samp_method', 
-        #                   plot_coln='studyArea', plot_type='hist', drop_zeros=True,
-        #                   plot_colr='studyArea', bins=30)
-        #=======================================================================
+ 
         
         #=======================================================================
-        # #hazard vs asset resolution
+        # #hazard vs asset resolution (depths)
         #=======================================================================
-        mids = list(range(9))
+        #simple
+        fmt='png'
+        #ses.plot_dkey_mat(dkey='rsamps', modelID_l=list(range(9)), plot_rown='aggLevel', plot_coln='resolution',  fmt='svg',sharex='all',sharey='all', plot_colr='aggLevel')
         
-        #result values
-        #=======================================================================
-        # for plot_type in ['hist', 'box']:
-        #     ses.plot_dkey_mat(modelID_l=mids, dkey='rsamps', 
-        #                       plot_rown='aggLevel', 
-        #                       plot_coln='resolution', plot_type=plot_type, drop_zeros=True,
-        #                       plot_colr='aggLevel', bins=40)
-        # 
-        # #error plots
-        # fmt='png'
-        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt)
+        
+        for plotName, mids in {
+            #'wse':list(range(9)),
+            'depth':[0, 21,22, #dsampStage=depth
+                     3,34,35,
+                     6,36,37,
+                     ]}.items(): 
+            pass
+         
+            #main scatter plot       
+            ses.plot_compare_mat(dkey='rsamps', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt,sharex='all',sharey='all')
         #=======================================================================
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea',  fmt=fmt)
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea',  fmt=fmt)
@@ -296,27 +295,42 @@ def run( #run a basic model configuration
         #=======================================================================
         
         #=======================================================================
-        # loss calc analysis: unit loss---------
+        # loss calc: UNIT loss---------
         #=======================================================================
-        mids = [0,12,13]
+
+
+        #=======================================================================
+        # hazard vs asset resolution 
+        #=======================================================================
+        for plotName, mids in {
+            '798':list(range(9)),
+            '811':list(range(34, 43))}.items():
+ 
+            ses.plot_compare_mat(dkey='rloss', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='png',
+                                     sharex='all',sharey='all')
+            
+            #histogram of rloss
+            #=======================================================================
+            # ses.plot_dkey_mat(dkey='rloss', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution',plot_colr='aggLevel',
+            #                          sharex='all',sharey='all')
+            #=======================================================================
+            
+            #just points on the vfunc
+            #=======================================================================
+            # ses.plot_vs_mat(modelID_l=mids, fmt='png', plot_rown='aggLevel', plot_coln='resolution',
+            #                 dkey_y='rloss', dkey_x='rsamps',)
+            #=======================================================================
+            
+        #=======================================================================
+        # hazard res vs. studyArea
+        #=======================================================================
+        mids = list(range(3))
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='rloss', modelID_l=mids,plot_rown='studyArea', plot_coln='resolution', fmt='png',
+        #                          sharex='all',sharey='all')
+        #=======================================================================
         
-        #=======================================================================
-        # inputs plots
-        #=======================================================================
-        mids = list(range(9))
-        #rsamps (res vs aggLevel)
-        #=======================================================================
-        # ses.plot_dkey_mat(modelID_l=mids, dkey='rsamps', plot_rown='aggLevel', 
-        #                   plot_coln='resolution', plot_type='hist', drop_zeros=True,
-        #                   plot_colr='aggLevel', bins=30, xlims=(0,5))
-        #=======================================================================
-        
-        
-        #=======================================================================
-        # unit rloss
-        #=======================================================================
-        #just points on the vfunc
-        #ses.plot_vs_mat(modelID_l=mids, fmt='png')
+
         
         #histogram of rloss results
         #=======================================================================

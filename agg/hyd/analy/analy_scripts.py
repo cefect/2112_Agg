@@ -1701,7 +1701,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #histwargs
                     bins=20, rwidth=0.9, 
                     mean_line=True, #plot a vertical line on the mean
-                    
+                    fmt='svg',
                     ):
         """"
         generally 1 modelId per panel
@@ -1723,6 +1723,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # data prep
         #=======================================================================
+
+        
         #add requested indexers
         dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
                                 meta_indexers = set([plot_rown, plot_coln]),
@@ -1768,6 +1770,19 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             log.info('on %s'%keys_d)
             
             #xlims = (gdx0.min().min(), gdx0.max().max())
+            #===================================================================
+            # prep data
+            #===================================================================
+                    
+            # #drop empty iters
+            bxcol = gdx0.isna().all(axis=0)
+            
+            if bxcol.any():
+     
+                log.warning('got %i/%i empty iters....dropping'%(bxcol.sum(), len(bxcol)))
+                gdx0 = gdx0.loc[:,~bxcol]
+            else:
+                gdx0 = gdx0
             
             data_d, bx = self.prep_ranges(qhi, qlo, drop_zeros, gdx0)
             
@@ -1875,7 +1890,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             if add_label:
                 # get float labels
                 meta_d = {'modelIDs':str(gdx0.index.unique(idn).tolist()),
-                           'cnt':len(gdx0), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,'iters':len(gdx0.columns),
+                           'cnt':len(gdx0), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,
+                           'iters':len(gdx0.columns),
                            'min':gdx0.min().min(), 'max':gdx0.max().max(), 'mean':gdx0.mean().mean()}
                 
                 if plot_type == 'hist':
@@ -1931,7 +1947,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         
-        return self.output_fig(fig, fname='%s_%s_%sx%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname))
+        return self.output_fig(fig, fname='%s_%s_%sx%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), fmt=fmt)
             
     def plot_compare_mat(self, #flexible plotting of model results vs. true in a matrix
                   
@@ -3588,18 +3604,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         
         assert not gdx_raw.isna().all(axis=1).any(), 'got some assets with all nulls'
-        
-        #=======================================================================
-        # #drop empty iters
-        #=======================================================================
-        bxcol = gdx_raw.isna().all(axis=0)
-        
-        if bxcol.any():
- 
-            log.warning('got %i/%i empty iters....dropping'%(bxcol.sum(), len(bxcol)))
-            gdx0 = gdx_raw.loc[:,~bxcol]
-        else:
-            gdx0 = gdx_raw
+        gdx0 = gdx_raw
+
         
         #check
         assert gdx0.notna().all().all()
@@ -3662,14 +3668,22 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             log.warning('%i requested fields already in the index: %s'%(len(overlap_l), overlap_l))
             for e in overlap_l:
                 meta_indexers.remove(e)
-            
-        dx = dx_raw.loc[idx[modelID_l, :,:,:],:].dropna(how='all', axis=1)
+        
+        #slice to these models
+        dx = dx_raw.loc[idx[modelID_l, :,:,:],:].dropna(how='all', axis=1).sort_index(axis=0)
         
         if len(meta_indexers) == 0:
             log.warning('no additional field srequested')
             return dx
         
         cat_df = self.retrieve('catalog')
+        
+        """
+        view(dx.loc[idx[31, :,:,:],:].head(100))
+        
+        """
+        null_cnt_ser = dx.isna().sum(axis=1)
+        chk_index = dx.index.copy()
         #=======================================================================
         # check
         #=======================================================================
@@ -3694,14 +3708,22 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         assert cdf1.index.name == dx.index.names[0]
         dx.index = dx.index.join(pd.MultiIndex.from_frame(cdf1.reset_index()))
         
+        
+        
+        
         #reorder a bit
         dx = dx.reorder_levels(list(dx_raw.index.names) + list(meta_indexers))
+        
+        assert_index_equal(dx.index.droplevel(list(meta_indexers)), chk_index)
+        
         dx = dx.swaplevel(i=4).sort_index()
         #=======================================================================
         # check
         #=======================================================================
         miss_l = set(meta_indexers).difference(dx.index.names)
         assert len(miss_l)==0
+        
+        assert np.array_equal(null_cnt_ser.values, dx.isna().sum(axis=1).values)
         
         return dx
     
