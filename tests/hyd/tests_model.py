@@ -29,6 +29,7 @@ import hp.gdal
 
 from agg.hyd.hscripts import StudyArea as CalcStudyArea
 from agg.hyd.hscripts import vlay_get_fdf, RasterCalc
+from agg.hyd.hscripts import Model as CalcSession
 
 from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds, proj_lib, check_layer_d
 #===============================================================================
@@ -374,7 +375,7 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
 # Rsamp tests
 #===============================================================================
 #rsamps methods are only applicable for certain geometry types  
- 
+
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
 @pytest.mark.parametrize('samp_method',['zonal'], indirect=False)
@@ -458,7 +459,7 @@ def rsamps_runr(base_dir, true_dir,session,finv_sg_d=None,finv_sg_d_fn=None, wd_
     #===========================================================================
     assert_series_equal(rsamps_serx, true)
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('rsamp_fn', #see test_rsamps
              ['test_rsamps_test_finv_agg_grid0', 'test_rsamps_test_finv_agg_grid1', 'test_rsamps_test_finv_agg_grid2']) 
 @pytest.mark.parametrize('vid', [49, 798,811, 0])
@@ -496,10 +497,12 @@ def test_rloss(session, rsamp_fn, vid, base_dir, true_dir, df_d):
     #===========================================================================
     assert_frame_equal(rdxind, true)
 
+
 rloss_fn_l = ['test_rloss_49_test_rsamps_test0','test_rloss_49_test_rsamps_test1','test_rloss_49_test_rsamps_test2',
               'test_rloss_798_test_rsamps_tes0','test_rloss_798_test_rsamps_tes1','test_rloss_798_test_rsamps_tes2',
               'test_rloss_811_test_rsamps_tes0','test_rloss_811_test_rsamps_tes1','test_rloss_811_test_rsamps_tes2']
- 
+
+
 @pytest.mark.parametrize('rloss_fn', rloss_fn_l) #see test_rloss
 def test_tloss(session, base_dir, rloss_fn):
     #scale_cn = session.scale_cn
