@@ -38,14 +38,14 @@ QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
 #===============================================================================
 # customs
 #===============================================================================
-from agg.hyd.hrunr import run, run_autoPars
+from agg.hyd.hrunr import run, run_autoPars, get_modelIDs
 from  tests.conftest import check_layer_d
 #===============================================================================
 # test data parameters
 #===============================================================================
 base_resolution=5 #for generating test rasters
 extent_fp = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0218_extent.geojson'
-
+mid_l = get_modelIDs()
  
 
 
@@ -168,44 +168,50 @@ def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir,
     # compare each dkey
     #===========================================================================
     """this crashes because it reinits QGIS"""
- #==============================================================================
- #    session.compiled_fp_d = ofp_d
- #    
- #    ofp_d.keys()
- # 
- #    for dkey, compiled_fp in ofp_d.items():
- #        #retrieve
- #        testData = data_d[dkey]
- #        trueData = session.retrieve(dkey)
- #        
- #        #compare
- #        if dkey in ['finv_agg_d', 'drlay_d', 'finv_sg_d']:
- #            check_layer_d(testData, trueData, msg=dkey)
- #        elif dkey in ['finv_agg_mindex']:
- #            assert_frame_equal(testData.to_frame(), trueData.to_frame())
- #        elif dkey in ['tvals_raw', 'tvals', 'rsamps', 'rloss', 'tloss']:
- #            if isinstance(testData, pd.Series):
- #                assert_series_equal(testData, trueData)
- #            elif isinstance(testData, pd.DataFrame):
- #                assert_frame_equal(testData, trueData)
- #            else:
- #                raise TypeError('unexpected type on %s: %s'%(dkey, type(testData)))
- #        else:
- #            raise IOError(dkey)
- #==============================================================================
+    #==============================================================================
+    #    session.compiled_fp_d = ofp_d
+    #    
+    #    ofp_d.keys()
+    # 
+    #    for dkey, compiled_fp in ofp_d.items():
+    #        #retrieve
+    #        testData = data_d[dkey]
+    #        trueData = session.retrieve(dkey)
+    #        
+    #        #compare
+    #        if dkey in ['finv_agg_d', 'drlay_d', 'finv_sg_d']:
+    #            check_layer_d(testData, trueData, msg=dkey)
+    #        elif dkey in ['finv_agg_mindex']:
+    #            assert_frame_equal(testData.to_frame(), trueData.to_frame())
+    #        elif dkey in ['tvals_raw', 'tvals', 'rsamps', 'rloss', 'tloss']:
+    #            if isinstance(testData, pd.Series):
+    #                assert_series_equal(testData, trueData)
+    #            elif isinstance(testData, pd.DataFrame):
+    #                assert_frame_equal(testData, trueData)
+    #            else:
+    #                raise TypeError('unexpected type on %s: %s'%(dkey, type(testData)))
+    #        else:
+    #            raise IOError(dkey)
+    #==============================================================================
             
+ 
  
 
 
 #test all runs configured in the modelPars.xls
 @pytest.mark.dev
 @pytest.mark.parametrize('modelID', 
-                         #list(range(31)),
-                         [29]
+                         mid_l,
+                         #[29]
                          )
 def test_02midRunr( write, tmp_path, logger, feedback, base_dir,
                     modelID):
+    """this is hte most comprehensive (and closest to actual use) test.
+    although.. there is no results chcecking.. 
+    just checking for run errors
     
+    tests the parameter file specified in the definnitions.py
+    """
  
     #===========================================================================
     # execute

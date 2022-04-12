@@ -23,6 +23,7 @@ import os, datetime, math, pickle, copy, sys
 import qgis.core
 import pandas as pd
 import numpy as np
+from numpy import dtype
 np.random.seed(100)
 #===============================================================================
 # import scipy.stats 
@@ -38,7 +39,7 @@ print('start at %s' % start)
 # custom imports--------
 #===============================================================================
 from agg.hyd.hscripts import Model, ModelStoch, get_all_pars, view, Error
-
+from definitions import model_pars_fp
 #===========================================================================
 # #presets
 #===========================================================================
@@ -50,16 +51,27 @@ from agg.hyd.hscripts import Model, ModelStoch, get_all_pars, view, Error
 #===============================================================================
 # FUNCTIONS-------
 #===============================================================================
+def get_modelIDs( #retrieve thoe modelIDs from the rparamtere file
+        pars_fp=model_pars_fp):
+ 
+        
+    assert os.path.exists(pars_fp), 'bad model_pars_fp: %s'%pars_fp
+    mid_l = pd.read_excel(pars_fp, comment='#')['modelID'].dropna().astype(int).tolist()
+    print('%i modelIDs found in %s'%(len(mid_l), os.path.basename(pars_fp)))
+    return mid_l
+    
+    
 def get_pars(#retrieving and pre-checking parmeter values based on model ID
             modelID,
             #file with preconfigrued runs
-             pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0226.xls',
+             pars_fp = model_pars_fp,
              ):
     
     #===========================================================================
     # load pars file
     #===========================================================================
-    from numpy import dtype
+ 
+    
     #pars_df_raw.dtypes.to_dict()
     #pars_df_raw = pd.read_csv(pars_fp, index_col=False, comment='#')
     pars_df_raw= pd.read_excel(pars_fp, comment='#')
