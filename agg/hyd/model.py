@@ -338,8 +338,8 @@ def run( #run a basic model configuration
                      
                      'finv_sg_d':dict(sgType=sgType),
                      
-                     'tvals_raw':dict(normed=normed),
-                     'tvals':dict(tval_type=tval_type, dscale_meth=dscale_meth),
+                     'tvals_raw':dict(normed=normed, tval_type=tval_type),
+                     'tvals':dict( dscale_meth=dscale_meth),
                      'rloss':dict(vid=vid),
                                           
                      },
