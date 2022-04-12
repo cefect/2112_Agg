@@ -247,7 +247,7 @@ class Model(HydSession, QSession):  # single model run
         'dsampStage':{'vals':['none', 'wse', 'depth'],                  'dkey':'drlay_d'},
         
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],         'dkey':'rsamps'},
-        'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum', 'Mode', 'none'], 'dkey':'rsamps'},
+        'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum', 'Median', 'none'], 'dkey':'rsamps'},
                 
         'vid':{'vals':[49, 798,811, 0],                                 'dkey':'vfunc'},
 

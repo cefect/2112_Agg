@@ -54,10 +54,10 @@ extent_fp = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_
 #===============================================================================
  
 
-@pytest.fixture(scope='session')
-def finv_rand(tmpdir_factory, count=90, clusters=9):
-    np.random.seed(100)
-    out_dir = tmpdir_factory.mktemp('finv')
+ 
+def finv_rand(out_dir=tempfile.gettempdir(), count=90, clusters=9):
+ 
+    #out_dir = tmpdir_factory.mktemp('finv')
     #random points inside the extent
     pts_vlay = get_randompoints(count=count,
         #output=os.path.join(out_dir, 'random_pts_%i.gpkg'%count),
@@ -73,29 +73,34 @@ def finv_rand(tmpdir_factory, count=90, clusters=9):
     assert os.path.exists(cvh_vlay)
     return cvh_vlay
 
-@pytest.fixture(scope='session')
+ 
 def wse_rand():
-    np.random.seed(100)
+    """todo: better handling of out_dir"""
     return get_randomuniformraster(base_resolution, bounds=(5,7), extent=extent_vlay.extent(), layname='wse_rand')
             
  
-@pytest.fixture(scope='session')
+ 
 def dem_rand():
-    np.random.seed(100)
+    
     return get_randomuniformraster(base_resolution, bounds=(8,8), extent=extent_vlay.extent(), layname='dem_rand')
 
+def get_proj(out_dir=tempfile.gettempdir()):
+    return {
+        'EPSG':2955, 
+        'finv_fp':finv_rand(out_dir=out_dir), 
+        'aoi':extent_fp,
+        'wse_fp_d':{'hi':wse_rand()},
+        'dem_fp_d':{base_resolution:dem_rand()},
+        }
+
 @pytest.fixture(scope='session')
-def proj_lib(wse_rand, dem_rand, finv_rand): #assemble a proj_lib
+def proj_lib(tmpdir_factory, count=2): #assemble a proj_lib
     """everything should be a filepath
     as these are all session scoped"""
+    np.random.seed(100)
     
-    return {'testRand':{
-        'EPSG':2955, 
-        'finv_fp':finv_rand, 
-        'aoi':extent_fp,
-        'wse_fp_d':{'hi':wse_rand},
-        'dem_fp_d':{base_resolution:dem_rand},
-        }}
+ 
+    return {'testRand%i'%i:get_proj(out_dir=tmpdir_factory.mktemp(str(i))) for i in range(count)}
          
     
  
@@ -110,17 +115,27 @@ def proj_lib(wse_rand, dem_rand, finv_rand): #assemble a proj_lib
 
 #test the main runr
 @pytest.mark.parametrize('aggType, aggLevel, dscale_meth',[
-    ['none',0, 'none'], 
-    ['gridded',3, 'centroid'], 
-    ['gridded',3, 'area_split'], 
+    ['none',        0, 'none'], 
+    ['gridded',     3, 'centroid'], 
+    ['gridded',     3, 'area_split'], 
     ['convexHulls', 3, 'centroid'],
     ['convexHulls', 3, 'area_split'],
     ])  
+@pytest.mark.parametrize('sgType, samp_method, zonal_stat', [
+    ['centroids',   'points',       'none'],
+    ['poly',        'zonal',        'Mean'],
+    ['poly',        'zonal',        'Median'],
+    ['poly',        'true_mean',    'none'],
+    ])
+#@pytest.mark.parametrize('dsampStage, resolution, downSampling', [
 def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir, 
                 #session,
-                aggType, aggLevel, dscale_meth):
+                aggType, aggLevel, dscale_meth,
+                sgType,samp_method, zonal_stat,
+                #dsampStage, resolution, downSampling,
+                ):
     
-    write=True
+    write=False #see below
     wrk_dir = None
     if write:
         wrk_dir = os.path.join(base_dir, 'integ', '01',os.path.basename(tmp_path))
@@ -132,12 +147,15 @@ def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir,
         write_lib=False, write_summary=False, exit_summary=False, #dont write any summaries
         
         #parameters
-        aggType=aggType, aggLevel=aggLevel, dscale_meth=dscale_meth
+        aggType=aggType, aggLevel=aggLevel, dscale_meth=dscale_meth,
+        sgType=sgType,samp_method=samp_method, zonal_stat=zonal_stat
+        #dsampStage=dsampStage, resolution=resolution, downSampling=downSampling
         )
     
     #===========================================================================
     # compare each dkey
     #===========================================================================
+    """this crashes because it reinits QGIS"""
  #==============================================================================
  #    session.compiled_fp_d = ofp_d
  #    
