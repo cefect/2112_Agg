@@ -65,7 +65,7 @@ def run( #run a basic model configuration
         #=======================================================================
         catalog_fp = None,
         modelID_l=None,
-        baseID = 0, #model representing the base run
+        baseID_l=[0, 40, 50], #models representing the base run (for building Trues)
  
         #=======================================================================
         # plot control
@@ -80,11 +80,13 @@ def run( #run a basic model configuration
         **kwargs):
     
     with ModelAnalysis(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
-                       catalog_fp=catalog_fp,baseID=baseID,modelID_l=modelID_l,
+                       catalog_fp=catalog_fp,
+                       #baseID=baseID,
+                       modelID_l=modelID_l,
                        bk_lib = {
                            'outs':dict(),
                            'finv_agg_fps':dict(),
-                           'trues':dict(baseID=baseID),
+                           'trues':dict(baseID_l=baseID_l),
                            
                            },
                  **kwargs) as ses:
@@ -515,7 +517,7 @@ def r5():
         tag='r5',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd5\model_run_index.csv',
         compiled_fp_d = {
-         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220413\working\outs_analy_r5_0413.pickle',
+        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220413\working\outs_analy_r5_0413.pickle',
         'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220413\working\agg_mindex_analy_r5_0413.pickle',
         'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220413\working\trues_analy_r5_0413.pickle',
             },

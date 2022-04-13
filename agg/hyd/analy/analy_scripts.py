@@ -77,7 +77,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                  plt=None,
                  name='analy',
                  modelID_l=None, #optional list for specifying a subset of the model runs
-                 baseID=0, #mase model ID
+                 #baseID=0, #mase model ID
                  exit_summary=False,
                  **kwargs):
         
@@ -114,7 +114,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                          **kwargs)
         self.plt=plt
         self.catalog_fp=catalog_fp
-        self.baseID=baseID
+        #self.baseID=baseID
         self.modelID_l=modelID_l
     
     #===========================================================================
@@ -132,7 +132,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         
         
-        true_dx_raw = self.retrieve('trues')
+        true_d = self.retrieve('trues')
         
         
         
@@ -364,7 +364,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     
     def build_trues(self, #map 'base' model data onto the index of all the  models 
                          
-                     baseID=0, #modelID to consider 'true'
+                     baseID_l=[0], #modelID to consider 'true'
                      #modelID_l=None, #optional slicing to specific models
                      dkey='trues',
                      dx_raw=None, agg_mindex=None,
@@ -410,106 +410,111 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         
         assert_func(lambda: self.check_mindex_match_cats(agg_mindex,chk_mindex, glvls = [self.idn, 'studyArea']), 'agg_mindex')
-        assert baseID in dx_raw.index.unique(idn)
+        
+        #check the base indicies are there
+        miss_l = set(baseID_l).difference(dx_raw.index.unique(idn))
+        assert len(miss_l)==0, 'requested baseIDs not loaded: %s'%miss_l
+ 
         
         miss_l = set(dx_raw.index.unique(idn)).symmetric_difference(agg_mindex.unique(idn))
         assert len(miss_l)==0, '%s mismatch between outs and agg_mindex... recompile?'%idn
         
         #=======================================================================
-        # get base
+        # build for each base
         #=======================================================================
-        #just the results for the base model
-        base_dx = dx_raw.loc[idx[baseID, :, :, :], :].droplevel([idn, 'tag', 'event']).dropna(how='all', axis=1)
-        base_dx.index = base_dx.index.remove_unused_levels().set_names('id', level=1)
- 
-        #=======================================================================
-        # expand to all results
-        #=======================================================================
-        #add the events and tags
-        amindex1 = agg_mindex.join(dx_raw.index).reorder_levels(dx_raw.index.names + ['id'])
-        
- 
-        #create a dummy joiner frame
-        """need a 2d column index for the column dimensions to be preserved during the join"""
-        jdx = pd.DataFrame(index=amindex1, columns=pd.MultiIndex.from_tuples([('a',1)], names=base_dx.columns.names))
-        
-        #=======================================================================
-        # #loop and add base values for each Model
-        #=======================================================================
-        d = dict()
-        err_d = dict()
-        for modelID, gdx0 in jdx.groupby(level=idn):
-            """
-            view(gdx0.sort_index(level=['id']))
-            """
-            log.debug(modelID)
-            #check indicides
-            try:
-                assert_index_equal(
-                    base_dx.index,
-                    gdx0.index.droplevel(['modelID', 'tag', 'gid', 'event']).sortlevel()[0],
-                    #check_order=False, #not in 1.1.3 yet 
-                    #obj=modelID #not doing anything
-                    )
-                
-                #join base data onto this models indicides
-                gdx1 =  gdx0.join(base_dx, on=base_dx.index.names).drop('a', axis=1, level=0)
-                
-                #check
-                assert gdx1.notna().all().all(), 'got %i/%i nulls'%(gdx1.isna().sum().sum(), gdx1.size)
-                d[modelID] = gdx1.copy()
-            except Exception as e:
-                err_d[modelID] = e
-        
-        #report errors
-        if len(err_d)>0:
-            for mid, msg in err_d.items():
-                log.error('%i: %s'%(mid, msg))
-            raise Error('failed join on %i/%i \n    %s'%(
-                len(err_d), len(jdx.index.unique(idn)), list(err_d.keys())))
-                
- 
+        log.info('building %i true sets'%len(baseID_l))
+        res_d = dict()
+        for i, baseID in enumerate(baseID_l):
+            log.info('%i/%i on baseID=%i'%(i+1, len(baseID_l), baseID))
+            #=======================================================================
+            # get base
+            #=======================================================================
+            #just the results for the base model
+            base_dx = dx_raw.loc[idx[baseID, :, :, :], :].droplevel([idn, 'tag', 'event']).dropna(how='all', axis=1)
+            base_dx.index = base_dx.index.remove_unused_levels().set_names('id', level=1)
+     
+            #=======================================================================
+            # expand to all results
+            #=======================================================================
+            #add the events and tags
+            amindex1 = agg_mindex.join(dx_raw.index).reorder_levels(dx_raw.index.names + ['id'])
             
-        #combine
-        dx1 = pd.concat(d.values())
+     
+            #create a dummy joiner frame
+            """need a 2d column index for the column dimensions to be preserved during the join"""
+            jdx = pd.DataFrame(index=amindex1, columns=pd.MultiIndex.from_tuples([('a',1)], names=base_dx.columns.names))
             
- 
-        #=======================================================================
-        # check
-        #=======================================================================
-        assert dx1.notna().all().all()
-        #check columns match
-        assert np.array_equal(dx1.columns, base_dx.columns)
-        
-        #check we still match the aggregated index mapper
-        assert np.array_equal(
-            dx1.index.sortlevel()[0].to_frame().reset_index(drop=True).drop(['tag','event'], axis=1).drop_duplicates(),
-            agg_mindex.sortlevel()[0].to_frame().reset_index(drop=True)
-            ), 'result failed to match original mapper'
-        
-        assert_series_equal(dx1.max(axis=0), base_dx.max(axis=0))
- 
-        assert_func(lambda: self.check_mindex_match(dx1.index, dx_raw.index), msg='raw vs trues')
+            #=======================================================================
+            # #loop and add base values for each Model
+            #=======================================================================
+            d = dict()
+            err_d = dict()
+            for modelID, gdx0 in jdx.groupby(level=idn):
+                """
+                view(gdx0.sort_index(level=['id']))
+                """
+                log.debug(modelID)
+                #check indicides
+                try:
+                    assert_index_equal(
+                        base_dx.index,
+                        gdx0.index.droplevel(['modelID', 'tag', 'gid', 'event']).sortlevel()[0],
+                        #check_order=False, #not in 1.1.3 yet 
+                        #obj=modelID #not doing anything
+                        )
+                    
+                    #join base data onto this models indicides
+                    gdx1 =  gdx0.join(base_dx, on=base_dx.index.names).drop('a', axis=1, level=0)
+                    
+                    #check
+                    assert gdx1.notna().all().all(), 'got %i/%i nulls'%(gdx1.isna().sum().sum(), gdx1.size)
+                    d[modelID] = gdx1.copy()
+                except Exception as e:
+                    err_d[modelID] = e
+            
+            #report errors
+            if len(err_d)>0:
+                for mid, msg in err_d.items():
+                    log.error('%i: %s'%(mid, msg))
+                raise Error('failed join on %i/%i \n    %s'%(
+                    len(err_d), len(jdx.index.unique(idn)), list(err_d.keys())))
+                    
+     
+                
+            #combine
+            dx1 = pd.concat(d.values())
+                
+     
+            #=======================================================================
+            # check
+            #=======================================================================
+            assert dx1.notna().all().all()
+            #check columns match
+            assert np.array_equal(dx1.columns, base_dx.columns)
+            
+            #check we still match the aggregated index mapper
+            assert np.array_equal(
+                dx1.index.sortlevel()[0].to_frame().reset_index(drop=True).drop(['tag','event'], axis=1).drop_duplicates(),
+                agg_mindex.sortlevel()[0].to_frame().reset_index(drop=True)
+                ), 'result failed to match original mapper'
+            
+            assert_series_equal(dx1.max(axis=0), base_dx.max(axis=0))
+     
+            assert_func(lambda: self.check_mindex_match(dx1.index, dx_raw.index), msg='raw vs trues')
+            
+            res_d[baseID] = dx1.copy()
         #=======================================================================
         # wrap
         #=======================================================================
-        log.info('grouping %s'%str(dx1.shape))
-        """
-        view(dx1)
-        view(dx1.iloc[10000:15000, :])
-        view(dx_raw.iloc[10000:15000, :])
-        dx_raw
-        view(dx1.index.droplevel([4,5]).to_frame().drop_duplicates())
-        dx1.columns
-        """
-        
+        log.info('finished on  %i'%len(res_d))
+ 
  
         if write:
-            self.ofp_d[dkey] = self.write_pick(dx1,
+            self.ofp_d[dkey] = self.write_pick(res_d,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
  
-        return dx1
+        return res_d
     
     
     def build_deltas(self,
@@ -539,8 +544,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if dx_raw is None:  
             dx_raw = self.retrieve('outs')
             
-        if true_dx is None:
-            true_dx = self.retrieve('trues')
+        if true_dx_raw is None:
+            true_d = self.retrieve('trues')
+            true_dx_raw = true_d[baseID]
+ 
             
         log.info('on raw: %s and true: %s'%(str(dx_raw.shape), str(true_dx.shape)))
  
@@ -941,7 +948,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                          dx_raw=None,
                          true_dx_raw=None,
                          modelID_l=None, #models to include
-                         baseID=None,
+                         baseID=0,
                          
                          #control
                          agg_d = {'rloss':'mean', 'rsamps': 'mean', 'tvals':'sum', 'tloss':'sum'}, #aggregation methods
@@ -956,18 +963,19 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         # retrieve
         #=======================================================================
         idn = self.idn
-        if baseID is None: baseID=self.baseID
+        #if baseID is None: baseID=self.baseID
  
         if dx_raw is None:
             dx_raw = self.retrieve('outs')
             
         if true_dx_raw is None:
-            true_dx_raw = self.retrieve('trues', baseID=baseID)
+            true_d = self.retrieve('trues')
+            true_dx_raw = true_d[baseID]
             
         if modelID_l is None:
             modelID_l = dx_raw.index.unique(0).tolist()
             
-        assert baseID == modelID_l[0]
+        #assert baseID == modelID_l[0]
         
         
         
@@ -1956,6 +1964,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     dkey='tvals',#column group w/ values to plot
                     aggMethod='mean', #method to use for aggregating the true values (down to the gridded)
                     true_dx_raw=None, #base values (indexed to raws per model)
+                    baseID=0,
                     dx_raw=None, #combined model results
                     modelID_l = None, #optinal sorting list
                     
@@ -2013,7 +2022,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             dx_raw = self.retrieve('outs')
             
         if true_dx_raw is None:
-            true_dx_raw = self.retrieve('trues')
+            true_d = self.retrieve('trues')
+            true_dx_raw = true_d[baseID]
             
         if sharey is None:
             if plot_type=='scatter':
@@ -2424,7 +2434,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         if plot_colr is None: plot_colr=plot_rown
         idn = self.idn
-        if baseID is None: baseID=self.baseID
+        #if baseID is None: baseID=self.baseID
  
         if dx_raw is None:
             dx_raw = self.retrieve('outs')
