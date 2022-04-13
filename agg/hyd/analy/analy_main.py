@@ -268,7 +268,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # Intersection-----------
         #=======================================================================
- 
+        dkey='rsamps'
         
         #=======================================================================
         # #hazard vs asset resolution (depths)
@@ -279,35 +279,56 @@ def run( #run a basic model configuration
         
         
         for plotName, mids in {
-            #'wse':list(range(9)),
+            'wse':list(range(9)), #base
             'depth':[0, 21,22, #dsampStage=depth
                      3,34,35,
                      6,36,37,
-                     ]}.items(): 
+                     ],
+            'centroid':list(range(50,59)), #sgType='centroids'
+            }.items(): 
             pass
          
             #main scatter plot       
-            ses.plot_compare_mat(dkey='rsamps', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt,sharex='all',sharey='all')
+            #===================================================================
+            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt,sharex='all',sharey='all',
+            #                      title='%s \'%s\' errors'%(plotName, dkey))
+            #===================================================================
         #=======================================================================
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea',  fmt=fmt)
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea',  fmt=fmt)
         #=======================================================================
+        
         #=======================================================================
+        # intersection method (sgType, samp_method)
+        #=======================================================================
+        #comparing all of the methods at one resolution and aggLevel
+        mids = [3,53,10]
+        ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='samp_method', plot_coln='studyArea', fmt=fmt,sharex='all',sharey='all',
+                                 title='\'%s\' errors by intersection method'%(dkey),
+                                 )
+        
+        
+        
         
         #=======================================================================
         # loss calc: UNIT loss---------
         #=======================================================================
-
+        dkey='rloss'
 
         #=======================================================================
         # hazard vs asset resolution 
         #=======================================================================
+        
         for plotName, mids in {
-            #'798':list(range(9)),
-            '811':list(range(34, 43))}.items():
+            '798':list(range(9)),
+            '049':list(range(40,49))}.items():
+            pass
  
-            ses.plot_compare_mat(dkey='rloss', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='png',
-                                     sharex='all',sharey='all')
+            #===================================================================
+            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='png',
+            #                          sharex='all',sharey='all',
+            #                          title='%s \'%s\' errors'%(plotName, dkey))
+            #===================================================================
             
             #histogram of rloss
             #=======================================================================
@@ -494,9 +515,9 @@ def r5():
         tag='r5',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd5\model_run_index.csv',
         compiled_fp_d = {
-        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\outs_analy_r5_0412.pickle',
-        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\agg_mindex_analy_r5_0412.pickle',
-        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220412\working\trues_analy_r5_0412.pickle',
+         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220413\working\outs_analy_r5_0413.pickle',
+        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220413\working\agg_mindex_analy_r5_0413.pickle',
+        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r5\20220413\working\trues_analy_r5_0413.pickle',
             },
         )
  

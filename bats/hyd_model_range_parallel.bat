@@ -1,6 +1,8 @@
 REM paramters
-SET ids=(40,41,42, 43,44,45,46,47,48)
-SET LAG=600
+SET ids=(54,55,56,57,58,59)
+REM ,)
+
+SET LAG=180
 SET NAME=hyd5
  
 

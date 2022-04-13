@@ -502,6 +502,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         view(dx1.index.droplevel([4,5]).to_frame().drop_duplicates())
         dx1.columns
         """
+        
  
         if write:
             self.ofp_d[dkey] = self.write_pick(dx1,
@@ -1966,7 +1967,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     
                     #plot config [bars]
                     plot_bgrp=None, #grouping (for plotType==bars)
-                    err_type=None, #what type of errors to calculate
+                    err_type=None, #what type of errors to calculate (for plot_type='bars')
                         #absolute: modelled - true
                         #relative: absolute/true
  
@@ -1979,6 +1980,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #labelling
                     #baseID=None, 
                     add_label=True,
+                    title=None,
  
                     
                     #plot style
@@ -2066,12 +2068,16 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                     set_ax_title=True,
                                     )
         
-        if not plot_type=='bars':
-            fig.suptitle('\'%s\' errors'%dkey)
-        else:
-            fig.suptitle('\'%s\' errors (%s)'%(dkey, err_type))
+        #=======================================================================
+        # title
+        #=======================================================================
+        if title is None:
+            if not plot_type=='bars':
+                title = '\'%s\' errors'%dkey
+            else:
+                title = '\'%s\' errors (%s)'%(dkey, err_type)
             
-        
+        fig.suptitle(title)
         #=======================================================================
         # #get colors
         #=======================================================================
@@ -2373,7 +2379,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         
-        return self.output_fig(fig, fname='compareMat_%s_%s_%sX%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), **kwargs)
+        return self.output_fig(fig, fname='compareMat_%s_%s_%sX%s_%s' % (
+            title.replace(' ','').replace('\'',''),
+             plot_type, plot_rown, plot_coln, self.longname), **kwargs)
  
     def plot_vs_mat(self, #plot dkeys against eachother in a matrix
                   
