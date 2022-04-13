@@ -91,7 +91,7 @@ def run( #run a basic model configuration
                            },
                  **kwargs) as ses:
         
-        ses.runCompileSuite()
+        #ses.runCompileSuite()
  
         
         ses.write_suite_smry()

@@ -35,7 +35,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     QgsWkbTypes
     
     
-from agg.coms.scripts import Catalog
+from agg.coms.scripts import Catalog, ErrorCalcs
 from agg.hyd.hscripts import HydSession
 
 
@@ -1018,11 +1018,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # totals----
                 #===============================================================
-                rser = pd.Series({
-                    'pred':getattr(gdx1, aggMethod)(), 
-                    'true':getattr(tgdx1, aggMethod)()
-                    })
                 
+                #===============================================================
+                # rser = pd.Series({
+                #     'pred':getattr(gdx1, aggMethod)(), 
+                #     'true':getattr(tgdx1, aggMethod)()
+                #     })
+                #===============================================================
+                rser = pd.Series()
                 #===================================================================
                 # bias
                 #===================================================================
@@ -1030,7 +1033,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 """works for multi and single iterations"""
 
                 
-                rser['bias'] = rser['pred']/rser['true']
+                #rser['bias'] = rser['pred']/rser['true']
+                
+                
                 
                 #===============================================================
                 # per-asset-----
@@ -1044,7 +1049,19 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # mean errors
                 #===============================================================
-                rser['meanError'] = (gdx1 - tgdx2).sum()/len(gdx1)
+                ecWrkr = ErrorCalcs(pred_ser=gdx1, true_ser=tgdx2, logger=log)
+                
+
+                
+                rser['bias'] = ecWrkr.get_bias() 
+                
+                if not rser['bias']==1.0:
+                    print(rser['bias'])
+                                    
+                rser['meanError'] = ecWrkr.get_meanError()
+                #(gdx1 - tgdx2).sum()/len(gdx1)
+                
+                raise Error('stopped here')
                 rser['meanErrorAbs'] = (gdx1 - tgdx2).abs().sum()/len(gdx1)
                 rser['RMSE'] = math.sqrt(((gdx1 - tgdx2)**2).sum()/len(gdx1))
                 
@@ -2207,6 +2224,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 
                 barHeight_ser = gb.sum() #collapse iters(
+                
+                
+                
                 if err_type=='relative':
                     barHeight_ser = barHeight_ser/tgdx2.groupby(level=plot_bgrp).sum()
                 elif err_type=='bias':

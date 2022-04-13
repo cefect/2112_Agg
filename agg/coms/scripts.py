@@ -11,7 +11,7 @@ import os, datetime, math, pickle, copy, shutil
 import pandas as pd
 import numpy as np
 
-
+from pandas.testing import assert_frame_equal, assert_series_equal, assert_index_equal
 
 from hp.oop import Basic, Session, Error
 from hp.Q import Qproj
@@ -936,5 +936,131 @@ class Catalog(object): #handling the simulation index and library
                 self.logger.info('wrote %s to %s'%(str(df.shape), self.catalog_fp))
 
                
- 
+#===============================================================================
+# Error Functions
+#===============================================================================
+class ErrorCalcs(object):
+    def __init__(self,
+            pred_ser=None,
+            true_ser=None,
+            logger=None,
+            ):
+        #attach
+        
+        self.pred_ser=pred_ser.rename('pred')
+        self.true_ser=true_ser.rename('true')
+        
+        
+        self.check_match()
+        
+        self.df_raw = pred_ser.rename('pred').to_frame().join(true_ser.rename('true'))
+        
+        
+        self.logger=logger
+        
+        self.res_d = dict()
+        
+    def get_bias(self,
+                 per_element=False,
+                 ):
+        log = self.logger.getChild('bias')
+        pred_ser=self.pred_ser
+        true_ser=self.true_ser
+        df = self.df_raw.copy()
+
+        
+        if not per_element:
+            s1 = df.sum()
+            return s1['pred']/s1['true']
+        else:
+            res1 = pred_ser/true_ser
+            res1 = res1.rename('bias')
+            #=======================================================================
+            # both zeros
+            #=======================================================================
+            #true_bx = true_ser==0
+            
+            bx = np.logical_and(
+                true_ser==0,
+                pred_ser==0)
+            
+            if bx.any():
+                log.info('replacing %i/%i zero matches w/ 1.0'%(bx.sum(), len(bx)))
+                res1.loc[bx] = 1.0
+                
+            #=======================================================================
+            # pred zeros
+            #=======================================================================
+            bx = np.logical_and(
+                true_ser!=0,
+                pred_ser==0)
+            
+            if bx.any():
+                log.info('replacing %i/%i zero mismatches w/ null'%(bx.sum(), len(bx)))
+                res1.loc[bx] = np.nan
+                
+            #=======================================================================
+            # true zeros
+            #=======================================================================
+            bx = np.logical_and(
+                true_ser==0,
+                pred_ser!=0)
+            if bx.any():
+                log.info('replacing %i/%i zero mismatches w/ null'%(bx.sum(), len(bx)))
+                res1.loc[bx] = np.nan
+                
+            #=======================================================================
+            # wrap
+            #=======================================================================
+            log.info('finished w/ mean bias = %.2f (%i/%i nulls)'%(
+                res1.dropna().mean(), res1.isna().sum(), len(res1)))
+            
+            """
+            bx = res1==np.inf
+            
+            view(df.join(res1).loc[bx, :])
+            res1[bx]
+            pred_ser.to_frame().join(true_ser).loc[bx, :]
+            """
+            
+            return res1
+    
+    def get_meanError(self,
+                      ):
+        log = self.logger.getChild('meanError')
+
+        df = self.df_raw.copy()
+        
+        return (df['pred'] - df['true']).sum()/len(df)
+        
+        
+        return
+        
+        #(gdx1 - tgdx2).sum()/len(gdx1)
+        
+    
+    def check_match(self,
+                    pred_ser=None,
+                    true_ser=None,
+                    ):
+        if pred_ser is None:
+            pred_ser=self.pred_ser
+        if true_ser is None:
+            true_ser=self.true_ser
+            
+        assert isinstance(pred_ser, pd.Series)
+        assert isinstance(true_ser, pd.Series)
+        
+        assert_index_equal(pred_ser.index, true_ser.index)
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
      
