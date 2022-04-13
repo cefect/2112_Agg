@@ -94,7 +94,7 @@ def run( #run a basic model configuration
         ses.runCompileSuite()
  
         
-        
+        ses.write_suite_smry()
         
         #=======================================================================
         # individual model summaries---------
@@ -110,7 +110,7 @@ def run( #run a basic model configuration
         # total loss (top level) summary bar charts--------
         #=======================================================================
         
-        #ses.write_suite_smry()
+        
         
         #tloss sum: agg levels  X studyArea (w/ tval_samp=rand)
         mids = [11, 19, 20]
@@ -279,36 +279,53 @@ def run( #run a basic model configuration
         fmt='png'
         #ses.plot_dkey_mat(dkey='rsamps', modelID_l=list(range(9)), plot_rown='aggLevel', plot_coln='resolution',  fmt='svg',sharex='all',sharey='all', plot_colr='aggLevel')
         
-        
-        for plotName, mids in {
-            'wse':list(range(9)), #base
-            'depth':[0, 21,22, #dsampStage=depth
-                     3,34,35,
-                     6,36,37,
-                     ],
-            'centroid':list(range(50,59)), #sgType='centroids'
-            }.items(): 
+        #main matrix plots (of depth)
+        for plotName, mids, baseID in [
+            #('wse',         list(range(9)),     0), #base
+            ('depth',       [0, 21,22,3,34,35,6,36,37,], 0),
+            #('centroid',    list(range(50,59)), 50), #sgType='centroids'
+            ]: 
             pass
          
-            #main scatter plot       
+            #scatter matrix
             #===================================================================
             # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt,sharex='all',sharey='all',
-            #                      title='%s \'%s\' errors'%(plotName, dkey))
+            #                      title='%s \'%s\' errors'%(plotName, dkey), baseID=baseID)
             #===================================================================
-        #=======================================================================
-        # ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea',  fmt=fmt)
-        # ses.plot_compare_mat(dkey='rsamps', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea',  fmt=fmt)
-        #=======================================================================
+            
+            #StudyArea bar matrix
+            #===================================================================
+            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='svg',sharex='all',sharey='all',
+            #                      title='%s \'%s\' relative errors'%(plotName, dkey), baseID=baseID, plot_type='bars', plot_colr='studyArea', 
+            #                      err_type='bias')
+            #===================================================================
+            
+
         
         #=======================================================================
         # intersection method (sgType, samp_method)
         #=======================================================================
         #comparing all of the methods at one resolution and aggLevel
         mids = [3,53,10]
-        ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='samp_method', plot_coln='studyArea', fmt=fmt,sharex='all',sharey='all',
-                                 title='\'%s\' errors by intersection method'%(dkey),
-                                 )
+        #=======================================================================
+        # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='samp_method', plot_coln='studyArea', fmt=fmt,sharex='all',sharey='all',
+        #                          title='\'%s\' errors by intersection method'%(dkey),
+        #                          )
+        #=======================================================================
         
+        #studyArea vs. resolution (aggLevel=100)
+        for plotName, mids, baseID in [
+            ('zonal',        [6,7,8],     0), #sgType='zonal'
+ 
+            ('centroid',    [56,57,58], 50), #sgType='centroids'
+            ]: 
+            pass
+         
+      
+            #===================================================================
+            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='studyArea', plot_coln='resolution', fmt=fmt,sharex='all',sharey='all',
+            #                      title='%s \'%s\' errors'%(plotName, dkey), baseID=baseID)
+            #===================================================================
         
         
         
@@ -321,13 +338,16 @@ def run( #run a basic model configuration
         # hazard vs asset resolution 
         #=======================================================================
         
-        for plotName, mids in {
-            '798':list(range(9)),
-            '049':list(range(40,49))}.items():
+        for plotName, mids, baseID in [
+            ('798',list(range(9)),      0),
+            ('049',list(range(40,49)),  40)
+            ]:
             pass
  
+ 
             #===================================================================
-            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='png',
+            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+            #                      plot_rown='aggLevel', plot_coln='resolution', fmt='png',
             #                          sharex='all',sharey='all',
             #                          title='%s \'%s\' errors'%(plotName, dkey))
             #===================================================================

@@ -1014,7 +1014,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 gdx1 = gdx0.loc[:, idx[coln, :]].mean(axis=1)
                 tgdx1 = tgdx0.loc[:, idx[coln, :]].mean(axis=1)
                 
-                
+                """todo: refactor and incorpoarte into plot_compare_mat"""
                 #===============================================================
                 # totals----
                 #===============================================================
@@ -1976,7 +1976,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     
                     #plot config [bars]
                     plot_bgrp=None, #grouping (for plotType==bars)
-                    err_type=None, #what type of errors to calculate (for plot_type='bars')
+                    err_type='absolute', #what type of errors to calculate (for plot_type='bars')
                         #absolute: modelled - true
                         #relative: absolute/true
  
@@ -2013,7 +2013,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             plot_colr=plot_rown
             
         if plot_bgrp is None:
-            assert plot_type=='scatter'
+
+            plot_bgrp = plot_colr
             
         idn = self.idn
         #if baseID is None: baseID=self.baseID
@@ -2036,6 +2037,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 sharex='none'
             else:
                 sharex='all'
+                
+        if plot_type=='bars':
+            #assert err_type in ['absolute', 'relative']
+            assert isinstance(plot_bgrp, str)
         
         
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
@@ -2166,11 +2171,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #trues
                 true_data_d, _ = self.prep_ranges(qhi, qlo, False, tgdx2)
             
-            
                 """only using mean values for now"""
                 xar, yar = data_d['mean'], true_data_d['mean'] 
-                
-                
                 
                 stat_d = self.ax_corr_scat(ax, xar, yar, 
                                            #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
@@ -2180,12 +2182,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                            logger=log, add_label=False)
                 
                 gdata = gdx1 #for stats
-                
-                
                 #===============================================================
                 # meta
                 #===============================================================
-                #meta_d.update({'zero_cnt':zeros_bx.sum(),'count':len(gdx0)})
                 meta_d.update(stat_d)
                 
                 #add confusion matrix stats
@@ -2197,7 +2196,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             # bar plot---------
             #===================================================================
             elif plot_type=='bars':
-                """TODO: consolidate w/ plot_total_bars"""
+                """TODO: consolidate w/ plot_total_bars
+                integrate with write_suite_smry errors"""
                 #===============================================================
                 # data setup
                 #===============================================================
@@ -2209,6 +2209,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 barHeight_ser = gb.sum() #collapse iters(
                 if err_type=='relative':
                     barHeight_ser = barHeight_ser/tgdx2.groupby(level=plot_bgrp).sum()
+                elif err_type=='bias':
+                    predTotal_ser= gdx1.groupby(level=plot_bgrp).sum()
+                    trueTotal_ser=tgdx2.groupby(level=plot_bgrp).sum()
+                    barHeight_ser = predTotal_ser/trueTotal_ser
+                elif err_type=='absolute':
+                    pass
+                else:
+                    raise IOError('bad err_type: %s'%err_type)
  
                     
                 """always want totals for the bars"""
@@ -2272,10 +2280,12 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':ylocs, 'xloc':xlocs}.items()}
 
                 for event, row in pd.concat(d1, axis=1).iterrows():
+                    if err_type=='bias':
+                        txt = '%.2f' %(row['yloc'])
+                    else:
+                        txt = '%+.1f %%' % (row['yloc'] * 100)
                     ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
-                                '%+.1f %%' % (row['yloc'] * 100),
-                                ha='center', va='bottom', rotation='vertical',
-                                fontsize=10, color='red')
+                                txt,ha='center', va='bottom', rotation='vertical',fontsize=10, color='red')
                     
             #===================================================================
             # violin plot-----
@@ -3472,7 +3482,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 plot_11=True,
                 
                 # lienstyles
- 
                 scatter_kwargs={  # default styles
                     
                     } ,
@@ -3499,8 +3508,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         max_v = max(max(xar), max(yar))
         xlim = (min(xar), max(xar))
- 
-         
         #=======================================================================
         # add the scatter
         #=======================================================================
