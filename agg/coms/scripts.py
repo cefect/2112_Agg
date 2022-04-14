@@ -397,7 +397,7 @@ class QSession(BaseSession, Qproj):
  
                     vid=1,
                     #vf_d=None,
-                    cf_vfuncLib_fp = r'C:\LS\10_OUT\2112_Agg\ins\vid_df\CanFlood_curves_0414.xls', #canflood format curves
+                    cf_vfuncLib_fp = r'C:\LS\10_OUT\2112_Agg\ins\vfunc\CanFlood_curves_0414.xls', #canflood format curves
                     logger=None,
                     **kwargs):
         """
@@ -411,6 +411,7 @@ class QSession(BaseSession, Qproj):
         #=======================================================================
         if logger is None: logger=self.logger
         log=logger.getChild('b.vfunc')
+        assert isinstance(vid, int)
         #=======================================================================
         # special linear testing func
         #=======================================================================

@@ -8,7 +8,7 @@ pytests for vcunfs
 #===============================================================================
 # imports-------
 #===============================================================================
-import os
+import os, pickle
 import pytest
 from numpy.testing import assert_equal
 
@@ -19,43 +19,35 @@ import numpy as np
 
 import warnings
 
-from agg.coms.scripts import Session as CalcSession
+from agg.coms.scripts import QSession as CalcSession
 
 #===============================================================================
 # prep---------
 #===============================================================================
-def get_vid_df(): #get vfunc data containers
-    """
-    beacuse we use these to specify the tests, loading them at the head
-        we call a new session for the actual tests... but keep this data alive to speed things up
-    """
-    
-    with CalcSession() as ses:
-        vid_df = ses.build_vid_df(
-                      #simple vid selection
-                      vid_l = None,
-                      vid_sample=None,
-                      
-                      #attribute selection control
-                      
-                     selection_d = { #selection criteria for models. {tabn:{coln:values}}
-                          'model_id':[1, 2, 3, 4, 6, 7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47],
-                          'function_formate_attribute':['discrete'], #discrete
-                          'damage_formate_attribute':['relative'],
-                          'coverage_attribute':['building'],
-                         
-                         },
-                     
-                     
-                     max_mod_cnt = None, #maximum dfuncs to allow from a single model_id
-                     )
+def load_pick(fp):
+    assert os.path.exists(fp), fp
         
-        df_d = ses.data_d['df_d']
+    with open(fp, 'rb') as f:
+        data = pickle.load(f)
+        
+    return data
     
-    return vid_df, df_d
+ 
     
-vid_df, df_d = get_vid_df()
+"""
+beacuse we use these to specify the tests, loading them at the head
+   we call a new session for the actual tests... but keep this data alive to speed things up
+"""
+vid_df = load_pick(r'C:\LS\10_OUT\2112_Agg\ins\vfunc\vid_df_hyd5_dev_0414.pickle')
+df_d = load_pick(r'C:\LS\10_OUT\2112_Agg\ins\vfunc\df_d_hyd5_dev_0414.pickle')
+    
+ 
 vid_l = vid_df.index.tolist() #list of vfuncs to test
+
+#add some others
+vid_l =  [0, 1001] + vid_l
+
+
 #===============================================================================
 # fixture-----
 #===============================================================================
@@ -68,7 +60,7 @@ def session(
             #wrk_base_dir=None,
             #base_dir, 
             write, #see conftest.py
- 
+            logger, feedback,#see conftest.py (scope=session)
                     ):
     """
     using module scope so each vfunc doesnt have to re-spawn the session
@@ -86,19 +78,20 @@ def session(
     
     with CalcSession(out_dir = None, wrk_dir=wrk_dir, overwrite=write,
                      driverName='GeoJSON', #nicer for writing small test datasets
+                     logger=logger, feedback=feedback,
                      ) as ses:
         yield ses
         
 @pytest.fixture      
-def vfunc(session, request):
+def vfunc(session, request, ):
     
     vid = request.param
     
-    vf_d = session.build_vf_d(dkey='vf_d', vid_df = vid_df.loc[[vid], :], df_d=df_d)
+    #add the preloads
+    session.data_d.update({'vid_df':vid_df.copy(), 'df_d':df_d}) 
     
-    return vf_d[vid]
-    
-    
+    return session.build_vfunc(vid=vid)
+
         
 @pytest.mark.dev
 @pytest.mark.parametrize('vfunc',vid_l, indirect=True)  
@@ -114,10 +107,7 @@ def test_vfunc(vfunc):
     rl_ar = vfunc.get_rloss(wd_ar)
     
     assert_equal(rl_ar, vfunc.dd_ar[1]), 'training yvals dont match output yvals'
-    
- 
-    
-    
+
     #===========================================================================
     # test extremes
     #===========================================================================
