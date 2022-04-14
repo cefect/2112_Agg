@@ -255,21 +255,21 @@ class Model(HydSession, QSession):  # single model run
     pars_lib = {
 
         'aggType':{'vals':['none', 'gridded', 'convexHulls'],            'dkey':'finv_agg_d'},
-        'aggLevel':{'vals':[0, 5,10, 20, 40, 50, 100, 200],              'dkey':'finv_agg_d'},
+        'aggLevel':{'vals':list(range(500)),              'dkey':'finv_agg_d'},
         'sgType':{'vals':['centroids', 'poly'],                         'dkey':'finv_sg_d'},
         
         'tval_type':{'vals':['uniform', 'rand', 'footprintArea'],        'dkey':'tvals_raw'},
         'dscale_meth':{'vals':['centroid', 'none', 'area_split'],       'dkey':'tvals'},
         
         'severity':{'vals':['hi', 'lo'],                                'dkey':'drlay_d'},
-        'resolution':{'vals':[5, 20,50, 100, 200],                         'dkey':'drlay_d'},
+        'resolution':{'vals':list(range(500)),                         'dkey':'drlay_d'},
         'downSampling':{'vals':['none','Average', 'Mode', 'Nearest neighbour'],                    'dkey':'drlay_d'},
         'dsampStage':{'vals':['none', 'wse', 'depth'],                  'dkey':'drlay_d'},
         
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],         'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum', 'Median', 'none'], 'dkey':'rsamps'},
                 
-        'vid':{'vals':[49, 798,811, 0],                                 'dkey':'vfunc'},
+        'vid':{'vals':[49, 798,811, 0, 1001],                                 'dkey':'vfunc'},
 
 
         }
