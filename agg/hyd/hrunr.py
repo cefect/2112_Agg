@@ -332,7 +332,13 @@ def dev():
     return run(
         tag='dev',modelID = 1,
         compiled_fp_d = {
- 
+        'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd5\dev\20220414\working\finv_agg_d_hyd5_dev_0414.pickle',
+        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd5\dev\20220414\working\finv_agg_mindex_hyd5_dev_0414.pickle',
+        'tvals_raw':r'C:\LS\10_OUT\2112_Agg\outs\hyd5\dev\20220414\working\tvals_raw_hyd5_dev_0414.pickle',
+        'tvals':r'C:\LS\10_OUT\2112_Agg\outs\hyd5\dev\20220414\working\tvals_hyd5_dev_0414.pickle',
+        'drlay_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd5\dev\20220414\working\drlay_d_hyd5_dev_0414.pickle',
+        'finv_sg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd5\dev\20220414\working\finv_sg_d_hyd5_dev_0414.pickle',
+        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hyd5\dev\20220414\working\rsamps_hyd5_dev_0414.pickle',
             },
         
  
@@ -348,7 +354,7 @@ def dev():
         trim=True,
         studyArea_l = ['Calgary'],
         overwrite=True,
-        vid=1001,
+        vid=798,
         )
     
     

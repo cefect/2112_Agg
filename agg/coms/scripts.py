@@ -29,23 +29,30 @@ class QSession(BaseSession, Qproj):
     ycn = 'rl'
     xcn = 'wd'
     
+
+    
     def __init__(self, 
                  data_retrieve_hndls={},
                  prec=2,
                  write=True,
-                 vid_df_compiled_fp = r'C:\LS\10_OUT\2112_Agg\ins\vid_df\vid_df_hyd5_dev_0414.pickle', #optional compiled vid_df
+                 
+                 compiled_fp_d2 = { #permanently compiled
+                        'vid_df':r'C:\LS\10_OUT\2112_Agg\ins\vfunc\vid_df_hyd5_dev_0414.pickle', #optional compiled vid_df
+                        'df_d':r'C:\LS\10_OUT\2112_Agg\ins\vfunc\df_d_hyd5_dev_0414.pickle',
+                        },
+ 
                  **kwargs):
     
         #add generic handles
         """issues with chid instaancing when .update() is used"""
         data_retrieve_hndls = {**data_retrieve_hndls, **{
             'df_d':{ #csv dump of postgres vuln funcs
-                #'compiled':lambda x:self.build_df_d(fp=x), #no compiled version
+                'compiled':lambda **kwargs:self.load_pick(**kwargs), 
                 'build':lambda **kwargs:self.build_df_d(**kwargs),
                 },
             
             'vid_df':{#selected/cleaned vfunc data
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),  #best to just make a fresh selection each time
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),  
                 'build':lambda **kwargs:self.build_vid_df(**kwargs)
                 
                 },
@@ -71,11 +78,8 @@ class QSession(BaseSession, Qproj):
         
         #add the compiled vid_df
         """special case where we always use a compiled"""
-        if not vid_df_compiled_fp is None:
-            assert os.path.exists(vid_df_compiled_fp) 
-            if not 'vid_df' in self.compiled_fp_d: #some inheritance
-                pass
-                self.compiled_fp_d['vid_df'] = vid_df_compiled_fp
+        self.compiled_fp_d.update(compiled_fp_d2)
+ 
             
                 
     #===========================================================================
@@ -84,16 +88,32 @@ class QSession(BaseSession, Qproj):
     
     def build_df_d(self, #load the vfunc files
                 fp=r'C:\LS\09_REPOS\02_JOBS\2112_Agg\figueiredo2018\cef\csv_dump.xls',
-                dkey=None, logger=None,
+                dkey=None, logger=None, write=None,
                 ):
         
+        #=======================================================================
+        # defaults
+        #=======================================================================
         assert dkey=='df_d'
         if logger is None: logger=self.logger
         log = logger.getChild('build_df_d')
+        if write is None: write=self.write
+        
+        #=======================================================================
+        # load
+        #=======================================================================
         df_d = pd.read_excel(fp, sheet_name=None)
         
         log.info('loaded %i pages from \n    %s\n    %s'%(
             len(df_d), fp, list(df_d.keys())))
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        if write: 
+            self.ofp_d[dkey] = self.write_pick(df_d,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
         
         
         return df_d
@@ -119,7 +139,7 @@ class QSession(BaseSession, Qproj):
                          },
                      
                      
-                     max_mod_cnt = 10, #maximum dfuncs to allow from a single model_id
+                     max_mod_cnt = None, #maximum dfuncs to allow from a single model_id
                      
                      
                      #keynames
@@ -249,8 +269,7 @@ class QSession(BaseSession, Qproj):
         #=======================================================================
         # write
         #=======================================================================
-        if write:
- 
+        if write: 
             self.ofp_d[dkey] = self.write_pick(res_df,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
@@ -437,7 +456,7 @@ class QSession(BaseSession, Qproj):
         #=======================================================================
         else:
             vid_df_raw = self.retrieve('vid_df', 
-                       vid_l = [798,811,49], #have to specify some selection to construct initial compile
+ 
                                          )
             
             #check and trim
