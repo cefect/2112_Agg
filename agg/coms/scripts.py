@@ -467,6 +467,13 @@ class QSession(BaseSession, Qproj):
             #spawn
             vfunc = self.build_vf_d(dkey='vf_d', vid_df = vid_df, logger=log, **kwargs)[vid]
             
+        #=======================================================================
+        # wrap
+        #=======================================================================
+ 
+        #vfunc.plot()
+ 
+            
  
         return vfunc
     
@@ -851,10 +858,11 @@ class Vfunc(object):
              figNumber=0,
              label=None,
              lineKwargs={},
-             add_zeros=True,
+             #add_zeros=False,
              set_title=True,
              logger=None,
              ):
+        
         
         #=======================================================================
         # defautls
@@ -862,14 +870,17 @@ class Vfunc(object):
         if label is None: label=self.name
         #setup plot
         if ax is None:
-            ax = get_ax(figNumber=figNumber)
+            from agg.hyd.analy.analy_scripts import get_ax
+            ax = get_ax(figNumber=figNumber, figsize=(6,6))
             
         #get data
         ddf = self.ddf.copy()
         
         #add some dummy zeros
-        if add_zeros:
-            ddf = ddf.append(pd.Series(0, index=ddf.columns), ignore_index=True).sort_values(self.xcn)
+        #=======================================================================
+        # if add_zeros:
+        #     ddf = ddf.append(pd.Series(0, index=ddf.columns), ignore_index=True).sort_values(self.xcn)
+        #=======================================================================
             
         xar, yar = ddf.T.values[0], ddf.T.values[1]
         """
@@ -879,6 +890,10 @@ class Vfunc(object):
         
         if set_title:
             ax.set_title(self.name)
+            ax.set_xlabel(self.xcn)
+            ax.set_ylabel(self.ycn)
+            ax.grid()
+            #ax.legend()
         
         return ax
             
