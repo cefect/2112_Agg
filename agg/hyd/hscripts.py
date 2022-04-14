@@ -533,7 +533,7 @@ class Model(HydSession, QSession):  # single model run
         aggLevel = int(aggLevel)
         #assert isinstance(aggLevel, int), 'got bad aggLevel type: %s (%s)'%(aggLevel, type(aggLevel))
         if not aggType == 'none': 
-            assert aggLevel>0, 'got bad aggLevel: %s'%aggLevel
+            assert aggLevel>0, 'got bad aggLevel: %s for aggType=%s'%(aggLevel, aggType)
         else:
             assert aggLevel==0, 'got bad aggLevel: %s'%aggLevel
         #=======================================================================

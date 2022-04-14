@@ -285,11 +285,9 @@ def run( #run a basic model configuration
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
                      
-                     
                      'drlay_d':dict( severity=severity, resolution=resolution, downSampling=downSampling, dsampStage=dsampStage),
 
-                     'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat,
-                                   ),
+                     'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat),
                      
                      'finv_sg_d':dict(sgType=sgType),
                      
@@ -339,14 +337,18 @@ def dev():
         
  
         iters=3,
-        aggType='gridded', aggLevel=50,
-        
-        dsampStage='wsl',
-        resolution=100, downSampling='Average',
+        #=======================================================================
+        # aggType='gridded', 
+        # aggLevel=0,
+        # 
+        # dsampStage='wsl',
+        # resolution=100, downSampling='Average',
+        #=======================================================================
  
         trim=True,
+        studyArea_l = ['Calgary'],
         overwrite=True,
- 
+        vid=1001,
         )
     
     
@@ -354,27 +356,30 @@ def dev():
  
  
 if __name__ == "__main__": 
+    
+    dev()
+ 
+    #===========================================================================
+    # output=run_auto_dev(modelID=27, write=False, write_lib=False,
+    #                     compiled_fp_d={ 
+    # 
+    #                         },
+    #                     #studyArea_l = ['obwb'],
+    #                     )
+    #===========================================================================
  
  
-   #============================================================================
-   #  output=run_auto_dev(modelID=27, write=False, write_lib=False,
-   #                      compiled_fp_d={ 
-   # 
-   #                          },
-   #                      #studyArea_l = ['obwb'],
-   #                      )
-   #============================================================================
- 
- 
-    output=run_autoPars(modelID=27, write=True, write_lib=False,
-                        name='hyd5_dev', 
-                        #studyArea_l = ['obwb'],
-                        compiled_fp_d={
-        'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd5_dev\a50r0_aws\20220412\working\finv_agg_d_hyd5_dev_a50r0_aws_0412.pickle',
-        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd5_dev\a50r0_aws\20220412\working\finv_agg_mindex_hyd5_dev_a50r0_aws_0412.pickle',
-        'tvals_raw':r'C:\LS\10_OUT\2112_Agg\outs\hyd5_dev\a50r0_aws\20220412\working\tvals_raw_hyd5_dev_a50r0_aws_0412.pickle',
-
-                            })
+#===============================================================================
+#     output=run_autoPars(modelID=27, write=True, write_lib=False,
+#                         name='hyd5_dev', 
+#                         #studyArea_l = ['obwb'],
+#                         compiled_fp_d={
+#         'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hyd5_dev\a50r0_aws\20220412\working\finv_agg_d_hyd5_dev_a50r0_aws_0412.pickle',
+#         'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hyd5_dev\a50r0_aws\20220412\working\finv_agg_mindex_hyd5_dev_a50r0_aws_0412.pickle',
+#         'tvals_raw':r'C:\LS\10_OUT\2112_Agg\outs\hyd5_dev\a50r0_aws\20220412\working\tvals_raw_hyd5_dev_a50r0_aws_0412.pickle',
+# 
+#                             })
+#===============================================================================
  
     
  

@@ -33,6 +33,7 @@ class QSession(BaseSession, Qproj):
                  data_retrieve_hndls={},
                  prec=2,
                  write=True,
+                 vid_df_compiled_fp = r'C:\LS\10_OUT\2112_Agg\ins\vid_df\vid_df_hyd5_dev_0414.pickle', #optional compiled vid_df
                  **kwargs):
     
         #add generic handles
@@ -44,7 +45,7 @@ class QSession(BaseSession, Qproj):
                 },
             
             'vid_df':{#selected/cleaned vfunc data
-                #'compiled'  #best to just make a fresh selection each time
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),  #best to just make a fresh selection each time
                 'build':lambda **kwargs:self.build_vid_df(**kwargs)
                 
                 },
@@ -64,13 +65,24 @@ class QSession(BaseSession, Qproj):
                          #init_plt_d=None, #dont initilize the plot child
                          **kwargs)
         
+        
+        
         self.write=write
+        
+        #add the compiled vid_df
+        """special case where we always use a compiled"""
+        if not vid_df_compiled_fp is None:
+            assert os.path.exists(vid_df_compiled_fp) 
+            if not 'vid_df' in self.compiled_fp_d: #some inheritance
+                pass
+                self.compiled_fp_d['vid_df'] = vid_df_compiled_fp
+            
                 
     #===========================================================================
     # BUILDERS---------------
     #===========================================================================
     
-    def build_df_d(self,
+    def build_df_d(self, #load the vfunc files
                 fp=r'C:\LS\09_REPOS\02_JOBS\2112_Agg\figueiredo2018\cef\csv_dump.xls',
                 dkey=None, logger=None,
                 ):
@@ -112,7 +124,7 @@ class QSession(BaseSession, Qproj):
                      
                      #keynames
                      vidnm = None, #indexer for damage functions
-                     dkey='vid_df', logger=None,
+                     dkey='vid_df', logger=None, write=None,
                      ):
         #=======================================================================
         # defaults
@@ -122,6 +134,7 @@ class QSession(BaseSession, Qproj):
         assert dkey == 'vid_df'
  
         if vidnm is None: vidnm=self.vidnm
+        if write is None: write=self.write
         meta_lib=dict()
         
         
@@ -236,6 +249,11 @@ class QSession(BaseSession, Qproj):
         #=======================================================================
         # write
         #=======================================================================
+        if write:
+ 
+            self.ofp_d[dkey] = self.write_pick(res_df,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
         
         
         return res_df
@@ -359,7 +377,9 @@ class QSession(BaseSession, Qproj):
     def build_vfunc(self,
  
                     vid=1,
-                    vf_d=None,
+                    #vf_d=None,
+                    cf_vfuncLib_fp = r'C:\LS\10_OUT\2112_Agg\ins\vid_df\CanFlood_curves_0414.xls', #canflood format curves
+                    logger=None,
                     **kwargs):
         """
         not very nice... original setup was meant for bulk loading vfuncs
@@ -368,33 +388,67 @@ class QSession(BaseSession, Qproj):
             (although I think this was the original format)
         """
         #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('b.vfunc')
+        #=======================================================================
         # special linear testing func
         #=======================================================================
         if vid==0:
             max_depth=50
             ddf = pd.DataFrame({'rl':{0:0, 1:100},'wd':{0:0, 1:max_depth}})
  
-            vf_d = {vid:Vfunc(
+            vfunc = Vfunc(
                 vid=vid, 
                 model_id=0,
                 model_name='linear test',
                 name='linear test',
-                logger=self.logger, 
+                logger=log, 
+                session=self,
+                meta_d = {}, **kwargs
+                ).set_ddf(ddf)
+            
+            
+        #=======================================================================
+        # retrieve from CanFlood format
+        #=======================================================================
+        elif vid>1000:
+            """nasty way to add functions to the original database"""
+            log.info('for vid=%i loading CanFlood format from %s'%(vid, os.path.basename(cf_vfuncLib_fp)))
+            #load tab from xls
+            df = pd.read_excel(cf_vfuncLib_fp, sheet_name=str(vid), header=None)
+            
+            #build
+            vfunc = Vfunc(vid=vid,model_id=1000,
+                model_name='CanFlood',
+                name=df.set_index(0).loc['tag', 1],
+                logger=log, 
                 session=self,
                 meta_d = {}, 
-                ).set_ddf(ddf)}
+                **kwargs).set_from_CanFlood(df)
+            
+            
+            
             
             
         #=======================================================================
         # retrieve from database
         #=======================================================================
-        if vf_d is None:
-            vid_df = self.build_vid_df(vid_l = [vid], **kwargs)
+        else:
+            vid_df_raw = self.retrieve('vid_df', 
+                       vid_l = [798,811,49], #have to specify some selection to construct initial compile
+                                         )
             
-            vf_d = self.build_vf_d(dkey='vf_d', vid_df = vid_df)
+            #check and trim
+            assert vid in vid_df_raw.index
+            vid_df = vid_df_raw.loc[[vid], :]
+            
+            #spawn
+            vfunc = self.build_vf_d(dkey='vf_d', vid_df = vid_df, logger=log, **kwargs)[vid]
+            
  
-        
-        return vf_d[vid]
+        return vfunc
     
  
     
@@ -521,15 +575,78 @@ class Vfunc(object):
         self.relative=relative
         
         
+    def set_from_CanFlood(self, #pre-conversion from CanFlood style data
+                            df_raw,
+                            logger=None, **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('set_ddf')
+        
+        
+        #slice and clean
+        df = df_raw.set_index(0, drop=True).dropna(how='all', axis=1)  
+        
+        
+        #======================================================================
+        # identify depth-damage data
+        #======================================================================
+        
+        #get the value specifying the start of the dd
+ 
+        depthLoc_key='exposure'
+        
+        depth_loc = df.index.get_loc(depthLoc_key)
+        
+        boolidx = pd.Series(df.index.isin(df.iloc[depth_loc:len(df), :].index), index=df.index,
+                            name='dd_vals')
+        
+        #======================================================================
+        # attach other pars
+        #======================================================================
+        #get remainder of data
+        mser = df.loc[~boolidx, :].iloc[:,0]
+        mser.index =  mser.index.str.strip() #strip the whitespace
+        pars_d = mser.to_dict()
+        
+        self.name = pars_d['tag']
+        self.meta_d.update(pars_d)
+        #======================================================================
+        # extract depth-dmaage data
+        #======================================================================
+ 
+        #get just the dd rows
+        ddf1 = df.loc[boolidx, :]
+        ddf1.index.name=None
+        
+        #set headers from a row
+        #ddf1.columns = ddf1.loc[depthLoc_key]
+        ddf1 = ddf1.drop(depthLoc_key).reset_index().astype(float)
+        
+        #change to new format headers
+        ddf1.columns = [self.xcn, self.ycn]
+        
+        log.info('finished on %s'%str(ddf1.shape))
+        
+        return self.set_ddf(ddf1,logger=log,
+                            allow_rl_exceed=False,
+                             **kwargs)
+        
+ 
+        
+        
+        
+        
     def set_ddf(self,
-                df_raw,
+                df_raw, #pd.DataFrame({'rl':{0:0, 1:100},'wd':{0:0, 1:2.0}})
                 
                 relative=None,
                 
                 #data correction
-                set_loss_intercept=True,
-                set_loss_zero=True,
-                set_wd_indep=True,
+                set_loss_intercept=True, #add a wd=0 entry
+                set_loss_zero=True, #force impact of zero for exposure zero
+                set_wd_indep=True, #force independent wd values
                 allow_rl_exceed=True, #for relative loss funtions, allow them to exceed 100
                 
  
