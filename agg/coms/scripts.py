@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 
 from pandas.testing import assert_frame_equal, assert_series_equal, assert_index_equal
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 from hp.oop import Basic, Session, Error
 from hp.Q import Qproj
@@ -1112,10 +1113,46 @@ class ErrorCalcs(object):
         
         self.res_d = dict()
         
+        
+        self.data_retrieve_hndls = {
+            'bias':         lambda **kwargs:self.get_bias(**kwargs),
+            'meanError':    lambda **kwargs:self.get_meanError(**kwargs),
+            'meanErrorAbs': lambda **kwargs:self.get_meanErrorAbs(**kwargs),
+            'RMSE':         lambda **kwargs:self.get_RMSE(**kwargs),
+            'confusion':    lambda **kwargs:self.get_confusion(**kwargs),
+            }
+        
+    def retrieve(self, #skinny retrival
+                 dkey,
+ 
+                 logger=None,
+                 **kwargs
+                 ):
+        """based on oop.Session.retrieve"""
+ 
+        if logger is None: logger=self.logger
+        log = logger.getChild('ret')
+        
+        drh_d = self.data_retrieve_hndls
+
+        start = datetime.datetime.now()
+        
+        assert dkey in drh_d
+        
+        f = drh_d[dkey]
+        
+        return f(dkey=dkey, logger=log, **kwargs)
+        
     def get_bias(self,
                  per_element=False,
+                 dkey='bias', logger=None,
                  ):
-        log = self.logger.getChild('bias')
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        assert dkey=='bias'
+        log = logger.getChild('bias')
         pred_ser=self.pred_ser
         true_ser=self.true_ser
         df = self.df_raw.copy()
@@ -1178,17 +1215,90 @@ class ErrorCalcs(object):
             return res1
     
     def get_meanError(self,
+                      dkey='meanError',
+                      logger=None
                       ):
-        log = self.logger.getChild('meanError')
+        assert dkey=='meanError'
+ 
 
         df = self.df_raw.copy()
         
         return (df['pred'] - df['true']).sum()/len(df)
         
+    def get_meanErrorAbs(self,
+                       dkey='meanErrorAbs',
+                      logger=None
+                      ):
+ 
+        assert dkey=='meanErrorAbs'
+        df = self.df_raw.copy()
         
-        return
+        return (df['pred'] - df['true']).abs().sum()/len(df)
+    
+    def get_RMSE(self,
+                 dkey='RMSE',
+                 logger=None):
+        assert dkey=='RMSE'
+        df = self.df_raw.copy()
+        return math.sqrt(((df['pred'] - df['true'])**2).sum()/len(df))
+    
+    
+    def get_all(self, #load all the stats in the retrieve handles 
+                logger=None):
         
-        #(gdx1 - tgdx2).sum()/len(gdx1)
+        
+        res_d = dict()
+        for dkey in self.data_retrieve_hndls.keys():
+            res_d[dkey] = self.retrieve(dkey, logger=logger)
+            
+        return res_d
+    
+    def get_confusion(self,
+                      dkey='confusion',
+                     wetdry=True,
+                     logger=None):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_confusion')
+        assert dkey=='confusion'
+        
+        df_raw = self.df_raw.copy()
+        
+        #=======================================================================
+        # prep data
+        #=======================================================================
+        if wetdry:
+            assert (df_raw.dtypes == 'float64').all()
+            
+            df1 = pd.DataFrame('dry', index=df_raw.index, columns=df_raw.columns)
+            
+            df1[df_raw>0.0] = 'wet'
+            
+            labels = ['wet', 'dry']
+            
+        else:
+            raise Error('not impelemented')
+            df1 = df_raw.copy()
+            
+ 
+        #build matrix
+        cm_ar = confusion_matrix(df1['true'], df1['pred'], labels=labels)
+        
+        cm_df = pd.DataFrame(cm_ar, index=labels, columns=labels)
+        
+        #convert and label
+        
+        cm_df2 = cm_df.unstack().rename('counts').to_frame()
+        
+        cm_df2.index.set_names(['true', 'pred'], inplace=True)
+        
+        cm_df2['codes'] = ['TP', 'FP', 'FN', 'TN']
+        
+        cm_df2 = cm_df2.set_index('codes', append=True)
+        
+        return cm_df, cm_df2.swaplevel(i=0, j=2)
         
     
     def check_match(self,

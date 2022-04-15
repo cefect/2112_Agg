@@ -20,7 +20,7 @@ idx = pd.IndexSlice
 
 
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
 
 #===============================================================================
 # custom imports
@@ -1015,66 +1015,31 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 tgdx1 = tgdx0.loc[:, idx[coln, :]].mean(axis=1)
                 
                 """todo: refactor and incorpoarte into plot_compare_mat"""
+ 
                 #===============================================================
-                # totals----
+                # #aggregate trues
                 #===============================================================
-                
-                #===============================================================
-                # rser = pd.Series({
-                #     'pred':getattr(gdx1, aggMethod)(), 
-                #     'true':getattr(tgdx1, aggMethod)()
-                #     })
-                #===============================================================
-                rser = pd.Series()
-                #===================================================================
-                # bias
-                #===================================================================
-                
-                """works for multi and single iterations"""
-
-                
-                #rser['bias'] = rser['pred']/rser['true']
-                
-                
-                
-                #===============================================================
-                # per-asset-----
-                #===============================================================
-                #aggregate trues
                 tgdx2 = getattr(tgdx1.groupby(level=[gdx1.index.names]), aggMethod)()
                 tgdx2 = tgdx2.reorder_levels(gdx1.index.names).sort_index()
                 
                 assert_index_equal(gdx1.index, tgdx2.index)
                 
                 #===============================================================
-                # mean errors
+                # standard errors
                 #===============================================================
-                ecWrkr = ErrorCalcs(pred_ser=gdx1, true_ser=tgdx2, logger=log)
+                eW = ErrorCalcs(pred_ser=gdx1, true_ser=tgdx2, logger=log)
                 
-
+                err_d =  eW.get_all()
                 
-                rser['bias'] = ecWrkr.get_bias() 
+                cm_df, cm_dx = err_d.pop('confusion') #pull out confusion
                 
-                if not rser['bias']==1.0:
-                    print(rser['bias'])
-                                    
-                rser['meanError'] = ecWrkr.get_meanError()
-                #(gdx1 - tgdx2).sum()/len(gdx1)
-                
-                raise Error('stopped here')
-                rser['meanErrorAbs'] = (gdx1 - tgdx2).abs().sum()/len(gdx1)
-                rser['RMSE'] = math.sqrt(((gdx1 - tgdx2)**2).sum()/len(gdx1))
+                rser = pd.Series(err_d) #convert remainers to a series
                 
                 #===============================================================
                 # confusion
                 #===============================================================
                 if coln == 'rsamps':
-                    df = pd.DataFrame({'true':tgdx2.values, 'pred':gdx1.values})
-                    cm_df, cm_dx = self.get_confusion(df, logger=log)
-                    
                     rser = rser.append(cm_dx.droplevel(['pred', 'true']).iloc[:,0])
- 
-                    
  
                 #===============================================================
                 # wrap
@@ -3592,51 +3557,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
 
 
     
-    def get_confusion(self,
-                     df_raw,
-                     wetdry=True,
-                     logger=None):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if logger is None: logger=self.logger
-        log=logger.getChild('get_confusion')
-        
-        assert len(df_raw.columns)==2
-        
-        #=======================================================================
-        # prep data
-        #=======================================================================
-        if wetdry:
-            assert (df_raw.dtypes == 'float64').all()
-            
-            df1 = pd.DataFrame('dry', index=df_raw.index, columns=df_raw.columns)
-            
-            df1[df_raw>0.0] = 'wet'
-            
-            labels = ['wet', 'dry']
-            
-        else:
-            raise Error('not impelemented')
-            df1 = df_raw.copy()
-            
- 
-        #build matrix
-        cm_ar = confusion_matrix(df1['true'], df1['pred'], labels=labels)
-        
-        cm_df = pd.DataFrame(cm_ar, index=labels, columns=labels)
-        
-        #convert and label
-        
-        cm_df2 = cm_df.unstack().rename('counts').to_frame()
-        
-        cm_df2.index.set_names(['true', 'pred'], inplace=True)
-        
-        cm_df2['codes'] = ['TP', 'FP', 'FN', 'TN']
-        
-        cm_df2 = cm_df2.set_index('codes', append=True)
-        
-        return cm_df, cm_df2.swaplevel(i=0, j=2)
+
         
         
 
