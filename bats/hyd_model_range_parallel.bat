@@ -1,5 +1,5 @@
 REM paramters
-SET ids=(3,4,8,6,7,8)
+SET ids=(5)
 REM ,)
 
 SET LAG=300

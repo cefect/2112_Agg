@@ -94,32 +94,19 @@ def run( #run a basic model configuration
         #ses.runCompileSuite()
  
         
-        ses.write_suite_smry()
+        #ses.write_suite_smry()
         
         #=======================================================================
         # individual model summaries---------
         #=======================================================================
-        mids = [6]
-        #ses.write_resvlay(dkey='rsamps', modelID_l=mids)
+        mids = list(range(9))
+        ses.write_resvlay(dkey='rsamps', modelID_l=mids)
         #=======================================================================
         # for mid in mids:
         #     ses.plot_model_smry(mid)
         #=======================================================================
-        
-        #=======================================================================
-        # total loss (top level) summary bar charts--------
-        #=======================================================================
- 
-        
-        #hazard res X study area (bars for aggLevel)
-        mids = list(range(9))
-        ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
-        
-        #haz res x aggLevel (tloss bars for studyArea)
-        #=======================================================================
-        # ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='studyArea',  
-        #                     plot_rown='aggLevel', plot_coln='resolution', sharey='row', baseline_loc='first_axis')
-        #=======================================================================
+        return
+
             
         #=======================================================================
         # hazard data----------
@@ -276,13 +263,22 @@ def run( #run a basic model configuration
             ]: 
             pass
          
-            #scatter matrix
-            ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt,sharex='all',sharey='all',
-                                 title='%s \'%s\' errors'%(plotName, dkey), baseID=baseID)
+            #===================================================================
+            # #scatter matrix
+            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt,sharex='all',sharey='all',
+            #                      title='%s \'%s\' errors'%(plotName, dkey), baseID=baseID)
+            # 
+            # #StudyArea bar matrix
+            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='svg',sharex='all',sharey='all',
+            #                      title='%s \'%s\' relative errors'%(plotName, dkey), baseID=baseID, plot_type='bars', plot_colr='studyArea', 
+            #                      err_type='bias')
+            #===================================================================
             
-            #StudyArea bar matrix
-            ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='svg',sharex='all',sharey='all',
-                                 title='%s \'%s\' relative errors'%(plotName, dkey), baseID=baseID, plot_type='bars', plot_colr='studyArea', 
+            #aggLevel bar matrix
+            ses.plot_compare_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
+                                 fmt='svg',sharex='all',sharey='all', plot_type='bars',
+                                 title='%s \'%s\' relative errors'%(plotName, dkey), 
                                  err_type='bias')
             
 
@@ -397,6 +393,21 @@ def run( #run a basic model configuration
         # ses.plot_dkey_mat(modelID_l=mids, dkey='tvals', plot_rown='aggLevel', 
         #                   plot_coln='resolution', plot_type='box', drop_zeros=True,
         #                   plot_colr='aggLevel', bins=30,  )
+        #=======================================================================
+        
+ 
+ 
+        #=======================================================================
+        # bar matrix
+        #=======================================================================
+        #hazard res X study area (bars for aggLevel)
+        mids = list(range(9))
+        ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
+        
+        #haz res x aggLevel (tloss bars for studyArea)
+        #=======================================================================
+        # ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='studyArea',  
+        #                     plot_rown='aggLevel', plot_coln='resolution', sharey='row', baseline_loc='first_axis')
         #=======================================================================
         
         
@@ -539,6 +550,7 @@ def r6():
         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\outs_analy_r6_0415.pickle',
         'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\agg_mindex_analy_r6_0415.pickle',
         'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\trues_analy_r6_0415.pickle',
+        'finv_agg_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\finv_agg_fps_analy_r6_0415.pickle',
             },
         )
 if __name__ == "__main__": 

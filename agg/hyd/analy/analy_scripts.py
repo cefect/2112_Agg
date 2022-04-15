@@ -33,9 +33,10 @@ from hp.oop import Session
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
     QgsWkbTypes
+
+from hp.err_calc import ErrorCalcs
     
-    
-from agg.coms.scripts import Catalog, ErrorCalcs
+from agg.coms.scripts import Catalog
 from agg.hyd.hscripts import HydSession
 
 
@@ -998,8 +999,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #===================================================================            
             keys_d = dict(zip([dx.index.names[0]], [gkey]))
             tgdx0 = true_gb.get_group(gkey)
-            
-            
  
             #===================================================================
             # by column
@@ -1385,12 +1384,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     qhi=0.99, qlo=0.01,
                     
                     #labelling
-                    add_label=True,
+                    add_label=True, 
+                    bar_labels=True,
                     baseline_loc='first_bar', #what to consider the baseline for labelling deltas
+                    
  
                     
                     #plot style
-                    colorMap=None,
+                    colorMap=None,title=None,
                     #ylabel=None,
                     
                     ):
@@ -1449,10 +1450,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if plot_rown=='dkey':
             row_keys = list(dkey_d.keys())
             axis=1
+ 
         else:
             dkey = list(dkey_d.keys())[0]
             axis=0
             row_keys = mdex.unique(plot_rown).tolist()
+            
+            if title is None:
+                title = '%s %s'%(dkey, dkey_d[dkey])
         
         
         #=======================================================================
@@ -1474,7 +1479,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
-        #fig.suptitle('%s total on %i studyAreas (%s)' % (lossType.upper(), len(mdex.unique('studyArea')), self.tag))
+        
+        if not title is None:
+            fig.suptitle(title)
         
         #=======================================================================
         # #get colors
@@ -1494,9 +1501,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         for col_key, gdx1 in dx.groupby(level=[plot_coln]):
             keys_d = {plot_coln:col_key}
-            
-
-            
+ 
             
             for row_key, gdx2 in gdx1.groupby(level=[plot_rown], axis=axis):
                 keys_d[plot_rown] = row_key
@@ -1585,6 +1590,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 # add labels--------
                 #===============================================================
                 if add_label:
+ 
+                    meta_d = keys_d
+                    
+                    meta_d['modelID'] = str(gdx2.index.unique('modelID').tolist())
+ 
+                    ax.text(0.9, 0.1, get_dict_str(meta_d), transform=ax.transAxes, va='bottom', ha='right',fontsize=8, color='black')
+                
+                if bar_labels:
                     log.debug(keys_d)
  
                     if dkey_d[dkey] == 'var':continue
@@ -1998,6 +2011,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
 
             plot_bgrp = plot_colr
             
+        
+            
         idn = self.idn
         #if baseID is None: baseID=self.baseID
  
@@ -2023,6 +2038,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if plot_type=='bars':
             #assert err_type in ['absolute', 'relative']
             assert isinstance(plot_bgrp, str)
+        else:
+            plot_bgrp = None
         
         
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
@@ -2031,9 +2048,13 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         assert_func(lambda: self.check_mindex_match(true_dx_raw.index, dx_raw.index), msg='raw vs trues')
         
+        meta_indexers = set([plot_rown, plot_coln])
+        if not plot_bgrp is None:
+            meta_indexers.add(plot_bgrp)
+        
         #add requested indexers
         dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
-                                meta_indexers = set([plot_rown, plot_coln]),
+                                meta_indexers = meta_indexers,
                                 modelID_l=modelID_l)
         
         log.info('on %s'%str(dx.shape))
@@ -2041,7 +2062,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         #and on the trues
         true_dx = self.join_meta_indexers(dx_raw = true_dx_raw.loc[:, idx[dkey, :]], 
-                                meta_indexers = set([plot_rown, plot_coln]),
+                                meta_indexers = meta_indexers,
                                 modelID_l=modelID_l)
         
         
@@ -2116,13 +2137,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             if not np.array_equal(gdx1.index, tgdx2.index):
                 
                 miss_l = set(gdx1.index.unique(5)).symmetric_difference(tgdx2.index.unique(5))
-                #assert_index_equal(gdx1.index, tgdx2.index)
-                
-                """
-                bx = gdx1.index.get_level_values(5).isin(miss_l)
-                view(gdx1.loc[bx, :])
-                
-                """
+ 
                 
                 if len(miss_l)>0:
                     raise Error('%i/%i true keys dont match on %s \n    %s'%(len(miss_l), len(gdx1), keys_d, miss_l))
@@ -2134,9 +2149,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #===================================================================
             # meta
             #===================================================================
-            meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),
+            meta_d = { 'modelIDs':str(list(gdx1.index.unique(idn))),
                             'drop_zeros':False,'iters':len(gdx1.columns),
                             }
+            
+
                             
             
             #===================================================================
@@ -2169,9 +2186,18 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 meta_d.update(stat_d)
                 
-                #add confusion matrix stats
-                cm_df, cm_dx = self.get_confusion(pd.DataFrame({'pred':xar, 'true':yar}), logger=log)
+                #error calcs
+                """would be nice to move this up for the other plot_types?
+                    need to sort out iters..."""
+                eW = ErrorCalcs(logger=log,
+                                pred_ser=pd.Series(data_d['mean']), 
+                                true_ser=pd.Series(true_data_d['mean']))
                 
+                err_d =  eW.get_all()
+                cm_df, cm_dx = err_d.pop('confusion') #pull out conusion
+                #add confusion matrix stats
+                #cm_df, cm_dx = self.get_confusion(pd.DataFrame({'pred':xar, 'true':yar}), logger=log)
+                meta_d.update(err_d)
                 meta_d.update(cm_dx.droplevel(['pred', 'true']).iloc[:,0].to_dict())
                 
             #===================================================================
@@ -2190,8 +2216,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 barHeight_ser = gb.sum() #collapse iters(
                 
-                
-                
+ 
                 if err_type=='relative':
                     barHeight_ser = barHeight_ser/tgdx2.groupby(level=plot_bgrp).sum()
                 elif err_type=='bias':
