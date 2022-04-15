@@ -100,12 +100,12 @@ def run( #run a basic model configuration
         # individual model summaries---------
         #=======================================================================
         mids = list(range(9))
-        ses.write_resvlay(dkey='rsamps', modelID_l=mids)
+        #ses.write_resvlay(dkey='rsamps', modelID_l=mids)
         #=======================================================================
         # for mid in mids:
         #     ses.plot_model_smry(mid)
         #=======================================================================
-        return
+ 
 
             
         #=======================================================================
@@ -116,9 +116,11 @@ def run( #run a basic model configuration
         # resolution vs. studyArea
         #=======================================================================
         mids = [0, 1, 2]
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-                             plot_rown='studyArea', plot_coln='resolution', fmt='png',
-                             sharey='row', sharex='row')
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='studyArea', plot_coln='resolution', fmt='png',
+        #                      sharey='row', sharex='row')
+        #=======================================================================
         #=======================================================================
         # resolution vs. dsampStage
         #=======================================================================
@@ -164,10 +166,18 @@ def run( #run a basic model configuration
         #=======================================================================
         # aggLevel vs. studyArea (rsamps)
         #=======================================================================
-        mids = [0, 3,6]
+        mids = [2,5,8]
+        #=======================================================================
+        # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
+        #                      sharey='row', sharex='row')
+        #=======================================================================
+        #for one study area
         ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-                             plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
-                             sharey='row', sharex='row')
+                             plot_rown='aggLevel', plot_coln='resolution', fmt='png',
+                             sharey='row', sharex='row', 
+                             slice_d={'studyArea':'LMFRA'})
+        return
         
         #aggType=convexHull
         mids = [0, 25,26]
@@ -275,11 +285,13 @@ def run( #run a basic model configuration
             #===================================================================
             
             #aggLevel bar matrix
-            ses.plot_compare_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
-                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
-                                 fmt='svg',sharex='all',sharey='all', plot_type='bars',
-                                 title='%s \'%s\' relative errors'%(plotName, dkey), 
-                                 err_type='bias')
+            #===================================================================
+            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+            #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
+            #                      fmt='svg',sharex='all',sharey='all', plot_type='bars',
+            #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
+            #                      err_type='meanError')
+            #===================================================================
             
 
         

@@ -1962,6 +1962,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     baseID=0,
                     dx_raw=None, #combined model results
                     modelID_l = None, #optinal sorting list
+                    slice_d = {}, #special slicing
                     
                     #plot config
                     plot_type='scatter', 
@@ -2066,8 +2067,20 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                 modelID_l=modelID_l)
         
         
- 
-
+        #=======================================================================
+        # subsetting
+        #=======================================================================
+        for name, val in slice_d.items():
+            assert name in dx.index.names
+            bx = dx.index.get_level_values(name) == val
+            assert bx.any()
+            dx = dx.loc[bx, :]
+            
+            bx = true_dx.index.get_level_values(name) == val
+            assert bx.any()
+            true_dx = true_dx.loc[bx, :]
+            log.info('w/ %s=%s slicing to %i/%i'%(
+                name, val, bx.sum(), len(bx)))
  
         #=======================================================================
         # setup the figure
@@ -2093,7 +2106,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             if not plot_type=='bars':
                 title = '\'%s\' errors'%dkey
             else:
-                title = '\'%s\' errors (%s)'%(dkey, err_type)
+                title = '\'%s\' %s'%(dkey, err_type)
+                
+        for name, val in slice_d.items(): 
+            title = title + ' %s=%s'%(name, val) 
             
         fig.suptitle(title)
         #=======================================================================
@@ -2209,30 +2225,44 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # data setup
                 #===============================================================
-                gdx2 = gdx1 - tgdx2 #modelled - trues
-                
-                gb = gdx2.groupby(level=plot_bgrp)
-                
-                
-                barHeight_ser = gb.sum() #collapse iters(
-                
- 
-                if err_type=='relative':
-                    barHeight_ser = barHeight_ser/tgdx2.groupby(level=plot_bgrp).sum()
-                elif err_type=='bias':
+
+                if err_type=='bias':
                     predTotal_ser= gdx1.groupby(level=plot_bgrp).sum()
-                    trueTotal_ser=tgdx2.groupby(level=plot_bgrp).sum()
-                    barHeight_ser = predTotal_ser/trueTotal_ser
-                elif err_type=='absolute':
-                    pass
-                else:
-                    raise IOError('bad err_type: %s'%err_type)
+                    trueTotal_ser= tgdx2.groupby(level=plot_bgrp).sum()
+                    barHeight_ser = (predTotal_ser/trueTotal_ser).iloc[:,0]
  
                     
+                elif err_type=='absolute': #straight differences
+                    gdx2 = gdx1 - tgdx2 #modelled - trues
+
+                    gb = gdx2.groupby(level=plot_bgrp)
+                    
+                    barHeight_ser = gb.sum().iloc[:,0] #collapse iters(
+ 
+                    
+                else:
+                    #calc error on each group
+                    """probably a much nicer way to do this with apply"""
+                    barHeight_d = dict()
+                    true_gb2 = tgdx2.groupby(level=plot_bgrp)
+                    for groupKey, gPred_ser in gdx1.groupby(level=plot_bgrp):
+                        gTrue_ser = true_gb2.get_group(groupKey)
+                        
+                        barHeight_d[groupKey] = ErrorCalcs(logger=log,
+                                  pred_ser=gPred_ser.mean(axis=1), #collapse iters?
+                                  true_ser=gTrue_ser.mean(axis=1),
+                                  ).retrieve(err_type)
+                                  
+                    s = gdx1.groupby(level=plot_bgrp).sum()
+                    barHeight_ser = pd.Series(barHeight_d, index=s.index)
+ 
+
+ 
+                assert isinstance(barHeight_ser, pd.Series)
                 """always want totals for the bars"""
                 
-                ylocs = barHeight_ser.T.values[0]
-                gdata = gdx2
+                ylocs = barHeight_ser.values
+                gdata = gdx1 - tgdx2 #modelled - trues (data for stats)
                 
                 #===============================================================
                 # #formatters.
@@ -2265,10 +2295,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     tick_label=tick_label,
                     )
                 
+                ax.axhline(0, color='black') #draw in the axis
+                
                 #===============================================================
                 # add error bars 
                 #===============================================================
-                if len(gdx2.columns.get_level_values(1))>1:
+                if len(gdx1.columns.get_level_values(1))>1:
+                    if not err_type=='absolute':
+                        raise Error('not implemented')
                     """untesetd"""
                     #get error values
                     err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
@@ -2290,10 +2324,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':ylocs, 'xloc':xlocs}.items()}
 
                 for event, row in pd.concat(d1, axis=1).iterrows():
-                    if err_type=='bias':
-                        txt = '%.2f' %(row['yloc'])
-                    else:
-                        txt = '%+.1f %%' % (row['yloc'] * 100)
+ 
+                    txt = '%+.2f' %(row['yloc'])
+
+                    #txt = '%+.1f %%' % (row['yloc'] * 100)
+                        
                     ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
                                 txt,ha='center', va='bottom', rotation='vertical',fontsize=10, color='red')
                     
@@ -2408,10 +2443,16 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         """
         plt.show()
         """
-        
-        return self.output_fig(fig, fname='compareMat_%s_%s_%sX%s_%s' % (
+        if plot_type=='bar':
+            fname = 'compareMat_%s_%s_%s_%sX%s_%s' % (
             title.replace(' ','').replace('\'',''),
-             plot_type, plot_rown, plot_coln, self.longname), **kwargs)
+             plot_type, err_type, plot_rown, plot_coln, self.longname)
+        else:
+            fname='compareMat_%s_%s_%sX%s_%s' % (
+            title.replace(' ','').replace('\'',''),
+             plot_type, plot_rown, plot_coln, self.longname)
+        
+        return self.output_fig(fig, fname=fname, **kwargs)
  
     def plot_vs_mat(self, #plot dkeys against eachother in a matrix
                   
