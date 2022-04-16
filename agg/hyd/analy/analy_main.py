@@ -176,8 +176,8 @@ def run( #run a basic model configuration
         ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
                              plot_rown='aggLevel', plot_coln='resolution', fmt='png',
                              sharey='row', sharex='row', 
-                             slice_d={'studyArea':'LMFRA'})
-        return
+                             slice_d={'studyArea':'LMFRA'}, write_meta=True)
+ 
         
         #aggType=convexHull
         mids = [0, 25,26]
@@ -273,16 +273,16 @@ def run( #run a basic model configuration
             ]: 
             pass
          
+            #scatter matrix
             #===================================================================
-            # #scatter matrix
             # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt,sharex='all',sharey='all',
             #                      title='%s \'%s\' errors'%(plotName, dkey), baseID=baseID)
+            #===================================================================
             # 
             # #StudyArea bar matrix
-            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='svg',sharex='all',sharey='all',
-            #                      title='%s \'%s\' relative errors'%(plotName, dkey), baseID=baseID, plot_type='bars', plot_colr='studyArea', 
-            #                      err_type='bias')
-            #===================================================================
+            ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='svg',sharex='all',sharey='all',
+                                 title='%s \'%s\' relative errors'%(plotName, dkey), baseID=baseID, plot_type='bars', plot_colr='studyArea', 
+                                 err_type='bias')
             
             #aggLevel bar matrix
             #===================================================================

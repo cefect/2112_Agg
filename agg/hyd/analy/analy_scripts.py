@@ -1992,6 +1992,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     
                     colorMap=None,
                     sharey=None,sharex=None,
+                    
+                    #outputs
+                    write_meta=False, #write all the meta info to a csv
                     **kwargs):
         """"
         generally 1 modelId per panel
@@ -2123,8 +2126,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # loop and plot
         #=======================================================================
- 
- 
+        meta_dx=None
         true_gb = true_dx.groupby(level=[plot_coln, plot_rown])
         for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
             
@@ -2168,9 +2170,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             meta_d = { 'modelIDs':str(list(gdx1.index.unique(idn))),
                             'drop_zeros':False,'iters':len(gdx1.columns),
                             }
-            
-
-                            
+      
             
             #===================================================================
             # scatter plot-----
@@ -2369,17 +2369,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #style lines
                 for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
                     parts_d[partName].set(color='black', alpha=0.5)
-                
-                
-                
-                
  
-            
             else:
                 raise KeyError('unrecognized plot_type: %s'%plot_type)
-            """
-            fig.show()
-            """
+ 
             #===================================================================
             # post-format----
             #===================================================================
@@ -2394,6 +2387,16 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                           })
  
                 ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+                
+            #===================================================================
+            # post-meta--------
+            #===================================================================
+            meta_serx = pd.Series(meta_d, name=gkeys)
+            if meta_dx is None:
+                meta_dx = meta_serx.to_frame().T
+                meta_dx.index.set_names(keys_d.keys(), inplace=True)
+            else:
+                meta_dx = meta_dx.append(meta_serx)
                 
         #===============================================================
         # #wrap format subplot
@@ -2437,7 +2440,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
  
         #=======================================================================
-        # wrap
+        # wrap---------
         #=======================================================================
         log.info('finsihed')
         """
@@ -2451,6 +2454,13 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             fname='compareMat_%s_%s_%sX%s_%s' % (
             title.replace(' ','').replace('\'',''),
              plot_type, plot_rown, plot_coln, self.longname)
+        
+        fname = fname.replace('=', '-')
+        if write_meta:
+            ofp =  os.path.join(self.out_dir, fname+'_meta.csv')
+            meta_dx.to_csv(ofp)
+            log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
+               
         
         return self.output_fig(fig, fname=fname, **kwargs)
  
