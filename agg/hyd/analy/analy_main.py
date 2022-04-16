@@ -98,6 +98,12 @@ def meta_slim( #get all the stats
  
     
     return meta_d
+
+def meta_basic(meta_d={}, pred_ser=None, logger=None):
+    assert isinstance(pred_ser, pd.Series)
+    stats_l = ['min', 'mean', 'max']
+    return {**meta_d, **{stat:getattr(pred_ser, stat)() for stat in stats_l}}
+    
 #===============================================================================
 # runners--------
 #===============================================================================
@@ -221,11 +227,13 @@ def run( #run a basic model configuration
         #                      sharey='row', sharex='row')
         #=======================================================================
         #for one study area
-        ses.plot_err_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-                             plot_rown='aggLevel', plot_coln='resolution', fmt='png',
-                             sharey='row', sharex='row', 
-                             slice_d={'studyArea':'Calgary'}, write_meta=True, 
-                             meta_func = lambda **kwargs:meta_all(**kwargs))
+        #=======================================================================
+        # ses.plot_err_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='aggLevel', plot_coln='resolution', fmt='png',
+        #                      sharey='row', sharex='row', 
+        #                      slice_d={'studyArea':'Calgary'}, write_meta=True, 
+        #                      meta_func = lambda **kwargs:meta_all(**kwargs))
+        #=======================================================================
  
         
         #aggType=convexHull
@@ -348,10 +356,11 @@ def run( #run a basic model configuration
             
             # #StudyArea raster values
             ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
-                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
-                                 fmt='svg',sharex='all',sharey='all', plot_type='hist',
+                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', plot_bgrp='aggLevel',
+                                 fmt='svg',sharex='row',sharey='none', plot_type='hist',
+                                 drop_zeros=True,plot_rast=True,
                                  #title='%s \'%s\' relative errors'%(plotName, dkey), 
-                                  meta_func=lambda **kwargs:meta_slim(**kwargs))
+                                  meta_func=lambda **kwargs:meta_basic(**kwargs))
             
 
         
