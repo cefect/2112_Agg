@@ -70,7 +70,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'dsampStage':'Set1',
         'downSampling':'Set2',
         'aggType':'Pastel2',
-        'tval_type':'Set1'
+        'tval_type':'Set1',
         }
     
     def __init__(self,
@@ -1952,7 +1952,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         """
         
         return self.output_fig(fig, fname='%s_%s_%sx%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), fmt=fmt)
-            
+    
+
     def plot_compare_mat(self, #flexible plotting of model results vs. true in a matrix
                   
                     #data
@@ -2471,7 +2472,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         return self.output_fig(fig, fname=fname, **kwargs)
  
-    def plot_compare_mat2(self, #flexible plotting of model results vs. true in a matrix
+    def plot_err_mat(self, #flexible plotting of model results vs. true in a matrix
                   
                     #data control
                     dkey='tvals',#column group w/ values to plot
@@ -2521,7 +2522,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('plot_compare_mat')
+        log = self.logger.getChild('plot_err_mat')
  
         idn = self.idn
  
@@ -3122,7 +3123,16 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         """
         
         return self.output_fig(fig, fname='%s-%s_%sx%s_%s' % (dkey_x, dkey_y, plot_rown, plot_coln, self.longname), **kwargs)
-        
+    
+    def plot_rast(self, #add raster values to a plot
+                  ax_d=None,
+                  logger=None,
+                  ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('plot_rast')
 
         
     #===========================================================================

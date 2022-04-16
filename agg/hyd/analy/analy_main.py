@@ -214,20 +214,18 @@ def run( #run a basic model configuration
         #=======================================================================
         # aggLevel vs. studyArea (rsamps)
         #=======================================================================
-        mids = [2,5,8]
+        mids = [0,1,2]
         #=======================================================================
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
         #                      plot_rown='studyArea', plot_coln='aggLevel', fmt='png',
         #                      sharey='row', sharex='row')
         #=======================================================================
         #for one study area
-        #=======================================================================
-        # ses.plot_compare_mat2(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-        #                      plot_rown='aggLevel', plot_coln='resolution', fmt='png',
-        #                      sharey='row', sharex='row', 
-        #                      slice_d={'studyArea':'obwb'}, write_meta=True, 
-        #                      meta_func = lambda **kwargs:meta_all(**kwargs))
-        #=======================================================================
+        ses.plot_err_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+                             plot_rown='aggLevel', plot_coln='resolution', fmt='png',
+                             sharey='row', sharex='row', 
+                             slice_d={'studyArea':'Calgary'}, write_meta=True, 
+                             meta_func = lambda **kwargs:meta_all(**kwargs))
  
         
         #aggType=convexHull
@@ -331,20 +329,29 @@ def run( #run a basic model configuration
             #===================================================================
             # 
             # #StudyArea bar matrix
-            ses.plot_compare_mat2(dkey=dkey, modelID_l=mids,baseID=baseID,
-                                 plot_rown='aggLevel', plot_coln='resolution',  plot_colr='studyArea', 
-                                 fmt='svg',sharex='all',sharey='all', plot_type='bars',
-                                 #title='%s \'%s\' relative errors'%(plotName, dkey), 
-                                 err_type='meanError', meta_func=lambda **kwargs:meta_slim(**kwargs))
+            #===================================================================
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+            #                      plot_rown='aggLevel', plot_coln='resolution',  plot_colr='studyArea', 
+            #                      fmt='svg',sharex='all',sharey='all', plot_type='bars',
+            #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
+            #                      err_type='meanError', meta_func=lambda **kwargs:meta_slim(**kwargs))
+            #===================================================================
             
             #aggLevel bar matrix
             #===================================================================
-            # ses.plot_compare_mat2(dkey=dkey, modelID_l=mids,baseID=baseID,
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
             #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
             #                      fmt='svg',sharex='all',sharey='all', plot_type='bars',
             #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
             #                      err_type='meanError', meta_func=lambda **kwargs:meta_slim(**kwargs))
             #===================================================================
+            
+            # #StudyArea raster values
+            ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
+                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
+                                 fmt='svg',sharex='all',sharey='all', plot_type='hist',
+                                 #title='%s \'%s\' relative errors'%(plotName, dkey), 
+                                  meta_func=lambda **kwargs:meta_slim(**kwargs))
             
 
         
