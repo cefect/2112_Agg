@@ -50,9 +50,57 @@ print('loaded matplotlib %s'%matplotlib.__version__)
 
 
 from agg.hyd.analy.analy_scripts import ModelAnalysis
+from hp.err_calc import ErrorCalcs
+
+#===============================================================================
+# meta funcs------
+#===============================================================================
+
+def meta_all( #get all the stats
+        meta_d={}, #inherited meta
+        pred_ser=None,
+        true_ser=None,
+        logger=None,
+        
+        ):
+    #error calcs
+    """would be nice to move this up for the other plot_types?
+        need to sort out iters...
+        doesnt handle groups"""
+    
+    #init the worker
+    eW = ErrorCalcs(logger=logger,pred_ser=pred_ser,true_ser=true_ser)
 
  
+    #calc everything
+    meta_d.update(eW.get_all(dkeys_l = ['bias', 'meanError', 'meanErrorAbs', 'RMSE', 'pearson']))
+    
+    #confusion
+    _, cm_dx = eW.get_confusion()
+    meta_d.update(cm_dx.droplevel(['pred', 'true']).iloc[:,0].to_dict())
+    
+    #prediction basic stats 
+    meta_d.update(eW.get_stats(stats_l = ['min', 'mean', 'max']))
+    
+    return meta_d
 
+def meta_slim( #get all the stats
+        meta_d={}, #inherited meta
+        **kwargs):
+ 
+    
+    #init the worker
+    eW = ErrorCalcs(**kwargs)
+ 
+    #calc everything
+    meta_d.update(eW.get_all(dkeys_l = ['bias', 'meanError', 'meanErrorAbs', 'RMSE', 'pearson']))
+    
+ 
+    
+    return meta_d
+#===============================================================================
+# runners--------
+#===============================================================================
 def run( #run a basic model configuration
         #=======================================================================
         # #generic
@@ -173,10 +221,13 @@ def run( #run a basic model configuration
         #                      sharey='row', sharex='row')
         #=======================================================================
         #for one study area
-        ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
-                             plot_rown='aggLevel', plot_coln='resolution', fmt='png',
-                             sharey='row', sharex='row', 
-                             slice_d={'studyArea':'LMFRA'}, write_meta=True)
+        #=======================================================================
+        # ses.plot_compare_mat2(dkey='rsamps', modelID_l=mids, plot_type='scatter',
+        #                      plot_rown='aggLevel', plot_coln='resolution', fmt='png',
+        #                      sharey='row', sharex='row', 
+        #                      slice_d={'studyArea':'obwb'}, write_meta=True, 
+        #                      meta_func = lambda **kwargs:meta_all(**kwargs))
+        #=======================================================================
  
         
         #aggType=convexHull
@@ -280,17 +331,19 @@ def run( #run a basic model configuration
             #===================================================================
             # 
             # #StudyArea bar matrix
-            ses.plot_compare_mat(dkey=dkey, modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt='svg',sharex='all',sharey='all',
-                                 title='%s \'%s\' relative errors'%(plotName, dkey), baseID=baseID, plot_type='bars', plot_colr='studyArea', 
-                                 err_type='bias')
+            ses.plot_compare_mat2(dkey=dkey, modelID_l=mids,baseID=baseID,
+                                 plot_rown='aggLevel', plot_coln='resolution',  plot_colr='studyArea', 
+                                 fmt='svg',sharex='all',sharey='all', plot_type='bars',
+                                 #title='%s \'%s\' relative errors'%(plotName, dkey), 
+                                 err_type='meanError', meta_func=lambda **kwargs:meta_slim(**kwargs))
             
             #aggLevel bar matrix
             #===================================================================
-            # ses.plot_compare_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+            # ses.plot_compare_mat2(dkey=dkey, modelID_l=mids,baseID=baseID,
             #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
             #                      fmt='svg',sharex='all',sharey='all', plot_type='bars',
             #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
-            #                      err_type='meanError')
+            #                      err_type='meanError', meta_func=lambda **kwargs:meta_slim(**kwargs))
             #===================================================================
             
 
@@ -414,7 +467,7 @@ def run( #run a basic model configuration
         #=======================================================================
         #hazard res X study area (bars for aggLevel)
         mids = list(range(9))
-        ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
+        #ses.plot_total_bars(modelID_l=mids, dkey_d={'tloss':'sum'}, plot_bgrp='aggLevel',  plot_rown='resolution', plot_coln='studyArea', sharey='col')
         
         #haz res x aggLevel (tloss bars for studyArea)
         #=======================================================================

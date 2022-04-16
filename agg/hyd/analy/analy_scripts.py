@@ -1975,6 +1975,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     err_type='absolute', #what type of errors to calculate (for plot_type='bars')
                         #absolute: modelled - true
                         #relative: absolute/true
+                    confusion_rel=True, #whether to use relative confusion metrics
  
                     
                     #data control
@@ -1998,6 +1999,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     **kwargs):
         """"
         generally 1 modelId per panel
+        TODO: 
+        pass meta as a lambda
+            gives more customization outside of this function (should simplify)
+        
+        
         """
         
         #=======================================================================
@@ -2208,7 +2214,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 eW = ErrorCalcs(logger=log,
                                 pred_ser=pd.Series(data_d['mean']), 
                                 true_ser=pd.Series(true_data_d['mean']))
-                
+
+                confusion_rel
                 err_d =  eW.get_all()
                 cm_df, cm_dx = err_d.pop('confusion') #pull out conusion
                 #add confusion matrix stats
@@ -2464,6 +2471,466 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         return self.output_fig(fig, fname=fname, **kwargs)
  
+    def plot_compare_mat2(self, #flexible plotting of model results vs. true in a matrix
+                  
+                    #data control
+                    dkey='tvals',#column group w/ values to plot
+                    baseID=0,
+                    #xlims = None,
+                    modelID_l = None, #optinal sorting list
+                    aggMethod='mean', #method to use for aggregating the true values (down to the gridded)
+                    qhi=0.99, qlo=0.01,
+                    #drop_zeros=True, #must always be false for the matching to work
+                    slice_d = {}, #special slicing
+                    
+                    #data
+                    true_dx_raw=None, #base values (indexed to raws per model)
+                    dx_raw=None, #combined model results                    
+                    
+                    #plot config
+                    plot_type='scatter', 
+                    plot_rown='aggLevel',
+                    plot_coln='resolution',
+                    plot_colr=None,
+                    
+                    #plot config [bars]
+                    plot_bgrp=None, #grouping (for plotType==bars)
+                    err_type='absolute', #what type of errors to calculate (for plot_type='bars')
+                        #absolute: modelled - true
+                        #relative: absolute/true
+ 
+                    #meta labelling
+                    meta_txt=True, #add meta info to plot as text
+                    meta_func = lambda meta_d={}, **kwargs:meta_d, #lambda for calculating additional meta information (add_meta=True)        
+                    write_meta=False, #write all the meta info to a csv            
+                    
+                    #plot style                    
+                    colorMap=None, title=None,
+                    sharey=None,sharex=None,
+ 
+                    **kwargs):
+        """"
+        generally 1 modelId per panel
+        TODO: 
+        pass meta as a lambda
+            gives more customization outside of this function (should simplify)
+        
+        
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_compare_mat')
+ 
+        idn = self.idn
+ 
+        #retrieve data
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
+            
+        if true_dx_raw is None:
+            true_d = self.retrieve('trues')
+            true_dx_raw = true_d[baseID]
+            
+        #plot keys
+        if plot_colr is None: 
+            plot_colr=plot_bgrp
+        
+        if plot_colr is None: 
+            plot_colr=plot_rown
+            
+        if plot_bgrp is None:
+            plot_bgrp = plot_colr
+            
+        if plot_type=='bars':
+            assert isinstance(plot_bgrp, str)
+        else:
+            plot_bgrp = None
+            
+        assert not plot_rown==plot_coln
+            
+        #plot style
+        if sharey is None:
+            if plot_type=='scatter':
+                sharey='none'
+            else:
+                sharey='all'
+                
+        if sharex is None:
+            if plot_type=='scatter':
+                sharex='none'
+            else:
+                sharex='all'
+                
+        if title is None:
+            if not plot_type=='bars':
+                title = '\'%s\' errors'%dkey
+            else:
+                title = '\'%s\' %s'%(dkey, err_type)
+                
+            for name, val in slice_d.items(): 
+                title = title + ' %s=%s'%(name, val) 
+                
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+ 
+        log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        assert_func(lambda: self.check_mindex_match(true_dx_raw.index, dx_raw.index), msg='raw vs trues')
+        
+        meta_indexers = set([plot_rown, plot_coln])
+        if not plot_bgrp is None:
+            meta_indexers.add(plot_bgrp)
+        
+        #add requested indexers
+        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
+                                meta_indexers = meta_indexers,
+                                modelID_l=modelID_l)
+        
+        log.info('on %s'%str(dx.shape))
+        mdex = dx.index
+        
+        #and on the trues
+        true_dx = self.join_meta_indexers(dx_raw = true_dx_raw.loc[:, idx[dkey, :]], 
+                                meta_indexers = meta_indexers,
+                                modelID_l=modelID_l)
+ 
+        #=======================================================================
+        # subsetting
+        #=======================================================================
+        for name, val in slice_d.items():
+            assert name in dx.index.names
+            bx = dx.index.get_level_values(name) == val
+            assert bx.any()
+            dx = dx.loc[bx, :]
+            
+            bx = true_dx.index.get_level_values(name) == val
+            assert bx.any()
+            true_dx = true_dx.loc[bx, :]
+            log.info('w/ %s=%s slicing to %i/%i'%(
+                name, val, bx.sum(), len(bx)))
+ 
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+ 
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey=sharey, 
+                                    sharex=sharex,  
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+ 
+        fig.suptitle(title)
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+ 
+        ckeys = mdex.unique(plot_colr) 
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        meta_dx=None
+        true_gb = true_dx.groupby(level=[plot_coln, plot_rown])
+        for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            
+            #===================================================================
+            # setup
+            #===================================================================
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
+            ax = ax_d[gkeys[1]][gkeys[0]]
+            log.info('on %s'%keys_d)
+            tgdx_raw = true_gb.get_group(gkeys)
+            
+            #===================================================================
+            # data prep----------
+            #===================================================================
+ 
+            #===================================================================
+            # aggregate the trues
+            #===================================================================
+            """because trues are mapped from the base model.. here we compress down to the model index"""
+            tgdx0 = getattr(tgdx_raw.groupby(level=[gdx0.index.names]), aggMethod)()
+            tgdx0 = tgdx0.reorder_levels(gdx0.index.names).sort_index()
+            
+            #check
+            assert np.array_equal(gdx0.index, tgdx0.index)
+            
+            #===================================================================
+            # if not np.array_equal(gdx0.index, tgdx2.index):                
+            #     miss_l = set(gdx0.index.unique(5)).symmetric_difference(tgdx2.index.unique(5))                
+            #     if len(miss_l)>0:
+            #         raise Error('%i/%i true keys dont match on %s \n    %s'%(len(miss_l), len(gdx0), keys_d, miss_l))
+            #     else:
+            #         raise Error('bad indexers on %s modelIDs:\n    %s'%(keys_d, tgdx2.index.unique('modelID').tolist()))
+            #===================================================================
+ 
+            meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),
+                            'drop_zeros':False,'iters':len(gdx0.columns),
+                            }
+            if len(gdx0.columns) >1:
+                meta_d.update({'qhi':qhi, 'qlo':qlo})
+            meta_d.update(slice_d)
+            #===================================================================
+            # handle iters
+            #===================================================================
+            data_d, zeros_bx = self.prep_ranges(qhi, qlo, False, gdx0)
+            true_data_d, _ = self.prep_ranges(qhi, qlo, False, tgdx0)
+      
+            
+            #===================================================================
+            # scatter plot-----
+            #===================================================================
+            """consider hist2d?"""
+            if plot_type =='scatter':
+ 
+                """only using mean values for now"""
+                xar, yar = data_d['mean'], true_data_d['mean'] 
+                
+                stat_d = self.ax_corr_scat(ax, xar, yar, 
+                                           #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
+                                           scatter_kwargs = {
+                                               'color':color_d[keys_d[plot_colr]]
+                                               },
+                                           logger=log, add_label=False)
+ 
+                meta_d.update(stat_d)
+ 
+            #===================================================================
+            # bar plot---------
+            #===================================================================
+            elif plot_type=='bars':
+                """TODO: consolidate w/ plot_total_bars
+                integrate with write_suite_smry errors"""
+ 
+                #===============================================================
+                # data setup
+                #===============================================================
+                #loop on sub-group and calc bar height (as error metric on means)
+                d = dict()
+                true_gb2 = tgdx0.groupby(level=plot_bgrp)
+                for gkey1, gdx1 in gdx0.groupby(level=plot_bgrp):
+                    tgdx1 =  true_gb2.get_group(gkey1)
+                    #calc error metric on means
+                    eW = ErrorCalcs(logger=log,
+                                    pred_ser=gdx1.mean(axis=1), #always using means for bar heights
+                                    true_ser=tgdx1.mean(axis=1),
+                                    )
+                    
+                    d[gkey1] = eW.retrieve(err_type)
+                    
+                barHeight_ser = pd.Series(d, name=gkeys)
+ 
+                ylocs = barHeight_ser.values
+ 
+                #===============================================================
+                # #formatters.
+                #===============================================================
+ 
+                # labels conversion to tag
+                if plot_bgrp=='modelID':
+                    raise Error('not implementd')
+                    #tick_label = [mid_tag_d[mid] for mid in barHeight_ser.index] #label by tag
+                else:
+                    tick_label = ['%s=%s'%(plot_bgrp, i) for i in barHeight_ser.index]
+                #tick_label = ['m%i' % i for i in range(0, len(barHeight_ser))]
+  
+                # widths
+                bar_cnt = len(barHeight_ser)
+                width = 0.9 / float(bar_cnt)
+                
+                #===============================================================
+                # #add bars
+                #===============================================================
+                xlocs = np.linspace(0, 1, num=len(barHeight_ser)) #spread out from 0 to 1
+                bars = ax.bar(
+                    xlocs,  # xlocation of bars
+                    ylocs,  # heights
+                    width=width,
+                    align='center',
+                    color=color_d.values(),
+                    #label='%s=%s' % (plot_colr, ckey),
+                    #alpha=0.5,
+                    tick_label=tick_label,
+                    )
+                
+                ax.axhline(0, color='black') #draw in the axis
+                
+                #===============================================================
+                # add error bars 
+                #===============================================================
+                if len(gdx1.columns.get_level_values(1))>1:
+                    raise Error('chekc this')
+                    #get error values
+                    err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
+                    
+                    #convert to deltas
+                    assert np.array_equal(err_df.index, barHeight_ser.index)
+                    errH_df = err_df.subtract(barHeight_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
+                    
+                    #add the error bars
+                    ax.errorbar(xlocs, ylocs,
+                                errH_df.values,  
+                                capsize=5, color='black',
+                                fmt='none', #no data lines
+                                )
+                
+                #===============================================================
+                # add bar labels
+                #===============================================================
+                d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':ylocs, 'xloc':xlocs}.items()}
+
+                for event, row in pd.concat(d1, axis=1).iterrows():
+                    """TODO: use a lambda here"""
+                    txt = '%+.2f' %(row['yloc'])
+
+                    #txt = '%+.1f %%' % (row['yloc'] * 100)
+                        
+                    ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
+                                txt,ha='center', va='bottom', rotation='vertical',fontsize=10, color='red')
+                    
+            #===================================================================
+            # violin plot-----
+            #===================================================================
+            elif plot_type=='violin':
+                raise Error('not implemented')
+                #===============================================================
+                # data setup
+                #===============================================================
+                gdx2 = gdx1 - tgdx2 #modelled - trues
+                
+                gb = gdx2.groupby(level=plot_bgrp)
+                
+                data_d = {k:v.values.T[0] for k,v in gb}
+                gdata = gdx2
+                #===============================================================
+                # plot
+                #===============================================================
+                parts_d = ax.violinplot(data_d.values(),  
+ 
+                                       showmeans=True,
+                                       showextrema=True,  
+                                       )
+                
+                #===============================================================
+                # color
+                #===============================================================
+                labels = list(data_d.keys())
+                ckey_d = {i:color_key for i,color_key in enumerate(labels)}
+                
+                #style fills
+                for i, pc in enumerate(parts_d['bodies']):
+                    pc.set_facecolor(color_d[ckey_d[i]])
+                    pc.set_edgecolor(color_d[ckey_d[i]])
+                    pc.set_alpha(0.5)
+                    
+                #style lines
+                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
+                    parts_d[partName].set(color='black', alpha=0.5)
+ 
+            else:
+                raise KeyError('unrecognized plot_type: %s'%plot_type)
+ 
+            #===================================================================
+            # post-format----
+            #===================================================================
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+            #===================================================================
+            # meta text
+            #===================================================================
+            """for bars, this ignores the bgrp key"""
+            meta_d = meta_func(logger=log, meta_d=meta_d, 
+                                pred_ser=pd.Series(data_d['mean']), 
+                                true_ser=pd.Series(true_data_d['mean']))
+                            
+            if meta_txt: 
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+                
+            #===================================================================
+            # post-meta--------
+            #===================================================================
+            meta_serx = pd.Series(meta_d, name=gkeys)
+            if meta_dx is None:
+                meta_dx = meta_serx.to_frame().T
+                meta_dx.index.set_names(keys_d.keys(), inplace=True)
+            else:
+                meta_dx = meta_dx.append(meta_serx)
+                
+        #===============================================================
+        # #wrap format subplot
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                if plot_type=='scatter':
+                    ax.legend(loc=1)
+                # first row
+                if row_key == row_keys[0]:
+                    pass
+                #last col
+                if col_key == col_keys[-1]:
+                    pass
+  
+                # first col
+                if col_key == col_keys[0]:
+                    if plot_type in ['bars']:
+                        ax.set_ylabel('\'%s\' total errors (%s)'%(dkey, err_type))
+                    elif plot_type == 'violin':
+                        ax.set_ylabel('\'%s\' errors'%(dkey))
+                    elif plot_type=='scatter':
+                        ax.set_ylabel('\'%s\' (true)'%dkey)
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    if plot_type == 'bars': 
+                        pass
+                        #ax.set_ylabel('\'%s\' (agg - true)'%dkey)
+                    elif plot_type=='violin':
+                        ax.set_xticks(np.arange(1, len(labels) + 1))
+                        ax.set_xticklabels(labels)
+                        
+                    else:
+                        ax.set_xlabel('\'%s\' (aggregated)'%dkey)
+                        
+                    
+ 
+ 
+        #=======================================================================
+        # wrap---------
+        #=======================================================================
+        log.info('finsihed')
+        """
+        plt.show()
+        """
+        if plot_type=='bar':
+            fname = 'compareMat_%s_%s_%s_%sX%s_%s' % (
+            title.replace(' ','').replace('\'',''),
+             plot_type, err_type, plot_rown, plot_coln, self.longname)
+        else:
+            fname='compareMat_%s_%s_%sX%s_%s' % (
+            title.replace(' ','').replace('\'',''),
+             plot_type, plot_rown, plot_coln, self.longname)
+        
+        fname = fname.replace('=', '-')
+        if write_meta:
+            ofp =  os.path.join(self.out_dir, fname+'_meta.csv')
+            meta_dx.to_csv(ofp)
+            log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
+               
+        
+        return self.output_fig(fig, fname=fname, **kwargs)
+ 
+    
     def plot_vs_mat(self, #plot dkeys against eachother in a matrix
                   
                     #data

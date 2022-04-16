@@ -81,7 +81,8 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
                  'event':np.dtype('O'),
                  self.scale_cn:np.dtype('int64'),
                  self.idn:np.dtype('int64'),
-                 'tag':np.dtype('object')
+                 'tag':np.dtype('object'),
+                 'aggLevel':np.dtype('int64')
                          }
         
 
