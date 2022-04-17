@@ -101,7 +101,7 @@ def meta_slim( #get all the stats
 
 def meta_basic(meta_d={}, pred_ser=None, logger=None):
     assert isinstance(pred_ser, pd.Series)
-    stats_l = ['min', 'mean', 'max']
+    stats_l = ['min', 'mean', 'max', 'skew']
     return {**meta_d, **{stat:getattr(pred_ser, stat)() for stat in stats_l}}
     
 #===============================================================================
@@ -153,7 +153,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # individual model summaries---------
         #=======================================================================
-        mids = list(range(9))
+        mids = list(range(60,66))
         #ses.write_resvlay(dkey='rsamps', modelID_l=mids)
         #=======================================================================
         # for mid in mids:
@@ -165,10 +165,11 @@ def run( #run a basic model configuration
         #=======================================================================
         # hazard data----------
         #=======================================================================
-        
+        #density of raw rasters
         #=======================================================================
-        # ses.plot_rast(modelID_l = mids, plot_bgrp='studyArea', meta_func=lambda **kwargs:meta_basic(**kwargs),
-        #               plot_type='gaussian_kde')
+        # ses.plot_rast(modelID_l = mids, plot_bgrp='resolution', debug_max_len=1e6,
+        #                          meta_func=lambda **kwargs:meta_basic(**kwargs),
+        #               plot_type='gaussian_kde', mean_line=True, meta_txt=True)
         #=======================================================================
  
         #=======================================================================
@@ -189,6 +190,18 @@ def run( #run a basic model configuration
         # ses.plot_compare_mat(dkey='rsamps', modelID_l=mids, plot_type='scatter',
         #                      plot_rown='dsampStage', plot_coln='resolution', fmt='png',
         #                      sharey='all', sharex='all')
+        #=======================================================================
+        
+        #=======================================================================
+        # ses.plot_rast(modelID_l = mids, plot_bgrp='dsampStage', debug_max_len=1e6,
+        #                          meta_func=lambda **kwargs:meta_basic(**kwargs),
+        #               plot_type='gaussian_kde', mean_line=False, meta_txt=True)
+        #=======================================================================
+        
+        #=======================================================================
+        # ses.plot_rast(modelID_l = mids, plot_bgrp='dsampStage', debug_max_len=1e6,
+        #                          #meta_func=lambda **kwargs:meta_basic(**kwargs),
+        #               plot_type='hist', mean_line=False, meta_txt=True, sharey='none')
         #=======================================================================
         
         #per-study area (just dsampStage=depth)
@@ -329,9 +342,10 @@ def run( #run a basic model configuration
         
         #main matrix plots (of depth)
         for plotName, mids, baseID in [
-            ('wse',         list(range(9)),     0), #base
-            #('depth',       [0, 21,22,3,34,35,6,36,37,], 0),
+            #('wse',         list(range(9)),     0), #base
+            ('depth',       [0, 21,22,3,34,35,6,36,37,], 0),
             #('centroid',    list(range(50,59)), 50), #sgType='centroids'
+            #('convexHull',  list(range(3))+list(range(60,66)), 0),
             ]: 
             pass
          
@@ -359,23 +373,35 @@ def run( #run a basic model configuration
             #                      err_type='meanError', meta_func=lambda **kwargs:meta_slim(**kwargs))
             #===================================================================
             
-            # #StudyArea raster values
+ 
             
-            ax_d = ses.plot_rast(modelID_l = mids, plot_bgrp='resolution', 
-                                 #meta_func=lambda **kwargs:meta_basic(**kwargs),
-                      plot_type='gaussian_kde', mean_line=False, meta_txt=False)
-                        
             #===================================================================
+            # rsamp values (no error)
+            #===================================================================
+            #sampled only
+            
+            ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
+                                 plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
+                                 fmt='svg',sharex='col',sharey='col', plot_type='gaussian_kde',
+                                 drop_zeros=True,mean_line=False,
+                                 #title='%s \'%s\' relative errors'%(plotName, dkey), 
+                                  #meta_func=lambda **kwargs:meta_basic(**kwargs),
+                                    val_lab='sampled depths (m)')
+            #samples + raster values
+            plot_type='gaussian_kde'
+            #===================================================================
+            # ax_d = ses.plot_rast(modelID_l = mids, plot_bgrp='resolution',                                  
+            #           plot_type=plot_type, mean_line=False, meta_txt=False,
+            #           debug_max_len=1e5, write=True, linestyle='dashed')
+            #             
             # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
-            #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', plot_bgrp='aggLevel',
-            #                      fmt='svg',sharex='row',sharey='none', plot_type='hist',
-            #                      drop_zeros=True,
+            #                      plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
+            #                      fmt='svg',sharex='col',sharey='col', plot_type=plot_type,
+            #                      drop_zeros=True,mean_line=False,
             #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
-            #                       meta_func=lambda **kwargs:meta_basic(**kwargs))
+            #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
+            #                       ax_d=ax_d, val_lab='depths (m)')
             #===================================================================
-            
-
-            
 
         
         #=======================================================================
@@ -642,11 +668,10 @@ def r6():
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd6\model_run_index.csv',
         baseID_l=[0], #model
         compiled_fp_d = {
-        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\outs_analy_r6_0415.pickle',
-        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\agg_mindex_analy_r6_0415.pickle',
-        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\trues_analy_r6_0415.pickle',
-        'finv_agg_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\finv_agg_fps_analy_r6_0415.pickle',
-        'drlay_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220417\working\drlay_fps_analy_r6_0417.pickle',
+        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220417\working\outs_analy_r6_0417.pickle',
+        'finv_agg_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220417\working\finv_agg_fps_analy_r6_0417.pickle',
+        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220417\working\agg_mindex_analy_r6_0417.pickle',
+        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220417\working\trues_analy_r6_0417.pickle',
             },
         )
 if __name__ == "__main__": 
