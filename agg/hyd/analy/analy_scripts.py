@@ -107,6 +107,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 'compiled':lambda **kwargs:self.load_pick(**kwargs), #only filepaths?
                 'build':lambda **kwargs: self.build_finv_agg(**kwargs),
                 },
+            'drlay_fps':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs), 
+                'build':lambda **kwargs: self.build_drlay_fps(**kwargs),
+                }
+            
             
             }
         
@@ -296,7 +301,60 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
         return fp_lib
         
+    def build_drlay_fps(self, #collect depth rlay filepaths from the results lib
+                         dkey='drlay_fps',
+    
+                        write=None,
+                        idn=None,
+                        logger=None,
+                     **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('drlay_fps')
+        assert dkey=='drlay_fps'
+        if write is None: write=self.write
+        if idn is None: idn=self.idn
+        #=======================================================================
+        # pull directories from piciles
+        #=======================================================================
         
+        dir_lib= self.assemble_model_data(dkey='rlay_dir', 
+                                         logger=log, write=write, idn=idn,
+                                         **kwargs)
+        
+        #=======================================================================
+        # collect filepaths
+        #=======================================================================
+        cnt = 0
+        fp_lib = {e:dict() for e in dir_lib.keys()}
+        for mid, rlay_dir in dir_lib.items():
+            assert os.path.exists(rlay_dir)
+            for sub_fn in next(os.walk(rlay_dir))[1]: #should be study areas
+                sub_dir = os.path.join(rlay_dir, sub_fn)
+                #all the files here
+                fns = [e for e in os.listdir(sub_dir) if e.endswith('.tif')]
+                
+                """each should only have 1 depth rlay... not capturing other rlays"""
+                assert len(fns)==1, 'unexpected match in %s\n    %s'%(sub_dir, fns)
+ 
+                #add the result
+                fp_lib[mid][sub_fn] = os.path.join(sub_dir, fns[0])
+                cnt +=1
+                
+            
+        assert cnt/len(fp_lib) == math.floor(cnt/len(fp_lib)), 'loaded uneven count'
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('from %i modelIDs got %i rlays'%(len(fp_lib), cnt))
+        if write:
+            self.ofp_d[dkey] = self.write_pick(fp_lib,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+ 
+        return fp_lib #{modelID:{studyArea:depth_rlay_fp}}
     
     def assemble_model_data(self, #collecting outputs from multiple model runs
                    modelID_l=None, #set of modelID's to include (None=load all in the catalog)
@@ -351,7 +409,20 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #load pickel            
             with open(row['pick_fp'], 'rb') as f:
                 data = pickle.load(f) 
-                data_d[modelID] = data[dkey].copy()
+                assert dkey in data, 'modelID=%i has no \'%s\' in pickle \n    %s'%(modelID, dkey, row['pick_fp'])
+                
+            
+                #handle filepaths
+                if isinstance(data[dkey], str):
+                    data_d[modelID] = data[dkey]
+                else:
+ 
+                    data_d[modelID] = data[dkey].copy()
+                #===============================================================
+                # except Exception as e:
+                #     log.warning('failed to copy %i.%s (taking raw) w/ \n    %s'%(modelID, dkey, e))
+                #===============================================================
+                    
                 
                 del data
                 
@@ -3488,15 +3559,64 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         return self.output_fig(fig, fname='%s-%s_%sx%s_%s' % (dkey_x, dkey_y, plot_rown, plot_coln, self.longname), **kwargs)
     
     def plot_rast(self, #add raster values to a plot
-                  ax_d=None,
-                  logger=None,
-                  ):
+                
+                #data control               
+                xlims = None,
+                modelID_l = None, #optinal sorting list
+                
+                #qhi=0.99, qlo=0.01, #just taking the mean
+                drop_zeros=True, 
+                slice_d = {}, #special slicing
+                
+                #data
+                rast_fp_lib=None,
+                
+                #plot config
+                plot_type='hist', 
+                plot_rown='aggLevel',
+                plot_coln='resolution',
+                plot_colr=None,                
+                ax_d=None, #inheriting preconfigured matrix plot
+                
+                #histwargs
+                bins=20, rwidth=0.9, 
+                mean_line=True, #plot a vertical line on the mean
+                
+                
+                #meta labelling
+                meta_txt=True, #add meta info to plot as text
+                meta_func = lambda meta_d={}, **kwargs:meta_d, #lambda for calculating additional meta information (add_meta=True)        
+                write_meta=False, #write all the meta info to a csv            
+                
+                #plot style                    
+                colorMap=None, title=None,
+                sharey=None,sharex=None,
+                
+                logger=None,    **kwargs):
+ 
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
         log = logger.getChild('plot_rast')
-
+        
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if rast_fp_lib is None:
+            rast_fp_lib= self.retrieve('drlay_fps') 
+            
+            
+        #plot keys
+        if plot_colr is None: 
+            plot_colr=plot_rown
+ 
+            
+            
+ 
+        assert not plot_rown==plot_coln
+            
+        
         
     #===========================================================================
     # OLD PLOTTER-------
