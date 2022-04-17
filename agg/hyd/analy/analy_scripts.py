@@ -2030,6 +2030,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     def plot_dkey_mat2(self, #flexible plotting of model results (one dkey)
                   
                     #data control
+                    ax_d=None,
                     dkey='tvals',#column group w/ values to plot
  
                     xlims = None,
@@ -2041,7 +2042,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
 
                     
                     #data
- 
                     dx_raw=None, #combined model results                    
                     
                     #plot config
@@ -2064,7 +2064,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     write_meta=False, #write all the meta info to a csv            
                     
                     #plot style                    
-                    colorMap=None, title=None,
+                    colorMap=None, title=None, val_lab=None,
                     sharey=None,sharex=None,
  
                     **kwargs):
@@ -2109,6 +2109,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 title = title + ' %s=%s'%(name, val) 
                 
         if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        
+        if val_lab is None: val_lab=dkey
  
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
         #=======================================================================
@@ -2165,15 +2167,23 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         col_keys =mdex.unique(plot_coln).tolist()
         row_keys = mdex.unique(plot_rown).tolist()
  
-        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
-                                    figsize_scaler=4,
-                                    constrained_layout=True,
-                                    sharey=sharey, 
-                                    sharex=sharex,  
-                                    fig_id=0,
-                                    set_ax_title=True,
-                                    )
- 
+        if ax_d is None:
+            fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                        figsize_scaler=4,
+                                        constrained_layout=True,
+                                        sharey=sharey, 
+                                        sharex=sharex,  
+                                        fig_id=0,
+                                        set_ax_title=True,
+                                        )
+     
+            
+        else:
+            for k,v in ax_d.items():
+                fig = v[list(v.keys())[0]].figure
+                break
+
+        assert isinstance(fig, matplotlib.figure.Figure)
         fig.suptitle(title)
         #=======================================================================
         # #get colors
@@ -2220,10 +2230,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             md1 = self.ax_data(ax, data_d,
                                plot_type=plot_type, 
                                bins=bins, rwidth=rwidth, mean_line=mval, hrange=xlims,
-                               colors=color_d.values(), logger=log) 
+                               color_d=color_d, logger=log) 
  
             meta_d.update(md1)
-            labels = data_d.keys()
+            labels = ['%s=%s'%(plot_bgrp, k) for k in data_d.keys()]
             #===================================================================
             # post format 
             #===================================================================
@@ -2262,9 +2272,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 # first row
                 if row_key == row_keys[0]:
-                    #first col
-                    if col_key == col_keys[0]:
-                        if plot_type=='hist':
+                    #last col
+                    if col_key == col_keys[-1]:
+                        if plot_type in ['hist', 'gaussian_kde']:
                             ax.legend()
                 
                         
@@ -2273,14 +2283,13 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     if plot_type == 'hist':
                         ax.set_ylabel('count')
                     elif plot_type in ['box', 'violin']:
-                        ax.set_ylabel(dkey)
+                        ax.set_ylabel(val_lab)
                 
                 #last row
                 if row_key == row_keys[-1]:
-                    if plot_type == 'hist':
-                        ax.set_xlabel(dkey)
+                    if plot_type in ['hist', 'gaussian_kde']:
+                        ax.set_xlabel(val_lab)
                     elif plot_type in ['violin', 'box']:
-                        
                         ax.set_xticks(np.arange(1, len(labels) + 1))
                         ax.set_xticklabels(labels)
                     #last col
@@ -3487,10 +3496,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #data control               
                 xlims = None,
                 modelID_l = None, #optinal sorting list
-                
-                #qhi=0.99, qlo=0.01, #just taking the mean
-                drop_zeros=True, 
+                drop_zeros=True, #zeros are effecitvely null on depth rasters 
                 slice_d = {}, #special slicing
+                debug_max_len=1e6, #max random sample
                 
                 #data
                 rast_fp_lib=None,
@@ -3498,8 +3506,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 #plot config
                 plot_type='hist', 
-                plot_rown='studyArea',
-                plot_coln='resolution',
+                plot_rown='resolution',
+                plot_coln='studyArea',
                 plot_colr=None,
                 plot_bgrp=None,                
                 ax_d=None, #inheriting preconfigured matrix plot
@@ -3516,7 +3524,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 #plot style                    
                 colorMap=None, title=None,
-                sharey='row',sharex='row',
+                sharey='col',sharex='col',
                 val_lab = 'depths (m)',
                 
                 logger=None,  write=None,  **kwargs):
@@ -3527,14 +3535,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if logger is None: logger=self.logger
         log = logger.getChild('plot_rast')
         
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if rast_fp_lib is None:
-            rast_fp_lib= self.retrieve('drlay_fps') 
-            
-        if agg_mindex is None:
-            agg_mindex = self.retrieve('agg_mindex')
+        idn = self.idn
+        debug_max_len = int(debug_max_len)
+
             
         if write is None:write=self.write
             
@@ -3566,6 +3569,15 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 title = title + ' %s=%s'%(name, val) 
                 
         if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if rast_fp_lib is None:
+            rast_fp_lib= self.retrieve('drlay_fps') 
+            
+        if agg_mindex is None:
+            agg_mindex = self.retrieve('agg_mindex')
  
         log.info('on (%s x %s)'%(plot_rown, plot_coln))
         #=======================================================================
@@ -3695,7 +3707,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
             log.info('on %s w/ %i groups and %i rasters'%(keys_d, len(sg_fp_d1), cnt))
             
-            meta_d = {'raster_cnt':cnt, 'drop_zeros':drop_zeros}
+
+            meta_d = {'raster_cnt':cnt, 'drop_zeros':drop_zeros, 'modelIDs':str(list(gdx0.index.unique(idn)))}
             #===================================================================
             # loop on raster and collect data
             #===================================================================
@@ -3738,7 +3751,16 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #post
             rserx = pd.concat(data_d)
             
-            data_d = {k:v.values for k,v in data_d.items()} #might be a nicer way to do thisw/ pandas
+            #reduce
+            if not debug_max_len is None:
+                if len(rserx)>debug_max_len:
+                    log.warning('reducing from %i to %i'%(len(rserx), debug_max_len))
+                    meta_d['raw_cnt'] = len(rserx)
+                    rserx = rserx.sample(debug_max_len) #get a random sample of these
+                    #rserx = rserx.iloc[0:debug_max_len]
+                    
+            #split into a dict
+            data_d = {k:g.values for k,g in rserx.groupby(level=0)}
             
             
             meta_d.update({'cnt':len(rserx), 'zeros_cnt':zcnt})
@@ -3757,7 +3779,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             md1 = self.ax_data(ax, data_d,
                                plot_type=plot_type, 
                                bins=bins, rwidth=rwidth, mean_line=mval, hrange=xlims,
-                               color_d = color_d1, logger=log) 
+                               color_d = color_d1, logger=log, **kwargs) 
  
             meta_d.update(md1)
             
@@ -3799,30 +3821,33 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 # first row
                 if row_key == row_keys[0]:
+                    pass
                     #last col
-                    if col_key == col_keys[-1]:
+                    #if col_key == col_keys[-1]:
                         #if plot_type=='hist':
-                        ax.legend()
+                    #ax.legend()
                 
                         
                 # first col
                 if col_key == col_keys[0]:
                     if plot_type == 'hist':
                         ax.set_ylabel('count')
+                    elif plot_type=='gaussian_kde':
+                        ax.set_ylabel('frequency')
                     elif plot_type in ['box', 'violin']:
                         ax.set_ylabel(val_lab)
                 
                 #last row
                 if row_key == row_keys[-1]:
-                    if plot_type == 'hist':
+                    if plot_type in ['hist', 'gaussian_kde']:
                         ax.set_xlabel(val_lab)
                     elif plot_type in ['violin', 'box']:
                         
                         ax.set_xticks(np.arange(1, len(labels) + 1))
                         ax.set_xticklabels(labels)
-                    #last col
-                    if col_key == col_keys[-1]:
-                        pass
+                #last col
+                if col_key == col_keys[-1]:
+                    ax.legend()
                 
                 
         #=======================================================================
@@ -3845,7 +3870,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                
                
         if write:
-            ofp = self.output_fig(fig, fname=fname, **kwargs)
+            ofp = self.output_fig(fig, fname=fname)
         
         return ax_d 
          
@@ -4826,9 +4851,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
             #ckey_d = {i:color_key for i,color_key in enumerate(labels)}
             #style fills
-            for i, pc in enumerate(parts_d['bodies']):
-                pc.set_facecolor(color)
-                pc.set_edgecolor(color)
+            
+            for dname, pc in dict(zip(data_d.keys(), parts_d['bodies'])).items():
+ 
+                pc.set_facecolor(color_d[dname])
+                pc.set_edgecolor(color_d[dname])
                 pc.set_alpha(0.5)
             
             #style lines
@@ -4846,7 +4873,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                                    bw_method='scott',
                                                    weights=None, #equally weighted
                                                    )
-                xvals = np.linspace(data.min(), data.max(), 50)
+                xvals = np.linspace(data.min()+.01, data.max(), 100)
                 ax.plot(xvals, kde(xvals), color=color_d[dname], label=dname, **kwargs)
                 
                 #vertical mean line
