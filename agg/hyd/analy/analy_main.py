@@ -166,7 +166,10 @@ def run( #run a basic model configuration
         # hazard data----------
         #=======================================================================
         
-        ses.plot_rast(modelID_l = mids, plot_bgrp='aggLevel')
+        #=======================================================================
+        # ses.plot_rast(modelID_l = mids, plot_bgrp='studyArea', meta_func=lambda **kwargs:meta_basic(**kwargs),
+        #               plot_type='gaussian_kde')
+        #=======================================================================
  
         #=======================================================================
         # resolution vs. studyArea
@@ -357,12 +360,21 @@ def run( #run a basic model configuration
             #===================================================================
             
             # #StudyArea raster values
-            ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
-                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', plot_bgrp='aggLevel',
-                                 fmt='svg',sharex='row',sharey='none', plot_type='hist',
-                                 drop_zeros=True,plot_rast=True,
-                                 #title='%s \'%s\' relative errors'%(plotName, dkey), 
-                                  meta_func=lambda **kwargs:meta_basic(**kwargs))
+            
+            ax_d = ses.plot_rast(modelID_l = mids, plot_bgrp='resolution', 
+                                 #meta_func=lambda **kwargs:meta_basic(**kwargs),
+                      plot_type='gaussian_kde', mean_line=False, meta_txt=False)
+                        
+            #===================================================================
+            # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
+            #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', plot_bgrp='aggLevel',
+            #                      fmt='svg',sharex='row',sharey='none', plot_type='hist',
+            #                      drop_zeros=True,
+            #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
+            #                       meta_func=lambda **kwargs:meta_basic(**kwargs))
+            #===================================================================
+            
+
             
 
         

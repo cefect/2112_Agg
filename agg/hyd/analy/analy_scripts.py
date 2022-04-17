@@ -72,6 +72,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'downSampling':'Set2',
         'aggType':'Pastel2',
         'tval_type':'Set1',
+        'resolution':'copper',
         }
     
     def __init__(self,
@@ -2050,7 +2051,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     plot_colr=None,                    
  
                     plot_bgrp=None, #grouping (for plotType==bars)
-                    plot_rast=False, #add raster values to tplot
+
                      
                     #histwargs
                     bins=20, rwidth=0.9, 
@@ -2096,9 +2097,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if plot_bgrp is None:
             plot_bgrp = plot_colr
             
-            
-        if plot_rast:
-            assert dkey=='rsamps'
+
         assert not plot_rown==plot_coln
             
         #plot style
@@ -2209,22 +2208,24 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             else:
                 data_d = {dkey:gdx0.values}
                 
-            if plot_rast:
-                """colors?"""
-                raise Error('add raster values here')
+
              
             #===================================================================
             # add plots--------
             #===================================================================
+            if mean_line:
+                mval =gdx0.mean().mean()
+            else: mval=None 
+            
             md1 = self.ax_data(ax, data_d,
                                plot_type=plot_type, 
-                               bins=bins, rwidth=rwidth, mean_line=gdx0.mean().mean(), hrange=xlims,
+                               bins=bins, rwidth=rwidth, mean_line=mval, hrange=xlims,
                                colors=color_d.values(), logger=log) 
  
             meta_d.update(md1)
-            
+            labels = data_d.keys()
             #===================================================================
-            # post format------
+            # post format 
             #===================================================================
             
             ax.set_title(' & '.join(['%s:%s' % (k, v) for (k, v) in keys_d.items()]))
@@ -2238,7 +2239,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             
             
             #===================================================================
-            # collect meta------
+            # collect meta 
             #===================================================================
             meta_serx = pd.Series(meta_d, name=gkeys)
             
@@ -2249,7 +2250,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 meta_dx = meta_dx.append(meta_serx)
                 
         #===============================================================
-        # #wrap format subplot
+        # post format subplot ----------
         #===============================================================
         """best to loop on the axis container in case a plot was missed"""
         for row_key, d in ax_d.items():
@@ -3515,9 +3516,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 #plot style                    
                 colorMap=None, title=None,
-                sharey='none',sharex='none',
+                sharey='row',sharex='row',
+                val_lab = 'depths (m)',
                 
-                logger=None,    **kwargs):
+                logger=None,  write=None,  **kwargs):
  
         #=======================================================================
         # defaults
@@ -3533,6 +3535,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             
         if agg_mindex is None:
             agg_mindex = self.retrieve('agg_mindex')
+            
+        if write is None:write=self.write
             
             
         #plot keys
@@ -3657,23 +3661,18 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             ax = ax_d[gkeys[1]][gkeys[0]]
             log.info('on %s'%keys_d)
             
-            """not totally sure this will give the correct order
-            but at least gives the correct count"""
-            colors = gdx0['color'].unique() 
+ 
             #===================================================================
             # data setup-------
             #===================================================================
             #gropu the filepathts
-            #if not plot_bgrp is None:
             sg_fp_d0 = {k:df['fp'].tolist() for k,df in gdx0.groupby(level=plot_bgrp)}
  
-            #===================================================================
-            # else:
-            #     sgName = 'g1'
-            #     sg_fp_d0 = {sgName:gdx0['fp'].tolist()}
-            #===================================================================
+ 
                 
-            #remove duplicates
+            #===================================================================
+            # #remove duplicates
+            #===================================================================
             
             """because we copy identical rasters for each model run.. 
             here we just remove duplicates using the filename
@@ -3696,11 +3695,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
             log.info('on %s w/ %i groups and %i rasters'%(keys_d, len(sg_fp_d1), cnt))
             
-            
+            meta_d = {'raster_cnt':cnt, 'drop_zeros':drop_zeros}
             #===================================================================
             # loop on raster and collect data
             #===================================================================
+ 
+            zcnt=0
             data_d = dict()
+ 
             for gkey1, fp_l in sg_fp_d1.items():
                 rser = None
                 for fp in fp_l:
@@ -3713,45 +3715,139 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     ser1 = pd.Series(ar_raw.reshape((1,-1))[0]).dropna()
                     
                     #remove zeros
+                    bx = ser1==0.0
                     if drop_zeros:
-                        bx = ser1==0.0
+                        
                         ser1 = ser1.loc[~bx]
                     
+                    #counts
+                    zcnt+=bx.sum()
+ 
+                    
+                    #collect
                     if rser is None:
                         rser = ser1
                     else:
                         """not checked"""
                         rser = ser1.append(ser1)
                         
-                data_d[gkey1] = rser.values
+ 
+                data_d[gkey1] = rser
                 log.info('   %s w/ %i cells '%(gkey1, len(rser)))
             
+            #post
+            rserx = pd.concat(data_d)
             
-            #===================================================================
-            # HIST------
-            #===================================================================
-            """
+            data_d = {k:v.values for k,v in data_d.items()} #might be a nicer way to do thisw/ pandas
             
-            fig.show()
-            """
-            if plot_type == 'hist':
-                ar, _, patches = ax.hist(
-                    data_d.values(),
-                        range=xlims,
-                        bins=bins,
-                        density=False,  
-                        color = colors, 
-                        rwidth=rwidth,
-                        label=list(data_d.keys()))
-                 
-                bin_max = ar.max()
-                #vertical mean line
-                if mean_line:
-                    ax.axvline(gdx0.mean().mean(), color='black', linestyle='dashed')
+            
+            meta_d.update({'cnt':len(rserx), 'zeros_cnt':zcnt})
             
  
+            #===================================================================
+            # add plots--------
+            #===================================================================
             
-            log.info('    on %s w/ %i rasters'%(keys_d, len(fp_l)))
+            color_d1 =  dict(zip(data_d.keys(), gdx0['color'].unique()))
+            
+            if mean_line:
+                mval =rserx.mean().mean()
+            else: mval=None 
+            
+            md1 = self.ax_data(ax, data_d,
+                               plot_type=plot_type, 
+                               bins=bins, rwidth=rwidth, mean_line=mval, hrange=xlims,
+                               color_d = color_d1, logger=log) 
+ 
+            meta_d.update(md1)
+            
+            #===================================================================
+            # post format------
+            #===================================================================
+            
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for (k, v) in keys_d.items()]))
+            #===================================================================
+            # meta  text
+            #===================================================================
+            """for bars, this ignores the bgrp key"""
+            meta_d = meta_func(logger=log, meta_d=meta_d, pred_ser=rserx)
+            if meta_txt:
+                ax.text(0.9, 0.6, get_dict_str(meta_d), transform=ax.transAxes, va='top', ha='right', fontsize=8, color='black')
+            
+            
+            #===================================================================
+            # collect meta------
+            #===================================================================
+            meta_serx = pd.Series(meta_d, name=gkeys)
+            
+            if meta_dx is None:
+                meta_dx = meta_serx.to_frame().T
+                meta_dx.index.set_names(keys_d.keys(), inplace=True)
+            else:
+                meta_dx = meta_dx.append(meta_serx)
+                
+        #===============================================================
+        # post format subplot ----------
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                
+                if not xlims is None:
+                    ax.set_xlim(xlims)
+ 
+                
+                # first row
+                if row_key == row_keys[0]:
+                    #last col
+                    if col_key == col_keys[-1]:
+                        #if plot_type=='hist':
+                        ax.legend()
+                
+                        
+                # first col
+                if col_key == col_keys[0]:
+                    if plot_type == 'hist':
+                        ax.set_ylabel('count')
+                    elif plot_type in ['box', 'violin']:
+                        ax.set_ylabel(val_lab)
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    if plot_type == 'hist':
+                        ax.set_xlabel(val_lab)
+                    elif plot_type in ['violin', 'box']:
+                        
+                        ax.set_xticks(np.arange(1, len(labels) + 1))
+                        ax.set_xticklabels(labels)
+                    #last col
+                    if col_key == col_keys[-1]:
+                        pass
+                
+                
+        #=======================================================================
+        # wrap---------
+        #=======================================================================
+        log.info('finsihed')
+        """
+        plt.show()
+        """
+ 
+        fname = 'rastVals_%s_%s_%sX%s_%s' % (
+            title.replace(' ','').replace('\'',''),
+             plot_type, plot_rown, plot_coln, self.longname)        
+        fname = fname.replace('=', '-')
+        
+        if write_meta:
+            ofp =  os.path.join(self.out_dir, fname+'_meta.csv')
+            meta_dx.to_csv(ofp)
+            log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
+               
+               
+        if write:
+            ofp = self.output_fig(fig, fname=fname, **kwargs)
+        
+        return ax_d 
          
         
     #===========================================================================
@@ -4638,19 +4734,31 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     bins=20, rwidth=0.9, 
                     mean_line=None, #plot a vertical line on the mean
                     hrange=None, #xlimit the data
+                    density=False,
  
                     #styling
-                      colors = None,
+                      color_d = None,
  
                      logger=None, **kwargs):
                 
-        """as we use these methods in a few funcs... decided to factor"""
+        """as we use these methods in a few funcs... decided to factor
+        
+        plt.show()
+        """
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
         log=logger.getChild('ax_data')
         meta_d=dict()
+        
+        if plot_type=='gaussian_kde':
+            density=True
+        
+        #check keys
+        miss_l = set(color_d.keys()).symmetric_difference(data_d.keys())
+        assert len(miss_l)==0, miss_l
+        
         #===================================================================
         # HIST------
         #===================================================================
@@ -4660,8 +4768,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 data_d.values(), 
                 range=hrange,
                 bins=bins, 
-                density=False, 
-                color=colors, 
+                density=density, # integral of the histogram will sum to 1
+                color=color_d.values(), 
                 rwidth=rwidth, 
                 label=list(data_d.keys()), 
                 **kwargs)
@@ -4669,8 +4777,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #vertical mean line
             if not mean_line is None:
                 ax.axvline(mean_line, color='black', linestyle='dashed')
-                
-            meta_d['bin_max'] = ar.max()
+            
+            meta_d.update({'bin_max':ar.max(), 'bin_cnt':len(ar)})
+ 
+            
         #===================================================================
         # box plots--------
         #===================================================================
@@ -4724,6 +4834,24 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #style lines
             for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
                 parts_d[partName].set(color='black', alpha=0.5)
+                
+        #=======================================================================
+        # gauisian KDE-----
+        #=======================================================================
+        elif plot_type=='gaussian_kde':
+            for dname, data in data_d.items():
+                log.info('    gaussian_kde on %i'%len(data))
+ 
+                kde = scipy.stats.gaussian_kde(data, 
+                                                   bw_method='scott',
+                                                   weights=None, #equally weighted
+                                                   )
+                xvals = np.linspace(data.min(), data.max(), 50)
+                ax.plot(xvals, kde(xvals), color=color_d[dname], label=dname, **kwargs)
+                
+                #vertical mean line
+                if not mean_line is None:
+                    ax.axvline(mean_line, color='black', linestyle='dashed')
         
         else:
             raise Error(plot_type)
