@@ -35,6 +35,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     QgsWkbTypes
 
 from hp.err_calc import ErrorCalcs
+from hp.gdal import rlay_to_array, getRasterMetadata
     
 from agg.coms.scripts import Catalog
 from agg.hyd.hscripts import HydSession
@@ -2024,6 +2025,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         return self.output_fig(fig, fname='%s_%s_%sx%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), fmt=fmt)
     
+
     def plot_dkey_mat2(self, #flexible plotting of model results (one dkey)
                   
                     #data control
@@ -2125,10 +2127,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                 modelID_l=modelID_l)
  
         log.info('on %s'%str(dx.shape))
-        
-        
-
-        
  
         #=======================================================================
         # subsetting
@@ -2215,110 +2213,35 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 """colors?"""
                 raise Error('add raster values here')
              
+            #===================================================================
+            # add plots--------
+            #===================================================================
+            md1 = self.ax_data(ax, data_d,
+                               plot_type=plot_type, 
+                               bins=bins, rwidth=rwidth, mean_line=gdx0.mean().mean(), hrange=xlims,
+                               colors=color_d.values(), logger=log) 
+ 
+            meta_d.update(md1)
             
             #===================================================================
-            # HIST------
+            # post format------
             #===================================================================
-            """
-            fig.show()
-            """
-            if plot_type == 'hist':
-                ar, _, patches = ax.hist(
-                    data_d.values(),
-                        range=xlims,
-                        bins=bins,
-                        density=False,  
-                        color = color_d.values(), 
-                        rwidth=rwidth,
-                        label=list(data_d.keys()))
-                
-                bin_max = ar.max()
-                #vertical mean line
-                if mean_line:
-                    ax.axvline(gdx0.mean().mean(), color='black', linestyle='dashed')
+            
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for (k, v) in keys_d.items()]))
             #===================================================================
-            # box plots
-            #===================================================================
-            elif plot_type=='box':
-                #===============================================================
-                # zero line
-                #===============================================================
-                #ax.axhline(0, color='black')
- 
-                #===============================================================
-                # #add bars
-                #===============================================================
-                boxres_d = ax.boxplot(data_d.values(), labels=data_d.keys(), meanline=True,
-                           # boxprops={'color':newColor_d[rowVal]}, 
-                           # whiskerprops={'color':newColor_d[rowVal]},
-                           # flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
-                            )
- 
-                #===============================================================
-                # add extra text
-                #===============================================================
-                
-                # counts on median bar
-                for gval, line in dict(zip(data_d.keys(), boxres_d['medians'])).items():
-                    x_ar, y_ar = line.get_data()
-                    ax.text(x_ar.mean(), y_ar.mean(), 'n%i' % len(data_d[gval]),
-                            # transform=ax.transAxes, 
-                            va='bottom', ha='center', fontsize=8)
-                    
-            #===================================================================
-            # violin plot-----
-            #===================================================================
-            elif plot_type=='violin':
-
-                #===============================================================
-                # plot
-                #===============================================================
-                parts_d = ax.violinplot(data_d.values(),  
-                                       showmeans=True,
-                                       showextrema=True,  
-                                       )
- 
-                #===============================================================
-                # color
-                #===============================================================
-                #===============================================================
-                # if len(data_d)>1:
-                #     """nasty workaround for labelling"""                    
-                #===============================================================
-                labels = list(data_d.keys())
-                #ckey_d = {i:color_key for i,color_key in enumerate(labels)}
- 
- 
-                
-                #style fills
-                for i, pc in enumerate(parts_d['bodies']):
-                    pc.set_facecolor(color)
-                    pc.set_edgecolor(color)
-                    pc.set_alpha(0.5)
-                    
-                #style lines
-                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
-                    parts_d[partName].set(color='black', alpha=0.5)
-            else:
-                raise Error(plot_type)
- 
-            #===================================================================
-            # post-format----
-            #===================================================================
-            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
-            #===================================================================
-            # meta text
+            # meta  text
             #===================================================================
             """for bars, this ignores the bgrp key"""
-            meta_d = meta_func(logger=log, meta_d=meta_d,pred_ser=gdx0)
-                            
-            if meta_txt: 
+            meta_d = meta_func(logger=log, meta_d=meta_d, pred_ser=gdx0)
+            if meta_txt:
                 ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
-                
+            
+            
             #===================================================================
-            # post-meta--------
+            # collect meta------
             #===================================================================
             meta_serx = pd.Series(meta_d, name=gkeys)
+            
             if meta_dx is None:
                 meta_dx = meta_serx.to_frame().T
                 meta_dx.index.set_names(keys_d.keys(), inplace=True)
@@ -3570,12 +3493,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 #data
                 rast_fp_lib=None,
+                agg_mindex=None, #needed for adding meta indexers
                 
                 #plot config
                 plot_type='hist', 
-                plot_rown='aggLevel',
+                plot_rown='studyArea',
                 plot_coln='resolution',
-                plot_colr=None,                
+                plot_colr=None,
+                plot_bgrp=None,                
                 ax_d=None, #inheriting preconfigured matrix plot
                 
                 #histwargs
@@ -3590,7 +3515,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 #plot style                    
                 colorMap=None, title=None,
-                sharey=None,sharex=None,
+                sharey='none',sharex='none',
                 
                 logger=None,    **kwargs):
  
@@ -3601,22 +3526,233 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         log = logger.getChild('plot_rast')
         
         #=======================================================================
-        # retrieve
+        # defaults
         #=======================================================================
         if rast_fp_lib is None:
             rast_fp_lib= self.retrieve('drlay_fps') 
             
+        if agg_mindex is None:
+            agg_mindex = self.retrieve('agg_mindex')
+            
             
         #plot keys
         if plot_colr is None: 
+            plot_colr=plot_bgrp
+        
+        if plot_colr is None: 
             plot_colr=plot_rown
- 
             
-            
+        if plot_bgrp is None:
+            plot_bgrp = plot_colr
  
         assert not plot_rown==plot_coln
-            
+        assert not plot_bgrp is None
         
+        assert plot_colr in [plot_coln, plot_rown, plot_bgrp], 'must specify a valid plot_colr'
+        
+        """othwerise... wed have to load the ras
+        assert 'studyArea' in [plot_coln, plot_rown], 'must index on studyArea'"""
+            
+        #plot style
+                 
+        if title is None:
+            title = 'depth raster values'
+                
+            for name, val in slice_d.items(): 
+                title = title + ' %s=%s'%(name, val) 
+                
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+ 
+        log.info('on (%s x %s)'%(plot_rown, plot_coln))
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        """a bit strange here... but originally we set these up to handle data"""
+        meta_indexers = set([plot_rown, plot_coln, plot_bgrp])
+        #=======================================================================
+        # if not plot_bgrp is None:
+        #     meta_indexers.add(plot_bgrp)
+        #=======================================================================
+        
+        dx_raw = pd.DataFrame(index=agg_mindex.droplevel('id'))
+        dx_raw['dummy']=0.0
+        
+        #add requested indexers
+        dx = self.join_meta_indexers(dx_raw = dx_raw, 
+                                meta_indexers = meta_indexers.copy(),
+                                modelID_l=modelID_l)
+ 
+        log.info('on %s'%str(dx.shape))
+        #=======================================================================
+        # subsetting
+        #=======================================================================
+        for name, val in slice_d.items():
+            assert name in dx.index.names
+            bx = dx.index.get_level_values(name) == val
+            assert bx.any()
+            dx = dx.loc[bx, :]
+
+            log.info('w/ %s=%s slicing to %i/%i'%(
+                name, val, bx.sum(), len(bx)))
+        
+        #=======================================================================
+        # get iteration index 
+        #=======================================================================
+        """beacuse we dont want the data... just the groupings"""
+        mdex = dx.index.droplevel('gid').to_frame().drop_duplicates().index
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        if ax_d is None:
+            plt.close('all')
+     
+            col_keys =mdex.unique(plot_coln).tolist()
+            row_keys = mdex.unique(plot_rown).tolist()
+     
+            fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                        figsize_scaler=4,
+                                        constrained_layout=True,
+                                        sharey=sharey, 
+                                        sharex=sharex,  
+                                        fig_id=0,
+                                        set_ax_title=True,
+                                        )
+     
+            fig.suptitle(title)
+            
+
+        
+        #=======================================================================
+        # attach filepahts
+        #=======================================================================
+        dx1 = mdex.to_frame()
+ 
+        for gkeys, gdf in dx1.copy().groupby(level=['modelID', 'studyArea']):
+            keys_d = dict(zip(['modelID', 'studyArea'], gkeys))
+            
+            dx1.loc[gdf.index, 'fp'] = rast_fp_lib[keys_d['modelID']][keys_d['studyArea']]
+
+
+        #=======================================================================
+        # attach colors
+        #=======================================================================
+ 
+        ckeys = mdex.unique(plot_colr) 
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        for gkey, gdf in dx1.copy().groupby(level=plot_colr):
+            dx1.loc[gdf.index, 'color'] = color_d[gkey]
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        meta_dx=None
+        
+ 
+        
+        for gkeys, gdx0 in dx1.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            #===================================================================
+            # setup
+            #===================================================================
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
+            ax = ax_d[gkeys[1]][gkeys[0]]
+            log.info('on %s'%keys_d)
+            
+            """not totally sure this will give the correct order
+            but at least gives the correct count"""
+            colors = gdx0['color'].unique() 
+            #===================================================================
+            # data setup-------
+            #===================================================================
+            #gropu the filepathts
+            #if not plot_bgrp is None:
+            sg_fp_d0 = {k:df['fp'].tolist() for k,df in gdx0.groupby(level=plot_bgrp)}
+ 
+            #===================================================================
+            # else:
+            #     sgName = 'g1'
+            #     sg_fp_d0 = {sgName:gdx0['fp'].tolist()}
+            #===================================================================
+                
+            #remove duplicates
+            
+            """because we copy identical rasters for each model run.. 
+            here we just remove duplicates using the filename
+            dont care about which modelID it comes from?
+            maybe there's a simpler way? this seems complicated
+            """
+            sg_fp_d1 = dict()
+            cnt = 0
+            for gkey1, fp_l in sg_fp_d0.items():
+                #divide dir from fp
+                df0 = pd.DataFrame.from_dict({i:os.path.split(fp) for i, fp in enumerate(fp_l)},
+                                             columns=['dir', 'fn'], orient='index')
+                #remove duplicates
+                df1 = df0.drop_duplicates(subset=['fn'])
+                
+                #get these filepaths 
+                sg_fp_d1[gkey1] = [os.path.join(row['dir'], row['fn']) for i, row in df1.iterrows()]
+                cnt+= len(sg_fp_d1[gkey1])
+                    
+ 
+            log.info('on %s w/ %i groups and %i rasters'%(keys_d, len(sg_fp_d1), cnt))
+            
+            
+            #===================================================================
+            # loop on raster and collect data
+            #===================================================================
+            data_d = dict()
+            for gkey1, fp_l in sg_fp_d1.items():
+                rser = None
+                for fp in fp_l:
+                    """just collapse everything into 1 pile"""
+                    log.debug(fp)
+                    
+                    #get values
+                    ar_raw = rlay_to_array(fp)
+                    
+                    ser1 = pd.Series(ar_raw.reshape((1,-1))[0]).dropna()
+                    
+                    #remove zeros
+                    if drop_zeros:
+                        bx = ser1==0.0
+                        ser1 = ser1.loc[~bx]
+                    
+                    if rser is None:
+                        rser = ser1
+                    else:
+                        """not checked"""
+                        rser = ser1.append(ser1)
+                        
+                data_d[gkey1] = rser.values
+                log.info('   %s w/ %i cells '%(gkey1, len(rser)))
+            
+            
+            #===================================================================
+            # HIST------
+            #===================================================================
+            """
+            
+            fig.show()
+            """
+            if plot_type == 'hist':
+                ar, _, patches = ax.hist(
+                    data_d.values(),
+                        range=xlims,
+                        bins=bins,
+                        density=False,  
+                        color = colors, 
+                        rwidth=rwidth,
+                        label=list(data_d.keys()))
+                 
+                bin_max = ar.max()
+                #vertical mean line
+                if mean_line:
+                    ax.axvline(gdx0.mean().mean(), color='black', linestyle='dashed')
+            
+ 
+            
+            log.info('    on %s w/ %i rasters'%(keys_d, len(fp_l)))
+         
         
     #===========================================================================
     # OLD PLOTTER-------
@@ -4492,7 +4628,111 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # HELPERS---------
     #===========================================================================
-     
+    
+
+    def ax_data(self,  #add a plot of some data to an axis using kwargs
+                ax, data_d,
+                plot_type='hist', 
+
+                    #histwargs
+                    bins=20, rwidth=0.9, 
+                    mean_line=None, #plot a vertical line on the mean
+                    hrange=None, #xlimit the data
+ 
+                    #styling
+                      colors = None,
+ 
+                     logger=None, **kwargs):
+                
+        """as we use these methods in a few funcs... decided to factor"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('ax_data')
+        meta_d=dict()
+        #===================================================================
+        # HIST------
+        #===================================================================
+ 
+        if plot_type == 'hist':
+            ar, _, patches = ax.hist(
+                data_d.values(), 
+                range=hrange,
+                bins=bins, 
+                density=False, 
+                color=colors, 
+                rwidth=rwidth, 
+                label=list(data_d.keys()), 
+                **kwargs)
+ 
+            #vertical mean line
+            if not mean_line is None:
+                ax.axvline(mean_line, color='black', linestyle='dashed')
+                
+            meta_d['bin_max'] = ar.max()
+        #===================================================================
+        # box plots--------
+        #===================================================================
+        elif plot_type == 'box':
+            #===============================================================
+            # zero line
+            #===============================================================
+            #ax.axhline(0, color='black')
+            #===============================================================
+            # #add bars
+            #===============================================================
+            boxres_d = ax.boxplot(data_d.values(), labels=data_d.keys(), meanline=True,**kwargs)
+            # boxprops={'color':newColor_d[rowVal]},
+            # whiskerprops={'color':newColor_d[rowVal]},
+            # flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
+            #===============================================================
+            # add extra text
+            #===============================================================
+            # counts on median bar
+            for gval, line in dict(zip(data_d.keys(), boxres_d['medians'])).items():
+                x_ar, y_ar = line.get_data()
+                ax.text(x_ar.mean(), y_ar.mean(), 'n%i' % len(data_d[gval]), 
+                # transform=ax.transAxes,
+                    va='bottom', ha='center', fontsize=8)
+        
+        #===================================================================
+        # violin plot-----
+        #===================================================================
+        elif plot_type == 'violin':
+            #===============================================================
+            # plot
+            #===============================================================
+            parts_d = ax.violinplot(data_d.values(), 
+                showmeans=True, 
+                showextrema=True, **kwargs)
+            #===============================================================
+            # color
+            #===============================================================
+            #===============================================================
+            # if len(data_d)>1:
+            #     """nasty workaround for labelling"""
+            #===============================================================
+ 
+            #ckey_d = {i:color_key for i,color_key in enumerate(labels)}
+            #style fills
+            for i, pc in enumerate(parts_d['bodies']):
+                pc.set_facecolor(color)
+                pc.set_edgecolor(color)
+                pc.set_alpha(0.5)
+            
+            #style lines
+            for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
+                parts_d[partName].set(color='black', alpha=0.5)
+        
+        else:
+            raise Error(plot_type)
+        
+ 
+        
+        return  meta_d
+
+
     def ax_corr_scat(self,  # correlation scatter plots on an axis
                 ax,
                 xar, yar,
@@ -4589,6 +4829,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         ax.grid()
         
         return stat_d
+    
+    
+    
+ 
                     
 
 
@@ -4718,7 +4962,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         assert_index_equal(dx.index.droplevel(list(meta_indexers)), chk_index)
         
-        dx = dx.swaplevel(i=4).sort_index()
+        dx = dx.swaplevel(i=-1).sort_index()
         #=======================================================================
         # check
         #=======================================================================

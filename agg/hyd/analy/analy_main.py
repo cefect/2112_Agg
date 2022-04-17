@@ -166,7 +166,7 @@ def run( #run a basic model configuration
         # hazard data----------
         #=======================================================================
         
-        ses.plot_rast(modelID_l = mids)
+        ses.plot_rast(modelID_l = mids, plot_bgrp='aggLevel')
  
         #=======================================================================
         # resolution vs. studyArea
@@ -634,6 +634,7 @@ def r6():
         'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\agg_mindex_analy_r6_0415.pickle',
         'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\trues_analy_r6_0415.pickle',
         'finv_agg_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220415\working\finv_agg_fps_analy_r6_0415.pickle',
+        'drlay_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220417\working\drlay_fps_analy_r6_0417.pickle',
             },
         )
 if __name__ == "__main__": 
