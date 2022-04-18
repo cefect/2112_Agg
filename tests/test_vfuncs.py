@@ -45,9 +45,9 @@ df_d = load_pick(r'C:\LS\10_OUT\2112_Agg\ins\vfunc\df_d_hyd5_dev_0414.pickle')
 vid_l = vid_df.index.tolist() #list of vfuncs to test
 
 #add some others
-vid_l =  [0, 1001] + vid_l
+vid_l =  [0, 1001, 1002] + vid_l
 
-
+#vid_l = [1002]
 #===============================================================================
 # fixture-----
 #===============================================================================
@@ -127,6 +127,8 @@ def test_vfunc(vfunc):
         
         assert pd.Series(rl_ar).notna().all()
         assert rl_ar.min()==0
+        
+        assert rl_ar.max()>=5.0
         
         #check max (some functions claim this is reasonable)
         if not rl_ar.max()<=100.0:

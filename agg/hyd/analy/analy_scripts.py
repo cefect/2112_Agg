@@ -3670,7 +3670,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     
                     #plot style
                      sharey='all', sharex='all',
-                    colorMap=None, xlims=None,
+                    colorMap=None, 
+                    xlims=None,ylims=None,
                     **kwargs):
         """"
         generally 1 modelId per panel
@@ -3690,6 +3691,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             
         if not xlims is None:
             assert sharex=='all'
+        if not ylims is None:
+            assert sharey=='all'
         
         
         log.info('on \'%s\' vs \'%s\' (%s x %s)'%(dkey_x, dkey_y, plot_rown, plot_coln))
@@ -3717,7 +3720,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         for name, val in slice_d.items():
             assert name in dx.index.names
             bx = dx.index.get_level_values(name) == val
-            assert bx.any()
+            assert bx.any(), 'failed to get any matches for %s=%s'%(name, val)
             dx = dx.loc[bx, :]
 
             log.info('w/ %s=%s slicing to %i/%i'%(
@@ -3807,6 +3810,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             
             if not xlims is None:
                 ax.set_xlim(xlims)
+                
+            if not ylims is None:
+                ax.set_ylim(ylims)
             #===================================================================
             # labels
             #===================================================================

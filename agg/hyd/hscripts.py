@@ -270,7 +270,7 @@ class Model(HydSession, QSession):  # single model run
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],         'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum', 'Median', 'none'], 'dkey':'rsamps'},
                 
-        'vid':{'vals':[49, 798,811, 0, 1001],                                 'dkey':'vfunc'},
+        'vid':{'vals':[49, 798,811, 0] + list(range(1000,1100)),                                 'dkey':'vfunc'},
 
 
         }

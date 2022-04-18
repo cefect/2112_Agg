@@ -395,7 +395,7 @@ class QSession(BaseSession, Qproj):
  
                     vid=1,
                     #vf_d=None,
-                    cf_vfuncLib_fp = r'C:\LS\10_OUT\2112_Agg\ins\vfunc\CanFlood_curves_0414.xls', #canflood format curves
+                    cf_vfuncLib_fp =None, #canflood format curves
                     logger=None,
                     **kwargs):
         """
@@ -432,6 +432,9 @@ class QSession(BaseSession, Qproj):
         # retrieve from CanFlood format
         #=======================================================================
         elif vid>1000:
+            if cf_vfuncLib_fp is None:
+                from definitions import cf_vfuncLib_fp
+            
             """nasty way to add functions to the original database"""
             log.info('for vid=%i loading CanFlood format from %s'%(vid, os.path.basename(cf_vfuncLib_fp)))
             #load tab from xls
@@ -652,6 +655,11 @@ class Vfunc(object):
         #change to new format headers
         ddf1.columns = [self.xcn, self.ycn]
         
+        #=======================================================================
+        # scale to percent
+        #=======================================================================
+        ddf1[self.ycn] = ddf1[self.ycn]*100
+        
 
         
         log.info('finished on %s'%str(ddf1.shape))
@@ -720,6 +728,12 @@ class Vfunc(object):
             else:
                 """these are not functions"""
                 raise Error(msg)
+            
+        #=======================================================================
+        # duplicate pairs
+        #=======================================================================
+        """we could remove the middle duplicate.. and maybe the macro ends"""
+ 
         
         #=======================================================================
         # tables where rl[wd=0]=!0
@@ -763,6 +777,9 @@ class Vfunc(object):
                     raise Error(msg)
                 else:
                     log.warning(msg)
+                    
+            """standard here is to use 0-100"""
+            assert df1[ycn].max()>=5.0
             
         #check monotoniciy
         for coln, row in df1.items():

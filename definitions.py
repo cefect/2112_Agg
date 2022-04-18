@@ -8,6 +8,9 @@ proj_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef'
 
 model_pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0414.xls'
 
+#CanFlood format vfunc lib
+cf_vfuncLib_fp = r'C:\LS\10_OUT\2112_Agg\ins\vfunc\CanFlood_curves_0414.xls'
+
 proj_lib =     { #studyArea data for hyd.runr
             'obwb':{
                   'EPSG': 2955, 
