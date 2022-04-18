@@ -2032,7 +2032,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                   
                     #data control
                     ax_d=None,
-                    dkey_l=['tvals'],#column group w/ values to plot
+                    dkey='tvals',#column group w/ values to plot
  
                     xlims = None,
                     modelID_l = None, #optinal sorting list
