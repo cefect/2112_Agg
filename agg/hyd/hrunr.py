@@ -103,7 +103,7 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
     assert pars_df['tag'].is_unique
     assert pars_df.index.name == 'modelID'
  
-    assert modelID in pars_df.index
+    assert modelID in pars_df.index, 'failed to find %i in index'%modelID
     
     #===========================================================================
     # check
