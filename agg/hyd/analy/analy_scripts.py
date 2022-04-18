@@ -73,6 +73,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'aggType':'Pastel2',
         'tval_type':'Set1',
         'resolution':'copper',
+        'vid':'Pastel1',
         }
     
     def __init__(self,
@@ -2031,7 +2032,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                   
                     #data control
                     ax_d=None,
-                    dkey='tvals',#column group w/ values to plot
+                    dkey_l=['tvals'],#column group w/ values to plot
  
                     xlims = None,
                     modelID_l = None, #optinal sorting list
@@ -2056,6 +2057,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #histwargs
                     bins=20, rwidth=0.9, 
                     mean_line=True, #plot a vertical line on the mean
+                    density=False,
  
  
                     #meta labelling
@@ -2066,6 +2068,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #plot style                    
                     colorMap=None, title=None, val_lab=None,
                     sharey=None,sharex=None,
+                    
+                    #output
+                    fmt='svg',
  
                     **kwargs):
         """"
@@ -2229,8 +2234,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             
             md1 = self.ax_data(ax, data_d,
                                plot_type=plot_type, 
-                               bins=bins, rwidth=rwidth, mean_line=mval, hrange=xlims,
-                               color_d=color_d, logger=log) 
+                               bins=bins, rwidth=rwidth, mean_line=mval, hrange=xlims, density=density,
+                               color_d=color_d, logger=log, **kwargs) 
  
             meta_d.update(md1)
             labels = ['%s=%s'%(plot_bgrp, k) for k in data_d.keys()]
@@ -2280,8 +2285,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                         
                 # first col
                 if col_key == col_keys[0]:
-                    if plot_type == 'hist':
-                        ax.set_ylabel('count')
+                    if plot_type in ['hist', 'gaussian_kde']:
+                        if density:
+                            ax.set_ylabel('frequency')
+                        else:
+                            ax.set_ylabel('count')
                     elif plot_type in ['box', 'violin']:
                         ax.set_ylabel(val_lab)
                 
@@ -2319,7 +2327,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
                
         
-        return self.output_fig(fig, fname=fname, **kwargs)
+        return self.output_fig(fig, fname=fname, fmt=fmt)
  
     
     def plot_compare_mat(self, #flexible plotting of model results vs. true in a matrix
@@ -2878,7 +2886,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     sharey=None,sharex=None,
                     
                     #plot output
-                    fmt='png',
+                    fmt=None,
  
                     **kwargs):
         """"
@@ -2915,10 +2923,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if plot_bgrp is None:
             plot_bgrp = plot_colr
             
-        if plot_type in ['bars', 'violin']:
-            assert isinstance(plot_bgrp, str)
-        else:
-            plot_bgrp = None
+ 
+        assert isinstance(plot_bgrp, str)
+ 
             
         assert not plot_rown==plot_coln
             
@@ -2945,6 +2952,13 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 title = title + ' %s=%s'%(name, val) 
                 
         if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        
+        #outputs 
+        if fmt is None:
+            if plot_type=='scatter':
+                fmt='png'
+            else:
+                fmt='svg'
  
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
         #=======================================================================
@@ -2952,7 +2966,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         assert_func(lambda: self.check_mindex_match(true_dx_raw.index, dx_raw.index), msg='raw vs trues')
         
-        meta_indexers = set([plot_rown, plot_coln])
+        meta_indexers = set([plot_rown, plot_coln,])
         if not plot_bgrp is None:
             meta_indexers.add(plot_bgrp)
         
@@ -3069,12 +3083,26 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             if plot_type =='scatter':
  
                 """only using mean values for now"""
-                xar, yar = data_d['mean'], true_data_d['mean'] 
+ 
                 
-                stat_d = self.ax_corr_scat(ax, xar, yar, 
+                #===============================================================
+                # #build colors
+                #===============================================================
+                cgserx0 = pd.Series(index=gdx0.index, name='color', dtype=str)
+                for gkey,gdx1 in gdx0.mean(axis=1).groupby(level=plot_colr):
+                    cgserx0.loc[gdx1.index] = color_d[gkey]
+ 
+                assert_index_equal(cgserx0.index, gdx0.index)
+                
+                #===============================================================
+                # #plot
+                #===============================================================
+                log.debug('    scatter on %i'%len(gdx0))
+                stat_d = self.ax_corr_scat2(ax, gdx0.values.T[0], tgdx0.values.T[0], 
+                                           colors_ar=cgserx0.values.T,
                                            #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
                                            scatter_kwargs = {
-                                               'color':color_d[keys_d[plot_colr]]
+                                                
                                                },
                                            logger=log, add_label=False)
  
@@ -3200,32 +3228,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 md1 = self.ax_data(ax, d, plot_type=plot_type, color_d=color_d, logger=log,
                                    zero_line=zero_line, **kwargs)
                 meta_d.update(md1)
-                """
-                fig.show()
-                """
- #==============================================================================
- #                parts_d = ax.violinplot(data_d.values(),  
- # 
- #                                       showmeans=True,
- #                                       showextrema=True,  
- #                                       )
- #                
- #                #===============================================================
- #                # color
- #                #===============================================================
- #                labels = list(data_d.keys())
- #                ckey_d = {i:color_key for i,color_key in enumerate(labels)}
- #                
- #                #style fills
- #                for i, pc in enumerate(parts_d['bodies']):
- #                    pc.set_facecolor(color_d[ckey_d[i]])
- #                    pc.set_edgecolor(color_d[ckey_d[i]])
- #                    pc.set_alpha(0.5)
- #                    
- #                #style lines
- #                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
- #                    parts_d[partName].set(color='black', alpha=0.5)
- #==============================================================================
+ 
  
             else:
                 raise KeyError('unrecognized plot_type: %s'%plot_type)
@@ -3237,6 +3240,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #===================================================================
             # meta text
             #===================================================================
+            log.debug('    meta_func')
             """for bars, this ignores the bgrp key"""
             meta_d = meta_func(logger=log, meta_d=meta_d, 
                                 pred_ser=pd.Series(data_d['mean']), 
@@ -3276,10 +3280,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
   
                 # first col
                 if col_key == col_keys[0]:
-                    if plot_type in ['bars']:
-                        ax.set_ylabel('\'%s\' total errors (%s)'%(dkey, err_type))
-                    elif plot_type == 'violin':
-                        ax.set_ylabel('\'%s\' errors'%(dkey))
+                    if plot_type in ['bars', 'violin']:
+                        ax.set_ylabel('\'%s\' (%s)'%(dkey, err_type))
+                        
                     elif plot_type=='scatter':
                         ax.set_ylabel('\'%s\' (true)'%dkey)
                 
@@ -3306,11 +3309,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         if plot_type=='bar':
-            fname = 'compareMat_%s_%s_%s_%sX%s_%s' % (
+            fname = 'errMat_%s_%s_%s_%sX%s_%s' % (
             title.replace(' ','').replace('\'',''),
              plot_type, err_type, plot_rown, plot_coln, self.longname)
         else:
-            fname='compareMat_%s_%s_%sX%s_%s' % (
+            fname='errMat_%s_%s_%sX%s_%s' % (
             title.replace(' ','').replace('\'',''),
              plot_type, plot_rown, plot_coln, self.longname)
         
@@ -3340,6 +3343,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     plot_coln='vid',
                     plot_colr=None,
                     #plot_bgrp='modelID',
+                    slice_d = {}, #special slicing
                     
                     #data control
                     #xlims = None,
@@ -3347,7 +3351,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #drop_zeros=True, #must always be false for the matching to work
                     
                     #labelling
-                    baseID=None,
+ 
                     add_label=True,
  
                     
@@ -3375,20 +3379,38 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         log.info('on \'%s\' vs \'%s\' (%s x %s)'%(dkey_x, dkey_y, plot_rown, plot_coln))
         #=======================================================================
-        # data prep
+        # data prep------
         #=======================================================================
-        #add requested indexers
-        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[[dkey_x, dkey_y], :]], 
-                                meta_indexers = set([plot_rown, plot_coln]),
+        #=======================================================================
+        # #add requested indexers
+        #=======================================================================
+        
+        meta_indexers = set([plot_rown, plot_coln])
+        if not plot_colr is None:
+            meta_indexers.add(plot_colr)
+        
+        
+        dx = self.join_meta_indexers(dx_raw =  dx_raw.loc[:, idx[[dkey_x, dkey_y], :]], 
+                                meta_indexers = meta_indexers.copy(),
                                 modelID_l=modelID_l)
         
         log.info('on %s'%str(dx.shape))
-        mdex = dx.index
-        
- 
         
         #=======================================================================
-        # setup the figure
+        # subsetting
+        #=======================================================================
+        for name, val in slice_d.items():
+            assert name in dx.index.names
+            bx = dx.index.get_level_values(name) == val
+            assert bx.any()
+            dx = dx.loc[bx, :]
+
+            log.info('w/ %s=%s slicing to %i/%i'%(
+                name, val, bx.sum(), len(bx)))
+ 
+        mdex = dx.index
+        #=======================================================================
+        # setup the figure---------
         #=======================================================================
         plt.close('all')
  
@@ -4808,7 +4830,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         #check keys
         miss_l = set(color_d.keys()).symmetric_difference(data_d.keys())
-        assert len(miss_l)==0, miss_l
+        assert len(miss_l)==0, 'color data key-mismatch: %s'%miss_l
         
         #===================================================================
         # HIST------
@@ -4920,6 +4942,117 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         return  meta_d
 
+    def ax_corr_scat2(self,  # correlation scatter plots on an axis
+                ax,
+                xar, yar,
+                colors_ar=None,
+                label=None,
+                
+                # plot control
+                plot_trend=True,
+                plot_11=True,
+                
+                # lienstyles
+                scatter_kwargs={  # default styles
+                    
+                    } ,
+ 
+                logger=None,
+                add_label=True,
+                ):
+        """support for plt.scatter"""
+        #=======================================================================
+        # defaultst
+        #=======================================================================
+        if logger is None: logger = self.logger
+        log = logger.getChild('ax_corr_scat2')
+ 
+        # assert isinstance(stat_keys, list), label
+        if not xar.shape == yar.shape:
+            raise Error('data mismatch on %s'%(label))
+        assert isinstance(scatter_kwargs, dict), label
+        #assert isinstance(label, str)
+        # log.info('on %s'%data.shape)
+        
+        #=======================================================================
+        # setup 
+        #=======================================================================
+        max_v = max(max(xar), max(yar))
+        xlim = (min(xar), max(xar))
+        #=======================================================================
+        # add the scatter
+        #=======================================================================
+        #overwrite defaults with passed kwargs
+        scatter_kwargs = {**{'s':3.0, 
+                             'marker':'o', 
+                             #'fillstyle':'full'
+                             },
+                          **scatter_kwargs}
+        
+        """density color?
+        plt.show()
+        """
+        log.debug('scatter')
+        #ax.plot(xar, yar, linestyle='None', label=label, **scatter_kwargs)
+        ax.scatter(xar, yar, 
+                   c=colors_ar, **scatter_kwargs
+                   )
+ 
+        #=======================================================================
+        # add the 1:1 line
+        #=======================================================================
+        
+        if plot_11:
+            log.debug('plot_11')
+            # draw a 1:1 line
+            ax.plot([0, max_v * 10], [0, max_v * 10], color='black', linewidth=0.5, label='1:1')
+        
+        #=======================================================================
+        # add the trend line
+        #=======================================================================
+        if plot_trend:
+            log.debug('plot_trend (linregress) on %i'%len(xar))
+            slope, intercept, rvalue, pvalue, stderr = scipy.stats.linregress(xar, yar)
+            
+            log.debug('plot_trend (pearsonr)')
+            pearson, pval = scipy.stats.pearsonr(xar, yar)
+            
+            
+            x_vals = np.array(xlim)
+            y_vals = intercept + slope * x_vals
+            log.debug('plot_trend (plot)')
+            ax.plot(x_vals, y_vals, color='red', linewidth=0.5, label='r=%.3f'%rvalue)
+ 
+        #=======================================================================
+        # get stats
+        #=======================================================================
+        
+        stat_d = {
+                'count':len(xar),
+                   'LR.slope':round(slope, 3),
+                  # 'LR.intercept':round(intercept, 3),
+                  # 'LR.pvalue':round(slope,3),
+                  #'pearson':round(pearson, 3), #just teh same as rvalue
+                  'r value':round(rvalue, 3),
+                   # 'max':round(max_v,3),
+                   }
+            
+        # dump into a string
+        
+        if add_label:
+            annot = label + '\n' + get_dict_str(stat_d)
+            
+            anno_obj = ax.text(0.1, 0.9, annot, transform=ax.transAxes, va='center')
+ 
+        #=======================================================================
+        # post format
+        #=======================================================================
+        log.debug('wrap')
+        ax.set_xlim(xlim)
+        ax.set_ylim(xlim)
+        ax.grid()
+        
+        return stat_d
 
     def ax_corr_scat(self,  # correlation scatter plots on an axis
                 ax,

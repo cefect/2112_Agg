@@ -369,7 +369,14 @@ def run( #run a basic model configuration
             #                      meta_func = lambda **kwargs:meta_all(**kwargs))
             #===================================================================
 
- 
+            #scatter matrix (studyArea x resolution) 
+            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+                             plot_rown='resolution', plot_coln='aggLevel', plot_bgrp='studyArea',
+                              sharex='row',sharey='row',
+                                 title='%s \'%s\' errors'%(plotName, dkey),
+                                 plot_type='scatter',  
+                                 #meta_func = lambda **kwargs:meta_all(**kwargs),
+                                 )
             
  
             #===================================================================
@@ -454,44 +461,99 @@ def run( #run a basic model configuration
         # loss calc: UNIT loss---------
         #=======================================================================
         dkey='rloss'
+        
+        #=======================================================================
+        # rsamps vs rloss (aggLevel=0)
+        #=======================================================================
 
         #=======================================================================
         # hazard vs asset resolution 
         #=======================================================================
-        
+ 
+        agg0_d = dict() #collecting agg0
         for plotName, mids, baseID in [
-            #('798',list(range(9)),      0),
+            #('798',list(range(9)),      0), #gridded
+            #('798',  list(range(3))+list(range(60,66)), 0),
             #('049',list(range(40,49)),  40),
-            ('linear', list(range(80,89)), 80),
+            #('lin_g', list(range(80,89)), 80), #gridded
+            ('linear', list(range(90,99)), 90), #convexHull
+            #('AB',      list(range(70,79)), 70),
             ]:
             pass
- 
- 
-            #studyArea x resolution (aggLevel) total errors (bar matrix)
-            ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
-                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
-                                 fmt='svg',sharex='all',sharey='all', plot_type='bars',
-                                 #title='%s \'%s\' relative errors'%(plotName, dkey), 
-                                 err_type='meanError', 
-                                 #meta_func=lambda **kwargs:meta_slim(**kwargs),
-                                 )
+            
+            #===================================================================
+            # values
+            #===================================================================
+            
+            #===================================================================
+            # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
+            #                      plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
+            #                      fmt='svg',sharex='col',sharey='col', plot_type='gaussian_kde',
+            #                      drop_zeros=False,mean_line=False,
+            #                      density=True,
+            #                      title='%s \'%s\' values'%(plotName, dkey), 
+            #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
+            #                         #val_lab='sampled depths (m)',
+            #                         )
+            #===================================================================
              
-            #studyArea x resolution (aggLevel) total errors (violin matrix)
-            ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
-                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
-                                 fmt='svg',sharex='all',sharey='row', 
-                                 plot_type='violin',err_type='error',zero_line=True,
-                                 #title='%s \'%s\' relative errors'%(plotName, dkey), 
-                                  #meta_func=lambda **kwargs:meta_slim(**kwargs),
-                                  )
+ 
+            #===================================================================
+            # errors
+            #===================================================================
+            #studyArea x resolution (aggLevel) total errors (bar matrix)
+            #===================================================================
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+            #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
+            #                      fmt='svg',sharex='all',sharey='all', plot_type='bars',
+            #                      title='%s \'%s\' meanError'%(plotName, dkey), 
+            #                      err_type='meanError', 
+            #                      #meta_func=lambda **kwargs:meta_slim(**kwargs),
+            #                      )
+            #   
+            # #studyArea x resolution (aggLevel) total errors (violin matrix)
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+            #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
+            #                      fmt='svg',sharex='all',sharey='row', 
+            #                      plot_type='violin',err_type='error',zero_line=True,
+            #                      title='%s \'%s\' error'%(plotName, dkey),  
+            #                       #meta_func=lambda **kwargs:meta_slim(**kwargs),
+            #                       )
+            #===================================================================
             
+            #scatter
+            #===================================================================
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+            #                      plot_rown='aggLevel', plot_coln='resolution',  plot_bgrp='studyArea', 
+            #                      sharex='all',sharey='all', plot_type='scatter',
+            #                      title='%s \'%s\' meanError'%(plotName, dkey), 
+            #                      #err_type='meanError', 
+            #                      meta_func=lambda **kwargs:meta_slim(**kwargs),
+            #                      )
+            #===================================================================
             
-            #just points on the vfunc
-            #=======================================================================
+            #===================================================================
+            # rsamps vs rloss (pointson the vfunc)
+            #===================================================================
+            #aggLevel vs. resolution
+            #===================================================================
             # ses.plot_vs_mat(modelID_l=mids, fmt='png', plot_rown='aggLevel', plot_coln='resolution',
             #                 dkey_y='rloss', dkey_x='rsamps',)
-            #=======================================================================
+            #===================================================================
             
+            agg0_d[plotName] = mids[0:3]
+            
+        #===================================================================
+        # rsamps vs rloss (pointson the vfunc) per vid
+        #===================================================================
+        mids = pd.DataFrame.from_dict(agg0_d).stack().values.tolist() #collapse into a list
+
+        #=======================================================================
+        # ses.plot_vs_mat(modelID_l=mids, fmt='png', plot_rown='aggLevel', plot_coln='resolution',
+        #                 plot_colr='vid',
+        #                 dkey_y='rloss', dkey_x='rsamps',
+        #                 slice_d={'resolution':300})
+        #=======================================================================
         #=======================================================================
         # hazard res vs. studyArea
         #=======================================================================
@@ -692,7 +754,7 @@ def r6():
         #modelID_l = [0, 11],
         tag='r6',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hyd6\model_run_index.csv',
-        baseID_l=[0, 80], #model
+        baseID_l=[0, 80, 90], #model
         compiled_fp_d = {
         'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220418\working\outs_analy_r6_0418.pickle',
         'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r6\20220418\working\agg_mindex_analy_r6_0418.pickle',

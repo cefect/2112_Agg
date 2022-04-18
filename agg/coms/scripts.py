@@ -414,7 +414,7 @@ class QSession(BaseSession, Qproj):
         # special linear testing func
         #=======================================================================
         if vid==0:
-            max_depth=50
+            max_depth=50 #2x for depths within this
             ddf = pd.DataFrame({'rl':{0:0, 1:100},'wd':{0:0, 1:max_depth}})
  
             vfunc = Vfunc(
