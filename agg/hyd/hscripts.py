@@ -1178,7 +1178,7 @@ class Model(HydSession, QSession):  # single model run
             vfunc.vid, len(dxser)))
  
  
-        ar = vfunc.get_rloss(dxser.values)
+        ar = vfunc.get_rloss(dxser.values, prec=prec)
         
         assert ar.max() <= 100, '%s returned some RLs above 100' % vfunc.name
  

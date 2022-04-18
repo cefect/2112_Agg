@@ -222,12 +222,16 @@ def run( #run a basic model configuration
         proj_lib = None,
         
         #=======================================================================
-        # #parameters
+        # session pars
         #=======================================================================
+        prec=3,        
+
         #stochasticity
         iters=50,
         
-        
+        #=======================================================================
+        # #parameters
+        #=======================================================================
         #aggregation
         aggType = 'none', aggLevel = 0,
         
@@ -281,7 +285,7 @@ def run( #run a basic model configuration
     # execute
     #===========================================================================
     with ModelStoch(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
-                    iters=iters,write=write,exit_summary=exit_summary,
+                    iters=iters,write=write,exit_summary=exit_summary,prec=prec,
                  bk_lib = {
                      'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
                      
@@ -363,16 +367,14 @@ def dev():
  
 if __name__ == "__main__": 
     
-    dev()
+    #dev()
  
-    #===========================================================================
-    # output=run_auto_dev(modelID=27, write=False, write_lib=False,
-    #                     compiled_fp_d={ 
-    # 
-    #                         },
-    #                     #studyArea_l = ['obwb'],
-    #                     )
-    #===========================================================================
+    output=run_auto_dev(modelID=78, write=False, write_lib=False,
+                        compiled_fp_d={ 
+     
+                            },
+                        #studyArea_l = ['obwb'],
+                        )
  
  
 #===============================================================================

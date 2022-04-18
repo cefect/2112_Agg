@@ -31,7 +31,7 @@ class QSession(BaseSession, Qproj):
     
     def __init__(self, 
                  data_retrieve_hndls={},
-                 prec=2,
+                 prec=3,
                  write=True,
                  
                  compiled_fp_d2 = { #permanently compiled
@@ -652,6 +652,8 @@ class Vfunc(object):
         #change to new format headers
         ddf1.columns = [self.xcn, self.ycn]
         
+
+        
         log.info('finished on %s'%str(ddf1.shape))
         
         return self.set_ddf(ddf1,logger=log,
@@ -776,6 +778,10 @@ class Vfunc(object):
         
         return self
     
+    """
+    self.plot()
+    """
+    
     def get_rloss(self,
                   xar,
                   prec=None, #precision for water depths
@@ -841,7 +847,7 @@ class Vfunc(object):
         
         ax =  self.plot()
         
-        ax.scatter(rdf['wd_raw'], rdf['rl'], color='black', s=5, marker='x')
+        ax.scatter(rdf['wd_raw'], rdf['rl'], color='red', s=30, marker='x')
         """
         res_ar2 = rdf.sort_index()[self.ycn].values
  
