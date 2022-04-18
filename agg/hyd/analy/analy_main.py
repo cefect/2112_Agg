@@ -370,13 +370,15 @@ def run( #run a basic model configuration
             #===================================================================
 
             #scatter matrix (studyArea x resolution) 
-            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
-                             plot_rown='resolution', plot_coln='aggLevel', plot_bgrp='studyArea',
-                              sharex='row',sharey='row',
-                                 title='%s \'%s\' errors'%(plotName, dkey),
-                                 plot_type='scatter',  
-                                 #meta_func = lambda **kwargs:meta_all(**kwargs),
-                                 )
+            #===================================================================
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+            #                  plot_rown='resolution', plot_coln='aggLevel', plot_bgrp='studyArea',
+            #                   sharex='row',sharey='row',
+            #                      title='%s \'%s\' errors'%(plotName, dkey),
+            #                      plot_type='scatter',  
+            #                      #meta_func = lambda **kwargs:meta_all(**kwargs),
+            #                      )
+            #===================================================================
             
  
             #===================================================================
@@ -473,10 +475,10 @@ def run( #run a basic model configuration
         agg0_d = dict() #collecting agg0
         for plotName, mids, baseID in [
             #('798',list(range(9)),      0), #gridded
-            #('798',  list(range(3))+list(range(60,66)), 0),
+            ('798',  list(range(3))+list(range(60,66)), 0),
             #('049',list(range(40,49)),  40),
             #('lin_g', list(range(80,89)), 80), #gridded
-            ('linear', list(range(90,99)), 90), #convexHull
+            #('linear', list(range(90,99)), 90), #convexHull
             #('AB',      list(range(70,79)), 70),
             ]:
             pass
@@ -488,7 +490,7 @@ def run( #run a basic model configuration
             #===================================================================
             # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
             #                      plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
-            #                      fmt='svg',sharex='col',sharey='col', plot_type='gaussian_kde',
+            #                      fmt='svg',sharex='col',sharey='col', plot_type='hist',
             #                      drop_zeros=False,mean_line=False,
             #                      density=True,
             #                      title='%s \'%s\' values'%(plotName, dkey), 
@@ -522,15 +524,13 @@ def run( #run a basic model configuration
             #===================================================================
             
             #scatter
-            #===================================================================
-            # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
-            #                      plot_rown='aggLevel', plot_coln='resolution',  plot_bgrp='studyArea', 
-            #                      sharex='all',sharey='all', plot_type='scatter',
-            #                      title='%s \'%s\' meanError'%(plotName, dkey), 
-            #                      #err_type='meanError', 
-            #                      meta_func=lambda **kwargs:meta_slim(**kwargs),
-            #                      )
-            #===================================================================
+            ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+                                 plot_rown='aggLevel', plot_coln='resolution',  plot_bgrp='studyArea', 
+                                 sharex='all',sharey='all', plot_type='scatter',
+                                 title='%s \'%s\' meanError'%(plotName, dkey), 
+                                 #err_type='meanError', 
+                                 meta_func=lambda **kwargs:meta_all(**kwargs),
+                                 )
             
             #===================================================================
             # rsamps vs rloss (pointson the vfunc)
@@ -538,7 +538,24 @@ def run( #run a basic model configuration
             #aggLevel vs. resolution
             #===================================================================
             # ses.plot_vs_mat(modelID_l=mids, fmt='png', plot_rown='aggLevel', plot_coln='resolution',
-            #                 dkey_y='rloss', dkey_x='rsamps',)
+            #                 dkey_y='rloss', dkey_x='rsamps', sharex='all', xlims=(0,3))
+            #===================================================================
+            
+            
+            #=======================================================================
+            # comparing with rsamps
+            #=======================================================================
+            #===================================================================
+            # ses.plot_dkeyS_mat(dkey_l=[dkey, 'rsamps'], modelID_l=mids,
+            #                      plot_rown='resolution', plot_coln='dkey', plot_bgrp='aggLevel',
+            #                      fmt='svg',sharey='col', plot_type='gaussian_kde',
+            #                      drop_zeros=False,mean_line=False,
+            #                      density=True,slice_d={'studyArea':'LMFRA'},
+            #                      title='%s \'%s\' values'%(plotName, dkey), 
+            #                      xlims=(0,8),sharex='all',
+            #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
+            #                         #val_lab='sampled depths (m)',
+            #                         )
             #===================================================================
             
             agg0_d[plotName] = mids[0:3]
@@ -554,41 +571,11 @@ def run( #run a basic model configuration
         #                 dkey_y='rloss', dkey_x='rsamps',
         #                 slice_d={'resolution':300})
         #=======================================================================
-        #=======================================================================
-        # hazard res vs. studyArea
-        #=======================================================================
-        mids = list(range(3))
-        #=======================================================================
-        # ses.plot_compare_mat(dkey='rloss', modelID_l=mids,plot_rown='studyArea', plot_coln='resolution', fmt='png',
-        #                          sharex='all',sharey='all')
-        #=======================================================================
         
 
         
-        #histogram of rloss results
-        #=======================================================================
-        # ses.plot_dkey_mat(modelID_l=mids, dkey='rloss', plot_coln='vid', plot_rown='studyArea', plot_colr='studyArea', 
-        #                   plot_type='hist', add_label=True, drop_zeros=True, bins=20,  )
-        #=======================================================================
         
-        #as a function of aggLevel
-        mids = [0,3, 6, 12, 13, 14, 15, 16, 17]
-        #=======================================================================
-        # ses.plot_dkey_mat(modelID_l=mids, dkey='rloss', plot_coln='vid', plot_rown='aggLevel', plot_colr='aggLevel', 
-        #                   plot_type='hist', add_label=True)
-        #=======================================================================
-        
-        #=======================================================================
-        # error scatters
-        #=======================================================================
-        #hazard vs asset resolution
-        #=======================================================================
-        # mids = list(range(9))
-        # fmt='png'
-        # ses.plot_compare_mat(dkey='rloss', modelID_l=mids,plot_rown='aggLevel', plot_coln='resolution', fmt=fmt)
-        # ses.plot_compare_mat(dkey='rloss', modelID_l=[0,3,6], plot_rown='aggLevel', plot_coln='studyArea',  fmt=fmt)
-        # ses.plot_compare_mat(dkey='rloss', modelID_l=[0,1,2], plot_rown='resolution', plot_coln='studyArea', plot_colr='studyArea',  fmt=fmt)
-        #=======================================================================
+ 
         
         #=======================================================================
         # loss calc: total loss-------

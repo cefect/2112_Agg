@@ -74,6 +74,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'tval_type':'Set1',
         'resolution':'copper',
         'vid':'Pastel1',
+        'dkey':'winter',
         }
     
     def __init__(self,
@@ -2329,6 +2330,318 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         return self.output_fig(fig, fname=fname, fmt=fmt)
  
+    def plot_dkeyS_mat(self, #flexible plotting of model results (dkeys as dimension)
+                  
+                    #data control
+                    ax_d=None,
+                    dkey_l=['rloss', 'rsamps'],#column group w/ values to plot
+ 
+ 
+                    modelID_l = None, #optinal sorting list
+ 
+                    #qhi=0.99, qlo=0.01, #just taking the mean
+                    drop_zeros=True, 
+                    slice_d = {}, #special slicing
+
+                    
+                    #data
+                    dx_raw=None, #combined model results                    
+                    
+                    #plot config
+                    plot_type='hist', 
+                    plot_rown='aggLevel',
+                    plot_coln='dkey',
+                    plot_colr=None,                    
+ 
+                    plot_bgrp=None, #grouping (for plotType==bars)
+
+                     
+                    #histwargs
+                    bins=20, rwidth=0.9, 
+                    mean_line=True, #plot a vertical line on the mean
+                    density=False,
+ 
+ 
+                    #meta labelling
+                    meta_txt=True, #add meta info to plot as text
+                    meta_func = lambda meta_d={}, **kwargs:meta_d, #lambda for calculating additional meta information (add_meta=True)        
+                    write_meta=False, #write all the meta info to a csv            
+                    
+                    #plot style                    
+                    colorMap=None, title=None, val_lab=None,
+                    sharey=None,sharex=None,xlims=None,
+                    
+                    #output
+                    fmt='svg',
+ 
+                    **kwargs):
+        """"
+         This is pretty strange... 
+         upon reflection, doesnt seem like a good idea squash multiple dkeys like this
+        
+        
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_dkeyS_mat')
+ 
+        idn = self.idn
+ 
+        #retrieve data
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
+ 
+            
+        #plot keys
+        if plot_colr is None: 
+            plot_colr=plot_bgrp
+        
+        if plot_colr is None: 
+            plot_colr=plot_rown
+            
+        if plot_bgrp is None:
+            plot_bgrp = plot_colr
+            
+        
+
+        assert not plot_rown==plot_coln
+        assert not plot_bgrp=='dkey', 'doesnt make sense to plot muttiple dkeys on the same axis'
+        
+        if plot_type in ['hist', 'gaussian_kde']:
+            assert plot_coln=='dkey', 'need to plot data dimensin on columns'
+            
+        if not xlims is None: assert sharex=='all'
+            
+        #plot style
+                 
+        if title is None:
+            title = '\'%s\' values'%' & '.join(dkey_l)
+                
+            for name, val in slice_d.items(): 
+                title = title + ' %s=%s'%(name, val) 
+                
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        
+        if val_lab is None: val_lab=' & '.join(dkey_l)
+ 
+        log.info('on \'%s\' (%s x %s)'%(dkey_l, plot_rown, plot_coln))
+        #=======================================================================
+        # data prep
+        #=======================================================================
+
+        
+        meta_indexers = set([plot_rown, plot_coln])
+        if not plot_bgrp is None:
+            meta_indexers.add(plot_bgrp)
+            
+        assert 'dkey' in meta_indexers, 'must include dkey in dimensions'
+        meta_indexers.remove('dkey')
+        
+        
+        #add requested indexers
+        dx0 = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey_l, :]], 
+                                meta_indexers = meta_indexers.copy(),
+                                modelID_l=modelID_l)
+        
+        #clear iters
+        dx1 = dx0.mean(level=0, axis=1)
+        
+        #stack
+        ser_dx = dx1.stack().rename('values')
+ 
+        log.info('on %i'%len(ser_dx))
+ 
+        #=======================================================================
+        # subsetting
+        #=======================================================================
+        for name, val in slice_d.items():
+            assert name in ser_dx.index.names
+            bx = ser_dx.index.get_level_values(name) == val
+            assert bx.any()
+            ser_dx = ser_dx.loc[bx]
+
+            log.info('w/ %s=%s slicing to %i/%i'%(
+                name, val, bx.sum(), len(bx)))
+ 
+ 
+        
+        #=======================================================================
+        # drop zeros
+        #=======================================================================
+        if drop_zeros:
+            bx = ser_dx==0
+            if bx.any():
+                log.warning('dropping %i/%i zeros'%(bx.sum(), len(bx)))
+                ser_dx = ser_dx.loc[~bx]
+        
+        meta_d1 = {'iters':len(dx0.columns)/len(dkey_l), 'drop_zeros':drop_zeros}
+        meta_d1.update(slice_d)
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        mdex = ser_dx.index
+        plt.close('all')
+ 
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        if ax_d is None:
+            fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                        figsize_scaler=4,
+                                        constrained_layout=True,
+                                        sharey=sharey, 
+                                        sharex=sharex,  
+                                        fig_id=0,
+                                        set_ax_title=True,
+                                        )
+     
+            
+        else:
+            for k,v in ax_d.items():
+                fig = v[list(v.keys())[0]].figure
+                break
+
+        assert isinstance(fig, matplotlib.figure.Figure)
+        fig.suptitle(title)
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+ 
+        ckeys = mdex.unique(plot_colr) 
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        meta_dx=None
+        for gkeys, gdx0 in ser_dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            
+            #===================================================================
+            # setup
+            #===================================================================
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
+            ax = ax_d[gkeys[1]][gkeys[0]]
+            log.info('on %s'%keys_d)
+            
+            #===================================================================
+            # data prep----------
+            #===================================================================
+
+ 
+            meta_d = {**{ 'modelIDs':str(list(gdx0.index.unique(idn)))}, **meta_d1}
+            data_d = {k:df.values for k,df in gdx0.groupby(level=plot_bgrp)}
+ 
+                
+
+             
+            #===================================================================
+            # add plots--------
+            #===================================================================
+            if mean_line:
+                mval =gdx0.mean().mean()
+            else: mval=None 
+            
+            md1 = self.ax_data(ax, data_d,
+                               plot_type=plot_type, 
+                               bins=bins, rwidth=rwidth, mean_line=mval, hrange=xlims, density=density,
+                               color_d=color_d, logger=log, **kwargs) 
+ 
+            meta_d.update(md1)
+            labels = ['%s=%s'%(plot_bgrp, k) for k in data_d.keys()]
+            #===================================================================
+            # post format 
+            #===================================================================
+            
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for (k, v) in keys_d.items()]))
+            
+            if not xlims is None:
+                ax.set_xlim(xlims)
+            #===================================================================
+            # meta  text
+            #===================================================================
+            """for bars, this ignores the bgrp key"""
+            meta_d = meta_func(logger=log, meta_d=meta_d, pred_ser=gdx0)
+            if meta_txt:
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+            
+            
+            #===================================================================
+            # collect meta 
+            #===================================================================
+            meta_serx = pd.Series(meta_d, name=gkeys)
+            
+            if meta_dx is None:
+                meta_dx = meta_serx.to_frame().T
+                meta_dx.index.set_names(keys_d.keys(), inplace=True)
+            else:
+                meta_dx = meta_dx.append(meta_serx)
+                
+        #===============================================================
+        # post format subplot ----------
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                
+
+ 
+                
+                # first row
+                if row_key == row_keys[0]:
+                    #last col
+                    if col_key == col_keys[-1]:
+                        if plot_type in ['hist', 'gaussian_kde']:
+                            ax.legend()
+                
+                        
+                # first col
+                if col_key == col_keys[0]:
+                    if plot_type in ['hist', 'gaussian_kde']:
+                        if density:
+                            ax.set_ylabel('frequency')
+                        else:
+                            ax.set_ylabel('count')
+                    elif plot_type in ['box', 'violin']:
+                        ax.set_ylabel(col_key)
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    if plot_type in ['hist', 'gaussian_kde']:
+                        ax.set_xlabel(col_key)
+                    elif plot_type in ['violin', 'box']:
+                        ax.set_xticks(np.arange(1, len(labels) + 1))
+                        ax.set_xticklabels(labels)
+                    #last col
+                    if col_key == col_keys[-1]:
+                        pass
+                        
+                    
+ 
+ 
+        #=======================================================================
+        # wrap---------
+        #=======================================================================
+        log.info('finsihed')
+        """
+        plt.show()
+        """
+ 
+        fname = 'values_%s_%s_%sX%s_%s_%s' % (
+            title.replace(' ','').replace('\'',''),
+             plot_type, plot_rown, plot_coln, val_lab, self.longname)
+                
+        fname = fname.replace('=', '-').replace(' ','').replace('&','-')
+        
+        if write_meta:
+            ofp =  os.path.join(self.out_dir, fname+'_meta.csv')
+            meta_dx.to_csv(ofp)
+            log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
+               
+        
+        return self.output_fig(fig, fname=fname, fmt=fmt)
+ 
     
     def plot_compare_mat(self, #flexible plotting of model results vs. true in a matrix
                   
@@ -3356,7 +3669,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
                     
                     #plot style
-                    colorMap=None,
+                     sharey='all', sharex='all',
+                    colorMap=None, xlims=None,
                     **kwargs):
         """"
         generally 1 modelId per panel
@@ -3374,7 +3688,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if dx_raw is None:
             dx_raw = self.retrieve('outs')
             
- 
+        if not xlims is None:
+            assert sharex=='all'
         
         
         log.info('on \'%s\' vs \'%s\' (%s x %s)'%(dkey_x, dkey_y, plot_rown, plot_coln))
@@ -3420,7 +3735,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
                                     figsize_scaler=4,
                                     constrained_layout=True,
-                                    sharey='all', sharex='all',  # everything should b euniform
+                                    sharey=sharey, sharex=sharex,  # everything should b euniform
                                     fig_id=0,
                                     set_ax_title=True,
                                     )
@@ -3489,6 +3804,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             # post-format----
             #===================================================================
             ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+            
+            if not xlims is None:
+                ax.set_xlim(xlims)
             #===================================================================
             # labels
             #===================================================================
