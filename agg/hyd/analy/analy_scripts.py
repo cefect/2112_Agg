@@ -2307,9 +2307,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         plt.show()
         """
  
-        fname = 'values_%s_%s_%sX%s_%s' % (
+        fname = 'values_%s_%s_%sX%s_%s_%s' % (
             title.replace(' ','').replace('\'',''),
-             plot_type, plot_rown, plot_coln, self.longname)        
+             plot_type, plot_rown, plot_coln, val_lab, self.longname)
+                
         fname = fname.replace('=', '-')
         
         if write_meta:
@@ -2358,7 +2359,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
                     
                     #plot style
-                    
                     colorMap=None,
                     sharey=None,sharex=None,
                     
@@ -2861,11 +2861,12 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     plot_coln='resolution',
                     plot_colr=None,
                     
-                    #plot config [bars]
+                    #plot config [bars and violin]
                     plot_bgrp=None, #grouping (for plotType==bars)
                     err_type='absolute', #what type of errors to calculate (for plot_type='bars')
                         #absolute: modelled - true
                         #relative: absolute/true
+                    zero_line=False,
  
                     #meta labelling
                     meta_txt=True, #add meta info to plot as text
@@ -2875,6 +2876,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #plot style                    
                     colorMap=None, title=None,
                     sharey=None,sharex=None,
+                    
+                    #plot output
+                    fmt='png',
  
                     **kwargs):
         """"
@@ -2911,7 +2915,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if plot_bgrp is None:
             plot_bgrp = plot_colr
             
-        if plot_type=='bars':
+        if plot_type in ['bars', 'violin']:
             assert isinstance(plot_bgrp, str)
         else:
             plot_bgrp = None
@@ -2952,6 +2956,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if not plot_bgrp is None:
             meta_indexers.add(plot_bgrp)
         
+        for k in slice_d.keys(): meta_indexers.add(k) #add any required slicers
+        
         #add requested indexers
         dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
                                 meta_indexers = meta_indexers,
@@ -2969,9 +2975,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         # subsetting
         #=======================================================================
         for name, val in slice_d.items():
-            assert name in dx.index.names
+            assert name in dx.index.names, 'slice dimension (%s) not present'%name
             bx = dx.index.get_level_values(name) == val
-            assert bx.any()
+            assert bx.any(), 'failed to match any %s=%s'%(name, val)
             dx = dx.loc[bx, :]
             
             bx = true_dx.index.get_level_values(name) == val
@@ -3170,41 +3176,56 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #===================================================================
             # violin plot-----
             #===================================================================
-            elif plot_type=='violin':
-                raise Error('not implemented')
+            elif plot_type in ['violin', 'hist']:
+                
                 #===============================================================
                 # data setup
                 #===============================================================
-                gdx2 = gdx1 - tgdx2 #modelled - trues
                 
-                gb = gdx2.groupby(level=plot_bgrp)
+                #calc error metric
+                err_gdx0 = gdx0.mean(axis=1) - tgdx0.mean(axis=1) #collapse iters and get delta
+                if err_type=='error':
+                    err_gdx1 = err_gdx0
+                elif err_type == 'errorRelative':
+                    err_gdx1 = err_gdx0/err_gdx0.max()
+                else:
+                    raise IOError('bad err_type=%s for plot_type=violin'%err_type)
                 
-                data_d = {k:v.values.T[0] for k,v in gb}
-                gdata = gdx2
+                #group it
+                d = {k:v for k, v in err_gdx1.groupby(level=plot_bgrp)}
+                labels = ['%s=%s'%(plot_bgrp, k) for k in d.keys()]
                 #===============================================================
                 # plot
                 #===============================================================
-                parts_d = ax.violinplot(data_d.values(),  
- 
-                                       showmeans=True,
-                                       showextrema=True,  
-                                       )
-                
-                #===============================================================
-                # color
-                #===============================================================
-                labels = list(data_d.keys())
-                ckey_d = {i:color_key for i,color_key in enumerate(labels)}
-                
-                #style fills
-                for i, pc in enumerate(parts_d['bodies']):
-                    pc.set_facecolor(color_d[ckey_d[i]])
-                    pc.set_edgecolor(color_d[ckey_d[i]])
-                    pc.set_alpha(0.5)
-                    
-                #style lines
-                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
-                    parts_d[partName].set(color='black', alpha=0.5)
+                md1 = self.ax_data(ax, d, plot_type=plot_type, color_d=color_d, logger=log,
+                                   zero_line=zero_line, **kwargs)
+                meta_d.update(md1)
+                """
+                fig.show()
+                """
+ #==============================================================================
+ #                parts_d = ax.violinplot(data_d.values(),  
+ # 
+ #                                       showmeans=True,
+ #                                       showextrema=True,  
+ #                                       )
+ #                
+ #                #===============================================================
+ #                # color
+ #                #===============================================================
+ #                labels = list(data_d.keys())
+ #                ckey_d = {i:color_key for i,color_key in enumerate(labels)}
+ #                
+ #                #style fills
+ #                for i, pc in enumerate(parts_d['bodies']):
+ #                    pc.set_facecolor(color_d[ckey_d[i]])
+ #                    pc.set_edgecolor(color_d[ckey_d[i]])
+ #                    pc.set_alpha(0.5)
+ #                    
+ #                #style lines
+ #                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
+ #                    parts_d[partName].set(color='black', alpha=0.5)
+ #==============================================================================
  
             else:
                 raise KeyError('unrecognized plot_type: %s'%plot_type)
@@ -3222,8 +3243,12 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                 true_ser=pd.Series(true_data_d['mean']))
                             
             if meta_txt: 
-                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
-                
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black',
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.5 ), #light background fill
+                        )
+                """
+                fig.show()
+                """
             #===================================================================
             # post-meta--------
             #===================================================================
@@ -3296,7 +3321,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
                
         
-        return self.output_fig(fig, fname=fname, **kwargs)
+        return self.output_fig(fig, fname=fname, fmt=fmt)
  
     
     def plot_vs_mat(self, #plot dkeys against eachother in a matrix
@@ -4752,19 +4777,20 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     
 
     def ax_data(self,  #add a plot of some data to an axis using kwargs
-                ax, data_d,
-                plot_type='hist', 
-
-                    #histwargs
-                    bins=20, rwidth=0.9, 
-                    mean_line=None, #plot a vertical line on the mean
-                    hrange=None, #xlimit the data
-                    density=False,
- 
-                    #styling
-                      color_d = None,
- 
-                     logger=None, **kwargs):
+            ax, data_d,
+            plot_type='hist', 
+            
+            #histwargs
+            bins=20, rwidth=0.9, 
+            mean_line=None, #plot a vertical line on the mean
+            hrange=None, #xlimit the data
+            density=False,
+            
+            #styling
+            zero_line=False,
+            color_d = None,
+            
+            logger=None, **kwargs):
                 
         """as we use these methods in a few funcs... decided to factor
         
@@ -4882,6 +4908,13 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         else:
             raise Error(plot_type)
+        
+        #=======================================================================
+        # post----
+        #=======================================================================
+        if zero_line:
+            ax.axhline(0.0, color='black', linestyle='solid', linewidth=0.5)
+        
         
  
         
