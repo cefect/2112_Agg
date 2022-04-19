@@ -43,7 +43,8 @@ from  tests.conftest import check_layer_d
 #===============================================================================
 # test data parameters
 #===============================================================================
-base_resolution=10 #for generating test rasters
+#base_resolution=10 #for generating test rasters
+from definitions import base_resolution
 extent_fp = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0218_extent.geojson'
 mid_l = get_modelIDs()
  

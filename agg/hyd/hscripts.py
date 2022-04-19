@@ -2576,7 +2576,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                         #depth: subtract rasters first, then resample the result
                    downSampling='none',
                   resolution=None, #0=raw (nicer for variable consistency)
-                  base_resolution=10, #resolution of raw data
+                  base_resolution=None, #resolution of raw data
                    
                    #gen 
                   logger=None, layerName=None,
@@ -2602,6 +2602,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         start = datetime.datetime.now()
         log = logger.getChild('get_raster')
         
+        #resolutions
+        if base_resolution is None:
+            from definitions import base_resolution
         if resolution is None: resolution = base_resolution
         resolution = int(resolution)
         
