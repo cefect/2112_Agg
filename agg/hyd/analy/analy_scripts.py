@@ -138,11 +138,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                
         dx_raw = self.retrieve('outs')
         
-        agg_mindex = self.retrieve('agg_mindex')
-        
-        
-        
+        agg_mindex = self.retrieve('agg_mindex')        
+ 
         true_d = self.retrieve('trues')
+        
+        self.retrieve('drlay_fps')
         
         
         
@@ -592,270 +592,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
         return res_d
     
-    
-    def build_deltas(self,
-                     
-                     #input data
-                     dx_raw=None,
-                     true_dx=None, #base values mapped onto all the other models
-                     
-                     
-                     dkey=None,write=None, logger=None,
-                     ):
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        raise Error('not implemented')
-        if logger is None: logger=self.logger
-        assert dkey=='deltas'
-        log = self.logger.getChild(dkey)
-        idn=self.idn
-        if write is None: write=self.write
- 
-        
-        #=======================================================================
-        # retrieve
-        #=======================================================================
-        if dx_raw is None:  
-            dx_raw = self.retrieve('outs')
-            
-        if true_dx_raw is None:
-            true_d = self.retrieve('trues')
-            true_dx_raw = true_d[baseID]
- 
-            
-        log.info('on raw: %s and true: %s'%(str(dx_raw.shape), str(true_dx.shape)))
- 
-         
- 
-                
- 
-        
-        
- 
-        
- 
-    def xxxbuild_errs(self,  # get the errors (gridded - true)
-                    dkey=None,
-                     prec=None,
-                     group_keys=['grid_size', 'studyArea', 'event'],
-                     write_meta=True,
- 
-                    ):
-        """
-        delta: grid - true
-        errRel: delta/true
-        
-        """
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('build_errs')
-        assert dkey == 'errs'
-        if prec is None: prec = self.prec
-        gcn = self.gcn
-        scale_cn = self.scale_cn
- 
-        #=======================================================================
-        # retriever
-        #=======================================================================
-        tl_dx = self.retrieve('tloss')
-        
-        tlnames_d = {lvlName:i for i, lvlName in enumerate(tl_dx.index.names)}
- 
-        fgdir_dxind = self.retrieve('finv_agg_mindex')
-        
-        fgdir_dxind[0] = fgdir_dxind.index.get_level_values('id')  # set for consistency
- 
-        #=======================================================================
-        # group on index
-        #=======================================================================
-        log.info('on %s' % str(tl_dx.shape))
-        res_dx = None
-        for ikeys, gdx0 in tl_dx.groupby(level=group_keys, axis=0):
-            ikeys_d = dict(zip(group_keys, ikeys))
-            res_lib = {k:dict() for k in tl_dx.columns.unique(0)}
-            #===================================================================
-            # group on columns
-            #===================================================================
-            for ckeys, gdx1 in gdx0.groupby(level=gdx0.columns.names, axis=1):
-                ckeys_d = dict(zip(gdx0.columns.names, ckeys))
-                
-                log.debug('on %s and %s' % (ikeys_d, ckeys_d))
- 
-                #===================================================================
-                # get trues--------
-                #===================================================================
-                
-                true_dx0 = tl_dx.loc[idx[0, ikeys_d['studyArea'], ikeys_d['event'],:], gdx1.columns]
-                
-                #===============================================================
-                # join true keys to gid
-                #===============================================================
-                # relabel to true ids
-                true_dx0.index.set_names('id', level=tlnames_d['gid'], inplace=True)
-                
-                # get true ids (many ids to 1 gid))
-                id_gid_df = fgdir_dxind.loc[idx[ikeys_d['studyArea'],:], ikeys_d['grid_size']].rename(gcn).to_frame()
-                id_gid_dx = pd.concat([id_gid_df], keys=['expo', 'gid'], axis=1)
-                
-                if not id_gid_dx.index.is_unique:
-                    # id_gid_ser.to_frame().loc[id_gid_ser.index.duplicated(keep=False), :]
-                    raise Error('bad index on %s' % ikeys_d)
-                
-                # join gids
-                true_dxind1 = true_dx0.join(id_gid_dx, on=['studyArea', 'id']).sort_index().droplevel(0, axis=1)
-
-                #===============================================================
-                # summarize by type
-                #===============================================================
-                # get totals per gid
-                gb = true_dxind1.groupby(gcn)
-                if ckeys_d['lossType'] == 'tl':  # true values are sum of each child
-                    true_df0 = gb.sum()
-                elif ckeys_d['lossType'] == 'rl':  # true values are the average of family
-                    true_df0 = gb.mean()
-                elif ckeys_d['vid'] == 'depth':
-                    true_df0 = gb.mean()
-                elif ckeys_d['vid'] == scale_cn: 
-                    true_df0 = gb.sum()
-                else:
-                    raise Error('bad lossType')
-
-                assert true_df0.index.is_unique
-                
-                # expand index
-                true_dx = pd.concat([true_df0], keys=['true', true_df0.columns[0]], axis=1) 
- 
-                # join back to gridded
-                gdx2 = gdx1.join(true_dx, on=gcn, how='outer')
-                
-                #===========================================================
-                # get gridded-------
-                #===========================================================
-                
-                # check index
-                miss_l = set(gdx2.index.get_level_values(gcn)).difference(true_dx.index.get_level_values(gcn))
-                assert len(miss_l) == 0, 'failed to join back some trues'
-
-                """from here... we're only dealing w/ 2 columns... building a simpler calc frame"""
-                
-                gdf = gdx2.droplevel(1, axis=1).droplevel(group_keys, axis=0)
-                gdf0 = gdf.rename(columns={gdf.columns[0]:'grid'})
-                
-                #===================================================================
-                # error calcs
-                #===================================================================
-                # delta (grid - true)
-                gdf1 = gdf0.join(gdf0['grid'].subtract(gdf0['true']).rename('delta'))
-                
-                # relative (grid-true / true)
-                gdf2 = gdf1.join(gdf1['delta'].divide(gdf1['true']).fillna(0).rename('errRel'))
- 
-                #===============================================================
-                # clean
-                #===============================================================
-                # join back index
-                rdxind1 = gdx1.droplevel(0, axis=1).join(gdf2, on=gcn).drop(gdx1.columns.get_level_values(1)[0], axis=1)
-                
-                # check
-                assert rdxind1.notna().all().all()
-                
-                assert not ckeys[1] in res_lib[ckeys[0]]
-                
-                # promote
-                res_lib[ckeys[0]][ckeys[1]] = rdxind1
-  
-            #===================================================================
-            # wrap index loop-----
-            #===================================================================
-            
-            #===================================================================
-            # assemble column loops
-            #===================================================================
-            d2 = dict()
-            names = [tl_dx.columns.names[1], 'metric']
-            for k0, d in res_lib.items():
-                d2[k0] = pd.concat(d, axis=1, names=names)
-                
-            rdx = pd.concat(d2, axis=1, names=[tl_dx.columns.names[0]] + names)
-            
-            #===================================================================
-            # append
-            #===================================================================
-            if res_dx is None:
-                res_dx = rdx
-            else:
-                res_dx = res_dx.append(rdx)
- 
-        #=======================================================================
-        # wrap------
-        #=======================================================================
-        #=======================================================================
-        # promote vid to index
-        #=======================================================================
-        """
-        treating meta columns (id_cnt, depth) as 'vid'
-        makes for more flexible data maniuplation
-            although.. .we are duplicating lots of values now
-        """
-        
-        res_dx1 = res_dx.drop('expo', level=0, axis=1)
-        
-        # promote column values to index
-        res_dx2 = res_dx1.stack(level=1).swaplevel().sort_index()
-        
-        # pull out and expand the exposure
-        exp_dx1 = res_dx.loc[:, idx['expo',:,:]].droplevel(0, axis=1)
-        
-        # exp_dx2 = pd.concat([exp_dx1, exp_dx1], keys = res_dx1.columns.unique(0), axis=1)
-        
-        # join back
-        res_dx3 = res_dx2.join(exp_dx1, on=res_dx1.index.names).sort_index(axis=0)
-        
-        """
-        view(res_dx3.droplevel('gid', axis=0).index.to_frame().drop_duplicates())
-        view(res_dx3)
-        """
-
-        #===================================================================
-        # meta
-        #===================================================================
-        gb = res_dx.groupby(level=group_keys)
-         
-        mdx = pd.concat({'max':gb.max(), 'count':gb.count(), 'sum':gb.sum()}, axis=1)
-        
-        if write_meta:
-            ofp = os.path.join(self.out_dir, 'build_errs_smry_%s.csv' % self.longname)
-            if os.path.exists(ofp):assert self.overwrite
-            mdx.to_csv(ofp)
-            log.info('wrote %s to %s' % (str(mdx.shape), ofp))
-
-        log.info('finished w/ %s and totalErrors: \n%s' % (
-            str(res_dx.shape), mdx))
- 
-        #=======================================================================
-        # write
-        #=======================================================================
-        
-        self.ofp_d[dkey] = self.write_pick(res_dx3,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
-                                   logger=log)
-
-        return res_dx3
- 
-
- 
-                  
-
-    
-    
-    #===========================================================================
-    # ANALYSIS WRITERS---------
-    #===========================================================================
-
  
         
  
@@ -2643,7 +2379,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         return self.output_fig(fig, fname=fname, fmt=fmt)
  
     
-    def plot_compare_mat(self, #flexible plotting of model results vs. true in a matrix
+    def xxxplot_compare_mat(self, #flexible plotting of model results vs. true in a matrix
                   
                     #data
                     dkey='tvals',#column group w/ values to plot
@@ -3669,6 +3405,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
                     
                     #plot style
+                    title=None,
                      sharey='all', sharex='all',
                     colorMap=None, 
                     xlims=None,ylims=None,
@@ -3694,6 +3431,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if not ylims is None:
             assert sharey=='all'
         
+        if title is None:
+            title = '\'%s\' vs \'%s\' '%(dkey_x, dkey_y)
         
         log.info('on \'%s\' vs \'%s\' (%s x %s)'%(dkey_x, dkey_y, plot_rown, plot_coln))
         #=======================================================================
@@ -3743,7 +3482,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                     set_ax_title=True,
                                     )
         
-        fig.suptitle('\'%s\' vs \'%s\' '%(dkey_x, dkey_y))
+        fig.suptitle(title)
         
         #=======================================================================
         # #get colors
@@ -3860,7 +3599,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         plt.show()
         """
         
-        return self.output_fig(fig, fname='%s-%s_%sx%s_%s' % (dkey_x, dkey_y, plot_rown, plot_coln, self.longname), **kwargs)
+        fname='valuesXY_%s_%s-%s_%s'%(title, plot_rown, plot_coln, self.longname)
+        
+        fname = fname.replace('\'', '').replace(' ','')
+        
+        return self.output_fig(fig, fname=fname, **kwargs)
     
     def plot_rast(self, #add raster values to a plot
                 
