@@ -2676,6 +2676,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # check raw resolutions
         #=======================================================================
+        """pretty slow"""
         assert self.rlay_get_resolution(wse_raw_fp)==float(base_resolution)
         assert self.rlay_get_resolution(dem_raw_fp)==float(base_resolution)
  
