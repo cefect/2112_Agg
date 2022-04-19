@@ -6,7 +6,7 @@ Created on Mar. 25, 2022
 import os
 proj_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef'
 
-model_pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0414.xls'
+model_pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0419.xls'
 
 #CanFlood format vfunc lib
 cf_vfuncLib_fp = r'C:\LS\10_OUT\2112_Agg\ins\vfunc\CanFlood_curves_0414.xls'
@@ -16,7 +16,8 @@ proj_lib =     { #studyArea data for hyd.runr
                   'EPSG': 2955, 
                  'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_aoi06_0410.gpkg', 
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
-               'wse_fp_d':{
+                 
+               'wse_fp_d':{ #10x10
                     'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0100_1218_10.tif',  
                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0200_1218_10.tif',
                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0500_1218_10.tif',
@@ -24,6 +25,7 @@ proj_lib =     { #studyArea data for hyd.runr
                'dem_fp_d':{
                     1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_01_aoi07_0304.tif',
                     5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_05_aoi07_0304b.tif',
+                    10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_10_aoi07_0419.tif',
                        },
                     }, 
             
@@ -31,14 +33,16 @@ proj_lib =     { #studyArea data for hyd.runr
                 'EPSG': 3005, 
                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\finv\IBI_BldgFt_V3_20191213_aoi08_0408.gpkg', 
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
-                'wse_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif', #10x10
-                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0200_WL_simu_0415_aoi09_0304.tif',
+                
+                'wse_fp_d':{ #10x10
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif', 
+                      'mid':r'C:/LS/10_OUT/2112_Agg/ins/hyd/LMFRA/wsl/AG4_Fr_0200_WL_simu_0415_aoi09_0419.tif',
                       'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0100_WL_simu_0415_aoi09_0304.tif',
                       },
                 'dem_fp_d':{
-                     1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi09_0304.tif',
+                     1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi09_0304.tif', #not exactly 1x1
                      5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_05_aoi09_0304.tif',
+                     10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_10_aoi09_0419.tif'
                       },
                     }, 
               
@@ -48,14 +52,15 @@ proj_lib =     { #studyArea data for hyd.runr
     
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
    
-                'wse_fp_d':{
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0500_170729_aoi01_0304.tif',
-                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0200_170729_aoi01_0304.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0100_170729_aoi01_0304.tif',
+                'wse_fp_d':{ #10x10
+                    'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0500_170729_aoi01_0304.tif', 
+                    'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0200_170729_aoi01_0304.tif',
+                    'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0100_170729_aoi01_0304.tif',
                       },
                 'dem_fp_d':{
                       1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_01_aoi01_0304.tif',
                       5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_05_aoi01_0304.tif',
+                      10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_10_aoi01_0304.tif',
     
                       },
                         }, 

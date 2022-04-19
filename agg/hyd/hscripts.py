@@ -263,7 +263,7 @@ class Model(HydSession, QSession):  # single model run
         'dscale_meth':{'vals':['centroid', 'none', 'area_split'],       'dkey':'tvals'},
         
         'severity':{'vals':['hi', 'lo'],                                'dkey':'drlay_d'},
-        'resolution':{'vals':list(range(500)),                         'dkey':'drlay_d'},
+        'resolution':{'vals':list(range(10,500)),                         'dkey':'drlay_d'},
         'downSampling':{'vals':['none','Average', 'Mode', 'Nearest neighbour'],                    'dkey':'drlay_d'},
         'dsampStage':{'vals':['none', 'wse', 'depth'],                  'dkey':'drlay_d'},
         
@@ -2575,8 +2575,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                         #wse: resample both rasters before subtraction  
                         #depth: subtract rasters first, then resample the result
                    downSampling='none',
-                  resolution=5, #0=raw (nicer for variable consistency)
-                  base_resolution=5, #resolution of raw data
+                  resolution=None, #0=raw (nicer for variable consistency)
+                  base_resolution=10, #resolution of raw data
                    
                    #gen 
                   logger=None, layerName=None,
@@ -2601,6 +2601,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if not os.path.exists(temp_dir): os.makedirs(temp_dir)
         start = datetime.datetime.now()
         log = logger.getChild('get_raster')
+        
+        if resolution is None: resolution = base_resolution
         resolution = int(resolution)
         
         """TODO: get this to return somewhere"""
@@ -2632,10 +2634,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert os.path.exists(wse_raw_fp)
         
         #DEM
+        """ starting from the same base for consistency
         if resolution in dem_fp_d:
             dem_raw_fp = dem_fp_d[resolution]
-        else:
-            dem_raw_fp = dem_fp_d[base_resolution] #just take the highest resolution
+        else:"""
+        dem_raw_fp = dem_fp_d[base_resolution] #just take the highest resolution
             
         assert os.path.exists(dem_raw_fp)
         
@@ -2668,10 +2671,18 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         
         #=======================================================================
+        # check raw resolutions
+        #=======================================================================
+        assert self.rlay_get_resolution(wse_raw_fp)==float(base_resolution)
+        assert self.rlay_get_resolution(dem_raw_fp)==float(base_resolution)
+ 
+        
+        #=======================================================================
         # preCalc 
         #=======================================================================
  
         if dsampStage in ['none', 'depth']:
+            """easier and cleaner to always start with the same warp"""
             log.info('warpreproject w/ resolution=%i to %s'%(base_resolution, extents))
             wse_fp = self.warpreproject(wse_raw_fp, compression='none', extents=extents, logger=log,
                                         resolution=base_resolution,

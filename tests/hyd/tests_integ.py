@@ -43,7 +43,7 @@ from  tests.conftest import check_layer_d
 #===============================================================================
 # test data parameters
 #===============================================================================
-base_resolution=5 #for generating test rasters
+base_resolution=10 #for generating test rasters
 extent_fp = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\finv_obwb_test_0218_extent.geojson'
 mid_l = get_modelIDs()
  
@@ -205,7 +205,7 @@ def test_01runr(proj_lib, write, tmp_path, logger, feedback, base_dir,
                          mid_l,
                          #[29]
                          )
-def test_02midRunr( write, tmp_path, logger, feedback, base_dir,
+def test_02midRunr(tmp_path, logger, feedback, base_dir,
                     modelID):
     """this is hte most comprehensive (and closest to actual use) test.
     although.. there is no results chcecking.. 
