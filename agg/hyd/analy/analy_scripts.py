@@ -73,7 +73,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'aggType':'Pastel2',
         'tval_type':'Set1',
         'resolution':'copper',
-        'vid':'Pastel1',
+        'vid':'Set1',
         'dkey':'winter',
         }
     
@@ -1804,7 +1804,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     
                     #plot style                    
                     colorMap=None, title=None, val_lab=None,
-                    sharey=None,sharex=None,
+                    sharey='none',sharex='none',
                     
                     #output
                     fmt='svg',
@@ -1853,6 +1853,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if colorMap is None: colorMap = self.colorMap_d[plot_colr]
         
         if val_lab is None: val_lab=dkey
+        
+        if plot_type in ['violin', 'bar']:
+            assert xlims is None
+        
  
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
         #=======================================================================
@@ -1863,6 +1867,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         meta_indexers = set([plot_rown, plot_coln])
         if not plot_bgrp is None:
             meta_indexers.add(plot_bgrp)
+        
+        for name in slice_d.keys(): meta_indexers.add(name)
         
         #add requested indexers
         dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
@@ -3353,7 +3359,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # wrap---------
         #=======================================================================
-        log.info('finsihed')
+        log.debug('wrap')
         """
         plt.show()
         """
@@ -4904,7 +4910,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #===================================================================
  
         if plot_type == 'hist':
-            ar, _, patches = ax.hist(
+            bval_ar, bins_ar, patches = ax.hist(
                 data_d.values(), 
                 range=hrange,
                 bins=bins, 
@@ -4918,7 +4924,12 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             if not mean_line is None:
                 ax.axvline(mean_line, color='black', linestyle='dashed')
             
-            meta_d.update({'bin_max':ar.max(), 'bin_cnt':len(ar)})
+            #ar.size
+            
+            meta_d.update({'bin_max':bval_ar.max(), 
+                           'bin_cnt':bval_ar.shape[1] #ar.shape[0] =  number of groups
+                           
+                           })
  
             
         #===================================================================
@@ -5296,6 +5307,12 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # checks
         #=======================================================================
+        #duplicated modelID requests
+        s = pd.Series(modelID_l, dtype=str)
+        bx = s.duplicated()
+        if bx.any():
+            raise Error('got %i/%i duplicated modelIDs\n    %s'%(bx.sum(), len(bx), s[bx].tolist()))
+ 
         
         overlap_l = set(dx_raw.index.names).intersection(meta_indexers)
         if len(overlap_l)>0:
