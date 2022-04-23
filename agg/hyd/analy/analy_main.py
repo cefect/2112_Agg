@@ -398,15 +398,17 @@ def run( #run a basic model configuration
             # 
             # #scatter
  
-            
-            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
-                             plot_rown='aggLevel', plot_coln='resolution', sharex='all',sharey='all',
-                                 title='%s \'%s\' errors'%(plotName, dkey),
-                                 plot_type='hist2d',
-                                 bins=50, 
-                                 vmin=0.0, vmax=0.01, xlims=(0,70),
-                                 meta_txt=True,
-                                 meta_func = lambda **kwargs:meta_slim(**kwargs))
+            #===================================================================
+            # 
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+            #                  plot_rown='aggLevel', plot_coln='resolution', sharex='all',sharey='all',
+            #                      title='%s \'%s\' errors'%(plotName, dkey),
+            #                      plot_type='hist2d',
+            #                      bins=50, 
+            #                      vmin=0.0, vmax=0.01, xlims=(0,70),
+            #                      meta_txt=True,
+            #                      meta_func = lambda **kwargs:meta_slim(**kwargs))
+            #===================================================================
             
             #=======================================================================
             # comparing with rsamps
@@ -563,6 +565,8 @@ def run( #run a basic model configuration
             ]:
  
             print('\n%s + %s\n'%(dkey, plotName))
+            
+            ses.plot_perf_mat(modelID_l=mids)
             
 
         

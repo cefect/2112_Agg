@@ -2969,7 +2969,349 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         return ax_d 
          
+    def plot_perf_mat(self, #plot performance
+                  
+                    #data control
+                    dkey_d = {#{dkey:groupby operation method to use for aggregating the true values}
+                        'rsamps':{'trueAgg':'mean', 'err_type':'bias'},
+                        'tvals':{'trueAgg':'sum', 'err_type':'bias'},
+                        'tloss':{'trueAgg':'sum', 'err_type':'bias'},
+                        }, 
+                    baseID=0,
+                    modelID_l = None,
+ 
+ 
+ 
+                    #drop_zeros=True, #must always be false for the matching to work
+                    slice_d = {}, #special slicing
+                    
+                    #data
+                    true_dx_raw=None, #base values (indexed to raws per model)
+                    dx_raw=None, #combined model results                    
+                    
+                    #plot config
+                    #plot_type='bars', always grouped bars
+                    plot_rown='studyArea',
+                    plot_coln='resolution',
+                    plot_colr=None,
+                    
+ 
+                    plot_bgrp='aggLevel', #clustering bars
+ 
+ 
+                    #meta labelling
+                    meta_txt=True, #add meta info to plot as text
+      
+                    write_meta=False, #write all the meta info to a csv            
+                    
+                    #plot style      
+                    barLabel_func = lambda **kwargs:'{yloc:+.2f} ({err_type})'.format(**kwargs), #formatter func for bart lables
+                    colorMap=None, title=None,
+                    sharey='all', 
+                    
+                    #plot output
+                    fmt='svg',
+ 
+                    **kwargs):
+        """"
+        generally 1 modelId per panel
+ 
         
+        
+        """
+        raise Error('cluster bars by plot_bgrp')
+        #=======================================================================
+        # defaults----------
+        #=======================================================================
+        log = self.logger.getChild('plot_perf_mat')
+ 
+        idn = self.idn
+ 
+        #=======================================================================
+        # #retrieve data
+        #=======================================================================
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
+            
+        if true_dx_raw is None:
+            true_d = self.retrieve('trues')
+            true_dx_raw = true_d[baseID]
+            
+        #=======================================================================
+        # #plot keys
+        #=======================================================================
+        if plot_colr is None:
+            plot_colr='dkey'
+        
+ 
+            
+        
+        #=======================================================================
+        # #logic checks
+        #=======================================================================
+        #assert isinstance(plot_bgrp, str) 
+            
+        assert not plot_rown==plot_coln
+ 
+            
+        #=======================================================================
+        # #plot style
+        #=======================================================================
+        sharex='all' #alwasy for bars
+                
+ 
+                
+        if title is None:
+            title = '%s performance'%(' '.join(dkey_d.keys()))
+                
+            for name, val in slice_d.items(): 
+                title = title + ' %s=%s'%(name, val) 
+                
+        if colorMap is None:
+            colorMap = self.colorMap_d[plot_colr]
+                
+                
+        
+        #=======================================================================
+        # #outputs 
+        #=======================================================================
+ 
+ 
+        log.info('on \'%s\' (%s x %s)'%(dkey_d.keys(), plot_rown, plot_coln))
+        #=======================================================================
+        # data prep--------
+        #=======================================================================
+        assert_func(lambda: self.check_mindex_match(true_dx_raw.index, dx_raw.index), msg='raw vs trues')
+        
+        meta_indexers = set([plot_rown, plot_coln,])
+ 
+        
+        for k in slice_d.keys(): meta_indexers.add(k) #add any required slicers
+        
+        #add requested indexers
+        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey_d.keys(), :]], 
+                                meta_indexers = meta_indexers, modelID_l=modelID_l)
+        
+        log.info('on %s'%str(dx.shape))
+        
+        
+        #and on the trues
+        true_dx = self.join_meta_indexers(dx_raw = true_dx_raw.loc[:, idx[dkey_d.keys(), :]], 
+                                meta_indexers = meta_indexers, modelID_l=modelID_l)
+ 
+        #=======================================================================
+        # subsetting
+        #=======================================================================
+        for name, val in slice_d.items():
+            assert name in dx.index.names, 'slice dimension (%s) not present'%name
+            bx = dx.index.get_level_values(name) == val
+            assert bx.any(), 'failed to match any %s=%s'%(name, val)
+            dx = dx.loc[bx, :]
+            
+            bx = true_dx.index.get_level_values(name) == val
+            assert bx.any()
+            true_dx = true_dx.loc[bx, :]
+            log.info('w/ %s=%s slicing to %i/%i'%(
+                name, val, bx.sum(), len(bx)))
+            
+        #=======================================================================
+        # collpase iters
+        #=======================================================================
+        """just taking the first iteration"""
+        dx1 = dx.groupby(level=0, axis=1).first()
+        true_dx1 = true_dx.groupby(level=0, axis=1).first()
+        
+        mdex = dx1.index
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+ 
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,sharey=sharey,sharex=sharex, 
+                                    figsize_scaler=4,
+                                    constrained_layout=True,fig_id=0,set_ax_title=True,)
+ 
+        fig.suptitle(title)
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+        if plot_colr=='dkey':
+            ckeys = dkey_d.keys()
+        else:
+            ckeys = mdex.unique(plot_colr) 
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        meta_dx=None
+        true_gb = true_dx1.groupby(level=[plot_coln, plot_rown])
+        for gkeys, gdx0 in dx1.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            
+            #===================================================================
+            # setup
+            #===================================================================
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
+            ax = ax_d[gkeys[1]][gkeys[0]]
+            log.info('on %s'%keys_d)
+            tgdx_raw = true_gb.get_group(gkeys)
+            meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),'drop_zeros':False}
+            #===================================================================
+            # collect error metrics-------
+            #===================================================================
+            d = dict()
+            for dkey, pars_d in dkey_d.items():
+ 
+                gserx = gdx0[dkey]
+                tgserx = tgdx_raw[dkey]
+                #keys_d['dkey'] = dkey
+     
+                #===================================================================
+                # aggregate the trues
+                #===================================================================
+                """because trues are mapped from the base model.. here we compress down to the model index
+                using a different aggregation method for each gkey"""
+                tgserx = getattr(tgdx_raw[dkey].groupby(level=[gserx.index.names]), pars_d['trueAgg'])()
+                tgserx = tgserx.reorder_levels(gserx.index.names).sort_index()
+                
+                #check
+                assert np.array_equal(gserx.index, tgserx.index)
+ 
+ 
+                #===============================================================
+                # calc metric
+                #===============================================================
+                d[dkey] = ErrorCalcs(logger=log,pred_ser=gserx,true_ser=tgserx).retrieve(pars_d['err_type'])
+                
+            
+                
+            barHeight_ser = pd.Series(d, name=gkeys)
+            
+ 
+            #===============================================================
+            # #formatters.
+            #===============================================================
+            tick_label = ['%s=%s'%('dkey', i) for i in barHeight_ser.index]
+
+            
+            # widths
+            bar_cnt = len(barHeight_ser)
+            width = 0.9 / float(bar_cnt)
+            
+            #===============================================================
+            # #add bars
+            #===============================================================
+            xlocs = np.linspace(0, 1, num=len(barHeight_ser)) #spread out from 0 to 1
+            bars = ax.bar(
+                xlocs,  # xlocation of bars
+                barHeight_ser.values,  # heights
+                width=width,
+                align='center',
+                color=color_d.values(),
+                #label='%s=%s' % (plot_colr, ckey),
+                #alpha=0.5,
+                tick_label=tick_label,
+                )
+            
+            ax.axhline(0, color='black') #draw in the axis
+            
+            
+            
+            #===============================================================
+            # add bar labels
+            #===============================================================
+            d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':barHeight_ser.values, 'xloc':xlocs}.items()}
+            
+            for event, row in pd.concat(d1, axis=1).iterrows(): 
+                txt = barLabel_func(event=event, yloc=row['yloc'], **pars_d)
+                ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
+                            txt,
+                            ha='center', va='bottom', rotation='vertical',fontsize=10, color='red')
+                    
+ 
+ 
+            #===================================================================
+            # post-format----
+            #===================================================================
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+            #===================================================================
+            # meta text
+            #===================================================================
+            log.debug('    meta_func')
+            """no great way to calc meta here
+            meta_d = meta_func(logger=log, meta_d=meta_d, 
+                                pred_ser=pd.Series(data_d['mean']), 
+                                true_ser=pd.Series(true_data_d['mean']))"""
+                            
+            if meta_txt: 
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black',
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.5 ), #light background fill
+                        )
+                """
+                fig.show()
+                """
+            #===================================================================
+            # post-meta--------
+            #===================================================================
+            meta_serx = pd.Series(meta_d, name=gkeys)
+            if meta_dx is None:
+                meta_dx = meta_serx.to_frame().T
+                meta_dx.index.set_names(keys_d.keys(), inplace=True)
+            else:
+                meta_dx = meta_dx.append(meta_serx)
+                
+        #===============================================================
+        # #wrap format subplot
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+ 
+                # first row
+                if row_key == row_keys[0]:
+                    pass
+                #last col
+                if col_key == col_keys[-1]:
+                    pass
+  
+                # first col
+                if col_key == col_keys[0]:
+ 
+                    ax.set_ylabel('errors')
+ 
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    pass
+                        
+                    
+ 
+ 
+        #=======================================================================
+        # wrap---------
+        #=======================================================================
+        log.debug('wrap')
+        """
+        plt.show()
+        """
+ 
+        fname='perfMat_%s_%i_%sX%s_%s' % (
+            title.replace(' ','').replace('\'',''),
+             len(dkey_d), plot_rown, plot_coln, self.longname)
+        
+        fname = fname.replace('=', '-')
+        if write_meta:
+            ofp =  os.path.join(self.out_dir, fname+'_meta.csv')
+            meta_dx.to_csv(ofp)
+            log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
+               
+        
+        return self.output_fig(fig, fname=fname, fmt=fmt)
+ 
+    
     #===========================================================================
     # OLD PLOTTER-------
     #===========================================================================
