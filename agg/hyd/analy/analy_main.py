@@ -195,13 +195,16 @@ def run( #run a basic model configuration
             #===================================================================
             # errors
             #===================================================================
- #==============================================================================
- #            #scatter matrix (aggLevel=0) 
- #            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
- #                             plot_rown='studyArea', plot_coln='resolution', sharex='row',sharey='row',
- #                                 title='%s \'%s\' errors'%(plotName, dkey),
- #                                 plot_type='scatter', slice_d={'aggLevel':0},
- #                                 meta_func = lambda **kwargs:meta_all(**kwargs))
+            #scatter matrix (aggLevel=0)
+             
+            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+                             plot_rown='studyArea', plot_coln='resolution', sharex='row',sharey='row',
+                                 title='%s \'%s\' errors'%(plotName, dkey),
+                                 plot_type='hist2d',
+                                 bins=50, 
+                                 vmin=0.0, vmax=0.5, xlims=(0,6),
+                                 slice_d={'aggLevel':0}, meta_txt=True,
+                                 meta_func = lambda **kwargs:meta_slim(**kwargs))
  #             
  #            #scatter matrix (resolution=0) 
  #  
@@ -260,18 +263,23 @@ def run( #run a basic model configuration
             #===================================================================
             # #samples + raster values
             #===================================================================
+            #===================================================================
             # plot_type='gaussian_kde'
+            # xlims = (0, 10)
+            # drop_zeros=True
             # ax_d = ses.plot_rast(modelID_l = mids, plot_bgrp='resolution',                                  
-            #           plot_type=plot_type, mean_line=False, meta_txt=False,
-            #           debug_max_len=1e5, write=False, linestyle='dashed')
-            #               
+            #           plot_type=plot_type, mean_line=False, meta_txt=False, 
+            #           drop_zeros=drop_zeros, #depth rasters are mostly zeros
+            #           debug_max_len=1e6, write=False, linestyle='dashed', xlims=xlims)
+            #                
             # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
             #                      plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
             #                      fmt='svg',sharex='col',sharey='col', plot_type=plot_type,
-            #                      drop_zeros=True,mean_line=False,
+            #                      drop_zeros=drop_zeros,mean_line=False,
             #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
             #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
-            #                       ax_d=ax_d, val_lab='depths (m)')
+            #                       ax_d=ax_d, val_lab='depths (m)',
+            #                       xlims=xlims, ylims=(0, 0.6))
             #===================================================================
 
         
@@ -495,18 +503,20 @@ def run( #run a basic model configuration
         # distirubtion per tval_type
         #=======================================================================
  
-        ses.plot_dkey_mat2(dkey=dkey, modelID_l= mid_df.stack().values.tolist(), #collapse into a list,
-                             plot_rown='aggLevel', plot_coln='studyArea',  plot_colr='vid', plot_bgrp='vid',
-                             fmt='svg',
-                             sharex='all',sharey='none', 
-                             plot_type='hist',
-                             drop_zeros=True,mean_line=False,density=False,
-                             slice_d = {'resolution':100}, 
-                             xlims=(0,15),
-                             #title='%s \'%s\' values'%(plotName, dkey), 
-                              #meta_func=lambda **kwargs:meta_basic(**kwargs),
-                                #val_lab='sampled depths (m)',
-                                )
+        #=======================================================================
+        # ses.plot_dkey_mat2(dkey=dkey, modelID_l= mid_df.stack().values.tolist(), #collapse into a list,
+        #                      plot_rown='aggLevel', plot_coln='studyArea',  plot_colr='vid', plot_bgrp='vid',
+        #                      fmt='svg',
+        #                      sharex='all',sharey='none', 
+        #                      plot_type='hist',
+        #                      drop_zeros=True,mean_line=False,density=False,
+        #                      slice_d = {'resolution':100}, 
+        #                      xlims=(0,15),
+        #                      #title='%s \'%s\' values'%(plotName, dkey), 
+        #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
+        #                         #val_lab='sampled depths (m)',
+        #                         )
+        #=======================================================================
 
         #=======================================================================
         # Total Values----------

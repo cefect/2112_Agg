@@ -8,7 +8,9 @@ Created on Feb. 21, 2022
 #===============================================================================
 import os, datetime, math, pickle, copy, random, pprint, gc, math
 import matplotlib
+from matplotlib.colors import Normalize 
 import scipy.stats
+from scipy.interpolate import interpn
 
 import pandas as pd
 import numpy as np
@@ -58,6 +60,9 @@ def get_ax(
             
     return fig.add_subplot(111)
  
+ 
+
+ 
 class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     
     
@@ -75,6 +80,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'resolution':'copper',
         'vid':'Set1',
         'dkey':'winter',
+        'density':'viridis'
         }
     
     def __init__(self,
@@ -1771,7 +1777,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     ax_d=None,
                     dkey='tvals',#column group w/ values to plot
  
-                    xlims = None,
+                    xlims = None,ylims=None,
                     modelID_l = None, #optinal sorting list
  
                     #qhi=0.99, qlo=0.01, #just taking the mean
@@ -2016,6 +2022,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 if not xlims is None:
                     ax.set_xlim(xlims)
+                    
+                if not ylims is None:
+                    ax.set_ylim(ylims)
  
                 
                 # first row
@@ -2907,7 +2916,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #data control
                     dkey='tvals',#column group w/ values to plot
                     baseID=0,
-                    #xlims = None,
+                    xlims = None,
                     modelID_l = None, #optinal sorting list
                     aggMethod='mean', #method to use for aggregating the true values (down to the gridded)
                     qhi=0.99, qlo=0.01,
@@ -2930,6 +2939,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                         #absolute: modelled - true
                         #relative: absolute/true
                     zero_line=False,
+                    
+                    #plot config [density]
+                    bins=50, vmin=None, vmax=None,
  
                     #meta labelling
                     meta_txt=True, #add meta info to plot as text
@@ -2954,13 +2966,15 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         """
         
         #=======================================================================
-        # defaults
+        # defaults----------
         #=======================================================================
         log = self.logger.getChild('plot_err_mat')
  
         idn = self.idn
  
-        #retrieve data
+        #=======================================================================
+        # #retrieve data
+        #=======================================================================
         if dx_raw is None:
             dx_raw = self.retrieve('outs')
             
@@ -2968,31 +2982,41 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             true_d = self.retrieve('trues')
             true_dx_raw = true_d[baseID]
             
-        #plot keys
-        if plot_colr is None: 
+        #=======================================================================
+        # #plot keys
+        #=======================================================================
+        if plot_colr is None:
             plot_colr=plot_bgrp
         
-        if plot_colr is None: 
+        if plot_colr is None and plot_type!='scatter_density': 
             plot_colr=plot_rown
             
         if plot_bgrp is None:
             plot_bgrp = plot_colr
             
- 
-        assert isinstance(plot_bgrp, str)
- 
+        
+        #=======================================================================
+        # #logic checks
+        #=======================================================================
+        #assert isinstance(plot_bgrp, str) 
             
         assert not plot_rown==plot_coln
+        
+        if plot_type=='scatter_density':
+            assert plot_colr is None
+            assert plot_bgrp is None
             
-        #plot style
+        #=======================================================================
+        # #plot style
+        #=======================================================================
         if sharey is None:
-            if plot_type=='scatter':
+            if 'scatter' in plot_type:
                 sharey='none'
             else:
                 sharey='all'
                 
         if sharex is None:
-            if plot_type=='scatter':
+            if 'scatter' in plot_type:
                 sharex='none'
             else:
                 sharex='all'
@@ -3006,18 +3030,25 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             for name, val in slice_d.items(): 
                 title = title + ' %s=%s'%(name, val) 
                 
-        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        if colorMap is None:
+            if plot_type in ['scatter_density', 'hist2d']: 
+                colorMap = self.colorMap_d['density']
+            else:
+                colorMap = self.colorMap_d[plot_colr]
+                
         
-        #outputs 
+        #=======================================================================
+        # #outputs 
+        #=======================================================================
         if fmt is None:
-            if plot_type=='scatter':
+            if 'scatter' in plot_type:
                 fmt='png'
             else:
                 fmt='svg'
  
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
         #=======================================================================
-        # data prep
+        # data prep--------
         #=======================================================================
         assert_func(lambda: self.check_mindex_match(true_dx_raw.index, dx_raw.index), msg='raw vs trues')
         
@@ -3132,7 +3163,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
       
             
             #===================================================================
-            # scatter plot-----
+            # scatter-----
             #===================================================================
             """consider hist2d?"""
             if plot_type =='scatter':
@@ -3156,12 +3187,55 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 stat_d = self.ax_corr_scat2(ax, gdx0.values.T[0], tgdx0.values.T[0], 
                                            colors_ar=cgserx0.values.T,
                                            #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
-                                           scatter_kwargs = {
-                                                
-                                               },
-                                           logger=log, add_label=False)
+                                           scatter_kwargs = {},
+                                           logger=log, add_label=False, **kwargs)
  
                 meta_d.update(stat_d)
+                
+            #===================================================================
+            # scatter density----------
+            #===================================================================
+                
+            elif plot_type=='scatter_density':
+                raise Error('not implemeneted')
+                #===============================================================
+                # #plot
+                #===============================================================
+                log.debug('    scatter_density on %i'%len(gdx0))
+                stat_d = self.ax_corr_scat2(ax, gdx0.values.T[0], tgdx0.values.T[0], 
+                                            bins=bins,colorMap=colorMap,
+                                           logger=log, add_label=False, **kwargs)
+                
+                
+ 
+                meta_d.update(stat_d)
+                #print('yay')
+                
+            #===================================================================
+            # hist2d----
+            #===================================================================
+            elif plot_type=='hist2d':
+                log.debug('    %s on %i'%(plot_type, len(gdx0)))
+                """
+                plt.show()
+                ax.clear()
+                """
+                #crop the data
+ 
+                    
+                stat_d = self.ax_corr_scat2(ax, gdx0.values.T[0], tgdx0.values.T[0], 
+                                             bins=bins,colorMap=colorMap,
+                                           logger=log, add_label=False,
+                                           plot_type=plot_type, vmin=vmin, vmax=vmax,
+                                           xlims=xlims,colorBar=False,
+                                            **kwargs)
+                
+                vmin, vmax = stat_d.pop('vmin'), stat_d.pop('vmax')
+                meta_d.update(stat_d)
+                
+ 
+                
+
  
             #===================================================================
             # bar plot---------
@@ -3331,14 +3405,17 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     pass
                 #last col
                 if col_key == col_keys[-1]:
-                    pass
+                    if plot_type in ['hist2d']: 
+                        norm = Normalize(vmin =vmin, vmax = vmax)
+                        cbar = fig.colorbar(matplotlib.cm.ScalarMappable(norm = norm), ax=ax)
+                        cbar.ax.set_ylabel('Density')
   
                 # first col
                 if col_key == col_keys[0]:
                     if plot_type in ['bars', 'violin']:
                         ax.set_ylabel('\'%s\' (%s)'%(dkey, err_type))
                         
-                    elif plot_type=='scatter':
+                    elif plot_type in ['scatter', 'hist2d']:
                         ax.set_ylabel('\'%s\' (true)'%dkey)
                 
                 #last row
@@ -3616,7 +3693,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #data control               
                 xlims = None,
                 modelID_l = None, #optinal sorting list
-                drop_zeros=True, #zeros are effecitvely null on depth rasters 
+                drop_zeros=False, #zeros are effecitvely null on depth rasters 
                 slice_d = {}, #special slicing
                 debug_max_len=1e6, #max random sample
                 
@@ -4994,12 +5071,23 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         elif plot_type=='gaussian_kde':
             for dname, data in data_d.items():
                 log.info('    gaussian_kde on %i'%len(data))
+                #filter
+                #===============================================================
+                # if not hrange is None:
+                #     
+                #     ar = data[np.logical_and(data>hrange[0], data<=hrange[1])]
+                # else:
+                #     ar = data
+                #===============================================================
+                
+                ar = data  
+                
  
-                kde = scipy.stats.gaussian_kde(data, 
+                kde = scipy.stats.gaussian_kde(ar, 
                                                    bw_method='scott',
                                                    weights=None, #equally weighted
                                                    )
-                xvals = np.linspace(data.min()+.01, data.max(), 100)
+                xvals = np.linspace(ar.min()+.01, ar.max(), 100)
                 ax.plot(xvals, kde(xvals), color=color_d[dname], label=dname, **kwargs)
                 
                 #vertical mean line
@@ -5023,21 +5111,38 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     def ax_corr_scat2(self,  # correlation scatter plots on an axis
                 ax,
                 xar, yar,
+                
+                #data control
+                xlims=None,
+                plot_type='scatter',
+                
                 colors_ar=None,
-                label=None,
+
+                 #density plotting
+                 bins=10,
+                 sort=True,
+                 colorMap=None,
+                 vmin=None, vmax=None,
                 
                 # plot control
                 plot_trend=True,
                 plot_11=True,
+                
+               
                 
                 # lienstyles
                 scatter_kwargs={  # default styles
                     
                     } ,
  
-                logger=None,
+                #labelling
+                label=None,                
                 add_label=True,
-                ):
+                
+                #style
+                colorBar=True,
+                
+                logger=None,):
         """support for plt.scatter"""
         #=======================================================================
         # defaultst
@@ -5052,29 +5157,98 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #assert isinstance(label, str)
         # log.info('on %s'%data.shape)
         
+        if plot_type=='scatter':
+            colorBar=False
         #=======================================================================
         # setup 
         #=======================================================================
         max_v = max(max(xar), max(yar))
-        xlim = (min(xar), max(xar))
-        #=======================================================================
-        # add the scatter
-        #=======================================================================
-        #overwrite defaults with passed kwargs
-        scatter_kwargs = {**{'s':3.0, 
-                             'marker':'o', 
-                             #'fillstyle':'full'
-                             },
-                          **scatter_kwargs}
         
-        """density color?
-        plt.show()
-        """
-        log.debug('scatter')
-        #ax.plot(xar, yar, linestyle='None', label=label, **scatter_kwargs)
-        ax.scatter(xar, yar, 
-                   c=colors_ar, **scatter_kwargs
-                   )
+        if xlims is None:
+            xlims = (min(xar), max(xar))
+ 
+        """only cropping xvals... may still get some yvals exceeding this"""
+        bx =np.logical_and(xar>xlims[0], xar<=xlims[1])
+
+            
+        
+        
+
+            
+        
+        stat_d = dict()    
+        z=None
+        #=======================================================================
+        # normal scatter--------
+        #=======================================================================
+        
+        if plot_type=='scatter':
+            assert colorMap is None
+            #overwrite defaults with passed kwargs
+            scatter_kwargs = {**{'s':3.0, 
+                                 'marker':'o', 
+                                 #'fillstyle':'full'
+                                 },
+                              **scatter_kwargs}
+
+            
+            """density color?
+            plt.show()
+            """
+            log.debug('scatter')
+            #ax.plot(xar, yar, linestyle='None', label=label, **scatter_kwargs)
+            ax.scatter(xar, yar, 
+                       c=colors_ar, **scatter_kwargs
+                       )
+        
+        #=======================================================================
+        # density scatter---------
+        #=======================================================================
+        elif plot_type=='scatter_density':
+            """I dont really understand whats gonig on here... also doesnt look sio noce"""
+            assert colors_ar is None
+        
+            scatter_kwargs = {**{'s':7.0, 
+                                 'marker':'h', 
+                                 'alpha':0.8,
+                                 #'fillstyle':'full'
+                                 },
+                              **scatter_kwargs}
+            """
+            Scatter plot colored by 2d histogram
+            fig.show()
+            """
+            if ax is None :
+                fig , ax = plt.subplots()
+            else:
+                fig= ax.figure
+                
+            #build the pdist histogram
+            data , x_e, y_e = np.histogram2d( xar, yar, bins = bins, density = True )
+            
+            #interpolate between these on the point locations?
+            z = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data , np.vstack([xar,yar]).T , method = "splinef2d", bounds_error = False)
+        
+            #fill in the nulls
+            z[np.where(np.isnan(z))] = 0.0
+        
+            # Sort the points by density, so that the densest points are plotted last
+            if sort :
+                idx = z.argsort()
+                x, y, z = xar[idx], yar[idx], z[idx]
+        
+            ax.scatter( x, y, c=z, cmap=colorMap, 
+                        vmin=vmin, vmax=vmax, #boudn the color normalization
+                        **scatter_kwargs )
+        
+ 
+        #=======================================================================
+        # hist2d-------
+        #=======================================================================
+        elif plot_type=='hist2d':
+            z, x_e, y_e, img = ax.hist2d(xar[bx], yar[bx], bins=bins, density=True,
+                             cmap=colorMap, vmin=vmin, vmax=vmax, cmin=0.001, alpha=0.8)
+ 
  
         #=======================================================================
         # add the 1:1 line
@@ -5083,7 +5257,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if plot_11:
             log.debug('plot_11')
             # draw a 1:1 line
-            ax.plot([0, max_v * 10], [0, max_v * 10], color='black', linewidth=0.5, label='1:1')
+            ax.plot([0, max_v * 10], [0, max_v * 10], color='black', linewidth=0.75, label='1:1')
         
         #=======================================================================
         # add the trend line
@@ -5096,16 +5270,24 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             pearson, pval = scipy.stats.pearsonr(xar, yar)
             
             
-            x_vals = np.array(xlim)
+            x_vals = np.array(xlims)
             y_vals = intercept + slope * x_vals
             log.debug('plot_trend (plot)')
-            ax.plot(x_vals, y_vals, color='red', linewidth=0.5, label='r=%.3f'%rvalue)
+            ax.plot(x_vals, y_vals, color='red', linewidth=0.75, label='r=%.3f'%rvalue)
  
         #=======================================================================
         # get stats
         #=======================================================================
+        if not z is None: #collect color min/maxes
+            if vmin is None:
+                vmin = np.min(z)
+            if vmax is None:
+                vmax = np.max(z)
+                
+            stat_d.update({'vmin':vmin, 'vmax':vmax})
+            
         
-        stat_d = {
+        stat_d.update({
                 'count':len(xar),
                    'LR.slope':round(slope, 3),
                   # 'LR.intercept':round(intercept, 3),
@@ -5113,7 +5295,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                   #'pearson':round(pearson, 3), #just teh same as rvalue
                   'r value':round(rvalue, 3),
                    # 'max':round(max_v,3),
-                   }
+                   })
             
         # dump into a string
         
@@ -5126,9 +5308,18 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         # post format
         #=======================================================================
         log.debug('wrap')
-        ax.set_xlim(xlim)
-        ax.set_ylim(xlim)
+        
+        #square it
+        ax.set_xlim(xlims)
+        ax.set_ylim(xlims)
         ax.grid()
+        
+        #build a normalized color bar
+        if colorBar:
+            fig = ax.figure
+            norm = Normalize(vmin =vmin, vmax = vmax)
+            cbar = fig.colorbar(matplotlib.cm.ScalarMappable(norm = norm), ax=ax)
+            cbar.ax.set_ylabel('Density')
         
         return stat_d
 
