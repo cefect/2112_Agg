@@ -553,6 +553,16 @@ def run( #run a basic model configuration
         #=======================================================================
         # multi varirable-------
         #=======================================================================
+        for plotName, mids, baseID in [
+            #('798',list(range(9)),      0), #gridded
+            ('798',  list(range(3))+list(range(60,66)), 0), #convex hulls
+            #('049',list(range(40,49)),  40),
+            #('lin_g', list(range(80,89)), 80), #gridded
+            #('linear', list(range(90,99)), 90), #convexHull
+            #('rfda',   list(range(70,79)), 70),
+            ]:
+ 
+            print('\n%s + %s\n'%(dkey, plotName))
             
 
         
