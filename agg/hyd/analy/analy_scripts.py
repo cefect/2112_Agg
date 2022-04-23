@@ -1183,593 +1183,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
         
         
-    def plot_total_bars(self, #generic total bar charts
-                        
-                    #data
-                    dkey_d = {'rsamps':'mean','tvals':'var','tloss':'sum'}, #{dkey:groupby operation}
-                    dx_raw=None,
-                    modelID_l = None, #optinal sorting list
-                    
-                    #plot config
-                    plot_rown='dkey',
-                    plot_coln='studyArea',
-                    plot_bgrp='modelID',
-                    plot_colr=None,
-                    sharey='row',
-                    
-                    #errorbars
-                    qhi=0.99, qlo=0.01,
-                    
-                    #labelling
-                    add_label=True, 
-                    bar_labels=True,
-                    baseline_loc='first_bar', #what to consider the baseline for labelling deltas
-                    
- 
-                    
-                    #plot style
-                    colorMap=None,title=None,
-                    #ylabel=None,
-                    
-                    ):
-        """"
-        compressing a range of values
-        """
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('plot_total_bars')
-        if plot_colr is None: plot_colr=plot_bgrp
-        
-        if dx_raw is None: dx_raw = self.retrieve('outs')
- 
- 
-        """
-        view(dx)
-        dx.loc[idx[0, 'LMFRA', 'LMFRA_0500yr', :], idx['tvals', 0]].sum()
-        dx_raw.columns.unique('dkey')
-        """
-        
-        
-        log.info('on %s'%str(dx_raw.shape))
-        
-        #=======================================================================
-        # data prep
-        #=======================================================================
-        #add requested indexers
-        meta_indexers = set([plot_rown, plot_coln, plot_colr, plot_bgrp]).difference(['dkey']) #all those except dkey
-        
-        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[list(dkey_d.keys()), :]], 
-                                meta_indexers = meta_indexers,
-                                modelID_l=modelID_l)
-        
-        mdex = dx.index
-        """no... want to report stats per dkey group
-        #move dkeys to index for consistency
-        dx.stack(level=0)"""
-        
-        #get label dict
-        lserx =  mdex.to_frame().reset_index(drop=True).loc[:, ['modelID', 'tag']
-                           ].drop_duplicates().set_index('modelID').iloc[:,0]
-                            
-        mid_tag_d = {k:'%s (%s)'%(v, k) for k,v in lserx.items()}
-        
-        if modelID_l is None:
-            modelID_l = mdex.unique('modelID').tolist()
-        else:
-            miss_l = set(modelID_l).difference( mdex.unique('modelID'))
-            assert len(miss_l)==0, 'requested %i modelIDs not in teh data \n    %s'%(len(miss_l), miss_l)
-            
-        #=======================================================================
-        # configure dimensions
-        #=======================================================================
-        if plot_rown=='dkey':
-            row_keys = list(dkey_d.keys())
-            axis=1
- 
-        else:
-            dkey = list(dkey_d.keys())[0]
-            axis=0
-            row_keys = mdex.unique(plot_rown).tolist()
-            
-            if title is None:
-                title = '%s %s'%(dkey, dkey_d[dkey])
-        
-        
-        #=======================================================================
-        # setup the figure
-        #=======================================================================
-        plt.close('all')
-        """
-        view(dx)
-        plt.show()
-        """
-        col_keys = mdex.unique(plot_coln).tolist()
-        
-        
-        
-        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,  # col keys
-                                    figsize_scaler=4,
-                                    constrained_layout=True,
-                                    sharey=sharey, sharex='all',  # everything should b euniform
-                                    fig_id=0,
-                                    set_ax_title=True,
-                                    )
-        
-        if not title is None:
-            fig.suptitle(title)
-        
-        #=======================================================================
-        # #get colors
-        #=======================================================================
-        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
-        if plot_colr == 'dkey_range':
-            ckeys = ['hi', 'low', 'mean']
-        else:
-            ckeys = mdex.unique(plot_colr) 
-        
-        color_d = self.get_color_d(ckeys, colorMap=colorMap)
-        
-        #===================================================================
-        # loop and plot
-        #===================================================================
 
-        
-        for col_key, gdx1 in dx.groupby(level=[plot_coln]):
-            keys_d = {plot_coln:col_key}
- 
-            
-            for row_key, gdx2 in gdx1.groupby(level=[plot_rown], axis=axis):
-                keys_d[plot_rown] = row_key
-                ax = ax_d[row_key][col_key]
-                
-                if plot_rown=='dkey':
-                    dkey = row_key
- 
-                #===============================================================
-                # data prep
-                #===============================================================
- 
-                
-                f = getattr(gdx2.groupby(level=[plot_bgrp]), dkey_d[dkey])
-                
-                try:
-                    gdx3 = f()#.loc[modelID_l, :] #collapse assets, sort
-                except Exception as e:
-                    raise Error('failed on %s w/ \n    %s'%(keys_d, e))
-                
-                gb = gdx3.groupby(level=0, axis=1)   #collapse iters (gb object)
-                
-                #===============================================================
-                #plot bars------
-                #===============================================================
-                #===============================================================
-                # data setup
-                #===============================================================
- 
-                barHeight_ser = gb.mean() #collapse iters(
-                ylocs = barHeight_ser.T.values[0]
-                
-                #===============================================================
-                # #formatters.
-                #===============================================================
- 
-                # labels conversion to tag
-                if plot_bgrp=='modelID':
-                    tick_label = [mid_tag_d[mid] for mid in barHeight_ser.index] #label by tag
-                else:
-                    tick_label = ['%s=%s'%(plot_bgrp, i) for i in barHeight_ser.index]
-                #tick_label = ['m%i' % i for i in range(0, len(barHeight_ser))]
-  
-                # widths
-                bar_cnt = len(barHeight_ser)
-                width = 0.9 / float(bar_cnt)
-                
-                #===============================================================
-                # #add bars
-                #===============================================================
-                xlocs = np.linspace(0, 1, num=len(barHeight_ser))# + width * i
-                bars = ax.bar(
-                    xlocs,  # xlocation of bars
-                    ylocs,  # heights
-                    width=width,
-                    align='center',
-                    color=color_d.values(),
-                    #label='%s=%s' % (plot_colr, ckey),
-                    #alpha=0.5,
-                    tick_label=tick_label,
-                    )
-                
-                #===============================================================
-                # add error bars--------
-                #===============================================================
-                if len(gdx2.columns.get_level_values(1))>1:
-                    
-                    #get error values
-                    err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
-                    
-                    #convert to deltas
-                    assert np.array_equal(err_df.index, barHeight_ser.index)
-                    errH_df = err_df.subtract(barHeight_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
-                    
-                    #add the error bars
-                    ax.errorbar(xlocs, ylocs,
-                                errH_df.values,  
-                                capsize=5, color='black',
-                                fmt='none', #no data lines
-                                )
-                    """
-                    plt.show()
-                    """
-                    
-                #===============================================================
-                # add labels--------
-                #===============================================================
-                if add_label:
- 
-                    meta_d = keys_d
-                    
-                    meta_d['modelID'] = str(gdx2.index.unique('modelID').tolist())
- 
-                    ax.text(0.9, 0.1, get_dict_str(meta_d), transform=ax.transAxes, va='bottom', ha='right',fontsize=8, color='black')
-                
-                if bar_labels:
-                    log.debug(keys_d)
- 
-                    if dkey_d[dkey] == 'var':continue
-                    #===========================================================
-                    # #calc errors
-                    #===========================================================
-                    d = {'pred':barHeight_ser.T.values[0]}
-                    
-                    # get trues
-                    if baseline_loc == 'first_bar':
-                        d['true'] = np.full(len(barHeight_ser),d['pred'][0])
-                    elif baseline_loc == 'first_axis':
-                        if col_key == col_keys[0] and row_key == row_keys[0]:
-                            base_ar = d['pred'].copy()
- 
-                        
-                        d['true'] = base_ar
-                    else:
-                        raise Error('bad key')
-                        
-                    
-                    d['delta'] = (d['pred'] - d['true']).round(3)
-                    
-                    # collect
-                    tl_df = pd.DataFrame.from_dict(d)
-                    
-                    tl_df['relErr'] = (tl_df['delta'] / tl_df['true'])
-                
-                    tl_df['xloc'] = xlocs
-                    #===========================================================
-                    # add as labels
-                    #===========================================================
-                    for event, row in tl_df.iterrows():
-                        ax.text(row['xloc'], row['pred'] * 1.01, #shifted locations
-                                '%+.1f %%' % (row['relErr'] * 100),
-                                ha='center', va='bottom', rotation='vertical',
-                                fontsize=10, color='red')
-                        
-                    log.debug('added error labels \n%s' % tl_df)
-                    
-                    #expand the limits
-                    ylims = ax.get_ylim()
-                    
-                    ax.set_ylim(tuple([1.1*x for x in ylims]))
-                    
-                #===============================================================
-                # #wrap format subplot
-                #===============================================================
-                """
-                fig.show()
-                """
- 
-                ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
-                # first row
-                #===============================================================
-                # if row_key == mdex.unique(plot_rown)[0]:
-                #     pass
-                #===============================================================
-         
-                        
-                # first col
-                if col_key == mdex.unique(plot_coln)[0]:
-                    ylabel = '%s (%s)'%(dkey,  dkey_d[dkey])
-                    ax.set_ylabel(ylabel)
-                    
-        
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info('finsihed')
-        
-        return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
-    
-    
-
-
-    def plot_dkey_mat(self, #flexible plotting of model results in a matrix
-                  
-                    #data
-                    dkey='tvals', #column group w/ values to plot
-                    dx_raw=None,
-                    modelID_l = None, #optinal sorting list
-                    
-                    #plot config
-                    plot_type='hist',
-                    plot_rown='aggLevel',
-                    plot_coln='dscale_meth',
-                    plot_colr='dkey_range',
-                    #plot_bgrp='modelID',
-                    
-                    #data control
-                    xlims = None,
-                    qhi=0.99, qlo=0.01,
-                    drop_zeros=True,
-                    
-                    #labelling
-                    add_label=True,
- 
-                    
-                    #plot style
-                    colorMap=None,
-                    #ylabel=None,
-                    sharey='all', sharex='col',
-                    
-                    #histwargs
-                    bins=20, rwidth=0.9, 
-                    mean_line=True, #plot a vertical line on the mean
-                    fmt='svg',
-                    ):
-        """"
-        generally 1 modelId per panel
-        """
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('plot_dkey_mat')
-        
-        
-        idn = self.idn
- 
-        if dx_raw is None:
-            dx_raw = self.retrieve('outs')
-        
-        
-        log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
-        #=======================================================================
-        # data prep
-        #=======================================================================
-
-        
-        #add requested indexers
-        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
-                                meta_indexers = set([plot_rown, plot_coln]),
-                                modelID_l=modelID_l)
-        
-        log.info('on %s'%str(dx_raw.shape))
-        mdex = dx.index
-        
-        #=======================================================================
-        # setup the figure
-        #=======================================================================
-        plt.close('all')
- 
-        col_keys =mdex.unique(plot_coln).tolist()
-        row_keys = mdex.unique(plot_rown).tolist()
- 
-        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
-                                    figsize_scaler=4,
-                                    constrained_layout=True,
-                                    sharey=sharey, sharex=sharex,  # everything should b euniform
-                                    fig_id=0,
-                                    set_ax_title=True,
-                                    )
-        fig.suptitle('\'%s\' values'%dkey)
-        
-        #=======================================================================
-        # #get colors
-        #=======================================================================
-        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
-        if plot_colr == 'dkey_range':
-            ckeys = ['hi', 'low', 'mean']
-        else:
-            ckeys = mdex.unique(plot_colr) 
-        
-        color_d = self.get_color_d(ckeys, colorMap=colorMap)
-        
-        #=======================================================================
-        # loop and plot
-        #=======================================================================
-        for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
-            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
-            ax = ax_d[gkeys[1]][gkeys[0]]
-            log.info('on %s'%keys_d)
-            
-            #xlims = (gdx0.min().min(), gdx0.max().max())
-            #===================================================================
-            # prep data
-            #===================================================================
-                    
-            # #drop empty iters
-            bxcol = gdx0.isna().all(axis=0)
-            
-            if bxcol.any():
-     
-                log.warning('got %i/%i empty iters....dropping'%(bxcol.sum(), len(bxcol)))
-                gdx0 = gdx0.loc[:,~bxcol]
-            else:
-                gdx0 = gdx0
-            
-            data_d, bx = self.prep_ranges(qhi, qlo, drop_zeros, gdx0)
-            
-            """
-            view(gdx0)
-            gdx0.index.droplevel('gid').to_frame().drop_duplicates().reset_index(drop=True)
-            """
-                
-            #===================================================================
-            # #get color
-            #===================================================================
-            if plot_colr == 'dkey_range':
-                color = [color_d[k] for k in data_d.keys()]
-            else:
-                #all the same color
-                color = [color_d[keys_d[plot_colr]] for k in data_d.keys()]
- 
-            #===================================================================
-            # histogram of means
-            #===================================================================
-            if plot_type == 'hist':
- 
-                ar, _, patches = ax.hist(
-                    data_d.values(),
-                        range=xlims,
-                        bins=bins,
-                        density=False,  color = color, rwidth=rwidth,
-                        label=list(data_d.keys()))
-                
-                bin_max = ar.max()
-                #vertical mean line
-                if mean_line:
-                    ax.axvline(gdx0.mean().mean(), color='black', linestyle='dashed')
-            #===================================================================
-            # box plots
-            #===================================================================
-            elif plot_type=='box':
-                #===============================================================
-                # zero line
-                #===============================================================
-                #ax.axhline(0, color='black')
- 
-                #===============================================================
-                # #add bars
-                #===============================================================
-                boxres_d = ax.boxplot(data_d.values(), labels=data_d.keys(), meanline=True,
-                           # boxprops={'color':newColor_d[rowVal]}, 
-                           # whiskerprops={'color':newColor_d[rowVal]},
-                           # flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
-                            )
- 
-                #===============================================================
-                # add extra text
-                #===============================================================
-                
-                # counts on median bar
-                for gval, line in dict(zip(data_d.keys(), boxres_d['medians'])).items():
-                    x_ar, y_ar = line.get_data()
-                    ax.text(x_ar.mean(), y_ar.mean(), 'n%i' % len(data_d[gval]),
-                            # transform=ax.transAxes, 
-                            va='bottom', ha='center', fontsize=8)
-                    
-            #===================================================================
-            # violin plot-----
-            #===================================================================
-            elif plot_type=='violin':
-
-                #===============================================================
-                # plot
-                #===============================================================
-                parts_d = ax.violinplot(data_d.values(),  
-                                       showmeans=True,
-                                       showextrema=True,  
-                                       )
- 
-                #===============================================================
-                # color
-                #===============================================================
-                #===============================================================
-                # if len(data_d)>1:
-                #     """nasty workaround for labelling"""                    
-                #===============================================================
-                labels = list(data_d.keys())
-                #ckey_d = {i:color_key for i,color_key in enumerate(labels)}
- 
- 
-                
-                #style fills
-                for i, pc in enumerate(parts_d['bodies']):
-                    pc.set_facecolor(color)
-                    pc.set_edgecolor(color)
-                    pc.set_alpha(0.5)
-                    
-                #style lines
-                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
-                    parts_d[partName].set(color='black', alpha=0.5)
-            else:
-                raise Error(plot_type)
-            
-            if not xlims is None:
-                ax.set_xlim(xlims)
-            #===================================================================
-            # labels
-            #===================================================================
-            if add_label:
-                # get float labels
-                meta_d = {'modelIDs':str(gdx0.index.unique(idn).tolist()),
-                           'cnt':len(gdx0), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,
-                           'iters':len(gdx0.columns),
-                           'min':gdx0.min().min(), 'max':gdx0.max().max(), 'mean':gdx0.mean().mean()}
-                
-                if plot_type == 'hist':
-                    meta_d['bin_max'] = bin_max
- 
-                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
-            
-            #===================================================================
-            # wrap format
-            #===================================================================
-            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
-            
-        #===============================================================
-        # #wrap format subplot
-        #===============================================================
-        """best to loop on the axis container in case a plot was missed"""
-        for row_key, d in ax_d.items():
-            for col_key, ax in d.items():
- 
-                
-                # first row
-                if row_key == row_keys[0]:
-                    #first col
-                    if col_key == col_keys[0]:
-                        if plot_type=='hist':
-                            ax.legend()
-                
-                        
-                # first col
-                if col_key == col_keys[0]:
-                    if plot_type == 'hist':
-                        ax.set_ylabel('count')
-                    elif plot_type in ['box', 'violin']:
-                        ax.set_ylabel(dkey)
-                
-                #last row
-                if row_key == row_keys[-1]:
-                    if plot_type == 'hist':
-                        ax.set_xlabel(dkey)
-                    elif plot_type=='violin':
-                        
-                        ax.set_xticks(np.arange(1, len(labels) + 1))
-                        ax.set_xticklabels(labels)
-                    #last col
-                    if col_key == col_keys[-1]:
-                        pass
- 
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info('finsihed')
-        """
-        plt.show()
-        """
-        
-        return self.output_fig(fig, fname='%s_%s_%sx%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), fmt=fmt)
-    
 
     def plot_dkey_mat2(self, #flexible plotting of model results (one dkey)
                   
@@ -3559,6 +2973,598 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     #===========================================================================
     # OLD PLOTTER-------
     #===========================================================================
+    
+    def xxxplot_total_bars(self, #generic total bar charts
+                        
+                    #data
+                    dkey_d = {'rsamps':'mean','tvals':'var','tloss':'sum'}, #{dkey:groupby operation}
+                    dx_raw=None,
+                    modelID_l = None, #optinal sorting list
+                    
+                    #plot config
+                    plot_rown='dkey',
+                    plot_coln='studyArea',
+                    plot_bgrp='modelID',
+                    plot_colr=None,
+                    sharey='row',
+                    
+                    #errorbars
+                    qhi=0.99, qlo=0.01,
+                    
+                    #labelling
+                    add_label=True, 
+                    bar_labels=True,
+                    baseline_loc='first_bar', #what to consider the baseline for labelling deltas
+                    
+ 
+                    
+                    #plot style
+                    colorMap=None,title=None,
+                    #ylabel=None,
+                    
+                    ):
+        """"
+        compressing a range of values
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_total_bars')
+        if plot_colr is None: plot_colr=plot_bgrp
+        
+        if dx_raw is None: dx_raw = self.retrieve('outs')
+ 
+ 
+        """
+        view(dx)
+        dx.loc[idx[0, 'LMFRA', 'LMFRA_0500yr', :], idx['tvals', 0]].sum()
+        dx_raw.columns.unique('dkey')
+        """
+        
+        
+        log.info('on %s'%str(dx_raw.shape))
+        
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        #add requested indexers
+        meta_indexers = set([plot_rown, plot_coln, plot_colr, plot_bgrp]).difference(['dkey']) #all those except dkey
+        
+        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[list(dkey_d.keys()), :]], 
+                                meta_indexers = meta_indexers,
+                                modelID_l=modelID_l)
+        
+        mdex = dx.index
+        """no... want to report stats per dkey group
+        #move dkeys to index for consistency
+        dx.stack(level=0)"""
+        
+        #get label dict
+        lserx =  mdex.to_frame().reset_index(drop=True).loc[:, ['modelID', 'tag']
+                           ].drop_duplicates().set_index('modelID').iloc[:,0]
+                            
+        mid_tag_d = {k:'%s (%s)'%(v, k) for k,v in lserx.items()}
+        
+        if modelID_l is None:
+            modelID_l = mdex.unique('modelID').tolist()
+        else:
+            miss_l = set(modelID_l).difference( mdex.unique('modelID'))
+            assert len(miss_l)==0, 'requested %i modelIDs not in teh data \n    %s'%(len(miss_l), miss_l)
+            
+        #=======================================================================
+        # configure dimensions
+        #=======================================================================
+        if plot_rown=='dkey':
+            row_keys = list(dkey_d.keys())
+            axis=1
+ 
+        else:
+            dkey = list(dkey_d.keys())[0]
+            axis=0
+            row_keys = mdex.unique(plot_rown).tolist()
+            
+            if title is None:
+                title = '%s %s'%(dkey, dkey_d[dkey])
+        
+        
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+        """
+        view(dx)
+        plt.show()
+        """
+        col_keys = mdex.unique(plot_coln).tolist()
+        
+        
+        
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,  # col keys
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey=sharey, sharex='all',  # everything should b euniform
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+        
+        if not title is None:
+            fig.suptitle(title)
+        
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        if plot_colr == 'dkey_range':
+            ckeys = ['hi', 'low', 'mean']
+        else:
+            ckeys = mdex.unique(plot_colr) 
+        
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        #===================================================================
+        # loop and plot
+        #===================================================================
+
+        
+        for col_key, gdx1 in dx.groupby(level=[plot_coln]):
+            keys_d = {plot_coln:col_key}
+ 
+            
+            for row_key, gdx2 in gdx1.groupby(level=[plot_rown], axis=axis):
+                keys_d[plot_rown] = row_key
+                ax = ax_d[row_key][col_key]
+                
+                if plot_rown=='dkey':
+                    dkey = row_key
+ 
+                #===============================================================
+                # data prep
+                #===============================================================
+ 
+                
+                f = getattr(gdx2.groupby(level=[plot_bgrp]), dkey_d[dkey])
+                
+                try:
+                    gdx3 = f()#.loc[modelID_l, :] #collapse assets, sort
+                except Exception as e:
+                    raise Error('failed on %s w/ \n    %s'%(keys_d, e))
+                
+                gb = gdx3.groupby(level=0, axis=1)   #collapse iters (gb object)
+                
+                #===============================================================
+                #plot bars------
+                #===============================================================
+                #===============================================================
+                # data setup
+                #===============================================================
+ 
+                barHeight_ser = gb.mean() #collapse iters(
+                ylocs = barHeight_ser.T.values[0]
+                
+                #===============================================================
+                # #formatters.
+                #===============================================================
+ 
+                # labels conversion to tag
+                if plot_bgrp=='modelID':
+                    tick_label = [mid_tag_d[mid] for mid in barHeight_ser.index] #label by tag
+                else:
+                    tick_label = ['%s=%s'%(plot_bgrp, i) for i in barHeight_ser.index]
+                #tick_label = ['m%i' % i for i in range(0, len(barHeight_ser))]
+  
+                # widths
+                bar_cnt = len(barHeight_ser)
+                width = 0.9 / float(bar_cnt)
+                
+                #===============================================================
+                # #add bars
+                #===============================================================
+                xlocs = np.linspace(0, 1, num=len(barHeight_ser))# + width * i
+                bars = ax.bar(
+                    xlocs,  # xlocation of bars
+                    ylocs,  # heights
+                    width=width,
+                    align='center',
+                    color=color_d.values(),
+                    #label='%s=%s' % (plot_colr, ckey),
+                    #alpha=0.5,
+                    tick_label=tick_label,
+                    )
+                
+                #===============================================================
+                # add error bars--------
+                #===============================================================
+                if len(gdx2.columns.get_level_values(1))>1:
+                    
+                    #get error values
+                    err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
+                    
+                    #convert to deltas
+                    assert np.array_equal(err_df.index, barHeight_ser.index)
+                    errH_df = err_df.subtract(barHeight_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
+                    
+                    #add the error bars
+                    ax.errorbar(xlocs, ylocs,
+                                errH_df.values,  
+                                capsize=5, color='black',
+                                fmt='none', #no data lines
+                                )
+                    """
+                    plt.show()
+                    """
+                    
+                #===============================================================
+                # add labels--------
+                #===============================================================
+                if add_label:
+ 
+                    meta_d = keys_d
+                    
+                    meta_d['modelID'] = str(gdx2.index.unique('modelID').tolist())
+ 
+                    ax.text(0.9, 0.1, get_dict_str(meta_d), transform=ax.transAxes, va='bottom', ha='right',fontsize=8, color='black')
+                
+                if bar_labels:
+                    log.debug(keys_d)
+ 
+                    if dkey_d[dkey] == 'var':continue
+                    #===========================================================
+                    # #calc errors
+                    #===========================================================
+                    d = {'pred':barHeight_ser.T.values[0]}
+                    
+                    # get trues
+                    if baseline_loc == 'first_bar':
+                        d['true'] = np.full(len(barHeight_ser),d['pred'][0])
+                    elif baseline_loc == 'first_axis':
+                        if col_key == col_keys[0] and row_key == row_keys[0]:
+                            base_ar = d['pred'].copy()
+ 
+                        
+                        d['true'] = base_ar
+                    else:
+                        raise Error('bad key')
+                        
+                    
+                    d['delta'] = (d['pred'] - d['true']).round(3)
+                    
+                    # collect
+                    tl_df = pd.DataFrame.from_dict(d)
+                    
+                    tl_df['relErr'] = (tl_df['delta'] / tl_df['true'])
+                
+                    tl_df['xloc'] = xlocs
+                    #===========================================================
+                    # add as labels
+                    #===========================================================
+                    for event, row in tl_df.iterrows():
+                        ax.text(row['xloc'], row['pred'] * 1.01, #shifted locations
+                                '%+.1f %%' % (row['relErr'] * 100),
+                                ha='center', va='bottom', rotation='vertical',
+                                fontsize=10, color='red')
+                        
+                    log.debug('added error labels \n%s' % tl_df)
+                    
+                    #expand the limits
+                    ylims = ax.get_ylim()
+                    
+                    ax.set_ylim(tuple([1.1*x for x in ylims]))
+                    
+                #===============================================================
+                # #wrap format subplot
+                #===============================================================
+                """
+                fig.show()
+                """
+ 
+                ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+                # first row
+                #===============================================================
+                # if row_key == mdex.unique(plot_rown)[0]:
+                #     pass
+                #===============================================================
+         
+                        
+                # first col
+                if col_key == mdex.unique(plot_coln)[0]:
+                    ylabel = '%s (%s)'%(dkey,  dkey_d[dkey])
+                    ax.set_ylabel(ylabel)
+                    
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        
+        return self.output_fig(fig, fname='total_bars_%s' % (self.longname))
+    
+    
+
+
+    
+    def xxxplot_dkey_mat(self, #flexible plotting of model results in a matrix
+                  
+                    #data
+                    dkey='tvals', #column group w/ values to plot
+                    dx_raw=None,
+                    modelID_l = None, #optinal sorting list
+                    
+                    #plot config
+                    plot_type='hist',
+                    plot_rown='aggLevel',
+                    plot_coln='dscale_meth',
+                    plot_colr='dkey_range',
+                    #plot_bgrp='modelID',
+                    
+                    #data control
+                    xlims = None,
+                    qhi=0.99, qlo=0.01,
+                    drop_zeros=True,
+                    
+                    #labelling
+                    add_label=True,
+ 
+                    
+                    #plot style
+                    colorMap=None,
+                    #ylabel=None,
+                    sharey='all', sharex='col',
+                    
+                    #histwargs
+                    bins=20, rwidth=0.9, 
+                    mean_line=True, #plot a vertical line on the mean
+                    fmt='svg',
+                    ):
+        """"
+        generally 1 modelId per panel
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_dkey_mat')
+        
+        
+        idn = self.idn
+ 
+        if dx_raw is None:
+            dx_raw = self.retrieve('outs')
+        
+        
+        log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
+        #=======================================================================
+        # data prep
+        #=======================================================================
+
+        
+        #add requested indexers
+        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
+                                meta_indexers = set([plot_rown, plot_coln]),
+                                modelID_l=modelID_l)
+        
+        log.info('on %s'%str(dx_raw.shape))
+        mdex = dx.index
+        
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+ 
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey=sharey, sharex=sharex,  # everything should b euniform
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+        fig.suptitle('\'%s\' values'%dkey)
+        
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        if plot_colr == 'dkey_range':
+            ckeys = ['hi', 'low', 'mean']
+        else:
+            ckeys = mdex.unique(plot_colr) 
+        
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys))
+            ax = ax_d[gkeys[1]][gkeys[0]]
+            log.info('on %s'%keys_d)
+            
+            #xlims = (gdx0.min().min(), gdx0.max().max())
+            #===================================================================
+            # prep data
+            #===================================================================
+                    
+            # #drop empty iters
+            bxcol = gdx0.isna().all(axis=0)
+            
+            if bxcol.any():
+     
+                log.warning('got %i/%i empty iters....dropping'%(bxcol.sum(), len(bxcol)))
+                gdx0 = gdx0.loc[:,~bxcol]
+            else:
+                gdx0 = gdx0
+            
+            data_d, bx = self.prep_ranges(qhi, qlo, drop_zeros, gdx0)
+            
+            """
+            view(gdx0)
+            gdx0.index.droplevel('gid').to_frame().drop_duplicates().reset_index(drop=True)
+            """
+                
+            #===================================================================
+            # #get color
+            #===================================================================
+            if plot_colr == 'dkey_range':
+                color = [color_d[k] for k in data_d.keys()]
+            else:
+                #all the same color
+                color = [color_d[keys_d[plot_colr]] for k in data_d.keys()]
+ 
+            #===================================================================
+            # histogram of means
+            #===================================================================
+            if plot_type == 'hist':
+ 
+                ar, _, patches = ax.hist(
+                    data_d.values(),
+                        range=xlims,
+                        bins=bins,
+                        density=False,  color = color, rwidth=rwidth,
+                        label=list(data_d.keys()))
+                
+                bin_max = ar.max()
+                #vertical mean line
+                if mean_line:
+                    ax.axvline(gdx0.mean().mean(), color='black', linestyle='dashed')
+            #===================================================================
+            # box plots
+            #===================================================================
+            elif plot_type=='box':
+                #===============================================================
+                # zero line
+                #===============================================================
+                #ax.axhline(0, color='black')
+ 
+                #===============================================================
+                # #add bars
+                #===============================================================
+                boxres_d = ax.boxplot(data_d.values(), labels=data_d.keys(), meanline=True,
+                           # boxprops={'color':newColor_d[rowVal]}, 
+                           # whiskerprops={'color':newColor_d[rowVal]},
+                           # flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
+                            )
+ 
+                #===============================================================
+                # add extra text
+                #===============================================================
+                
+                # counts on median bar
+                for gval, line in dict(zip(data_d.keys(), boxres_d['medians'])).items():
+                    x_ar, y_ar = line.get_data()
+                    ax.text(x_ar.mean(), y_ar.mean(), 'n%i' % len(data_d[gval]),
+                            # transform=ax.transAxes, 
+                            va='bottom', ha='center', fontsize=8)
+                    
+            #===================================================================
+            # violin plot-----
+            #===================================================================
+            elif plot_type=='violin':
+
+                #===============================================================
+                # plot
+                #===============================================================
+                parts_d = ax.violinplot(data_d.values(),  
+                                       showmeans=True,
+                                       showextrema=True,  
+                                       )
+ 
+                #===============================================================
+                # color
+                #===============================================================
+                #===============================================================
+                # if len(data_d)>1:
+                #     """nasty workaround for labelling"""                    
+                #===============================================================
+                labels = list(data_d.keys())
+                #ckey_d = {i:color_key for i,color_key in enumerate(labels)}
+ 
+ 
+                
+                #style fills
+                for i, pc in enumerate(parts_d['bodies']):
+                    pc.set_facecolor(color)
+                    pc.set_edgecolor(color)
+                    pc.set_alpha(0.5)
+                    
+                #style lines
+                for partName in ['cmeans', 'cbars', 'cmins', 'cmaxes']:
+                    parts_d[partName].set(color='black', alpha=0.5)
+            else:
+                raise Error(plot_type)
+            
+            if not xlims is None:
+                ax.set_xlim(xlims)
+            #===================================================================
+            # labels
+            #===================================================================
+            if add_label:
+                # get float labels
+                meta_d = {'modelIDs':str(gdx0.index.unique(idn).tolist()),
+                           'cnt':len(gdx0), 'zero_cnt':bx.sum(), 'drop_zeros':drop_zeros,
+                           'iters':len(gdx0.columns),
+                           'min':gdx0.min().min(), 'max':gdx0.max().max(), 'mean':gdx0.mean().mean()}
+                
+                if plot_type == 'hist':
+                    meta_d['bin_max'] = bin_max
+ 
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+            
+            #===================================================================
+            # wrap format
+            #===================================================================
+            ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
+            
+        #===============================================================
+        # #wrap format subplot
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+ 
+                
+                # first row
+                if row_key == row_keys[0]:
+                    #first col
+                    if col_key == col_keys[0]:
+                        if plot_type=='hist':
+                            ax.legend()
+                
+                        
+                # first col
+                if col_key == col_keys[0]:
+                    if plot_type == 'hist':
+                        ax.set_ylabel('count')
+                    elif plot_type in ['box', 'violin']:
+                        ax.set_ylabel(dkey)
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    if plot_type == 'hist':
+                        ax.set_xlabel(dkey)
+                    elif plot_type=='violin':
+                        
+                        ax.set_xticks(np.arange(1, len(labels) + 1))
+                        ax.set_xticklabels(labels)
+                    #last col
+                    if col_key == col_keys[-1]:
+                        pass
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finsihed')
+        """
+        plt.show()
+        """
+        
+        return self.output_fig(fig, fname='%s_%s_%sx%s_%s' % (dkey, plot_type, plot_rown, plot_coln, self.longname), fmt=fmt)
+    
+
+
+
     def xxxplot_depths(self,
                     # data control
                     plot_fign='studyArea',
