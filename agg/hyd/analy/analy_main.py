@@ -197,32 +197,42 @@ def run( #run a basic model configuration
             #===================================================================
             #scatter matrix (aggLevel=0)
              
-            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
-                             plot_rown='studyArea', plot_coln='resolution', sharex='row',sharey='row',
-                                 title='%s \'%s\' errors'%(plotName, dkey),
-                                 plot_type='hist2d',
-                                 bins=50, 
-                                 vmin=0.0, vmax=0.5, xlims=(0,6),
-                                 slice_d={'aggLevel':0}, meta_txt=True,
-                                 meta_func = lambda **kwargs:meta_slim(**kwargs))
- #             
- #            #scatter matrix (resolution=0) 
- #  
- #            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
- #                             plot_rown='studyArea', plot_coln='aggLevel', sharex='row',sharey='row',
- #                                 title='%s \'%s\' errors'%(plotName, dkey),
- #                                 plot_type='scatter', slice_d={'resolution':10},
- #                                 meta_func = lambda **kwargs:meta_all(**kwargs))
- # 
- #            #scatter matrix (studyArea x resolution) 
- #            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
- #                             plot_rown='resolution', plot_coln='aggLevel', plot_bgrp='studyArea',
- #                              sharex='row',sharey='row',
- #                                 title='%s \'%s\' errors'%(plotName, dkey),
- #                                 plot_type='scatter',  
- #                                 #meta_func = lambda **kwargs:meta_all(**kwargs),
- #                                 )
- #==============================================================================
+            #===================================================================
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+            #                  plot_rown='studyArea', plot_coln='resolution', sharex='all',sharey='all',
+            #                      title='%s \'%s\' errors'%(plotName, dkey),
+            #                      plot_type='hist2d',
+            #                      bins=50, 
+            #                      vmin=0.0, vmax=0.5, xlims=(0,6),
+            #                      slice_d={'aggLevel':0}, meta_txt=True,
+            #                      meta_func = lambda **kwargs:meta_slim(**kwargs))
+            #===================================================================
+              
+            #scatter matrix (resolution=0) 
+
+            #===================================================================
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+            #                  plot_rown='studyArea', plot_coln='aggLevel', sharex='all',sharey='all',
+            #                      title='%s \'%s\' errors'%(plotName, dkey),
+            #                      plot_type='hist2d',
+            #                      bins=50, 
+            #                      vmin=0.0, vmax=5.0, xlims=(0,4),
+            #                      slice_d={'resolution':10}, meta_txt=True,
+            #                      meta_func = lambda **kwargs:meta_slim(**kwargs))
+            #===================================================================
+  
+            #hist2d matrix (studyArea x resolution) 
+ 
+            #===================================================================
+            # ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+            #                 plot_rown='resolution', plot_coln='aggLevel', sharex='all',sharey='all',
+            #                      title='%s \'%s\' errors'%(plotName, dkey),
+            #                      plot_type='hist2d',
+            #                      bins=50, 
+            #                      vmin=0.0, vmax=0.5, xlims=(0,6),
+            #                      meta_txt=True,
+            #                      meta_func = lambda **kwargs:meta_slim(**kwargs))
+            #===================================================================
              
   
             #===================================================================
@@ -311,7 +321,7 @@ def run( #run a basic model configuration
         
         
         #=======================================================================
-        # loss calc: UNIT loss---------
+        # loss calc: Relative loss---------
         #=======================================================================
         dkey='rloss'
         
@@ -367,7 +377,7 @@ def run( #run a basic model configuration
             #===================================================================
             #studyArea x resolution (aggLevel) total errors (bar matrix)
             #===================================================================
-            # err_type='bias'
+            # err_type='meanError'
             # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
             #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
             #                      fmt='svg',sharex='all',sharey='all', plot_type='bars',
@@ -387,16 +397,16 @@ def run( #run a basic model configuration
             #                       )
             # 
             # #scatter
-            # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
-            #                      plot_rown='aggLevel', plot_coln='resolution',  plot_bgrp='studyArea', 
-            #                      sharex='all',sharey='all', plot_type='scatter',
-            #                      title='%s \'%s\' meanError'%(plotName, dkey), 
-            #                      #err_type='meanError', 
-            #                      meta_func=lambda **kwargs:meta_all(**kwargs),
-            #                      )
-            #===================================================================
-            
  
+            
+            ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
+                             plot_rown='aggLevel', plot_coln='resolution', sharex='all',sharey='all',
+                                 title='%s \'%s\' errors'%(plotName, dkey),
+                                 plot_type='hist2d',
+                                 bins=50, 
+                                 vmin=0.0, vmax=0.01, xlims=(0,70),
+                                 meta_txt=True,
+                                 meta_func = lambda **kwargs:meta_slim(**kwargs))
             
             #=======================================================================
             # comparing with rsamps
@@ -538,6 +548,10 @@ def run( #run a basic model configuration
         #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
         #                         #val_lab='sampled depths (m)',
         #                         )
+        #=======================================================================
+        
+        #=======================================================================
+        # multi varirable-------
         #=======================================================================
             
 

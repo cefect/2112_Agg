@@ -3398,7 +3398,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         """best to loop on the axis container in case a plot was missed"""
         for row_key, d in ax_d.items():
             for col_key, ax in d.items():
-                if plot_type=='scatter':
+                if plot_type in ['scatter', 'hist2d']:
                     ax.legend(loc=1)
                 # first row
                 if row_key == row_keys[0]:
@@ -5247,7 +5247,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         elif plot_type=='hist2d':
             z, x_e, y_e, img = ax.hist2d(xar[bx], yar[bx], bins=bins, density=True,
-                             cmap=colorMap, vmin=vmin, vmax=vmax, cmin=0.001, alpha=0.8)
+                             cmap=colorMap, vmin=vmin, vmax=vmax, cmin=1e-6, alpha=0.8)
  
  
         #=======================================================================
