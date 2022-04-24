@@ -79,7 +79,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'tval_type':'Set1',
         'resolution':'copper',
         'vid':'Set1',
-        'dkey':'winter',
+        'dkey':'tab20',
         'density':'viridis'
         }
     
@@ -1215,6 +1215,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     bins=20, rwidth=0.9, 
                     mean_line=True, #plot a vertical line on the mean
                     density=False,
+                    baseID=None, #for gaussian_kde... duplicate the baseline
  
  
                     #meta labelling
@@ -1223,7 +1224,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     write_meta=False, #write all the meta info to a csv            
                     
                     #plot style                    
-                    colorMap=None, title=None, val_lab=None,
+                    colorMap=None, title=None, val_lab=None, grid=False,
                     sharey='none',sharex='none',
                     
                     #output
@@ -1259,7 +1260,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if plot_bgrp is None:
             plot_bgrp = plot_colr
             
-
+        #=======================================================================
+        # key checks
+        #=======================================================================
+        if not baseID is None: assert plot_type=='gaussian_kde'
         assert not plot_rown==plot_coln
             
         #plot style
@@ -1296,6 +1300,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                 modelID_l=modelID_l)
  
         log.info('on %s'%str(dx.shape))
+        
+        
  
         #=======================================================================
         # subsetting
@@ -1323,6 +1329,28 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             if bx.any():
                 log.warning('dropping %i/%i zeros'%(bx.sum(), len(bx)))
                 ser_dx = ser_dx.loc[~bx]
+                
+        #=======================================================================
+        # set base
+        #=======================================================================
+        if not baseID is None:
+            """
+            todo: set up for a plot w/ multiple baseline
+                (e.g., keyed by lookup values rather than modelID)
+                be careful of studyArea
+            """
+            bx = ser_dx.index.get_level_values('modelID')==baseID
+            base_sx = ser_dx.loc[bx].copy()
+            
+            if 'studyArea' in [plot_coln, plot_rown]:
+                base_gb = base_sx.groupby(level='studyArea')
+            else:
+                b_ar = base_sx.values
+            
+            base_mods_d = dict()
+        else:
+            base_sx= None
+        
         
         meta_d1 = {'iters':len(dx.columns), 'drop_zeros':drop_zeros}
         meta_d1.update(slice_d)
@@ -1363,6 +1391,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # loop and plot
         #=======================================================================
+        first=True
         meta_dx=None
         for gkeys, gdx0 in ser_dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
             
@@ -1386,7 +1415,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             else:
                 data_d = {dkey:gdx0.values}
                 
-
+                
+            """
+            fig.show()
+            """
              
             #===================================================================
             # add plots--------
@@ -1398,10 +1430,36 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             md1 = self.ax_data(ax, data_d,
                                plot_type=plot_type, 
                                bins=bins, rwidth=rwidth, mean_line=mval, hrange=xlims, density=density,
-                               color_d=color_d, logger=log, **kwargs) 
+                               color_d=color_d, logger=log,label_key=plot_bgrp, **kwargs) 
  
             meta_d.update(md1)
             labels = ['%s=%s'%(plot_bgrp, k) for k in data_d.keys()]
+            
+            #===================================================================
+            # base plot
+            #===================================================================
+            if not base_sx is None:
+                if 'studyArea' in keys_d: studyArea = keys_d['studyArea']
+                else: studyArea = 'all'
+                #set the base
+                if not studyArea in base_mods_d:
+                    if 'studyArea' in keys_d:
+                        b_ar = base_gb.get_group(keys_d['studyArea']).values
+                    assert len(b_ar)>0
+                    kde = scipy.stats.gaussian_kde(b_ar,bw_method='scott',weights=None)
+                    
+                    xvals = np.linspace(b_ar.min()+.01, b_ar.max(), 1000)
+                    yvals = kde(xvals)
+                    
+                    base_mods_d[studyArea] = (xvals, yvals)
+                
+                
+                #plot it
+                xvals, yvals = base_mods_d[studyArea]
+                ax.plot(xvals, yvals, color='black', label='baseline', linestyle='dashed')
+                    
+                
+            
             #===================================================================
             # post format 
             #===================================================================
@@ -1427,12 +1485,15 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             else:
                 meta_dx = meta_dx.append(meta_serx)
                 
+            first=False
+                
         #===============================================================
         # post format subplot ----------
         #===============================================================
         """best to loop on the axis container in case a plot was missed"""
         for row_key, d in ax_d.items():
             for col_key, ax in d.items():
+                if grid: ax.grid()
                 
                 if not xlims is None:
                     ax.set_xlim(xlims)
@@ -1453,7 +1514,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 if col_key == col_keys[0]:
                     if plot_type in ['hist', 'gaussian_kde']:
                         if density:
-                            ax.set_ylabel('frequency')
+                            ax.set_ylabel('density')
                         else:
                             ax.set_ylabel('count')
                     elif plot_type in ['box', 'violin']:
@@ -2193,26 +2254,37 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     tick_label=tick_label,
                     )
                 
-                ax.axhline(0, color='black') #draw in the axis
+                #===============================================================
+                # axis line
+                #===============================================================
+                if err_type=='bias':
+                    split_val = 1.0
+                else:
+                    split_val = 0.0
+                
+ 
+                ax.axhline(split_val, color='black', linestyle='dashed') #draw in the axis
                 
                 #===============================================================
                 # add error bars 
                 #===============================================================
-                if len(gdx1.columns.get_level_values(1))>1:
-                    raise Error('chekc this')
-                    #get error values
-                    err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
-                    
-                    #convert to deltas
-                    assert np.array_equal(err_df.index, barHeight_ser.index)
-                    errH_df = err_df.subtract(barHeight_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
-                    
-                    #add the error bars
-                    ax.errorbar(xlocs, ylocs,
-                                errH_df.values,  
-                                capsize=5, color='black',
-                                fmt='none', #no data lines
-                                )
+                #===============================================================
+                # if len(gdx1.columns.get_level_values(1))>1:
+                #     raise Error('chekc this')
+                #     #get error values
+                #     err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
+                #     
+                #     #convert to deltas
+                #     assert np.array_equal(err_df.index, barHeight_ser.index)
+                #     errH_df = err_df.subtract(barHeight_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
+                #     
+                #     #add the error bars
+                #     ax.errorbar(xlocs, ylocs,
+                #                 errH_df.values,  
+                #                 capsize=5, color='black',
+                #                 fmt='none', #no data lines
+                #                 )
+                #===============================================================
                 
                 #===============================================================
                 # add bar labels
@@ -2224,9 +2296,17 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     txt = '%+.2f' %(row['yloc'])
 
                     #txt = '%+.1f %%' % (row['yloc'] * 100)
+                    
+                    #get the color
+
+                        
+                    if row['yloc']>=split_val: color='black'
+                    else: color='red'
                         
                     ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
-                                txt,ha='center', va='bottom', rotation='vertical',fontsize=10, color='red')
+                                txt,
+                                bbox=dict(boxstyle="round,pad=0.05", fc="white", lw=0.0,alpha=0.9 ), #light background fill,
+                                ha='center', va='bottom', rotation='vertical',fontsize=10, color=color)
                     
             #===================================================================
             # violin plot-----
@@ -2942,7 +3022,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                         ax.set_xticklabels(labels)
                 #last col
                 if col_key == col_keys[-1]:
-                    ax.legend()
+                    if write: ax.legend()
                 
                 
         #=======================================================================
@@ -2973,9 +3053,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                   
                     #data control
                     dkey_d = {#{dkey:groupby operation method to use for aggregating the true values}
-                        'rsamps':{'trueAgg':'mean', 'err_type':'bias'},
-                        'tvals':{'trueAgg':'sum', 'err_type':'bias'},
-                        'tloss':{'trueAgg':'sum', 'err_type':'bias'},
+                        'rsamps':{'trueAgg':'mean', 'err_type':'meanError'},
+                        'rloss':{'trueAgg':'mean', 'err_type':'meanError'},
+                        'tloss':{'trueAgg':'sum', 'err_type':'bias_shift'},
                         }, 
                     baseID=0,
                     modelID_l = None,
@@ -2993,20 +3073,17 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     #plot_type='bars', always grouped bars
                     plot_rown='studyArea',
                     plot_coln='resolution',
-                    plot_colr=None,
-                    
- 
+                    plot_colr='dkey',
                     plot_bgrp='aggLevel', #clustering bars
  
  
                     #meta labelling
                     meta_txt=True, #add meta info to plot as text
-      
                     write_meta=False, #write all the meta info to a csv            
                     
                     #plot style      
-                    barLabel_func = lambda **kwargs:'{yloc:+.2f} ({err_type})'.format(**kwargs), #formatter func for bart lables
-                    colorMap=None, title=None,
+                    barLabel_func = lambda **kwargs:'{yloc:+.2f}'.format(**kwargs), #formatter func for bart lables
+                    colorMap=None, title=None, baseWidth=0.7,
                     sharey='all', 
                     
                     #plot output
@@ -3019,7 +3096,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         
         """
-        raise Error('cluster bars by plot_bgrp')
+ 
         #=======================================================================
         # defaults----------
         #=======================================================================
@@ -3036,33 +3113,25 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if true_dx_raw is None:
             true_d = self.retrieve('trues')
             true_dx_raw = true_d[baseID]
-            
-        #=======================================================================
-        # #plot keys
-        #=======================================================================
-        if plot_colr is None:
-            plot_colr='dkey'
-        
- 
+
             
         
         #=======================================================================
         # #logic checks
         #=======================================================================
-        #assert isinstance(plot_bgrp, str) 
-            
+        assert plot_colr=='dkey', 'only dkey supported for now'
         assert not plot_rown==plot_coln
+        assert not plot_rown==plot_bgrp
  
             
         #=======================================================================
-        # #plot style
+        # defaults. plot style
         #=======================================================================
         sharex='all' #alwasy for bars
                 
- 
-                
+       
         if title is None:
-            title = '%s performance'%(' '.join(dkey_d.keys()))
+            title = '%i metric performance'%(len(dkey_d))
                 
             for name, val in slice_d.items(): 
                 title = title + ' %s=%s'%(name, val) 
@@ -3070,12 +3139,6 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if colorMap is None:
             colorMap = self.colorMap_d[plot_colr]
                 
-                
-        
-        #=======================================================================
-        # #outputs 
-        #=======================================================================
- 
  
         log.info('on \'%s\' (%s x %s)'%(dkey_d.keys(), plot_rown, plot_coln))
         #=======================================================================
@@ -3083,7 +3146,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         assert_func(lambda: self.check_mindex_match(true_dx_raw.index, dx_raw.index), msg='raw vs trues')
         
-        meta_indexers = set([plot_rown, plot_coln,])
+        meta_indexers = set([plot_rown, plot_coln,plot_bgrp])
  
         
         for k in slice_d.keys(): meta_indexers.add(k) #add any required slicers
@@ -3092,7 +3155,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey_d.keys(), :]], 
                                 meta_indexers = meta_indexers, modelID_l=modelID_l)
         
-        log.info('on %s'%str(dx.shape))
+        
         
         
         #and on the trues
@@ -3114,6 +3177,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             log.info('w/ %s=%s slicing to %i/%i'%(
                 name, val, bx.sum(), len(bx)))
             
+        
         #=======================================================================
         # collpase iters
         #=======================================================================
@@ -3122,6 +3186,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         true_dx1 = true_dx.groupby(level=0, axis=1).first()
         
         mdex = dx1.index
+        
+        log.info('on %s'%str(dx1.shape))
         #=======================================================================
         # setup the figure
         #=======================================================================
@@ -3145,7 +3211,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         color_d = self.get_color_d(ckeys, colorMap=colorMap)
         
         #=======================================================================
-        # loop and plot
+        # plot loop-----------
         #=======================================================================
         meta_dx=None
         true_gb = true_dx1.groupby(level=[plot_coln, plot_rown])
@@ -3158,84 +3224,117 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             ax = ax_d[gkeys[1]][gkeys[0]]
             log.info('on %s'%keys_d)
             tgdx_raw = true_gb.get_group(gkeys)
-            meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),'drop_zeros':False}
+            meta_d = { 'model ID':str(list(gdx0.index.unique(idn))),'drop_zeros':False, 'cnt':len(gdx0)}
             #===================================================================
             # collect error metrics-------
             #===================================================================
-            d = dict()
+            elib=dict()
             for dkey, pars_d in dkey_d.items():
+                gserx0 = gdx0[dkey]
  
-                gserx = gdx0[dkey]
-                tgserx = tgdx_raw[dkey]
-                #keys_d['dkey'] = dkey
-     
                 #===================================================================
                 # aggregate the trues
                 #===================================================================
                 """because trues are mapped from the base model.. here we compress down to the model index
                 using a different aggregation method for each gkey"""
-                tgserx = getattr(tgdx_raw[dkey].groupby(level=[gserx.index.names]), pars_d['trueAgg'])()
-                tgserx = tgserx.reorder_levels(gserx.index.names).sort_index()
+                tgserx0 = getattr(tgdx_raw[dkey].groupby(level=[gserx0.index.names]), pars_d['trueAgg'])()
+                tgserx0 = tgserx0.reorder_levels(tgserx0.index.names).sort_index()
                 
                 #check
-                assert np.array_equal(gserx.index, tgserx.index)
- 
+                assert np.array_equal(gserx0.index, tgserx0.index)
  
                 #===============================================================
-                # calc metric
+                # loop on groups
                 #===============================================================
-                d[dkey] = ErrorCalcs(logger=log,pred_ser=gserx,true_ser=tgserx).retrieve(pars_d['err_type'])
+                true_gb1 = tgserx0.groupby(level=plot_bgrp)
+                d = dict()
+                for gkey1, gserx1 in gserx0.groupby(level=plot_bgrp):
+                    tgserx1 = true_gb1.get_group(gkey1)
+                    #===============================================================
+                    # calc metric
+                    #===============================================================
+                    d[gkey1] = ErrorCalcs(logger=log,pred_ser=gserx1,true_ser=tgserx1).retrieve(pars_d['err_type'])
+                    
+                elib[dkey] = pd.Series(d, name=dkey)
                 
-            
+            #multindex series with all of the calculated error values
+            bh_serx = pd.concat(elib, names=['dkey', plot_bgrp]).swaplevel().sort_index().rename('errs')
+ 
+            bh_gb = bh_serx.groupby(level='dkey')
+            #===================================================================
+            # plot each dkey------
+            #===================================================================
+            """
+            fig.show()
+            ax.clear()
+            """
+            bar_cnt_group = len(bh_serx.index.unique(plot_bgrp)) #groups
+            """lookping on dkey_d to preserve order"""
+            for i, (dkey, pars_d) in enumerate(dkey_d.items()):
+ 
+                gserx2 = bh_gb.get_group(dkey)
                 
-            barHeight_ser = pd.Series(d, name=gkeys)
-            
+                #===============================================================
+                # # calc bar props
+                #===============================================================
+                bar_cnt_dkey = len(gserx2)
+                width = baseWidth / float(bar_cnt_dkey + bar_cnt_group)    
+                
+                xlocs = np.linspace(0, 1, num=bar_cnt_dkey)  + width*i #spread out from 0 to 1... shifted by iter       
+
+                #===============================================================
+                # # #add bars                
+                #===============================================================
+                bars = ax.bar(
+                    xlocs,  # xlocation of bars
+                    gserx2.values,  # heights
+                    width=width,
+                    align='center',
+                    color=color_d[dkey],
+                    label='%s (%s, %s)'%(dkey, dkey_d[dkey]['trueAgg'], dkey_d[dkey]['err_type'])
+                    #alpha=0.5,
+                    #tick_label=tick_label,
+                    )
+ 
+                #===============================================================
+                # add bar labels
+                #===============================================================
+                d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':gserx2.values, 'xloc':xlocs}.items()}
+                
+                for event, row in pd.concat(d1, axis=1).iterrows(): 
+                    """looks like 3.5.0 has some native support"""
+                    txt = barLabel_func(event=event, yloc=row['yloc'], **pars_d)
+                    
+                    #color
+                    if row['yloc']>=0: color='black'
+                    else: color='red'
+                    
+                    ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
+                                txt,
+                                bbox=dict(boxstyle="round,pad=0.05", fc="white", lw=0.0,alpha=0.9 ), #light background fill
+                                ha='center', va='bottom', rotation='vertical',fontsize=8, 
+                                #color=color_d[dkey],
+                                color=color, #color by value
+                                )
+                    
  
             #===============================================================
             # #formatters.
             #===============================================================
-            tick_label = ['%s=%s'%('dkey', i) for i in barHeight_ser.index]
+            """not sure how this will work when bar_cnt_dkey !=3"""
+            tic_xlocs =np.linspace(0, 1, num=bar_cnt_group) + (bar_cnt_dkey/3)*width
+ 
+            tick_labels = ['%s=%s'%(plot_bgrp, k) for k in bh_serx.index.unique(plot_bgrp)]
+ 
 
+            ax.set_xticks(tic_xlocs, minor=False)
             
-            # widths
-            bar_cnt = len(barHeight_ser)
-            width = 0.9 / float(bar_cnt)
-            
-            #===============================================================
-            # #add bars
-            #===============================================================
-            xlocs = np.linspace(0, 1, num=len(barHeight_ser)) #spread out from 0 to 1
-            bars = ax.bar(
-                xlocs,  # xlocation of bars
-                barHeight_ser.values,  # heights
-                width=width,
-                align='center',
-                color=color_d.values(),
-                #label='%s=%s' % (plot_colr, ckey),
-                #alpha=0.5,
-                tick_label=tick_label,
-                )
-            
-            ax.axhline(0, color='black') #draw in the axis
-            
-            
-            
-            #===============================================================
-            # add bar labels
-            #===============================================================
-            d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':barHeight_ser.values, 'xloc':xlocs}.items()}
-            
-            for event, row in pd.concat(d1, axis=1).iterrows(): 
-                txt = barLabel_func(event=event, yloc=row['yloc'], **pars_d)
-                ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
-                            txt,
-                            ha='center', va='bottom', rotation='vertical',fontsize=10, color='red')
-                    
- 
- 
+            """behavior depends on sharex"""
+            ax.set_xticklabels(tick_labels)
             #===================================================================
             # post-format----
             #===================================================================
+            ax.axhline(0, color='black', linewidth=0.5) #draw in the axis
             ax.set_title(' & '.join(['%s:%s' % (k, v) for k, v in keys_d.items()]))
             #===================================================================
             # meta text
@@ -3248,7 +3347,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                             
             if meta_txt: 
                 ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black',
-                        bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.5 ), #light background fill
+                        #bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.7 ), #light background fill
                         )
                 """
                 fig.show()
@@ -3272,15 +3371,15 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
                 # first row
                 if row_key == row_keys[0]:
-                    pass
-                #last col
-                if col_key == col_keys[-1]:
-                    pass
+ 
+                    #last col
+                    if col_key == col_keys[-1]:
+                        ax.legend()
   
                 # first col
                 if col_key == col_keys[0]:
  
-                    ax.set_ylabel('errors')
+                    ax.set_ylabel('error')
  
                 
                 #last row
@@ -3330,6 +3429,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #styling
             zero_line=False,
             color_d = None,
+            label_key=None,
             
             logger=None, **kwargs):
                 
@@ -3345,7 +3445,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         meta_d=dict()
         
         if plot_type=='gaussian_kde':
-            density=True
+            assert density
         
         #check keys
         miss_l = set(color_d.keys()).symmetric_difference(data_d.keys())
@@ -3373,7 +3473,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #ar.size
             
             meta_d.update({'bin_max':bval_ar.max(), 
-                           'bin_cnt':bval_ar.shape[1] #ar.shape[0] =  number of groups
+                           #'bin_cnt':bval_ar.shape[1] #ar.shape[0] =  number of groups
                            
                            })
  
@@ -3439,6 +3539,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         elif plot_type=='gaussian_kde':
             for dname, data in data_d.items():
+                if label_key is None: label=None
+                else:
+                    label = '%s=%s'%(label_key, dname)
                 log.info('    gaussian_kde on %i'%len(data))
                 #filter
                 #===============================================================
@@ -3451,13 +3554,15 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 ar = data  
                 
- 
+                #build teh function
                 kde = scipy.stats.gaussian_kde(ar, 
                                                    bw_method='scott',
                                                    weights=None, #equally weighted
                                                    )
-                xvals = np.linspace(ar.min()+.01, ar.max(), 100)
-                ax.plot(xvals, kde(xvals), color=color_d[dname], label=dname, **kwargs)
+                
+                #plot it
+                xvals = np.linspace(ar.min()+.01, ar.max(), 500)
+                ax.plot(xvals, kde(xvals), color=color_d[dname], label=label, **kwargs)
                 
                 #vertical mean line
                 if not mean_line is None:
@@ -3539,12 +3644,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         """only cropping xvals... may still get some yvals exceeding this"""
         bx =np.logical_and(xar>xlims[0], xar<=xlims[1])
 
-            
-        
-        
-
-            
-        
+ 
         stat_d = dict()    
         z=None
         #=======================================================================
