@@ -186,16 +186,18 @@ def run( #run a basic model configuration
         #main matrix plots (of depth)
         for plotName, mids, baseID in [
             #('wse',         list(range(9)),     0), #base
-            #('depth',       [0, 21,22,3,34,35,6,36,37,], 0),
+            #('depth convexHull',       [0, 21,22,3,34,35,6,36,37,], 0),
+                             #
+                             
             #('centroid',    list(range(50,59)), 50), #sgType='centroids'
-            ('convexHull',  list(range(3))+list(range(60,66)), 0),
+            ('wse convexHull',  list(range(3))+list(range(60,66)), 0),
             ]: 
             print('\n%s + %s\n'%(dkey, plotName))
             pass
             #===================================================================
             # errors
             #===================================================================
-            #scatter matrix (aggLevel=0)
+            #hist2d (aggLevel=0)
              
             #===================================================================
             # ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
@@ -208,7 +210,7 @@ def run( #run a basic model configuration
             #                      meta_func = lambda **kwargs:meta_slim(**kwargs))
             #===================================================================
               
-            #scatter matrix (resolution=0) 
+            #hist2d (resolution=0) 
 
             #===================================================================
             # ses.plot_err_mat(dkey=dkey, modelID_l=mids, baseID=baseID,
@@ -237,14 +239,17 @@ def run( #run a basic model configuration
   
             #===================================================================
             # #(bar matrix) studyArea x resolution (aggLevel) total errors 
-            # err_type='bias'
+            #===================================================================
+            #===================================================================
+            # err_type='meanError'
             # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
             #                      plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', 
             #                      fmt='svg',sharex='all',sharey='all', plot_type='bars',
             #                      title='%s \'%s\' %s'%(plotName, dkey, err_type), err_type=err_type, 
             #                      #meta_func=lambda **kwargs:meta_slim(**kwargs),
             #                      )
-            #   
+            # #   
+            #===================================================================
             # #(violin matrix) studyArea x resolution (aggLevel) total errors 
             # err_type='errors'
             # ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
@@ -259,38 +264,61 @@ def run( #run a basic model configuration
             #===================================================================
             # rsamp values (no error)
             #===================================================================
-            #sampled only
+            #sampled only (gaussian)
+ #==============================================================================
+ #            ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
+ #                                 plot_rown='studyArea', plot_coln='resolution',  plot_colr='aggLevel', plot_bgrp='aggLevel',
+ #                                   plot_type='gaussian_kde', density=True,drop_zeros=False,
+ #                                 mean_line=False, sharey='none', sharex='all',
+ #                                 title='%s \'%s\''%(plotName, dkey),
+ #                                 xlims = (0, 2), 
+ #                                 #ylims=(0.1, 0.9),  
+ #                                 #slice_d={'studyArea':'Calgary'},
+ #                                 baseID=baseID,
+ # 
+ #                                  #meta_func=lambda **kwargs:meta_basic(**kwargs),
+ #                                    val_lab='sampled depths (m)')
+ #==============================================================================
+            
             #===================================================================
             # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
-            #                      plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
-            #                      fmt='svg',sharex='col',sharey='col', plot_type='gaussian_kde',
-            #                      drop_zeros=True,mean_line=False,
-            #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
+            #                      plot_rown='aggLevel', plot_coln='resolution',  
+            #                      plot_colr='studyArea', plot_bgrp='studyArea',
+            #                        plot_type='hist', 
+            #                        xlims=(0,2),
+            #                      drop_zeros=True,mean_line=False, sharey='row', sharex='all',
+            #                      title='%s \'%s\' relative errors'%(plotName, dkey),
+            #                      #xlims = (0, 2),  
+            #                      slice_d={'studyArea':'Calgary'},
             #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
             #                         val_lab='sampled depths (m)')
-            # 
             #===================================================================
+             
             #===================================================================
             # #samples + raster values
             #===================================================================
             #===================================================================
             # plot_type='gaussian_kde'
-            # xlims = (0, 10)
+            # xlims = (0, 2)
             # drop_zeros=True
+            # 
             # ax_d = ses.plot_rast(modelID_l = mids, plot_bgrp='resolution',                                  
             #           plot_type=plot_type, mean_line=False, meta_txt=False, 
             #           drop_zeros=drop_zeros, #depth rasters are mostly zeros
-            #           debug_max_len=1e6, write=False, linestyle='dashed', xlims=xlims)
-            #                
+            #           debug_max_len=1e6, write=False, linestyle='dashed', xlims=xlims, slice_d=slice_d)
+            #                  
             # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
             #                      plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
             #                      fmt='svg',sharex='col',sharey='col', plot_type=plot_type,
-            #                      drop_zeros=drop_zeros,mean_line=False,
+            #                      drop_zeros=drop_zeros,mean_line=False,grid=True,
             #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
             #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
             #                       ax_d=ax_d, val_lab='depths (m)',
-            #                       xlims=xlims, ylims=(0, 0.6))
+            #                       xlims=xlims, ylims=(0, 0.5),
+            #                       slice_d=slice_d)
             #===================================================================
+            
+
 
         
         #=======================================================================
@@ -337,19 +365,17 @@ def run( #run a basic model configuration
         for plotName, mids, baseID in [
             #('798',list(range(9)),      0), #gridded
             ('798',  list(range(3))+list(range(60,66)), 0), #convex hulls
-            #('049',list(range(40,49)),  40),
+            #('049',list(range(40,49)),  40), #worst case FLEMO
             #('lin_g', list(range(80,89)), 80), #gridded
-            #('linear', list(range(90,99)), 90), #convexHull
-            #('rfda',   list(range(70,79)), 70),
+            ('linear', list(range(90,99)), 90), #convexHull
+            ('AB',   list(range(70,79)), 70),
             ]:
  
             print('\n%s + %s\n'%(dkey, plotName))
             #===================================================================
             # values
             #===================================================================
-            
             #===================================================================
-            #  
             # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
             #                      plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
             #                      fmt='svg',sharex='col',sharey='col', 
@@ -361,7 +387,7 @@ def run( #run a basic model configuration
             #                         #val_lab='sampled depths (m)',
             #                         )
             #===================================================================
-            
+
             #aggLevel vs. resolution (points on vfunc)
             #===================================================================
             # ses.plot_vs_mat(modelID_l=mids, fmt='png', plot_rown='aggLevel', plot_coln='resolution',
@@ -430,23 +456,41 @@ def run( #run a basic model configuration
         
         #collect all of these mids
         mid_df = pd.DataFrame.from_dict(agg0_d)        
- 
+        print('%s post'%dkey)
         #=======================================================================
         # distirubtion per vid
         #=======================================================================
+ 
+                    
+        #histogram
         #=======================================================================
-        # ses.plot_dkey_mat2(dkey='rloss', modelID_l= mid_df.stack().values.tolist() #collapse into a list,
-        #                      plot_rown='resolution', plot_coln='vid',  plot_colr='aggLevel', plot_bgrp='aggLevel',
-        #                      fmt='svg',sharex='all',sharey='all', 
-        #                      plot_type='gaussian_kde',
-        #                      drop_zeros=True,mean_line=False,density=True,
-        #                      slice_d = {'studyArea':'LMFRA'}, xlims=(0,80),
+        # ses.plot_dkey_mat2(dkey='rloss', modelID_l= mid_df.stack().values.tolist(), #collapse into a list,
+        #                      plot_rown='aggLevel', plot_coln='resolution',  plot_colr='vid', plot_bgrp='vid',
+        #                      fmt='svg',sharex='all',sharey='row', 
+        #                      plot_type='hist',
+        #                      drop_zeros=True,mean_line=False,density=False,
+        #                      slice_d = {'studyArea':'Calgary'}, xlims=(0,70),
         #                      #title='%s \'%s\' values'%(plotName, dkey), 
         #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
         #                         #val_lab='sampled depths (m)',
         #                         )
         #=======================================================================
  
+        #gaussian
+        #=======================================================================
+        # ses.plot_dkey_mat2(dkey='rloss', modelID_l= mid_df.stack().values.tolist(), #collapse into a list,
+        #                      plot_rown='resolution', plot_coln='vid',  #plot_colr='vid', plot_bgrp='vid',
+        #                      plot_bgrp='aggLevel',
+        #                      fmt='svg',sharex='all',sharey='row', 
+        #                      plot_type='gaussian_kde',
+        #                      drop_zeros=False,mean_line=False,density=True,
+        #                      slice_d = {'studyArea':'Calgary'}, xlims=(0,70),
+        #                      baseID=0,
+        #                      #title='%s \'%s\' values'%(plotName, dkey), 
+        #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
+        #                         #val_lab='sampled depths (m)',
+        #                         )
+        #=======================================================================
         #=======================================================================
         # loss calc: total loss-------
         #=======================================================================
@@ -461,8 +505,9 @@ def run( #run a basic model configuration
             ('798 area', list(range(110,119))),
             #('linear', [90, 91, 92, 93, 94, 95, 96, 97, 98]),
             #('AB uni', [70, 71, 72, 73, 74, 75, 76, 77, 78]),      
-            ('AB area', list(range(100,109))),      
+            #('AB area', list(range(100,109))),      
             ):
+            d[plotName] = mids
             print('\n%s + %s\n'%(dkey, plotName))
  
             
@@ -470,6 +515,11 @@ def run( #run a basic model configuration
             # values
             #===================================================================
             """not super useful as aggregated inventories have higher individual tloss"""
+            
+            #tvals gaussian 
+            """not useful either... need to of course the values increase"""
+ 
+            
  
             #===================================================================
             # errors
@@ -505,7 +555,17 @@ def run( #run a basic model configuration
             #                      meta_func=lambda **kwargs:meta_all(**kwargs),
             #                      )
             #===================================================================
-            d[plotName] = mids
+            
+            #===================================================================
+            # tval correlations
+            #===================================================================
+            ses.plot_vs_mat(dkey_y='rloss', dkey_x='tvals',
+                            modelID_l=mids, 
+                            plot_rown='aggLevel', plot_coln='resolution',
+                            slice_d={'studyArea':'Calgary'},
+                            drop_zeros=True, 
+                            )
+            
         
         #collect all of these mids
         mid_df = pd.DataFrame.from_dict(d)     
@@ -566,7 +626,10 @@ def run( #run a basic model configuration
  
             print('\n%s + %s\n'%(dkey, plotName))
             
-            ses.plot_perf_mat(modelID_l=mids)
+            #===================================================================
+            # ses.plot_perf_mat(modelID_l=mids, 
+            #                   title='\'%s\' error superposition'%plotName)
+            #===================================================================
             
 
         
@@ -663,11 +726,10 @@ def r7():
                   90, 100, 110
                   ], #model
         compiled_fp_d = {
-        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220419\working\outs_analy_r7_0419.pickle',
-        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220419\working\agg_mindex_analy_r7_0419.pickle',
-        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220419\working\trues_analy_r7_0419.pickle',
-        'drlay_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220419\working\drlay_fps_analy_r7_0419.pickle',
-
+        'outs':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220424\working\outs_analy_r7_0424.pickle',
+        'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220424\working\agg_mindex_analy_r7_0424.pickle',
+        'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220424\working\trues_analy_r7_0424.pickle',
+         'drlay_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220424\working\drlay_fps_analy_r7_0424.pickle',
             },
         )
 if __name__ == "__main__": 
