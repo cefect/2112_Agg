@@ -2437,7 +2437,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         return self.output_fig(fig, fname=fname, fmt=fmt)
  
     
-    def plot_vs_mat(self, #plot dkeys against eachother in a matrix
+    def plot_vs_mat(self, #plot dkeys against eachother in a scatter matrix
                   
                     #data
                     dkey_y='rloss',#column group w/ values to plot
@@ -2448,28 +2448,25 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     modelID_l = None, #optinal sorting list
                     
                     #plot config
-                    #plot_type='hist',
+                    plot_type='scatter',
                     plot_rown='studyArea',
                     plot_coln='vid',
                     plot_colr=None,
                     #plot_bgrp='modelID',
                     slice_d = {}, #special slicing
+                    drop_zeros=False,
                     
-                    #data control
-                    #xlims = None,
-                    qhi=0.99, qlo=0.01,
-                    #drop_zeros=True, #must always be false for the matching to work
-                    
-                    #labelling
- 
-                    add_label=True,
+                    #meta labelling
+                    meta_txt=True, #add meta info to plot as text
+                    meta_func = lambda meta_d={}, **kwargs:meta_d, #lambda for calculating additional meta information (add_meta=True)        
+                    write_meta=False, #write all the meta info to a csv  
  
                     
                     #plot style
                     title=None,
                      sharey='all', sharex='all',
                     colorMap=None, 
-                    xlims=None,ylims=None,
+                    xlims=None,ylims=None,fmt='png',
                     **kwargs):
         """"
         generally 1 modelId per panel
@@ -2512,7 +2509,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                                 meta_indexers = meta_indexers.copy(),
                                 modelID_l=modelID_l)
         
-        log.info('on %s'%str(dx.shape))
+        
         
         #=======================================================================
         # subsetting
@@ -2525,6 +2522,21 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
 
             log.info('w/ %s=%s slicing to %i/%i'%(
                 name, val, bx.sum(), len(bx)))
+            
+        #=======================================================================
+        # collpase iters
+        #=======================================================================
+        """just taking the first iteration"""
+        dx1 = dx.groupby(level=0, axis=1).first()
+        
+        #=======================================================================
+        # dropping zeros
+        #=======================================================================
+        if drop_zeros:
+            raise Error('dome')
+ 
+        
+        log.info('on %s'%str(dx.shape))
  
         mdex = dx.index
         #=======================================================================
@@ -2554,10 +2566,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         color_d = self.get_color_d(ckeys, colorMap=colorMap)
         
         #=======================================================================
-        # loop and plot
+        # loop and plot------
         #=======================================================================
  
-        for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+        for gkeys, gdx0 in dx1.groupby(level=[plot_coln, plot_rown]): #loop by axis data
             
             #===================================================================
             # setup
@@ -2566,43 +2578,40 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             ax = ax_d[gkeys[1]][gkeys[0]]
             log.info('on %s'%keys_d)
             
+            meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),
+                            'drop_zeros':False,'count':len(gdx0),
+                            'zero_cnt':(gdx0==0).sum().sum()
+                            }
             #===================================================================
-            # color loop
+            # scatter------
             #===================================================================
-            for color_key, gdx1 in gdx0.groupby(level=plot_colr):
-            
-                #===================================================================
-                # data prep----------
-                #==================================================================
-                #split the data
-                xdx0 = gdx1.loc[:, idx[dkey_x, :]].droplevel(0, axis=1)
-                ydx0 = gdx1.loc[:, idx[dkey_y, :]].droplevel(0, axis=1)
-     
+            if plot_type =='scatter':
+ 
+                #===============================================================
+                # #build colors
+                #===============================================================
+                cgserx0 = pd.Series(index=gdx0.index, name='color', dtype=str)
+                for gkey,gdx1 in gdx0.mean(axis=1).groupby(level=plot_colr):
+                    cgserx0.loc[gdx1.index] = color_d[gkey]
+ 
+                assert_index_equal(cgserx0.index, gdx0.index)
                 
-                #===================================================================
-                # ranges
-                #===================================================================
-                #model results
-                xdata_d, zeros_bx = self.prep_ranges(qhi, qlo, False, xdx0)
+                #===============================================================
+                # #plot
+                #===============================================================
+                log.debug('    scatter on %i'%len(gdx0))
+                stat_d = self.ax_corr_scat2(ax, gdx0[dkey_x].values, gdx0[dkey_y].values, 
+                                           colors_ar=cgserx0.values,
+                                           #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
+                                           scatter_kwargs = {},
+                                           logger=log, add_label=False, **kwargs)
+ 
+                meta_d.update(stat_d)
                 
-                #trues
-                ydata_d, _ = self.prep_ranges(qhi, qlo, False, ydx0)
+            else:
+                raise IOError(plot_type)
                 
-     
-                
-                #===================================================================
-                # scatter plot
-                #===================================================================
-                """only using mean values for now"""
-                xar, yar = xdata_d['mean'], ydata_d['mean'] 
-                
-      
-                ax.plot(xar, yar, linestyle='None', color=color_d[color_key],
-                        label=color_key,
-                         **{'markersize':3.0, 'marker':'.', 'fillstyle':'full'})
-            """
-            fig.show()
-            """
+ 
             #===================================================================
             # post-format----
             #===================================================================
@@ -2616,15 +2625,13 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #===================================================================
             # labels
             #===================================================================
-            if add_label:
-                # get float labels
-                meta_d = {'modelIDs':str(list(gdx0.index.unique(idn))),
-                           'count':len(gdx0), 'zero_cnt':(gdx0==0).sum().sum(), 'drop_zeros':False,
-                           'iters':len(xdx0.columns),
-                           #'min':gdx1.min().min(), 'max':gdx1.max().max(), 'mean':gdx1.mean().mean()},
-                            }
- 
-                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+            
+            meta_d = meta_func(logger=log, meta_d=meta_d,xser=gdx0[dkey_x], yser=gdx0[dkey_y])
+                        
+            if meta_txt: 
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black',
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.5 ), #light background fill
+                        )
                 
         #===============================================================
         # #wrap format subplot
@@ -2664,7 +2671,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         fname = fname.replace('\'', '').replace(' ','')
         
-        return self.output_fig(fig, fname=fname, **kwargs)
+        return self.output_fig(fig, fname=fname,fmt=fmt, **kwargs)
     
     def plot_rast(self, #add raster values to a plot
                 
