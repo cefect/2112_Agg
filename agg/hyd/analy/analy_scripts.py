@@ -65,6 +65,7 @@ def get_ax(
  
 class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     
+    agg_inv_d = {'mean':'join', 'sum':'divide'} #reverse aggregation actions
     
     
     #colormap per data type
@@ -760,6 +761,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         view(dx_raw)
         """
     
+
+
+
     def write_suite_smry(self, #write a summary of the model suite
                          
                          #data
@@ -816,7 +820,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #===================================================================            
             keys_d = dict(zip([dx.index.names[0]], [gkey]))
             tgdx0 = true_gb.get_group(gkey)
- 
+            log.info('on %s'%keys_d)
             #===================================================================
             # by column
             #===================================================================
@@ -827,40 +831,61 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 
                 #trim the data to this column
                 """taking the mean of all iterations for now"""
-                gdx1 = gdx0.loc[:, idx[coln, :]].mean(axis=1)
-                tgdx1 = tgdx0.loc[:, idx[coln, :]].mean(axis=1)
+                gdx1 = gdx0.loc[:, idx[coln, :]].mean(axis=1).rename(coln)
+                tgdx1 = tgdx0.loc[:, idx[coln, :]].mean(axis=1).rename(coln)
                 
-                """todo: refactor and incorpoarte into plot_compare_mat"""
+                """todo: refactor and incorpoarte into plot_compare_mat
+                add meta_indexer columns
+                """
+                #===============================================================
+                # disaggregate
+                #===============================================================
+                
  
                 #===============================================================
-                # #aggregate trues
+                # #aggregate 
                 #===============================================================
-                tgdx2 = getattr(tgdx1.groupby(level=[gdx1.index.names]), aggMethod)()
-                tgdx2 = tgdx2.reorder_levels(gdx1.index.names).sort_index()
+                #collapse trues
+                tgdx2 = self.get_aggregate(tgdx1, mindex=gdx1.index,aggMethod=aggMethod, logger=log.getChild(coln))
                 
-                assert_index_equal(gdx1.index, tgdx2.index)
+ 
                 
                 #===============================================================
                 # standard errors
                 #===============================================================
-                eW = ErrorCalcs(pred_ser=gdx1, true_ser=tgdx2, logger=log)
+                eW = ErrorCalcs(pred_ser=gdx1, true_ser=tgdx2, logger=log.getChild(coln))
                 
-                err_d =  eW.get_all()
+                """
+                eW.data_retrieve_hndls.keys()
+                """
                 
-                cm_df, cm_dx = err_d.pop('confusion') #pull out confusion
+                err_d =  eW.get_all(dkeys_l = ['bias', 'bias_shift', 'meanError', 'meanErrorAbs', 'RMSE', 'pearson'])
+                stats_d = eW.get_stats()
                 
-                rser = pd.Series(err_d) #convert remainers to a series
+                rser = pd.Series({**stats_d, **err_d}) #convert remainers to a series
                 
                 #===============================================================
                 # confusion
                 #===============================================================
                 if coln == 'rsamps':
+                    """I think it makes more sense to report confusion on the expanded trues"""
+                    #disaggregate
+                    gdx1_exp = self.get_aggregate(gdx1, mindex=tgdx1.index,
+                                          aggMethod=self.agg_inv_d[aggMethod], logger=log.getChild(coln))
+                    
+                    #calc matrix
+                    cm_df, cm_dx = ErrorCalcs(pred_ser=gdx1_exp, true_ser=tgdx1, logger=log.getChild(coln)
+                                              ).get_confusion()
+                                              
                     rser = rser.append(cm_dx.droplevel(['pred', 'true']).iloc[:,0])
  
                 #===============================================================
                 # wrap
                 #===============================================================
-                res_d[coln] = rser.astype(float).round(3)
+                try:
+                    res_d[coln] = rser.astype(float).round(3)
+                except Exception as e:
+                    raise ValueError('failed to convert %s w/ \n    %s'%(coln, e))
                 
             #===================================================================
             # combine
@@ -3417,12 +3442,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         return self.output_fig(fig, fname=fname, fmt=fmt)
  
-    
     #===========================================================================
-    # OLD PLOTTER-------
+    # AX.PLOTTERS---------
     #===========================================================================
-    
-
+ 
     def ax_data(self,  #add a plot of some data to an axis using kwargs
             ax, data_d,
             plot_type='hist', 
@@ -3897,8 +3920,133 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         return stat_d
     
     
-    
+    #===========================================================================
+    # HELPERS--------
+    #===========================================================================
+    def get_aggregate(self, #convenicnece for collapsing some data along an index
+                      dx_raw, 
+                      aggMethod='mean',
+                      mindex=None,
+                      logger=None,
+                      ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_agg')
+        
+        log.debug('on %s %s'%(str(dx_raw.shape), type(dx_raw).__name__))
+        
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        assert isinstance(dx_raw.index, pd.MultiIndex)
+        assert isinstance(dx_raw, pd.Series), 'only checked on series'
+        
+        #=======================================================================
+        # prep
+        #=======================================================================
+        #get the index name which will be collapsed
+        l = list(set(dx_raw.index.names).symmetric_difference(mindex.names))
+        assert len(l)==1
+        
+        agg_name = l[0]
+        #=======================================================================
+        # aggregate (collapse)
+        #=======================================================================
+        if len(dx_raw)>=len(mindex):
+            """cleaner to still collapse even when they are equal"""
+            log.info('collapsing %i to %i on \'%s\' w/ \'%s\''%(len(dx_raw), len(mindex), agg_name, aggMethod))
+            #===================================================================
+            # checks
+            #===================================================================
+            #check the names
+            miss_l = set(mindex.names).difference(dx_raw.index.names)
+            assert len(miss_l)==0, 'missing %i index.names in the data: %s'%(len(miss_l), miss_l)
  
+            
+            #group on all levels passed in the mindex
+            gb = dx_raw.groupby(level=[mindex.names])
+            
+            #peform the action
+            adx1 = getattr(gb, aggMethod)()
+ 
+            #clean up
+            adx2 = adx1.reorder_levels(mindex.names).sort_index()
+            
+            res_dx = adx2
+            
+        #=======================================================================
+        # disagg (expand)
+        #=======================================================================
+        else:
+            
+            
+            log.info('expanding %i to %i on \'%s\' w/ \'%s\''%(len(dx_raw), len(mindex), agg_name, aggMethod))
+            #check the names
+            miss_l = set(dx_raw.index.names).difference(mindex.names)
+            assert len(miss_l)==0, 'missing %i index.names in the mindex: %s'%(len(miss_l), miss_l)
+            
+            #===================================================================
+            # prep
+            #===================================================================
+            #join onto the big index
+            """always has to be a frame"""
+            big_dx = pd.DataFrame(index=mindex).join(dx_raw)
+            #===================================================================
+            # simply replicate onto the big
+            #===================================================================
+            """maintain the mean per group"""
+            if aggMethod=='join':
+               
+                res_dx = big_dx
+                
+                if isinstance(dx_raw, pd.Series):
+                    """probably a nicer way..."""
+                    res_dx = res_dx.iloc[:,0]
+                    
+            #===================================================================
+            # divide equally onto the big
+            #===================================================================
+            #"""maintain the total per group"""
+            elif aggMethod=='divide':
+                
+                #group size
+                """only care bout the index really"""
+                cnt_serx1 = big_dx.groupby(level=dx_raw.index.names).count().iloc[:,0].rename('group_size')
+                
+                #expand
+                cnt_serx2 = pd.DataFrame(index=mindex).join(cnt_serx1).iloc[:,0] #join on
+                
+                #reduce
+                res_dx = big_dx.divide(cnt_serx2, axis='index')
+                
+
+            
+            else: 
+                raise IOError(aggMethod)
+            
+            #===================================================================
+            # check
+            #===================================================================
+            try:
+                #do the reverse aggregation
+                aggMethod_invert = {v:k for k,v in self.agg_inv_d.items()}[aggMethod]
+                f = getattr(res_dx.groupby(level=dx_raw.index.names), aggMethod_invert)
+                chk_serx = f().reorder_levels(dx_raw.index.names).sort_index()
+                
+                """not sure if we ever even use dataframes..."""
+                assert_series_equal(chk_serx, dx_raw)
+            except Exception as e:
+                raise Error('failed disagg check w/ %s'%e)
+             
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        assert_index_equal(mindex, res_dx.index)
+        assert isinstance(res_dx, type(dx_raw))
+        return res_dx
  
         
 
