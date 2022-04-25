@@ -1430,6 +1430,7 @@ class Model(HydSession, QSession):  # single model run
                        out_dir=None,
                        logger=None,
                        write_pick=True,
+                       overwrite=None,
                        **kwargs):
         
         #=======================================================================
@@ -1438,6 +1439,7 @@ class Model(HydSession, QSession):  # single model run
         if logger is None: logger = self.logger
         log = logger.getChild('store_layer_d')
         if out_dir is None: out_dir = os.path.join(self.wrk_dir, dkey)
+        if overwrite is None: overwrite=self.overwrite
         
         log.info('writing \'%s\' layers to %s' % (dkey, out_dir))
         
@@ -1453,6 +1455,12 @@ class Model(HydSession, QSession):  # single model run
                 os.makedirs(od)
                 
             out_fp = os.path.join(od, layer.name())
+            
+            if os.path.exists(out_fp):
+                raise Error('check me')
+                assert overwrite
+                os.remove(out_fp)
+            
             #===================================================================
             # write vectors
             #===================================================================
