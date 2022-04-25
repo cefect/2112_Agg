@@ -67,6 +67,7 @@ def get_pars(#retrieving and pre-checking parmeter values based on model ID
              pars_fp = model_pars_fp,
              ):
     
+    """todo... use the HydSession"""
     #===========================================================================
     # load pars file
     #===========================================================================

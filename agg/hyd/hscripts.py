@@ -67,9 +67,19 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
     scale_cn = 'tvals'
     idn = 'modelID'
     
-    def __init__(self, **kwargs):
+    def __init__(self, 
+                 data_retrieve_hndls={},
+                 **kwargs):
         
-        super().__init__( 
+        data_retrieve_hndls = {**data_retrieve_hndls, **{
+            'model_pars':{
+                'build':lambda **kwargs:self.load_modelPars(**kwargs)
+                },
+            }}
+                
+                
+        
+        super().__init__( data_retrieve_hndls=data_retrieve_hndls,
                          **kwargs)
         
         # checking container
@@ -86,6 +96,65 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
                          }
         
 
+    def load_modelPars(self,
+                       dkey='model_pars',
+                       logger=None,
+                       model_pars_fp=None,
+                       ):
+    
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('load_modelPars')
+        
+        if model_pars_fp is None:
+            from definitions import model_pars_fp
+            
+        idn = self.idn
+        #===========================================================================
+        # load pars file
+        #===========================================================================
+        from numpy import dtype #needed.  not sure why though
+        
+        #pars_df_raw.dtypes.to_dict()
+        #pars_df_raw = pd.read_csv(pars_fp, index_col=False, comment='#')
+        pars_df_raw= pd.read_excel(model_pars_fp, comment='#')
+        
+        
+        #remove notes comumns
+        bxcol = pars_df_raw.columns.str.startswith('~')
+        if bxcol.any():
+            print('dropping %i/%i columns flagged as notes'%(bxcol.sum(), len(bxcol)))
+            
+            
+        pars_df1 = pars_df_raw.loc[:, ~bxcol].dropna(how='all', axis=1).dropna(subset=['modelID'], how='any').infer_objects()
+        
+        #set types
+        pars_df2 = pars_df1.astype(
+            {'modelID': int, 'tag': str, 'tval_type': str, 
+             'aggLevel': int, 'aggType': str, 'dscale_meth': dtype('O'), 'severity': dtype('O'), 
+             'resolution': int, 'downSampling': dtype('O'), 'sgType': dtype('O'), 
+             'samp_method': dtype('O'), 'zonal_stat': dtype('O'), 'vid': int}        
+            ).set_index('modelID')
+        
+        #===========================================================================
+        # check
+        #===========================================================================
+        pars_df = pars_df2.copy()
+        
+        assert pars_df.notna().all().all()
+        assert pars_df.index.is_unique
+        assert pars_df['tag'].is_unique
+        assert pars_df.index.name == idn
+     
+ 
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('got %s'%str(pars_df.shape))
+        return pars_df
     
     def check_mindex(self,  # check names and types
                      mindex,
