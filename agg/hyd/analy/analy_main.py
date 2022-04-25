@@ -150,12 +150,15 @@ def run( #run a basic model configuration
         #=======================================================================
         #ses.runCompileSuite()
         
-        #ses.write_suite_smry()
+        ses.write_suite_smry(
+            baseID=0,
+            modelID_l=[0,1,2] + list(range(60,66)),
+            )
         
         #=======================================================================
         # individual model summaries---------
         #=======================================================================
-        mids = list(range(60,66))
+        mids = list(range(63,66))
         #ses.write_resvlay(dkey='rsamps', modelID_l=mids)
         #=======================================================================
         # for mid in mids:
@@ -559,12 +562,14 @@ def run( #run a basic model configuration
             #===================================================================
             # tval correlations
             #===================================================================
-            ses.plot_vs_mat(dkey_y='rloss', dkey_x='tvals',
-                            modelID_l=mids, 
-                            plot_rown='aggLevel', plot_coln='resolution',
-                            slice_d={'studyArea':'Calgary'},
-                            drop_zeros=True, 
-                            )
+            #===================================================================
+            # ses.plot_vs_mat(dkey_y='rloss', dkey_x='tvals',
+            #                 modelID_l=mids, 
+            #                 plot_rown='aggLevel', plot_coln='resolution',
+            #                 slice_d={'studyArea':'Calgary'},
+            #                 drop_zeros=True, 
+            #                 )
+            #===================================================================
             
         
         #collect all of these mids
@@ -730,6 +735,7 @@ def r7():
         'agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220424\working\agg_mindex_analy_r7_0424.pickle',
         'trues':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220424\working\trues_analy_r7_0424.pickle',
          'drlay_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220424\working\drlay_fps_analy_r7_0424.pickle',
+         'finv_agg_fps':r'C:\LS\10_OUT\2112_Agg\outs\analy\r7\20220425\working\finv_agg_fps_analy_r7_0425.pickle',
             },
         )
 if __name__ == "__main__": 
