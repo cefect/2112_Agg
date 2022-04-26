@@ -53,9 +53,21 @@ from agg.hyd.rast.hr_scripts import RastRun, view
 from hp.plot import Plotr
 
 class RasterAnalysis(RastRun, Plotr): #analysis of model results
+    resCn='resolution'
+    saCn='studyArea'
+    
+        #colormap per data type
+    colorMap_d = {
+ 
+        'studyArea':'Dark2',
+ 
+        'resolution':'copper',
+ 
+        }
+    
     def __init__(self,
  
-                 name='rastAnaly',
+                 name='rast_analy',
                  plt=None,
                  exit_summary=False,
                  **kwargs):
@@ -69,6 +81,8 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             
             
             }
+        
+        self.plt=plt
         
         super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,init_plt_d=None,
                          exit_summary=exit_summary,**kwargs)
@@ -100,6 +114,8 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         
         assert_index_equal(dxb.index, dxw.index)
         
+        assert np.array_equal(dxb.index.names, np.array([self.resCn, self.saCn]))
+        
         #=======================================================================
         # join
         #=======================================================================
@@ -120,14 +136,26 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                          #data
                          dx_raw=None, #combined model results
                          coln = 'MEAN', #variable to plot against resolution
-                         ax=None,
+                         
+                         #plot control
+                         plot_colr=None,
+                         ax=None,figsize=(6.5,4), colorMap=None,
+                         plot_kwargs = dict(marker='x'),
+                         title=None,xlabel=None,ylabel=None,
+                         
                          logger=None):
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is  None: logger=self.logger
         log = logger.getChild('plot_progression')
+        resCn, saCn = self.resCn, self.saCn
         
+        if plot_colr is None: plot_colr=saCn
+        if colorMap is None: colorMap=self.colorMap_d[plot_colr]
+        
+        if xlabel is None: xlabel = resCn
+        if ylabel is None: ylabel = coln
         #=======================================================================
         # retrival
         #=======================================================================
@@ -136,11 +164,81 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         view(dx_raw)
         """
         
-        log.info('on %i'%len(dx_raw))
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        assert coln in dx_raw.columns
         
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        log.info('on %i'%len(dx_raw))
+        serx = dx_raw[coln]
+        mdex = serx.index
         #=======================================================================
         # setup axis
         #=======================================================================
+        if ax is None:
+            fig = plt.figure(figsize=figsize,
+                     tight_layout=False,
+                     constrained_layout = True,
+                     )
+            
+            ax = fig.add_subplot()
+            
+        else:
+            fig = ax.figure
+            
+        """
+        fig.show()
+        """
+        #title
+        if title is None:
+ 
+            title='%s vs. %s'%(coln, resCn)
+        #get colors
+        ckeys = mdex.unique(plot_colr) 
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+            
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        gcols = [saCn]
+        for gkeys, gsx0 in serx.groupby(level=gcols):
+            if isinstance(gkeys, str): gkeys=[gkeys]
+            keys_d = dict(zip(gcols, gkeys))
+            log.info('on %s w/ %i'%(keys_d, len(gsx0)))
+            
+            #===================================================================
+            # data prep
+            #===================================================================
+            xar = gsx0.index.get_level_values(resCn).values #resolutions
+            yar = gsx0.values
+            color=color_d[keys_d[plot_colr]]
+            #===================================================================
+            # plot
+            #===================================================================
+            
+            ax.plot(xar, yar, color=color,label =''.join(gkeys), **plot_kwargs)
+            
+            
+        #===================================================================
+        # post format
+        #===================================================================
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.legend()
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        
+        fname = 'progres_%s_%s' % (title,self.longname)
+                
+        fname = fname.replace('=', '-').replace(' ','').replace('\'','')
+        
+        
+        return self.output_fig(fig, fname=fname)
         
     
     
@@ -154,6 +252,11 @@ def run( #run a basic model configuration
         #=======================================================================
         tag='r0',
         overwrite=True,
+        
+        #=======================================================================
+        # parameters
+        #=======================================================================
+         
  
  
         #=======================================================================
@@ -181,7 +284,9 @@ def run( #run a basic model configuration
         #=======================================================================
         #ses.runRastAnalysis()
         
-        ses.plot_progression()
+        ses.plot_progression(coln='MEAN', ylabel='depth (m)')
+        
+        ses.plot_progression(coln='wetAreas', ylabel='inundation area (m2)')
         
         out_dir = ses.out_dir
     return out_dir
@@ -198,11 +303,25 @@ def dev():
                 
         )
     
+def r1():
+    return run(
+        tag='r1',
+ 
+        compiled_fp_d = {
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\drlay_lib_rast_r1_0426.pickle',
+        'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\rstats_basic_rast_r1_0426.pickle',
+        'wetAreas':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\wetAreas_rast_r1_0426.pickle',
+        #'rstats':r'C:\LS\10_OUT\2112_Agg\outs\rast_analy\r1\20220426\working\rstats_rast_analy_r1_0426.pickle',
+            }
+        )
+        
+    
     
 if __name__ == "__main__": 
     
-    dev()
-    pass
+    #dev()
+    r1()
+ 
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))
