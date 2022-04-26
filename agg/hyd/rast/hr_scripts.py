@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 
 np.random.seed(100)
-
+idx = pd.IndexSlice
 from agg.hyd.hscripts import Model, StudyArea, view
 
 start = datetime.datetime.now()
@@ -64,7 +64,7 @@ class RastRun(Model):
                      
                      #parameters [calc loop]
                      iters=3, #number of downsamples to perform
-                     resolution_scale = 3, 
+                     resolution_scale = 2, 
                      base_resolution=None, #resolution of raw data
                      
                      #parameters [get_drlay]. for non base_resolution
@@ -95,6 +95,8 @@ class RastRun(Model):
         #=======================================================================
         #[10, 30, 90]
         resolution_iters = [base_resolution*(resolution_scale)**i for i in range(iters)]
+        
+        assert max(resolution_iters)<1e5
         #=======================================================================
         # retrive rasters per StudyArea
         #=======================================================================
@@ -121,12 +123,15 @@ class RastRun(Model):
             
             
             #build the depth layer
-            res_lib[resolution] = self.sa_get(meth='get_drlay', logger=log.getChild(str(i)), dkey=dkey, write=False,
-                                resolution=resolution, base_resolution=base_resolution,
-                                dsampStage=dStage, downSampling=dSamp,
-                                 **kwargs)
-            
-            cnt+=len(res_lib[resolution])
+            try:
+                res_lib[resolution] = self.sa_get(meth='get_drlay', logger=log.getChild(str(i)), dkey=dkey, write=False,
+                                    resolution=resolution, base_resolution=base_resolution,
+                                    dsampStage=dStage, downSampling=dSamp,
+                                     **kwargs)
+                
+                cnt+=len(res_lib[resolution])
+            except Exception as e:
+                raise IOError('failed on %i w/ \n    %s'%(resolution, e))
  
         self.temp_dir = temp_dir #revert
         log.info('finished building %i'%cnt)
@@ -226,13 +231,12 @@ class RastRun(Model):
         log = logger.getChild('build_wetAreas')
         assert dkey=='wetAreas'
         
-        
-        dx= self.retrieve('rstats_basic')
+        dx = self.retrieve('rstats_basic')
         
         #=======================================================================
         # define the function
         #=======================================================================
-        def func(rlay, logger=None):
+        def func(rlay, logger=None, meta_d={}):
             
             #build a mask layer
             mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name())
@@ -240,8 +244,11 @@ class RastRun(Model):
             #tally all the 1s
             wet_cnt = self.rasterlayerstatistics(mask_rlay)['SUM']
             
-            #multiply by cell size
-            return {dkey:wet_cnt * self.rlay_get_resolution(mask_rlay)}
+            #retrieve stats for this iter
+            stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
+            
+            
+            return {dkey:wet_cnt * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX']}
  
             
         #=======================================================================
@@ -295,7 +302,7 @@ class RastRun(Model):
                 self.qproj.setCrs(rlay.crs())
                 
                 #execute
-                res = func(rlay, logger=log.getChild(tagi), **kwargs)
+                res = func(rlay, logger=log.getChild(tagi),meta_d={'studyArea':studyArea, 'resolution':resolution}, **kwargs)
                 
                 #post
                 assert isinstance(res, dict)                
@@ -335,9 +342,11 @@ def run( #run a basic model configuration
         # #generic
         #=======================================================================
         tag='tag',
-        name='rast1',
+        name='rast',
         overwrite=True,
         trim=False,
+        
+        
         
         #=======================================================================
         # write control
@@ -361,7 +370,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #parameters
         #=======================================================================
- 
+        iters=3, #resolution iterations
         #raster downSampling and selection  (StudyArea.get_raster())
         dsampStage='wse', downSampling='Average', severity = 'hi', 
         #resolution=5, this is what we iterate on
@@ -396,7 +405,7 @@ def run( #run a basic model configuration
                  bk_lib = {
  
                      
-                     'drlay_d':dict( severity=severity, downSampling=downSampling, dsampStage=dsampStage),
+                     'drlay_lib':dict( severity=severity, downSampling=downSampling, dsampStage=dsampStage, iters=iters),
  
                                           
                      },
@@ -416,6 +425,7 @@ def dev():
     return run(
         trim=True,
         tag='dev',
+        iters=3,
         compiled_fp_d={
             'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\drlay_lib_rast1_dev_0426.pickle',
             'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\rstats_rast1_dev_0426.pickle',
@@ -423,11 +433,21 @@ def dev():
             }
         )
 
-
+def r1():
+    return run(
+        tag='r1',
+        iters=10,
+        compiled_fp_d = {
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\drlay_lib_rast_r1_0426.pickle',
+        'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\rstats_basic_rast_r1_0426.pickle',
+        }
+        )
+    
+    
 if __name__ == "__main__": 
     
-    dev()
-    pass
+    #dev()
+    r1()
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))
