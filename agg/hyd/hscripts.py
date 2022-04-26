@@ -357,7 +357,7 @@ class Model(HydSession, QSession):  # single model run
         # HANDLES-----------
         #===========================================================================
         # configure handles
-        data_retrieve_hndls = {**data_retrieve_hndls, **{
+        data_retrieve_hndls = { **{
 
             # aggregating inventories
             'finv_agg_d':{  # lib of aggrtevated finv vlays
@@ -407,11 +407,15 @@ class Model(HydSession, QSession):  # single model run
                 },
  
             
-            }}
+            }, **data_retrieve_hndls}
         
         super().__init__(exit_summary=exit_summary,
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
+        
+        """
+        data_retrieve_hndls['drlay_d']
+        """
         
         #=======================================================================
         # simple attach
@@ -1001,6 +1005,7 @@ class Model(HydSession, QSession):  # single model run
         if write:
             self.store_layer_d(res_d, dkey, logger=log)
         
+        """needed?"""
         self.data_d[dkey] = res_d
         
         return res_d
@@ -1492,6 +1497,9 @@ class Model(HydSession, QSession):  # single model run
                 raise Error('unrecognized filetype: %s'%ext)
         
         return lay_d
+    
+    
+    
 
     def store_layer_d(self,  # consistent storage of finv containers 
                        layer_d,
@@ -2806,7 +2814,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             # execute subtraction
             #===================================================================
             log.info('executing %s'%formula)
-            dep_fp1 = wrkr.rcalc(formula, layname=baseName)
+            dep_fp1 = wrkr.rcalc(formula, layname=layerName)
             
             
             #===================================================================
