@@ -4143,14 +4143,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     'low':gdx1.quantile(q=qlo, axis=1).values})
         return data_d,bx
     
-    def get_color_d(self,
-                    cvals,
-                    colorMap=None,
-                    ):
-                    
-        if colorMap is None: colorMap=self.colorMap
-        cmap = plt.cm.get_cmap(name=colorMap) 
-        return {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(cvals, np.linspace(0, 1, len(cvals)))).items()}
+
     
     
     def join_meta_indexers(self, #join some meta keys to the output data
