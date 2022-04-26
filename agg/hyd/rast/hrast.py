@@ -34,7 +34,7 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),
                 'build':lambda **kwargs: self.build_drlays2(**kwargs),
                 },
-            'rstats':{ #overwrites Model's method
+            'rstats_basic':{ #overwrites Model's method
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_stats(**kwargs),
                 },
@@ -56,7 +56,7 @@ class RastRun(Model):
         
         self.retrieve('drlay_lib')
         
-        self.retrieve('rstats')
+        self.retrieve('rstats_basic')
         
         self.retrieve('wetAreas')
     
@@ -199,7 +199,7 @@ class RastRun(Model):
         return lay_lib
     
     def build_stats(self, #calc the layer stats 
-                    dkey='rstats',
+                    dkey='rstats_basic',
                     logger=None, 
                      **kwargs):
         #=======================================================================
@@ -207,7 +207,7 @@ class RastRun(Model):
         #=======================================================================
         if logger is None: logger=self.logger
         log = logger.getChild('build_stats')
-        assert dkey=='rstats'
+        assert dkey=='rstats_basic'
         
         #=======================================================================
         # execut ethe function on the stack
@@ -227,7 +227,7 @@ class RastRun(Model):
         assert dkey=='wetAreas'
         
         
-        dx= self.retrieve('rstats')
+        dx= self.retrieve('rstats_basic')
         
         #=======================================================================
         # define the function
@@ -418,7 +418,7 @@ def dev():
         tag='dev',
         compiled_fp_d={
             'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\drlay_lib_rast1_dev_0426.pickle',
-            'rstats':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\rstats_rast1_dev_0426.pickle',
+            'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\rstats_rast1_dev_0426.pickle',
             'wetAreas':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\wetAreas_rast1_dev_0426.pickle',
             }
         )
