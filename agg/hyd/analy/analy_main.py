@@ -152,7 +152,7 @@ def run( #run a basic model configuration
         
         ses.write_suite_smry(
             baseID=0,
-            modelID_l=[0,1,2] + list(range(60,66)),
+            modelID_l=[0,1,2],# + list(range(60,66)),
             )
         
         #=======================================================================

@@ -4080,12 +4080,13 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         # equialent
         #=======================================================================
         else:
+            log.debug('equivalent')
             assert len(dx_raw)==len(mindex)
             
             #just add the level
             if agg_name in mindex.names:
-                res_dx = pd.DataFrame(index=mindex).join(dx_raw).iloc[:,0]
-                
+                res_dx = pd.DataFrame(index=mindex).join(dx_raw).iloc[:,0].reorder_levels(mindex.names)
+ 
             #drop the level
             elif agg_name in dx_raw.index.names:
                 res_dx = dx_raw.droplevel(agg_name).reorder_levels(mindex.names).sort_index()
@@ -4102,7 +4103,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # wrap
         #=======================================================================
-        assert_index_equal(mindex, res_dx.index)
+        try:
+            assert_index_equal(mindex, res_dx.index)
+        except Exception as e:
+            raise Error(e)
+   
         assert isinstance(res_dx, type(dx_raw))
         return res_dx
  
