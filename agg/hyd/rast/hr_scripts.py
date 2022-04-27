@@ -406,9 +406,8 @@ class RastRun(Model):
         # setup filepaths4
         #=======================================================================
         if catalog_fp is None: catalog_fp = os.path.join(lib_dir, 'hrast_run_index.csv')
-        rlay_dir = os.path.join(lib_dir, 'rlays')
-        
-        
+        rlay_dir = os.path.join(lib_dir, 'rlays', *list(id_params.values()))
+ 
         #=======================================================================
         # retrieve------
         #=======================================================================
@@ -417,6 +416,7 @@ class RastRun(Model):
         #=======================================================================
         # re-write raster layers
         #=======================================================================
+        """todo: add filesize"""
         drlay_lib = self.retrieve('drlay_lib')
         #write each to file
         ofp_lib = dict()
@@ -545,10 +545,11 @@ class Catalog(object): #handling the simulation index and library
             
             for id, path in df[coln].items():
                 if not os.path.exists(path):
-                    errs_d['%s_%i'%(coln, id)] = path
+                    errs_d['%s_%s'%(coln, id)] = path
                     
         if len(errs_d)>0:
-            raise Error('got %i/%i bad filepaths')
+            log.error(errs_d)
+            raise Error('got %i/%i bad filepaths'%(len(errs_d), len(df)))
  
  
         
@@ -783,7 +784,7 @@ def run( #run a basic model configuration
 
 def dev():
     return run(
-        trim=True, compression='none',
+        trim=True, compression='none',name='dev',
         tag='dev',
         iters=2,
         compiled_fp_d={
@@ -803,7 +804,11 @@ def r1():
 
 def r2():
     return run(tag='r2', name='hrast1',iters=10,
-               dsampStage='wse', downSampling='Average')
+               dsampStage='depth', 
+               downSampling='Average',
+               compiled_fp_d = {
+ 
+        })
                
     
 if __name__ == "__main__": 
