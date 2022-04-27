@@ -1508,6 +1508,7 @@ class Model(HydSession, QSession):  # single model run
                        logger=None,
                        write_pick=True,
                        overwrite=None,
+                       add_subfolders=True,
                        **kwargs):
         
         #=======================================================================
@@ -1526,17 +1527,25 @@ class Model(HydSession, QSession):  # single model run
         ofp_d = dict()
         cnt = 0
         for studyArea, layer in layer_d.items():
-            # setup directory
-            od = os.path.join(out_dir, studyArea)
+            #===================================================================
+            # # setup directory
+            #===================================================================
+            if add_subfolders:
+                od = os.path.join(out_dir, studyArea)
+
+            else:
+                od = out_dir
+            
             if not os.path.exists(od):
                 os.makedirs(od)
                 
+            #===================================================================
+            # filepaths
+            #===================================================================
+ 
             out_fp = os.path.join(od, layer.name())
             
-            if os.path.exists(out_fp):
-                raise Error('check me')
-                assert overwrite
-                os.remove(out_fp)
+ 
             
             #===================================================================
             # write vectors
@@ -1545,7 +1554,7 @@ class Model(HydSession, QSession):  # single model run
                 # write each sstudy area
                 ofp_d[studyArea] = self.vlay_write(layer,out_fp,logger=log, **kwargs)
             elif isinstance(layer, QgsRasterLayer):
-                ofp_d[studyArea] = self.rlay_write(layer,ofp=out_fp+'.tif',logger=log, **kwargs)
+                ofp_d[studyArea] = self.rlay_write(layer,ofp=out_fp,logger=log, **kwargs)
             else:
                 raise Error('bad type: %s'%type(layer))
             
