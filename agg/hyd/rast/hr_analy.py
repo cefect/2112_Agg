@@ -142,6 +142,8 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                          ax=None,figsize=(6.5,4), colorMap=None,
                          plot_kwargs = dict(marker='x'),
                          title=None,xlabel=None,ylabel=None,
+                         xscale='log',
+                         xlims=None,
                          
                          logger=None):
         #=======================================================================
@@ -228,6 +230,16 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.legend()
+        ax.grid()
+        
+        #chang eto log scale
+        ax.set_xscale(xscale)
+        
+        
+        if not xlims is None:
+            ax.set_xlim(xlims)
+        
+
         
         #=======================================================================
         # wrap
@@ -284,9 +296,21 @@ def run( #run a basic model configuration
         #=======================================================================
         #ses.runRastAnalysis()
         
-        ses.plot_progression(coln='MEAN', ylabel='depth (m)')
+        #=======================================================================
+        # dx_raw = ses.retrieve('rstats')
+        # bx = np.logical_and(
+        #     dx_raw.index.get_level_values('studyArea')=='LMFRA',
+        #     dx_raw.index.get_level_values('resolution')<=1280,
+        #     )
+        # dx = dx_raw.loc[bx, :]
+        # 
+        #=======================================================================
+        dx=None
+        xlims = None
         
-        ses.plot_progression(coln='wetAreas', ylabel='inundation area (m2)')
+        ses.plot_progression(coln='MEAN', ylabel='depth (m)', dx_raw=dx, xlims=xlims)
+        
+        ses.plot_progression(coln='wetAreas', ylabel='inundation area (m2)', dx_raw=dx, xlims=xlims)
         
         out_dir = ses.out_dir
     return out_dir
