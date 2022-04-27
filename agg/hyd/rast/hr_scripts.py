@@ -468,6 +468,8 @@ class RastRun(Model):
         rdx.index.names.to_list()
         view(rdx)
         """
+        log.info('finished')
+        return catalog_fp
 
         
         
@@ -631,7 +633,9 @@ class Catalog(object): #handling the simulation index and library
         else:
             #check if present
             
-            bx = cat_df.index.to_frame().reset_index(drop=True).eq(pd.Series(keys_d).to_frame().T).all(axis=1)
+            bx = cat_df.index.to_frame().reset_index(drop=True).eq(pd.Series(keys_d), axis=1).all(axis=1)
+            
+            
             if bx.any():
                 
                 #===============================================================
@@ -803,11 +807,14 @@ def r1():
         )
 
 def r2():
-    return run(tag='r2', name='hrast1',iters=10,
-               dsampStage='depth', 
+    return run(tag='wse', name='hrast1',iters=10,
+               dsampStage='wse', 
                downSampling='Average',
                compiled_fp_d = {
- 
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\drlay_lib_hrast1_wse_0427.pickle',
+        'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\rstats_basic_hrast1_wse_0427.pickle',
+        'wetAreas':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\wetAreas_hrast1_wse_0427.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\rstats_hrast1_wse_0427.pickle',
         })
                
     
