@@ -53,8 +53,7 @@ from agg.hyd.rast.hr_scripts import RastRun, view
 from hp.plot import Plotr
 
 class RasterAnalysis(RastRun, Plotr): #analysis of model results
-    resCn='resolution'
-    saCn='studyArea'
+
     
         #colormap per data type
     colorMap_d = {
@@ -73,10 +72,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                  **kwargs):
         
         data_retrieve_hndls = {
-            'rstats':{
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.build_rstats(**kwargs), #
-                },
+
 
             
             
@@ -93,44 +89,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         
         
         
-    def build_rstats(self, #just combing all the results
-                     dkey='rstats',
-                     logger=None,write=None,
-                      ):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if logger is None: logger=self.logger
-        log=logger.getChild('build_rstats')
-        if write is None: write=self.write
-        assert dkey=='rstats'
-        
-        #=======================================================================
-        # retrieve from hr_scripts
-        #=======================================================================
-        dxb = self.retrieve('rstats_basic')
-        
-        dxw = self.retrieve('wetAreas')
-        
-        assert_index_equal(dxb.index, dxw.index)
-        
-        assert np.array_equal(dxb.index.names, np.array([self.resCn, self.saCn]))
-        
-        #=======================================================================
-        # join
-        #=======================================================================
-        rdx = dxb.join(dxw).sort_index()
-        
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info('finished on %s'%str(rdx.shape))
-        if write:
-            self.ofp_d[dkey] = self.write_pick(rdx,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
-                                   logger=log)
-            
-        return rdx
+
     
     def plot_progression(self,
                          #data
@@ -180,6 +139,15 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         #=======================================================================
         # setup axis
         #=======================================================================
+        #title
+        if title is None:
+ 
+            title='%s vs. %s'%(coln, resCn)
+        #get colors
+        ckeys = mdex.unique(plot_colr) 
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        
         if ax is None:
             fig = plt.figure(figsize=figsize,
                      tight_layout=False,
@@ -194,13 +162,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         """
         fig.show()
         """
-        #title
-        if title is None:
- 
-            title='%s vs. %s'%(coln, resCn)
-        #get colors
-        ckeys = mdex.unique(plot_colr) 
-        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+
             
         #=======================================================================
         # loop and plot
@@ -308,7 +270,7 @@ def run( #run a basic model configuration
         dx=None
         xlims = None
         
-        ses.plot_progression(coln='MEAN', ylabel='depth (m)', dx_raw=dx, xlims=xlims)
+        #ses.plot_progression(coln='MEAN', ylabel='depth (m)', dx_raw=dx, xlims=xlims)
         
         ses.plot_progression(coln='wetAreas', ylabel='inundation area (m2)', dx_raw=dx, xlims=xlims)
         
