@@ -451,6 +451,7 @@ class RastRun(Model):
             
         rdx.index = pd.MultiIndex.from_frame(mdex_df)
 
+        raise Error('make sure no indexers are also columns')
         
         #=======================================================================
         # write catalog
@@ -499,6 +500,7 @@ class Catalog(object): #handling the simulation index and library
         self.logger = logger.getChild('cat')
         self.overwrite=overwrite
         self.catalog_fp = catalog_fp
+        
         
         #mandatory keys
         self.cat_colns = ['cell_cnt']
@@ -557,8 +559,9 @@ class Catalog(object): #handling the simulation index and library
         
     
     def get(self):
+        assert os.path.exists(self.catalog_fp), self.catalog_fp
         self.check()
-        return self.df.copy()
+        return self.df.copy().sort_index()
     
     
     def remove(self, keys_d,

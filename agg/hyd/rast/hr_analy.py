@@ -49,7 +49,7 @@ matplotlib.rcParams['legend.title_fontsize'] = 'large'
 
 print('loaded matplotlib %s'%matplotlib.__version__)
 
-from agg.hyd.rast.hr_scripts import RastRun, view
+from agg.hyd.rast.hr_scripts import RastRun, view, Catalog
 from hp.plot import Plotr
 
 class RasterAnalysis(RastRun, Plotr): #analysis of model results
@@ -61,6 +61,8 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         'studyArea':'Dark2',
  
         'resolution':'copper',
+        'dkey':'Pastel2',
+        'dsampStage':'Set1'
  
         }
     
@@ -72,9 +74,10 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                  **kwargs):
         
         data_retrieve_hndls = {
-
-
-            
+            'catalog':{
+                #probably best not to have a compliled version of this
+                'build':lambda **kwargs:self.build_catalog(**kwargs), #
+                },
             
             }
         
@@ -85,24 +88,45 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         
     def runRastAnalysis(self,
                         ):
-        self.retrieve('rstats')
+        self.retrieve('catalog')
         
         
+    def build_catalog(self,
+                      dkey='catalog',
+                      catalog_fp=None,
+                      logger=None,
+                      **kwargs):
+        if logger is None: logger=self.logger
+        assert dkey=='catalog'
+        if catalog_fp is None: catalog_fp=self.catalog_fp
         
+        return Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False, **kwargs).get()
 
     
-    def plot_progression(self,
+    def plot_vsResolution(self, #progression against resolution plots
                          #data
                          dx_raw=None, #combined model results
                          coln = 'MEAN', #variable to plot against resolution
                          
                          #plot control
-                         plot_colr=None,
-                         ax=None,figsize=(6.5,4), colorMap=None,
+                        plot_type='line', 
+                        plot_rown='studyArea',
+                        plot_coln=None,
+                        plot_colr=None,
+                        plot_bgrp='dsampStage', #sub-group onto an axis
+                        
+                        
+                           colorMap=None,
                          plot_kwargs = dict(marker='x'),
                          title=None,xlabel=None,ylabel=None,
                          xscale='log',
                          xlims=None,
+                         
+                         
+                         #plot control [matrix]
+
+                         sharey='none',sharex='col',
+                         
                          
                          logger=None):
         #=======================================================================
@@ -112,52 +136,77 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         log = logger.getChild('plot_progression')
         resCn, saCn = self.resCn, self.saCn
         
-        if plot_colr is None: plot_colr=saCn
+        if plot_colr is None: plot_colr=plot_bgrp
         if colorMap is None: colorMap=self.colorMap_d[plot_colr]
         
         if xlabel is None: xlabel = resCn
-        if ylabel is None: ylabel = coln
+        if ylabel is None: ylabel=coln
         #=======================================================================
         # retrival
         #=======================================================================
-        if dx_raw is None: dx_raw = self.retrieve('rstats')
+        if dx_raw is None: dx_raw = self.retrieve('catalog')
         """
         view(dx_raw)
+        dx_raw.index.names
         """
         
         #=======================================================================
         # precheck
         #=======================================================================
-        assert coln in dx_raw.columns
+        assert coln in dx_raw.columns, coln
+ 
         
         #=======================================================================
         # data prep
         #=======================================================================
         log.info('on %i'%len(dx_raw))
         serx = dx_raw[coln]
+        
+        if plot_coln is None:
+            """add a dummy level for c onsistent indexing"""
+            plot_coln = ''
+            serx = pd.concat({plot_coln:serx}, axis=0, names=[plot_coln])
+ 
         mdex = serx.index
+        gcols = set()
+        for c in [plot_bgrp, plot_coln, plot_rown]:
+            if not c is None: 
+                gcols.add(c)
+                assert c in mdex.names, c
+        gcols = list(gcols)
         #=======================================================================
-        # setup axis
+        # plot defaults
         #=======================================================================
         #title
         if title is None:
- 
             title='%s vs. %s'%(coln, resCn)
         #get colors
         ckeys = mdex.unique(plot_colr) 
         color_d = self.get_color_d(ckeys, colorMap=colorMap)
         
         
-        if ax is None:
-            fig = plt.figure(figsize=figsize,
-                     tight_layout=False,
-                     constrained_layout = True,
-                     )
-            
-            ax = fig.add_subplot()
-            
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+ 
+        if plot_coln is None:
+            col_keys = None
         else:
-            fig = ax.figure
+            col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey=sharey,sharex=sharex,  
+                                    fig_id=0,
+                                    set_ax_title=True,
+                                    )
+ 
+        fig.suptitle(title)
+            
+            
             
         """
         fig.show()
@@ -167,12 +216,11 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         #=======================================================================
         # loop and plot
         #=======================================================================
-        gcols = [saCn]
+        
         for gkeys, gsx0 in serx.groupby(level=gcols):
-            if isinstance(gkeys, str): gkeys=[gkeys]
             keys_d = dict(zip(gcols, gkeys))
             log.info('on %s w/ %i'%(keys_d, len(gsx0)))
-            
+            ax = ax_d[keys_d[plot_rown]][keys_d[plot_coln]]
             #===================================================================
             # data prep
             #===================================================================
@@ -182,24 +230,47 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             #===================================================================
             # plot
             #===================================================================
+            if plot_type=='line':
             
-            ax.plot(xar, yar, color=color,label =''.join(gkeys), **plot_kwargs)
+                ax.plot(xar, yar, color=color,label =keys_d[plot_colr], **plot_kwargs)
+            else:
+                raise IOError()
+            
+            #===================================================================
+            # format
+            #===================================================================
+            #chang eto log scale
+            ax.set_xscale(xscale)
             
             
-        #===================================================================
-        # post format
-        #===================================================================
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.legend()
-        ax.grid()
+            if not xlims is None:
+                ax.set_xlim(xlims)
+            
+            
+        #===============================================================
+        # #wrap format subplot
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                # first row
+                if row_key == row_keys[0]:
+                    #last col
+                    if col_key == col_keys[-1]:
+                        ax.legend()
+                    
+                # first col
+                if col_key == col_keys[0]:
+                    ax.set_ylabel(ylabel)
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    ax.set_xlabel(xlabel)
+                
+                
+                ax.grid()
         
-        #chang eto log scale
-        ax.set_xscale(xscale)
-        
-        
-        if not xlims is None:
-            ax.set_xlim(xlims)
+
         
 
         
@@ -228,6 +299,11 @@ def run( #run a basic model configuration
         overwrite=True,
         
         #=======================================================================
+        # data files
+        #=======================================================================
+        catalog_fp='',
+        
+        #=======================================================================
         # parameters
         #=======================================================================
          
@@ -246,9 +322,9 @@ def run( #run a basic model configuration
         **kwargs):
     
     with RasterAnalysis(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
- 
+                        
                        bk_lib = {
- 
+                           'catalog':dict(catalog_fp=catalog_fp),
                            
                            },
                  **kwargs) as ses:
@@ -256,23 +332,15 @@ def run( #run a basic model configuration
         #=======================================================================
         # compiling-----
         #=======================================================================
-        #ses.runRastAnalysis()
+        ses.runRastAnalysis()
         
         #=======================================================================
-        # dx_raw = ses.retrieve('rstats')
-        # bx = np.logical_and(
-        #     dx_raw.index.get_level_values('studyArea')=='LMFRA',
-        #     dx_raw.index.get_level_values('resolution')<=1280,
-        #     )
-        # dx = dx_raw.loc[bx, :]
-        # 
+        # PLOTS------
         #=======================================================================
-        dx=None
-        xlims = None
+        ses.plot_vsResolution(coln='MEAN', ylabel='mean depth (m)')
         
-        #ses.plot_progression(coln='MEAN', ylabel='depth (m)', dx_raw=dx, xlims=xlims)
+        ses.plot_vsResolution(coln='wetAreas', ylabel='wet area (m2)')
         
-        ses.plot_progression(coln='wetAreas', ylabel='inundation area (m2)', dx_raw=dx, xlims=xlims)
         
         out_dir = ses.out_dir
     return out_dir
@@ -301,12 +369,19 @@ def r1():
             }
         )
         
-    
+def r2():
+    return run(
+        tag='r1',
+        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hrast1\hrast_run_index.csv',
+        compiled_fp_d = {
+ 
+            }
+        )
     
 if __name__ == "__main__": 
     
     #dev()
-    r1()
+    r2()
  
 
     tdelta = datetime.datetime.now() - start
