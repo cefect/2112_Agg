@@ -181,7 +181,12 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         if title is None:
             title='%s vs. %s'%(coln, resCn)
         #get colors
-        ckeys = mdex.unique(plot_colr) 
+        ckeys = mdex.unique(plot_colr)
+        
+        """nasty workaround to get colors to match w/ hyd""" 
+        if plot_colr =='dsampStage':
+            ckeys = ['none'] + ckeys.values.tolist()
+        
         color_d = self.get_color_d(ckeys, colorMap=colorMap)
         
         
@@ -241,7 +246,6 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             #===================================================================
             #chang eto log scale
             ax.set_xscale(xscale)
-            
             
             if not xlims is None:
                 ax.set_xlim(xlims)
@@ -337,10 +341,21 @@ def run( #run a basic model configuration
         #=======================================================================
         # PLOTS------
         #=======================================================================
-        ses.plot_vsResolution(coln='MEAN', ylabel='mean depth (m)')
-        
-        ses.plot_vsResolution(coln='wetAreas', ylabel='wet area (m2)')
-        
+        dx_raw = ses.retrieve('catalog')
+        hi_res=350 #max we're using for hyd is 300
+        for plotName, dx, xlims, xscale in [
+            #('full', dx_raw,(10, 1e4)), 'log', 
+            ('hi_res',dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :], (10, hi_res), 'linear')
+            ]:
+            
+            coln='MEAN'
+            ses.plot_vsResolution(coln=coln, ylabel='mean depth (m)', dx_raw=dx,xlims=xlims,xscale=xscale,
+                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
+             
+            coln='wetAreas'
+            ses.plot_vsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
+                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
+
         
         out_dir = ses.out_dir
     return out_dir
