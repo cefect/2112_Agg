@@ -150,10 +150,8 @@ def run( #run a basic model configuration
         #=======================================================================
         #ses.runCompileSuite()
         
-        ses.write_suite_smry(
-            baseID=0,
-            modelID_l=[0,1,2],# + list(range(60,66)),
-            )
+        mids = list(range(3))+list(range(60,66))
+        #ses.write_suite_smry(baseID=0,modelID_l=mids),# + list(range(60,66)),)
         
         #=======================================================================
         # individual model summaries---------
@@ -241,7 +239,7 @@ def run( #run a basic model configuration
              
   
             #===================================================================
-            # #(bar matrix) studyArea x resolution (aggLevel) total errors 
+            # total errors  (bar matrix) studyArea x resolution (aggLevel) 
             #===================================================================
             #===================================================================
             # err_type='meanError'
@@ -263,7 +261,17 @@ def run( #run a basic model configuration
             #                       #meta_func=lambda **kwargs:meta_slim(**kwargs),
             #                       )
             #===================================================================
-            
+            err_type='confusion'
+            ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+                                 plot_rown='studyArea', plot_coln='resolution',  plot_bgrp='aggLevel',
+                                 plot_colr='confusion',  bar_labels=False,normed=True,
+                                 base_index='true',aggMethod='join',
+                                 fmt='svg',sharex='all',sharey='all', plot_type='bars',
+                                 title='%s \'%s\' %s'%(plotName, dkey, err_type), err_type=err_type,
+ 
+                                 #meta_func=lambda **kwargs:meta_slim(**kwargs),
+                                 )
+  
             #===================================================================
             # rsamp values (no error)
             #===================================================================

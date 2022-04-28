@@ -81,7 +81,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         'resolution':'copper',
         'vid':'Set1',
         'dkey':'tab20',
-        'density':'viridis'
+        'density':'viridis',
+        'confusion':'RdYlGn',
         }
     
     def __init__(self,
@@ -1930,17 +1931,44 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
     
 
+
+    def dprep_slice(self, #convenience for index slicing from matching values 
+                    dx_raw, slice_d, logger=None):
+        if logger is None: logger=self.logger
+        log=logger.getChild('slice') 
+        
+ 
+        
+        dx = dx_raw.copy()
+        for name, val in slice_d.items():
+            mdex = dx.index
+            assert name in mdex.names, 'slice dimension (%s) not present' % name
+            bx = mdex.get_level_values(name) == val
+            assert bx.any(), 'failed to match any %s=%s' % (name, val)
+            dx = dx.loc[bx, :]
+ 
+            log.info('w/ %s=%s slicing to %i/%i' % (name, val, bx.sum(), len(bx)))
+            
+        return dx
+        
+ 
+
     def plot_err_mat(self, #flexible plotting of model results vs. true in a matrix
                   
-                    #data control
+                    #data selection
                     dkey='tvals',#column group w/ values to plot
                     baseID=0,
-                    xlims = None,
                     modelID_l = None, #optinal sorting list
-                    aggMethod='mean', #method to use for aggregating the true values (down to the gridded)
-                    qhi=0.99, qlo=0.01,
-                    #drop_zeros=True, #must always be false for the matching to work
                     slice_d = {}, #special slicing
+                    
+                    #parameters [true vs. agg relation]
+                    aggMethod='mean', #method to use for aggregating the true values (down to the gridded)
+                    base_index='agg', #which index to treat as base values for calculating metrics
+                        #generally we've been using the aggregated (collapsing trues)
+                        #but maybe we should be using trues more? (expanding aggs)
+                     
+                    #drop_zeros=True, #must always be false for the matching to work
+                    
                     
                     #data
                     true_dx_raw=None, #base values (indexed to raws per model)
@@ -1954,10 +1982,13 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     
                     #plot config [bars and violin]
                     plot_bgrp=None, #grouping (for plotType==bars)
-                    err_type='absolute', #what type of errors to calculate (for plot_type='bars')
+                    bar_labels=True,
+                                        
+                    #ErrorCalcs
+                    err_type='absolute', #ErrorCalcs. what type of errors to calculate (for plot_type='bars')
                         #absolute: modelled - true
                         #relative: absolute/true
-                    zero_line=False,
+                    normed=True, #ErrorCalcs
                     
                     #plot config [density]
                     bins=50, vmin=None, vmax=None,
@@ -1968,8 +1999,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                     write_meta=False, #write all the meta info to a csv            
                     
                     #plot style                    
-                    colorMap=None, title=None,
-                    sharey=None,sharex=None,
+                    colorMap=None, title=None,xlims = None,
+                    sharey=None,sharex=None,zero_line=False,
+ 
                     
                     #plot output
                     fmt=None,
@@ -2005,7 +2037,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         # #plot keys
         #=======================================================================
         if plot_colr is None:
-            plot_colr=plot_bgrp
+            if err_type=='confusion':
+                plot_colr='confusion'
+            else:
+                plot_colr=plot_bgrp
         
         if plot_colr is None and plot_type!='scatter_density': 
             plot_colr=plot_rown
@@ -2025,6 +2060,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             assert plot_colr is None
             assert plot_bgrp is None
             
+        if err_type=='confusion':
+            assert plot_colr ==err_type
+        
+        assert not plot_bgrp==err_type
         #=======================================================================
         # #plot style
         #=======================================================================
@@ -2052,6 +2091,8 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         if colorMap is None:
             if plot_type in ['scatter_density', 'hist2d']: 
                 colorMap = self.colorMap_d['density']
+            if err_type=='confusion':
+                colorMap = self.colorMap_d['confusion']
             else:
                 colorMap = self.colorMap_d[plot_colr]
                 
@@ -2067,7 +2108,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
  
         log.info('on \'%s\' (%s x %s)'%(dkey, plot_rown, plot_coln))
         #=======================================================================
-        # data prep--------
+        # data prep
         #=======================================================================
         assert_func(lambda: self.check_mindex_match(true_dx_raw.index, dx_raw.index), msg='raw vs trues')
         
@@ -2077,34 +2118,39 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         
         for k in slice_d.keys(): meta_indexers.add(k) #add any required slicers
         
-        #add requested indexers
-        dx = self.join_meta_indexers(dx_raw = dx_raw.loc[:, idx[dkey, :]], 
-                                meta_indexers = meta_indexers,
-                                modelID_l=modelID_l)
+        #=======================================================================
+        # #collaps iters
+        #=======================================================================
+        sx_raw = dx_raw.loc[:, idx[dkey, :]].groupby(level=0, axis=1).first()
         
-        log.info('on %s'%str(dx.shape))
-        mdex = dx.index
+        txs_raw = true_dx_raw.loc[:, idx[dkey, :]].groupby(level=0, axis=1).first()
         
-        #and on the trues
-        true_dx = self.join_meta_indexers(dx_raw = true_dx_raw.loc[:, idx[dkey, :]], 
-                                meta_indexers = meta_indexers,
-                                modelID_l=modelID_l)
+        #=======================================================================
+        # join meta inddexers
+        #=======================================================================
+        sx0r = self.join_meta_indexers(dx_raw = sx_raw,meta_indexers = meta_indexers,modelID_l=modelID_l).iloc[:,0]
+ 
+        tsx0r = self.join_meta_indexers(dx_raw = txs_raw,meta_indexers = meta_indexers,modelID_l=modelID_l).iloc[:,0]
  
         #=======================================================================
         # subsetting
+        #=======================================================================.
+        sx1r = self.dprep_slice(sx0r, slice_d, logger=log)
+        
+        tsx1r = self.dprep_slice(tsx0r, slice_d, logger=log)
+        
         #=======================================================================
-        for name, val in slice_d.items():
-            assert name in dx.index.names, 'slice dimension (%s) not present'%name
-            bx = dx.index.get_level_values(name) == val
-            assert bx.any(), 'failed to match any %s=%s'%(name, val)
-            dx = dx.loc[bx, :]
-            
-            bx = true_dx.index.get_level_values(name) == val
-            assert bx.any()
-            true_dx = true_dx.loc[bx, :]
-            log.info('w/ %s=%s slicing to %i/%i'%(
-                name, val, bx.sum(), len(bx)))
- 
+        # collapse/expand
+        #=======================================================================
+        if base_index=='agg':
+            tsx1 = self.get_aggregate(tsx1r, mindex=sx1r.index, aggMethod=aggMethod, logger=log)
+            sx1 = sx1r.copy()
+        elif base_index=='true':
+            sx1 = self.get_aggregate(sx1r, mindex=tsx1r.index, aggMethod=aggMethod, logger=log)
+            tsx1 = tsx1r.copy()
+        else: raise IOError(base_index)
+        
+        mdex = sx1.index
         #=======================================================================
         # setup the figure
         #=======================================================================
@@ -2126,16 +2172,18 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #=======================================================================
         # #get colors
         #=======================================================================
- 
-        ckeys = mdex.unique(plot_colr) 
+        if err_type=='confusion':
+            ckeys = ['FP', 'FN', '1','2','3', 'TP','TN',] #adding some spacers
+        else:
+            ckeys = mdex.unique(plot_colr) 
         color_d = self.get_color_d(ckeys, colorMap=colorMap)
         
         #=======================================================================
-        # loop and plot
+        # loop and plot--------
         #=======================================================================
         meta_dx=None
-        true_gb = true_dx.groupby(level=[plot_coln, plot_rown])
-        for gkeys, gdx0 in dx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+        true_gb = tsx1.groupby(level=[plot_coln, plot_rown])
+        for gkeys, gsx0 in sx1.groupby(level=[plot_coln, plot_rown]): #loop by axis data
             
             #===================================================================
             # setup
@@ -2143,43 +2191,14 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             keys_d = dict(zip([plot_coln, plot_rown], gkeys))
             ax = ax_d[gkeys[1]][gkeys[0]]
             log.info('on %s'%keys_d)
-            tgdx_raw = true_gb.get_group(gkeys)
-            
-            #===================================================================
-            # data prep----------
-            #===================================================================
+            tgsx0 = true_gb.get_group(gkeys) #raw, uncollaped
+            mdex = gsx0.index
+            assert np.array_equal(gsx0.index, tgsx0.index)
  
-            #===================================================================
-            # aggregate the trues
-            #===================================================================
-            """because trues are mapped from the base model.. here we compress down to the model index"""
-            tgdx0 = getattr(tgdx_raw.groupby(level=[gdx0.index.names]), aggMethod)()
-            tgdx0 = tgdx0.reorder_levels(gdx0.index.names).sort_index()
-            
-            #check
-            assert np.array_equal(gdx0.index, tgdx0.index)
-            
-            #===================================================================
-            # if not np.array_equal(gdx0.index, tgdx2.index):                
-            #     miss_l = set(gdx0.index.unique(5)).symmetric_difference(tgdx2.index.unique(5))                
-            #     if len(miss_l)>0:
-            #         raise Error('%i/%i true keys dont match on %s \n    %s'%(len(miss_l), len(gdx0), keys_d, miss_l))
-            #     else:
-            #         raise Error('bad indexers on %s modelIDs:\n    %s'%(keys_d, tgdx2.index.unique('modelID').tolist()))
-            #===================================================================
  
-            meta_d = { 'modelIDs':str(list(gdx0.index.unique(idn))),
-                            'drop_zeros':False,'iters':len(gdx0.columns),
-                            }
-            if len(gdx0.columns) >1:
-                meta_d.update({'qhi':qhi, 'qlo':qlo})
+            meta_d = { 'modelIDs':str(list(mdex.unique(idn))),'drop_zeros':False,}
             meta_d.update(slice_d)
-            #===================================================================
-            # handle iters
-            #===================================================================
-            data_d, zeros_bx = self.prep_ranges(qhi, qlo, False, gdx0)
-            true_data_d, _ = self.prep_ranges(qhi, qlo, False, tgdx0)
-      
+ 
             
             #===================================================================
             # scatter-----
@@ -2193,16 +2212,16 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # #build colors
                 #===============================================================
-                cgserx0 = pd.Series(index=gdx0.index, name='color', dtype=str)
-                for gkey,gdx1 in gdx0.mean(axis=1).groupby(level=plot_colr):
+                cgserx0 = pd.Series(index=mdex, name='color', dtype=str)
+                for gkey,gdx1 in gsx0.groupby(level=plot_colr):
                     cgserx0.loc[gdx1.index] = color_d[gkey]
  
-                assert_index_equal(cgserx0.index, gdx0.index)
+                assert_index_equal(cgserx0.index,mdex)
                 
                 #===============================================================
                 # #plot
                 #===============================================================
-                log.debug('    scatter on %i'%len(gdx0))
+                log.debug('    scatter on %i'%len(gsx0))
                 stat_d = self.ax_corr_scat2(ax, gdx0.values.T[0], tgdx0.values.T[0], 
                                            colors_ar=cgserx0.values.T,
                                            #label='%s=%s'%(plot_colr, keys_d[plot_colr]),
@@ -2220,29 +2239,20 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # #plot
                 #===============================================================
-                log.debug('    scatter_density on %i'%len(gdx0))
+                log.debug('    scatter_density on %i'%len(gsx0))
                 stat_d = self.ax_corr_scat2(ax, gdx0.values.T[0], tgdx0.values.T[0], 
                                             bins=bins,colorMap=colorMap,
                                            logger=log, add_label=False, **kwargs)
-                
-                
  
                 meta_d.update(stat_d)
-                #print('yay')
-                
+ 
             #===================================================================
             # hist2d----
             #===================================================================
             elif plot_type=='hist2d':
-                log.debug('    %s on %i'%(plot_type, len(gdx0)))
-                """
-                plt.show()
-                ax.clear()
-                """
-                #crop the data
+                log.debug('    %s on %i'%(plot_type, len(gsx0)))
  
-                    
-                stat_d = self.ax_corr_scat2(ax, gdx0.values.T[0], tgdx0.values.T[0], 
+                stat_d = self.ax_corr_scat2(ax, gsx0.values, tgsx0.values, 
                                              bins=bins,colorMap=colorMap,
                                            logger=log, add_label=False,
                                            plot_type=plot_type, vmin=vmin, vmax=vmax,
@@ -2266,107 +2276,100 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 #===============================================================
                 # data setup
                 #===============================================================
-                #loop on sub-group and calc bar height (as error metric on means)
-                d = dict()
-                true_gb2 = tgdx0.groupby(level=plot_bgrp)
-                for gkey1, gdx1 in gdx0.groupby(level=plot_bgrp):
-                    tgdx1 =  true_gb2.get_group(gkey1)
-                    #calc error metric on means
-                    eW = ErrorCalcs(logger=log,
-                                    pred_ser=gdx1.mean(axis=1), #always using means for bar heights
-                                    true_ser=tgdx1.mean(axis=1),
-                                    )
+ 
+                #loop on sub-group and calc errors on each group
+                d=dict()
+                true_gb2 = tgsx0.groupby(level=plot_bgrp)
+                for gkey1, gsx1 in gsx0.groupby(level=plot_bgrp):
+                    tgsx1 =  true_gb2.get_group(gkey1)
                     
-                    d[gkey1] = eW.retrieve(err_type)
-                    
-                barHeight_ser = pd.Series(d, name=gkeys)
+                    with ErrorCalcs(logger=log,pred_ser=gsx1, true_ser=tgsx1, normed=normed) as eW:
+                        d[gkey1] = eW.retrieve(err_type)
+                        
  
-                ylocs = barHeight_ser.values
- 
-                #===============================================================
-                # #formatters.
-                #===============================================================
- 
-                # labels conversion to tag
-                if plot_bgrp=='modelID':
-                    raise Error('not implementd')
-                    #tick_label = [mid_tag_d[mid] for mid in barHeight_ser.index] #label by tag
-                else:
-                    tick_label = ['%s=%s'%(plot_bgrp, i) for i in barHeight_ser.index]
-                #tick_label = ['m%i' % i for i in range(0, len(barHeight_ser))]
-  
-                # widths
-                bar_cnt = len(barHeight_ser)
+                #standard bar parameters
+                xlocs = np.linspace(0, 1, num=len(d)) #spread out from 0 to 1
+                bar_cnt = len(d)
                 width = 0.9 / float(bar_cnt)
                 
+                tick_label = ['%s=%s'%(plot_bgrp, i) for i in d.keys()]
+                """
+                fig.show()
+                ax.clear()
+                ax.legend()
+                """
                 #===============================================================
-                # #add bars
+                # stacked confusion bars
                 #===============================================================
-                xlocs = np.linspace(0, 1, num=len(barHeight_ser)) #spread out from 0 to 1
-                bars = ax.bar(
-                    xlocs,  # xlocation of bars
-                    ylocs,  # heights
-                    width=width,
-                    align='center',
-                    color=color_d.values(),
-                    #label='%s=%s' % (plot_colr, ckey),
-                    #alpha=0.5,
-                    tick_label=tick_label,
-                    )
-                
+                if err_type=='confusion':
+                    meta_d.update({'normed':normed, 'base_index':base_index, 'aggMethod':aggMethod})
+                    #extract frames
+                    bhsx1 = pd.concat({k:v[1] for k,v in d.items()}, names=[plot_bgrp]).iloc[:,0]
+                    
+                    assert len(bhsx1)==bar_cnt*4, keys_d
+ 
+                    
+                    bottom = np.full(bar_cnt,0.0)
+                    for gkey2, bhgsx in bhsx1.groupby(level=['codes']):
+ 
+                        ylocs = bhgsx.values   #values per aggLevel 
+                        
+                        bars = ax.bar(xlocs, ylocs, width=width, 
+                                      color=color_d[gkey2],bottom=bottom,
+                                      tick_label=tick_label, label=gkey2
+                                      )
+                        bottom = bottom + ylocs
+                                      
+ 
                 #===============================================================
-                # axis line
+                # normal bars
+                #===============================================================
+                else:
+                    #if err_type in ['TP', 'FP', 'FN', 'TN']:
+                    #barHeight_ser = pd.Series(d, name=gkeys)
+                    ylocs = np.array(d.values())
+ 
+                    bars = ax.bar(
+                        xlocs,  # xlocation of bars
+                        ylocs,  # heights
+                        width=width,
+                        align='center',
+                        color=color_d.values(),
+                        #label='%s=%s' % (plot_colr, ckey),
+                        #alpha=0.5,
+                        tick_label=tick_label,
+                        )
+                    
+                #===============================================================
+                # post bar
                 #===============================================================
                 if err_type=='bias':
                     split_val = 1.0
                 else:
                     split_val = 0.0
-                
  
                 ax.axhline(split_val, color='black', linestyle='dashed') #draw in the axis
-                
-                #===============================================================
-                # add error bars 
-                #===============================================================
-                #===============================================================
-                # if len(gdx1.columns.get_level_values(1))>1:
-                #     raise Error('chekc this')
-                #     #get error values
-                #     err_df = pd.concat({'hi':gb.quantile(q=qhi),'low':gb.quantile(q=qlo)}, axis=1).droplevel(axis=1, level=1)
-                #     
-                #     #convert to deltas
-                #     assert np.array_equal(err_df.index, barHeight_ser.index)
-                #     errH_df = err_df.subtract(barHeight_ser.values, axis=0).abs().T.loc[['low', 'hi'], :]
-                #     
-                #     #add the error bars
-                #     ax.errorbar(xlocs, ylocs,
-                #                 errH_df.values,  
-                #                 capsize=5, color='black',
-                #                 fmt='none', #no data lines
-                #                 )
-                #===============================================================
+ 
                 
                 #===============================================================
                 # add bar labels
                 #===============================================================
-                d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':ylocs, 'xloc':xlocs}.items()}
-
-                for event, row in pd.concat(d1, axis=1).iterrows():
-                    """TODO: use a lambda here"""
-                    txt = '%+.2f' %(row['yloc'])
-
-                    #txt = '%+.1f %%' % (row['yloc'] * 100)
+                if bar_labels:
+                    d1 = {k:pd.Series(v, dtype=float) for k,v in {'yloc':ylocs, 'xloc':xlocs}.items()}
                     
-                    #get the color
-
-                        
-                    if row['yloc']>=split_val: color='black'
-                    else: color='red'
-                        
-                    ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
-                                txt,
-                                bbox=dict(boxstyle="round,pad=0.05", fc="white", lw=0.0,alpha=0.9 ), #light background fill,
-                                ha='center', va='bottom', rotation='vertical',fontsize=10, color=color)
+                    for event, row in pd.concat(d1, axis=1).iterrows():
+                        """TODO: use a lambda here"""
+                        txt = '%+.2f' %(row['yloc'])
+     
+                        #get the color
+      
+                        if row['yloc']>=split_val: color='black'
+                        else: color='red'
+                            
+                        ax.text(row['xloc'], row['yloc'] * 1.01, #shifted locations
+                                    txt,
+                                    bbox=dict(boxstyle="round,pad=0.05", fc="white", lw=0.0,alpha=0.9 ), #light background fill,
+                                    ha='center', va='bottom', rotation='vertical',fontsize=10, color=color)
                     
             #===================================================================
             # violin plot-----
@@ -2409,9 +2412,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             #===================================================================
             log.debug('    meta_func')
             """for bars, this ignores the bgrp key"""
-            meta_d = meta_func(logger=log, meta_d=meta_d, 
-                                pred_ser=pd.Series(data_d['mean']), 
-                                true_ser=pd.Series(true_data_d['mean']))
+            meta_d = meta_func(logger=log, meta_d=meta_d,pred_ser=gsx0,true_ser=tgsx0)
                             
             if meta_txt: 
                 ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black',
@@ -2438,9 +2439,12 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             for col_key, ax in d.items():
                 if plot_type in ['scatter', 'hist2d']:
                     ax.legend(loc=1)
+                    
                 # first row
                 if row_key == row_keys[0]:
-                    pass
+                    if col_key == col_keys[-1]:
+                        if plot_type =='bars':
+                            ax.legend(loc=1)
                 #last col
                 if col_key == col_keys[-1]:
                     if plot_type in ['hist2d']: 
@@ -4085,7 +4089,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             
             #just add the level
             if agg_name in mindex.names:
-                res_dx = pd.DataFrame(index=mindex).join(dx_raw).iloc[:,0].reorder_levels(mindex.names)
+                res_dx = pd.DataFrame(index=mindex).join(dx_raw).iloc[:,0]
  
             #drop the level
             elif agg_name in dx_raw.index.names:
@@ -4095,14 +4099,11 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             
             assert np.array_equal(res_dx.sort_index().values, dx_raw.sort_index().values)
                 
-            
-            
-            
-             
-            
+ 
         #=======================================================================
         # wrap
         #=======================================================================
+        res_dx = res_dx.reorder_levels(mindex.names)
         try:
             assert_index_equal(mindex, res_dx.index)
         except Exception as e:
@@ -4187,6 +4188,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 meta_indexers.remove(e)
         
         #slice to these models
+        """todo: allow this to handle series"""
         dx = dx_raw.loc[idx[modelID_l, :,:,:],:].dropna(how='all', axis=1).sort_index(axis=0)
         
         if len(meta_indexers) == 0:
@@ -4241,6 +4243,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         assert len(miss_l)==0
         
         assert np.array_equal(null_cnt_ser.values, dx.isna().sum(axis=1).values)
+ 
         
         return dx
     
