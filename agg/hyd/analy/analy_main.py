@@ -261,16 +261,18 @@ def run( #run a basic model configuration
             #                       #meta_func=lambda **kwargs:meta_slim(**kwargs),
             #                       )
             #===================================================================
-            err_type='confusion'
-            ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
-                                 plot_rown='studyArea', plot_coln='resolution',  plot_bgrp='aggLevel',
-                                 plot_colr='confusion',  bar_labels=False,normed=True,
-                                 base_index='true',aggMethod='join',
-                                 fmt='svg',sharex='all',sharey='all', plot_type='bars',
-                                 title='%s \'%s\' %s'%(plotName, dkey, err_type), err_type=err_type,
- 
-                                 #meta_func=lambda **kwargs:meta_slim(**kwargs),
-                                 )
+ #==============================================================================
+ #            err_type='confusion'
+ #            ses.plot_err_mat(dkey=dkey, modelID_l=mids,baseID=baseID,
+ #                                 plot_rown='studyArea', plot_coln='resolution',  plot_bgrp='aggLevel',
+ #                                 plot_colr='confusion',  bar_labels=False,normed=True,
+ #                                 base_index='true',aggMethod='join',
+ #                                 fmt='svg',sharex='all',sharey='all', plot_type='bars',
+ #                                 title='%s \'%s\' %s'%(plotName, dkey, err_type), err_type=err_type,
+ # 
+ #                                 #meta_func=lambda **kwargs:meta_slim(**kwargs),
+ #                                 )
+ #==============================================================================
   
             #===================================================================
             # rsamp values (no error)
@@ -308,26 +310,27 @@ def run( #run a basic model configuration
             #===================================================================
             # #samples + raster values
             #===================================================================
-            #===================================================================
-            # plot_type='gaussian_kde'
-            # xlims = (0, 2)
-            # drop_zeros=True
-            # 
-            # ax_d = ses.plot_rast(modelID_l = mids, plot_bgrp='resolution',                                  
-            #           plot_type=plot_type, mean_line=False, meta_txt=False, 
-            #           drop_zeros=drop_zeros, #depth rasters are mostly zeros
-            #           debug_max_len=1e6, write=False, linestyle='dashed', xlims=xlims, slice_d=slice_d)
-            #                  
-            # ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
-            #                      plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
-            #                      fmt='svg',sharex='col',sharey='col', plot_type=plot_type,
-            #                      drop_zeros=drop_zeros,mean_line=False,grid=True,
-            #                      #title='%s \'%s\' relative errors'%(plotName, dkey), 
-            #                       #meta_func=lambda **kwargs:meta_basic(**kwargs),
-            #                       ax_d=ax_d, val_lab='depths (m)',
-            #                       xlims=xlims, ylims=(0, 0.5),
-            #                       slice_d=slice_d)
-            #===================================================================
+            plot_type='gaussian_kde'
+            density=True
+            xlims = (0, 2)
+            drop_zeros=False
+            slice_d={}
+             
+            ax_d = ses.plot_rast(modelID_l = mids, plot_bgrp='resolution',                                  
+                      plot_type=plot_type, mean_line=False,density=density, 
+                      meta_txt=False, 
+                      drop_zeros=drop_zeros, #depth rasters are mostly zeros
+                      debug_max_len=1e6, write=False, linestyle='dashed', xlims=xlims, slice_d=slice_d)
+                              
+            ses.plot_dkey_mat2(dkey=dkey, modelID_l=mids,
+                                 plot_rown='resolution', plot_coln='studyArea',  plot_colr='aggLevel', plot_bgrp='aggLevel',
+                                 fmt='svg',sharex='col',sharey='col', plot_type=plot_type,
+                                 drop_zeros=drop_zeros,mean_line=False,grid=True,density=density,
+                                 #title='%s \'%s\' relative errors'%(plotName, dkey), 
+                                  #meta_func=lambda **kwargs:meta_basic(**kwargs),
+                                  ax_d=ax_d, val_lab='depths (m)',
+                                  xlims=xlims, ylims=(0, 0.5),
+                                  slice_d=slice_d)
             
 
 
