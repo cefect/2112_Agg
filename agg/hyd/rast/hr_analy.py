@@ -49,9 +49,11 @@ matplotlib.rcParams['legend.title_fontsize'] = 'large'
 
 print('loaded matplotlib %s'%matplotlib.__version__)
 
-from agg.hyd.rast.hr_scripts import RastRun, view, Catalog
+from agg.hyd.rast.hr_scripts import RastRun, view, Catalog, Error
 from hp.plot import Plotr
 from hp.gdal import rlay_to_array, getRasterMetadata
+from hp.basic import set_info, get_dict_str
+#from hp.animation import capture_images
 
 class RasterAnalysis(RastRun, Plotr): #analysis of model results
 
@@ -114,7 +116,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                                       
                     
                     #plot config
-                    plot_type='hist', 
+                    plot_type='gaussian_kde', 
                     plot_rown='studyArea',
                     plot_coln='dsampStage',
                     plot_colr='resolution',                    
@@ -123,8 +125,9 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                      
                     #histwargs
                     bins=20, rwidth=0.9, 
-                    mean_line=True, #plot a vertical line on the mean
-                    density=False,
+                    hrange=None, #slicing the data (similar to xlims.. but this affects the calcs)
+                    mean_line=False, #plot a vertical line on the mean
+                    density=True,
  
  
                     #meta labelling
@@ -132,10 +135,16 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                     meta_func = lambda meta_d={}, **kwargs:meta_d, #lambda for calculating additional meta information (add_meta=True)        
                     write_meta=False, #write all the meta info to a csv            
                     
+                    write_stats=True, #calc and write stats from raster arrays
+                    
                     #plot style                    
-                    colorMap=None, title=None, val_lab=None, grid=False,
-                    sharey='none',sharex='none',
-                    xlims=None,
+                    colorMap=None, title=None, val_lab='depth (m)', 
+                    grid=True,
+                    sharey='row',sharex='row',
+                    xlims=None, #also see hrange
+                    ylims=None,
+                    figsize=None,
+                    yscale='linear',
                     
                     #output
                     fmt='svg',
@@ -184,7 +193,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                 
         if colorMap is None: colorMap = self.colorMap_d[plot_colr]
         
-        if val_lab is None: 'depth (m)'
+ 
         
         if plot_type in ['violin', 'bar']:
             assert xlims is None
@@ -213,7 +222,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                                     sharey=sharey, 
                                     sharex=sharex,  
                                     fig_id=0,
-                                    set_ax_title=True,
+                                    set_ax_title=True,figsize=figsize,
                                     )
      
  
@@ -230,7 +239,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         #=======================================================================
         # loop and plot
         #=======================================================================
- 
+        stats_dx = None
         meta_dx=None
         for gkeys, gdx0 in fp_serx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
             
@@ -243,90 +252,127 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             
             assert len(gdx0.index.unique('resolution'))==len(gdx0.index.get_level_values('resolution'))
             
-            meta_d = {'layers':len(gdx0)}
+            meta_d = {'layers':len(gdx0), 'drop_zeros':drop_zeros}
             #===================================================================
-            # loop on each raster-------
+            # build data-------
             #===================================================================
+            #===================================================================
+            # get filepaths
+            #===================================================================
+            gdf0 = gdx0.droplevel(list(range(1,5)))
             
-            fp_d = gdx0.droplevel(list(range(1,5))).to_dict()
-            log.info('for %s looping on %i rasters'%(keys_d, len(fp_d)))
-            
-            
-            
-            for resolution, fp in fp_d.items():
+            #set order
+            if plot_type=='gaussian_kde':
+                fp_d = gdf0.sort_index(ascending=False).to_dict()
+            else:
+                fp_d = gdf0.to_dict()
                 
+            
+            
+            #===================================================================
+            # loop and ubild
+            #===================================================================
+            log.info('for %s looping on %i rasters'%(keys_d, len(fp_d)))
+            stats_d=dict()
+            data_d = dict()
+            zcnt=0
+            drop_cnt=0
+            for resolution, fp in fp_d.items():
+                keys_d[resCn] = resolution
                 #===============================================================
                 # get the values
                 #===============================================================
                 ar_raw = rlay_to_array(fp)
                 
                 ser1 = pd.Series(ar_raw.reshape((1,-1))[0]).dropna()
+                
+                if write_stats:
+                    stats_d[resolution] = {'%s_raw'%k:getattr(ser1, k)() for k in ['mean', 'max', 'count', 'min']}
                     
                 #remove zeros
                 bx = ser1==0.0
                 if drop_zeros:                    
                     ser1 = ser1.loc[~bx]
-                
+                    stats_d[resolution].update({'zero_count':bx.sum()})
+
+                if write_stats:
+                    stats_d[resolution].update({'%s_noZeros'%k:getattr(ser1, k)() for k in ['mean', 'max', 'count', 'min']})
+                    
                 #counts
-                meta_d['zero_count'] = bx.sum()
+                zcnt+= bx.sum()
+                if not len(ser1)>100:
+                    if plot_type in ['gaussian_kde']:
+                        log.warning('%s got %i entries... skipping'%(keys_d, len(ser1)))
+                        drop_cnt+=1
+                        continue
                 
                 #reduce
                 if not debug_max_len is None:
                     if len(ser1)>debug_max_len:
                         log.warning('reducing from %i to %i'%(len(ser1), debug_max_len))
                         meta_d['raw_cnt'] = len(ser1)
-                        ser1 = ser1.sample(debug_max_len) #get a random sample of these
+                        ser1 = ser1.sample(int(debug_max_len)) #get a random sample of these
                         
-                #===============================================================
-                # plot
-                #===============================================================
-                raise IOError('stopped here')
-                """setup to plot a set... but just using the loop here for memory efficiency"""
-                md1 = self.ax_data(ax, {resolution:ser1},
-                               plot_type=plot_type, 
-                               bins=bins, rwidth=rwidth, 
-                               mean_line=None, hrange=xlims, density=density,
-                               color_d=color_d, logger=log,
-                               label_key=plot_bgrp, **kwargs) 
+                data_d[resolution] = ser1.values
+            
+            #===================================================================
+            # post
+            #===================================================================
+            del keys_d[resCn]
+            meta_d.update ({'zero_count':zcnt, 'lay_drop_cnt':drop_cnt})
+            
+
+            #===================================================================
+            # stats
+            #===================================================================
+            if write_stats:
+                sdfi = pd.DataFrame.from_dict(stats_d).T
+                sdfi.index.name=resCn
+                for k,v in keys_d.items():
+                    sdfi[k]=v
+                
+                sdxi = sdfi.set_index(list(keys_d.keys()), append=True)
+                    
+                if stats_dx is None:
+                    stats_dx = sdxi
+                else:
+                    stats_dx = stats_dx.append(sdxi)
+            
+            #===============================================================
+            # plot------
+            #===============================================================
+            cdi = {k:color_d[k] for k in data_d.keys()} #subset and reorder
+ 
+            """setup to plot a set... but just using the loop here for memory efficiency"""
+            md1 = self.ax_data(ax, data_d,
+                           plot_type=plot_type, 
+                           bins=bins, rwidth=rwidth, 
+                           mean_line=None, hrange=hrange, density=density,
+                           color_d=cdi, 
+                           logger=log,
+                           violin_line_kwargs=dict(color='red', alpha=0.75, linewidth=0.75),
+                           label_key=plot_bgrp, **kwargs) 
+            """
+                fig.show()
+                """
  
              
             #===================================================================
             # add plots--------
             #===================================================================
             if mean_line:
+                raise Error('not implemented')
                 mval =gdx0.mean().mean()
             else: mval=None 
             
 
  
             meta_d.update(md1)
-            labels = ['%s=%s'%(plot_bgrp, k) for k in data_d.keys()]
             
-            #===================================================================
-            # base plot
-            #===================================================================
-            if not base_sx is None:
-                if 'studyArea' in keys_d: studyArea = keys_d['studyArea']
-                else: studyArea = 'all'
-                #set the base
-                if not studyArea in base_mods_d:
-                    if 'studyArea' in keys_d:
-                        b_ar = base_gb.get_group(keys_d['studyArea']).values
-                    assert len(b_ar)>0
-                    kde = scipy.stats.gaussian_kde(b_ar,bw_method='scott',weights=None)
-                    
-                    xvals = np.linspace(b_ar.min()+.01, b_ar.max(), 1000)
-                    yvals = kde(xvals)
-                    
-                    base_mods_d[studyArea] = (xvals, yvals)
-                
-                
-                #plot it
-                xvals, yvals = base_mods_d[studyArea]
-                ax.plot(xvals, yvals, color='black', label='baseline', linestyle='dashed')
-                    
-                
-            
+            """this is usually too long
+            labels = ['%s=%s'%(plot_bgrp, k) for k in data_d.keys()]"""
+            labels = [str(v) for v in data_d.keys()]
+ 
             #===================================================================
             # post format 
             #===================================================================
@@ -338,7 +384,9 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             """for bars, this ignores the bgrp key"""
             meta_d = meta_func(logger=log, meta_d=meta_d, pred_ser=gdx0)
             if meta_txt:
-                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+                ax.text(0.1, 0.9, get_dict_str(meta_d), 
+                        bbox=dict(boxstyle="round,pad=0.05", fc="white", lw=0.0,alpha=0.9 ),
+                        transform=ax.transAxes, va='top', fontsize=8, color='black')
             
             
             #===================================================================
@@ -352,7 +400,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             else:
                 meta_dx = meta_dx.append(meta_serx)
                 
-            first=False
+ 
                 
         #===============================================================
         # post format subplot ----------
@@ -362,18 +410,30 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             for col_key, ax in d.items():
                 if grid: ax.grid()
                 
+
+                
+                if plot_type in ['box', 'violin']:
+                    ax.set_xticklabels([])
+                    
+                
+                
                 if not xlims is None:
                     ax.set_xlim(xlims)
                     
                 if not ylims is None:
                     ax.set_ylim(ylims)
- 
+                    
+                #chang eto log scale
+                ax.set_yscale(yscale)
+                
                 
                 # first row
                 if row_key == row_keys[0]:
                     #last col
                     if col_key == col_keys[-1]:
-                        if plot_type in ['hist', 'gaussian_kde']:
+                        if plot_type in ['hist', 'gaussian_kde', 
+                                         #'violin' #no handles 
+                                         ]:
                             ax.legend()
                 
                         
@@ -385,12 +445,12 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                         else:
                             ax.set_ylabel('count')
                     elif plot_type in ['box', 'violin']:
-                        ax.set_ylabel(val_lab)
+                        if not val_lab is None: ax.set_ylabel(val_lab)
                 
                 #last row
                 if row_key == row_keys[-1]:
                     if plot_type in ['hist', 'gaussian_kde']:
-                        ax.set_xlabel(val_lab)
+                        if not val_lab is None: ax.set_xlabel(val_lab)
                     elif plot_type in ['violin', 'box']:
                         ax.set_xticks(np.arange(1, len(labels) + 1))
                         ax.set_xticklabels(labels)
@@ -406,19 +466,28 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         #=======================================================================
         log.info('finsihed')
         """
+        fig.show()
         plt.show()
         """
  
-        fname = 'values_%s_%s_%sX%s_%s_%s' % (
-            title.replace(' ','').replace('\'',''),
-             plot_type, plot_rown, plot_coln, val_lab, self.longname)
+        fname = 'rvalues_%s_%s_%sX%s_%s_%s' % (
+            title,plot_type, plot_rown, plot_coln, val_lab, self.longname)
                 
-        fname = fname.replace('=', '-')
+        fname = fname.replace('=', '-').replace(' ','').replace('\'','')
         
-        if write_meta:
-            ofp =  os.path.join(self.out_dir, fname+'_meta.csv')
-            meta_dx.to_csv(ofp)
-            log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
+        try:
+            if write_meta:
+                
+                ofp =  os.path.join(self.out_dir, fname+'_meta.csv')
+                meta_dx.to_csv(ofp)
+                log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
+                
+            if write_stats:
+                ofp =os.path.join(self.out_dir, fname+'_stats.csv')
+                stats_dx.to_csv(ofp)
+                log.info('wrote stats_dx %s to \n    %s'%(str(stats_dx.shape), ofp))
+        except Exception as e:
+            log.error('failed to write meta or stats data w/ \n    %s'%e)
                
         
         return self.output_fig(fig, fname=fname, fmt=fmt)
@@ -480,7 +549,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
  
         
         #=======================================================================
-        # data prep
+        # data prep----
         #=======================================================================
         log.info('on %i'%len(dx_raw))
         serx = dx_raw[coln]
@@ -542,7 +611,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
 
             
         #=======================================================================
-        # loop and plot
+        # loop and plot------
         #=======================================================================
         
         for gkeys, gsx0 in serx.groupby(level=gcols):
@@ -659,6 +728,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # compiling-----
         #=======================================================================
+        ses.logger.warning('test')
         ses.runRastAnalysis()
         
         #=======================================================================
@@ -674,20 +744,44 @@ def run( #run a basic model configuration
             #===================================================================
             # vs Resolution-------
             #===================================================================
-            # #===================================================================
-            # coln='MEAN'
-            # ses.plot_vsResolution(coln=coln, ylabel='mean depth (m)', dx_raw=dx,xlims=xlims,xscale=xscale,
-            #                       title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
-            #  
-            # coln='wetAreas'
-            # ses.plot_vsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
-            #                       title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
             #===================================================================
+            coln='MEAN'
+            ses.plot_vsResolution(coln=coln, ylabel='mean depth (m)', dx_raw=dx,xlims=xlims,xscale=xscale,
+                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
+              
+            coln='wetAreas'
+            ses.plot_vsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
+                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
             
         #===================================================================
         # value distributions----
         #===================================================================
-        ses.plot_rvalues( )
+        #couldnt get this to be useful w/o droppping zeros (which corrupts the results)
+        #=======================================================================
+        # ses.plot_rvalues(figsize=(12,12), plot_type='gaussian_kde', drop_zeros=False,  write_stats=False,
+        #                 #hrange=(0,10),  xlims=(0,10), 
+        #                 ylims=(0,0.1),
+        #                  #linewidth=0.75,
+        #                  )
+        #=======================================================================
+        
+ 
+        #=======================================================================
+        # ses.plot_rvalues(figsize=(16,12), plot_type='violin', drop_zeros=False,  write_stats=False,
+        #                  grid=False,
+        #                  #yscale='log',
+        #                  sharex='all',
+        #                 #hrange=(0,10),  xlims=(0,10), 
+        #                 #ylims=(1e-1,10**3),
+        #                  #linewidth=0.75,
+        #                  )
+        #=======================================================================
+        #=======================================================================
+        # bin_max=5
+        # ses.plot_rvalues(figsize=(12,12), plot_type='hist', drop_zeros=False, density=True, debug_max_len=None, write_stats=False,
+        #                  xlims=(0,bin_max),ylims=(0,.2),bins=bin_max*4, bin_lims=(0,bin_max),
+        #                  )
+        #=======================================================================
 
         
         out_dir = ses.out_dir
