@@ -1532,7 +1532,9 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
             """for bars, this ignores the bgrp key"""
             meta_d = meta_func(logger=log, meta_d=meta_d, pred_ser=gdx0)
             if meta_txt:
-                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black')
+                ax.text(0.1, 0.9, get_dict_str(meta_d), transform=ax.transAxes, va='top', fontsize=8, color='black',
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.5 ),
+                        )
             
             
             #===================================================================
@@ -2433,7 +2435,7 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
                 meta_dx = meta_dx.append(meta_serx)
                 
         #===============================================================
-        # #wrap format subplot
+        # post format subplot-------
         #===============================================================
         """best to loop on the axis container in case a plot was missed"""
         for row_key, d in ax_d.items():
