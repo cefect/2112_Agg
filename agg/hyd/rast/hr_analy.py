@@ -104,6 +104,10 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         if catalog_fp is None: catalog_fp=self.catalog_fp
         
         return Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False, **kwargs).get()
+    
+    #===========================================================================
+    # PLOTRS------
+    #===========================================================================
  
     def plot_rvalues(self, #flexible plotting of raster values
                   
@@ -270,73 +274,19 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             
             
             #===================================================================
-            # loop and ubild
+            # pull the raster data
             #===================================================================
-            log.info('for %s looping on %i rasters'%(keys_d, len(fp_d)))
-            stats_d=dict()
-            data_d = dict()
-            zcnt=0
-            drop_cnt=0
-            for resolution, fp in fp_d.items():
-                keys_d[resCn] = resolution
-                #===============================================================
-                # get the values
-                #===============================================================
-                ar_raw = rlay_to_array(fp)
-                
-                ser1 = pd.Series(ar_raw.reshape((1,-1))[0]).dropna()
-                
-                if write_stats:
-                    stats_d[resolution] = {'%s_raw'%k:getattr(ser1, k)() for k in ['mean', 'max', 'count', 'min']}
-                    
-                #remove zeros
-                bx = ser1==0.0
-                if drop_zeros:                    
-                    ser1 = ser1.loc[~bx]
-                    stats_d[resolution].update({'zero_count':bx.sum()})
-
-                if write_stats:
-                    stats_d[resolution].update({'%s_noZeros'%k:getattr(ser1, k)() for k in ['mean', 'max', 'count', 'min']})
-                    
-                #counts
-                zcnt+= bx.sum()
-                if not len(ser1)>100:
-                    if plot_type in ['gaussian_kde']:
-                        log.warning('%s got %i entries... skipping'%(keys_d, len(ser1)))
-                        drop_cnt+=1
-                        continue
-                
-                #reduce
-                if not debug_max_len is None:
-                    if len(ser1)>debug_max_len:
-                        log.warning('reducing from %i to %i'%(len(ser1), debug_max_len))
-                        meta_d['raw_cnt'] = len(ser1)
-                        ser1 = ser1.sample(int(debug_max_len)) #get a random sample of these
-                        
-                data_d[resolution] = ser1.values
+            data_d, sdxi, d = self.get_raster_data(fp_d,  
+                                drop_zeros=drop_zeros,debug_max_len=debug_max_len,
+                                                logger=log.getChild(str(gkeys)))
             
-            #===================================================================
-            # post
-            #===================================================================
-            del keys_d[resCn]
-            meta_d.update ({'zero_count':zcnt, 'lay_drop_cnt':drop_cnt})
+            meta_d.update(d)
             
-
-            #===================================================================
-            # stats
-            #===================================================================
-            if write_stats:
-                sdfi = pd.DataFrame.from_dict(stats_d).T
-                sdfi.index.name=resCn
-                for k,v in keys_d.items():
-                    sdfi[k]=v
-                
-                sdxi = sdfi.set_index(list(keys_d.keys()), append=True)
-                    
-                if stats_dx is None:
-                    stats_dx = sdxi
-                else:
-                    stats_dx = stats_dx.append(sdxi)
+            
+            if stats_dx is None:
+                stats_dx = sdxi
+            else:
+                stats_dx = stats_dx.append(sdxi)
             
             #===============================================================
             # plot------
@@ -494,8 +444,401 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
  
  
 
+
+    def plot_rValsVs(self, #plot raster values against some indexer
+ 
+                    #data 
+                    fp_serx=None, #catalog
+
+                    
+                    ystat='mean', #for statistical plot types
+                    xcoln='resolution',
+                    
+                    #raster data retrival [get_raster_data]
+                    rkwargs = dict(
+                        debug_max_len=None,
+                        min_cell_cnt=1,
+                        drop_zeros=False, 
+                        ),
+                                      
+                    
+                    #plot config
+                    ax_d=None,
+                    plot_types=['line', 'box'], 
+                    plot_rown='studyArea',
+                    plot_coln=None,
+                    plot_colr=None,                    
+                    plot_bgrp='dsampStage',
+                    
+                    #box config
+                    shift_d=None,
+                    width=2,
+ 
+ 
+                    #meta labelling
+                    meta_txt=False, #add meta info to plot as text
+                    meta_func = lambda meta_d={}, **kwargs:meta_d, #lambda for calculating additional meta information (add_meta=True)        
+                    write_meta=False, #write all the meta info to a csv            
+                    
+                    write_stats=False, #calc and write stats from raster arrays
+                    
+                    #plot style                    
+                    colorMap=None, title=None, 
+                    grid=True,
+                    sharey='row',sharex='row',
+                    xlims=None, #also see hrange
+                    ylims=None,
+                    ylab='depth (m)',
+                    xlab=None, 
+                    figsize=None,
+                    yscale='linear',xscale='linear',
+                    plot_kwargs = dict(),
+                    
+                    #output
+                    fmt='png',write_fig=True,
+ 
+                    ):
+        """"
+        similar to plot_dkey_mat (more flexible)
+        similar to plot_err_mat (1 dkey only)
+        
+        
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('plot_rvalues')
+ 
+        resCn, saCn = self.resCn, self.saCn
+ 
+        #retrieve data
+        """just the catalog... we load each raster in the loop"""
+        if fp_serx is None:
+            fp_serx = self.retrieve('catalog')['rlay_fp']
+ 
+        assert isinstance(fp_serx, pd.Series)
+        assert fp_serx.name=='rlay_fp'
+        #=======================================================================
+        # #plot keys
+        #=======================================================================
+        if plot_colr is None: 
+            plot_colr=plot_bgrp
+        
+        if plot_colr is None: 
+            plot_colr=plot_rown
+            
+        if plot_bgrp is None:
+            plot_bgrp = plot_colr
+            
+        
+            
+        #=======================================================================
+        # key checks
+        #=======================================================================
+        """set up to plot against some indexer... for most plot types this has to be resolution?"""
+        assert xcoln in fp_serx.index.names
+        assert not plot_rown==plot_coln
+            
+        #=======================================================================
+        # #plot style
+        #=======================================================================                 
+        if title is None:
+            title = 'Depth Raster Values'
+            
+        if xlab is None: xlab=xcoln
+                
+        if colorMap is None: colorMap = self.colorMap_d[plot_colr]
+        
+            
+            
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        if plot_coln is None:
+            """add a dummy level for c onsistent indexing"""
+            plot_coln = ''
+            fp_serx = pd.concat({plot_coln:fp_serx}, axis=0, names=[plot_coln])
+        
+ 
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        mdex = fp_serx.index
+        
+ 
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        if ax_d is None:
+            plt.close('all')
+            fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                        figsize_scaler=4,
+                                        constrained_layout=True,
+                                        sharey=sharey, 
+                                        sharex=sharex,  
+                                        fig_id=0,
+                                        set_ax_title=True,figsize=figsize,
+                                        )
+         
+     
     
-    def plot_vsResolution(self, #progression against resolution plots
+            
+            
+        else:
+            for k,v in ax_d.items():
+                fig = v[list(v.keys())[0]].figure
+                break
+            
+        assert isinstance(fig, matplotlib.figure.Figure)
+        fig.suptitle(title)
+        #=======================================================================
+        # #get colors
+        #=======================================================================
+ 
+        ckeys = mdex.unique(plot_colr) 
+        
+        
+        """nasty workaround to get colors to match w/ hyd""" 
+        if plot_colr =='dsampStage':
+            ckeys = ['none'] + ckeys.values.tolist()
+        
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        #=======================================================================
+        # get shift
+        #=======================================================================
+        if shift_d is None and 'box' in plot_types:
+            """distance percentage per group"""
+            shift_d = dict(zip(mdex.unique(plot_bgrp), 
+                               np.linspace(0, width*1.1, len(mdex.unique(plot_bgrp)))-width*0.5
+                               ))
+ 
+ 
+ 
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        stats_dx = None
+        meta_dx=None
+        for gkeys0, gdx0 in fp_serx.groupby(level=[plot_coln, plot_rown]): #loop by axis data
+            
+            #===================================================================
+            # setup
+            #===================================================================
+            
+            keys_d = dict(zip([plot_coln, plot_rown], gkeys0))
+            ax = ax_d[gkeys0[1]][gkeys0[0]]
+            log.info('on %s'%keys_d)
+            
+            
+            
+            meta_d = {'layers':len(gdx0)}
+            
+            #===================================================================
+            # loop on group 
+            #===================================================================
+            for gk1, gdx1 in gdx0.groupby(level=plot_bgrp):
+                keys_d[plot_bgrp] = gk1
+                kstr = '.'.join(keys_d.values())
+                color = color_d[keys_d[plot_colr]]
+                assert plot_colr==plot_bgrp
+                
+                assert len(gdx1.index.unique('resolution'))==len(gdx1.index.get_level_values('resolution'))
+                #===================================================================
+                # build data-------
+                #===================================================================
+                #===================================================================
+                # get filepaths
+                #===================================================================
+                #drop all the levels except the plotting indexer
+                gdf1 = gdx1.droplevel(list(set(gdx0.index.names).difference([xcoln])))
+                
+                #get filepahts (order shouldnt matter)
+                fp_d = gdf1.to_dict()
+     
+                
+                #===================================================================
+                # pull the raster data
+                #===================================================================
+                """not the most efficient... but more flexible than relying on raster functions"""
+                data_d, sdxi, d = self.get_raster_data(fp_d, logger=log.getChild(kstr), **rkwargs)
+                
+                meta_d.update({'%s_%s'%(gk1, k):v for k,v in d.items()})
+                
+                
+                if stats_dx is None:
+                    stats_dx = sdxi
+                else:
+                    stats_dx = stats_dx.append(sdxi)
+                    
+                #===================================================================
+                # get the plotting stat
+                #===================================================================
+                xar = np.array(list(data_d.keys()))
+                if not ystat is None:
+                    yar = np.array([getattr(ar, ystat)() for k,ar in data_d.items()])
+                    
+                
+                #===============================================================
+                # plot each
+                #===============================================================
+                for plot_type in plot_types:
+                    #===============================================================
+                    # plot.line------
+                    #===============================================================
+                    if plot_type=='line':
+                        ax.plot(xar, yar, color=color,
+                                label ='%s (%s; zeros=%s)'%(keys_d[plot_bgrp], ystat, not rkwargs['drop_zeros']),
+                                **plot_kwargs)
+                    
+                    #===============================================================
+                    # plot.box-------    
+                    #===============================================================
+                        """
+                        fig.show()
+                        """
+                    elif plot_type =='box':
+                        #apply shift 
+                        #shift_ar=np.append(np.diff(xar), np.diff(xar)[-1])*shift_d[gk1]
+                        pos_ar = xar +  shift_d[gk1] 
+                        #wid_ar = (np.append(np.diff(xar), np.diff(xar)[-1])/len(shift_d))*0.5
+                        
+                        boxres_d = ax.boxplot(data_d.values(),   meanline=False, 
+                                              positions=pos_ar,widths=width,notch=True,
+                            boxprops={'color':color},
+                            medianprops={'color':color},
+                            whiskerprops={'color':color},
+                            showcaps=False,
+                            flierprops={'markeredgecolor':color, 'markersize':2,'alpha':0.3},
+                            )
+                        
+                    elif plot_type=='zero_line':
+                        ax.axhline(0.0, color='black', linestyle='solid', linewidth=0.5)
+ 
+                    else:
+                        raise Error(plot_type)
+                    
+ 
+     
+                #===================================================================
+                # post format 
+                #===================================================================
+                labels = [str(v) for v in data_d.keys()]
+     
+                del keys_d[plot_bgrp]
+                ax.set_title(' & '.join(['%s:%s' % (k, v) for (k, v) in keys_d.items() if not k=='']))
+                #===================================================================
+                # meta  text
+                #===================================================================
+     
+                meta_d = meta_func(logger=log, meta_d=meta_d, pred_ser=gdx0)
+                if meta_txt:
+                    ax.text(0.1, 0.9, get_dict_str(meta_d), 
+                            bbox=dict(boxstyle="round,pad=0.05", fc="white", lw=0.0,alpha=0.5 ),
+                            transform=ax.transAxes, va='top', fontsize=8, color='black')
+                
+                
+                #===================================================================
+                # collect meta 
+                #===================================================================
+                meta_serx = pd.Series(meta_d, name=tuple(keys_d.keys()))
+                
+                if meta_dx is None:
+                    meta_dx = meta_serx.to_frame().T
+                    meta_dx.index.set_names(keys_d.keys(), inplace=True)
+                else:
+                    meta_dx = meta_dx.append(meta_serx)
+                
+ 
+                
+        #===============================================================
+        # post format subplot ----------
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                if grid: ax.grid()
+                
+ 
+                
+                if not xlims is None:
+                    ax.set_xlim(xlims)
+                    
+                if not ylims is None:
+                    ax.set_ylim(ylims)
+                    
+                #chang eto log scale
+                if not yscale is None:
+                    ax.set_yscale(yscale)
+                ax.set_xscale(xscale)
+                
+                
+                # first row
+                if row_key == row_keys[0]:
+                    #last col
+                    if col_key == col_keys[-1]:
+                        ax.legend()
+                            
+                
+                        
+                # first col
+                if col_key == col_keys[0]:
+                    if not ylab is None: ax.set_ylabel(ylab)
+                        
+                
+                #last row
+                if row_key == row_keys[-1]:
+ 
+                    if not xlab is None:ax.set_xlabel(xlab)
+                        
+ 
+                    #last col
+                    if col_key == col_keys[-1]:
+                        pass
+                        
+                    
+ 
+ 
+        #=======================================================================
+        # wrap---------
+        #=======================================================================
+        log.info('finsihed')
+        """
+        fig.show()
+        plt.show()
+        """
+ 
+        fname = 'rValsVs_%s_%s_%sX%s_%s_%s' % (
+            title,plot_type, plot_rown, plot_coln, ylab, self.longname)
+                
+        fname = fname.replace('=', '-').replace(' ','').replace('\'','')
+        
+        try:
+            if write_meta:
+                
+                ofp =  os.path.join(self.out_dir, fname+'_meta.csv')
+                meta_dx.to_csv(ofp)
+                log.info('wrote meta_dx %s to \n    %s'%(str(meta_dx.shape), ofp))
+                
+            if write_stats:
+                ofp =os.path.join(self.out_dir, fname+'_stats.csv')
+                stats_dx.to_csv(ofp)
+                log.info('wrote stats_dx %s to \n    %s'%(str(stats_dx.shape), ofp))
+        except Exception as e:
+            log.error('failed to write meta or stats data w/ \n    %s'%e)
+               
+        if write_fig:
+            log.info('outputting fig')
+            return self.output_fig(fig, fname=fname, fmt=fmt)
+        else:
+            return ax_d
+        
+ 
+ 
+ 
+    
+    def plot_StatVsResolution(self, #stat against resolution plots
                          #data
                          dx_raw=None, #combined model results
                          coln = 'MEAN', #variable to plot against resolution
@@ -602,14 +945,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                                     )
  
         fig.suptitle(title)
-            
-            
-            
-        """
-        fig.show()
-        """
-
-            
+ 
         #=======================================================================
         # loop and plot------
         #=======================================================================
@@ -680,6 +1016,95 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         
         
         return self.output_fig(fig, fname=fname)
+    
+    
+    #===========================================================================
+    # helpers-------
+    #===========================================================================
+    def get_raster_data(self,  #retrieve and process data on a set of rasters
+                        fp_d,
+                        min_cell_cnt=1,
+                        drop_zeros=True, 
+                        debug_max_len=None,   
+ 
+                        logger=None):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_raster_data')
+        assert isinstance(min_cell_cnt, int), 'must specify an int'
+        stats_d = dict()
+        data_d = dict()
+        zcnt = 0
+        drop_cnt = 0
+        meta_d={'drop_zeros':drop_zeros}
+        
+        #===================================================================
+        # loop and ubild
+        #===================================================================
+        log.info('looping on %i rasters' % (len(fp_d)))
+
+        for gkey, fp in fp_d.items(): #typically gkey=resolution
+            
+            #===============================================================
+            # get the values
+            #===============================================================
+            ar_raw = rlay_to_array(fp)
+            ser1 = pd.Series(ar_raw.reshape((1, -1))[0]).dropna()
+ 
+            stats_d[gkey] = {'%s_raw' % k:getattr(ser1, k)() for k in ['mean', 'max', 'count', 'min']}
+                
+            #===================================================================
+            # #remove zeros
+            #===================================================================
+            bx = ser1 == 0.0
+            if drop_zeros:
+                ser1 = ser1.loc[~bx]
+                stats_d[gkey].update({'zero_count':bx.sum()})
+ 
+                stats_d[gkey].update({'%s_noZeros' % k:getattr(ser1, k)() for k in ['mean', 'max', 'count', 'min']})
+                
+            #===================================================================
+            # #count check
+            #===================================================================
+            zcnt += bx.sum()
+ 
+            if not len(ser1) > min_cell_cnt:
+                log.warning('got %i entries (<%i)... skipping' % (len(ser1), min_cell_cnt))
+                drop_cnt += 1
+                continue
+        
+ 
+            #===================================================================
+            # #reduce
+            #===================================================================
+            if not debug_max_len is None:
+                if len(ser1) > debug_max_len:
+                    log.warning('reducing from %i to %i' % (len(ser1), debug_max_len))
+ 
+                    ser1 = ser1.sample(int(debug_max_len)) #get a random sample of these
+                    
+            #===================================================================
+            # wrap
+            #===================================================================
+            assert len(ser1)>0
+                
+            data_d[gkey] = ser1.values
+        
+        #===================================================================
+        # post
+        #===================================================================
+        assert len(data_d)>0
+        meta_d.update({'zero_count':zcnt, 'lay_drop_cnt':drop_cnt})
+        
+        log.info('finished on %i w/ \n    %s'%(len(data_d), meta_d))
+        
+ 
+        return  data_d, pd.DataFrame.from_dict(stats_d).T, meta_d
+
+
         
     
     
@@ -728,7 +1153,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # compiling-----
         #=======================================================================
-        ses.logger.warning('test')
+ 
         ses.runRastAnalysis()
         
         #=======================================================================
@@ -736,22 +1161,32 @@ def run( #run a basic model configuration
         #=======================================================================
         dx_raw = ses.retrieve('catalog')
         hi_res=350 #max we're using for hyd is 300
-        for plotName, dx, xlims, xscale in [
-            ('full', dx_raw,(10, 1e4), 'log',), 
-            #('hi_res',dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :], (10, hi_res), 'linear')
+        hr_dx = dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
+        for plotName, dx, xlims,  ylims,xscale, yscale, drop_zeros in [
+            #('full', dx_raw,(10, 1e4), 'log',), 
+            ('hi_res_1',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
+            #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
             ]:
             print('\n\n%s\n\n'%plotName)
             #===================================================================
             # vs Resolution-------
             #===================================================================
             #===================================================================
-            coln='MEAN'
-            ses.plot_vsResolution(coln=coln, ylabel='mean depth (m)', dx_raw=dx,xlims=xlims,xscale=xscale,
-                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
+            #===================================================================
+            # coln='MEAN'
+            # ses.plot_StatVsResolution(coln=coln, ylabel='mean depth (m)', dx_raw=dx,xlims=xlims,xscale=xscale,
+            #                       title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
+            #===================================================================
+            
+            
               
-            coln='wetAreas'
-            ses.plot_vsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
-                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
+            #===================================================================
+            # coln='wetAreas'
+            # ses.plot_StatVsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
+            #                       title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
+            #===================================================================
+ 
+
             
         #===================================================================
         # value distributions----
@@ -765,9 +1200,10 @@ def run( #run a basic model configuration
         #                  )
         #=======================================================================
         
- 
+        #pretty nice... better to connect the dots
         #=======================================================================
         # ses.plot_rvalues(figsize=(16,12), plot_type='violin', drop_zeros=False,  write_stats=False,
+        #                     plot_rown='studyArea',plot_coln='dsampStage',
         #                  grid=False,
         #                  #yscale='log',
         #                  sharex='all',
@@ -782,6 +1218,43 @@ def run( #run a basic model configuration
         #                  xlims=(0,bin_max),ylims=(0,.2),bins=bin_max*4, bin_lims=(0,bin_max),
         #                  )
         #=======================================================================
+        
+        #===================================================================
+        # #population and mean combo w/ box plots
+        #===================================================================
+        ses.plot_rValsVs(fp_serx =  hr_dx['rlay_fp'],figsize=(12,12),
+                         xlims=(0,hi_res), yscale='linear',
+                         plot_types=[ 'box','line'],
+                         #ax_d=ax_d,                     
+                         rkwargs = dict(debug_max_len=None,min_cell_cnt=1,drop_zeros=True),
+                         plot_kwargs = dict(linestyle='dashed'), 
+                         title='Raw Depths (hi-res; no Zeros)'
+                         )
+        
+        #line only (similar to StatsVsResolution... but slower and consistent w/ box ploters)
+        #=======================================================================
+        # ses.plot_rValsVs(fp_serx =  hr_dx['rlay_fp'],figsize=(12,12),
+        #                  ylims=None,yscale='linear',
+        #                  plot_types=['line'],
+        #                  #ax_d=ax_d,                     
+        #                  rkwargs = dict(debug_max_len=None,min_cell_cnt=1,drop_zeros=False),
+        #                  plot_kwargs = dict(linestyle='solid', marker='x'), 
+        #                  title='Raw Depths (hi-res)'
+        #                  )
+        #=======================================================================
+        
+        #line only (full)
+        #=======================================================================
+        # ses.plot_rValsVs(fp_serx =  dx_raw['rlay_fp'],figsize=(12,12),
+        #                  ylims=None,yscale='linear',xscale='log',
+        #                  plot_types=['line'],
+        #                  #ax_d=ax_d,                     
+        #                  rkwargs = dict(debug_max_len=None,min_cell_cnt=1,drop_zeros=False),
+        #                  plot_kwargs = dict(linestyle='solid', marker='x'), 
+        #                  title='Raw Depths'
+        #                  )
+        #=======================================================================
+
 
         
         out_dir = ses.out_dir
