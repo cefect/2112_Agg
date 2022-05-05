@@ -1091,7 +1091,7 @@ def run( #run a basic model configuration
                      },
                  **kwargs) as ses:
         
-        #ses.runDownsample()
+        ses.runDownsample()
         
         ses.runDiffs()
         
@@ -1137,7 +1137,7 @@ def r2():
                write_lib=True,
                )
                
-def r3():
+def r3_wse():
     return run(tag='wse', name='hrast2',iters=10,
                dsampStage='wse', 
                downSampling='Average',
@@ -1156,9 +1156,24 @@ def r3():
                write_lib=True,
                #debug_max_len=2,
                )
+    
+def r3_depth():
+    return run(tag='depth', name='hrast2',iters=10,
+               dsampStage='depth', 
+               downSampling='Average',
+               compiled_fp_d = {
+                   'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast2\depth\20220505\working\drlay_lib_hrast2_depth_0505.pickle',
+                   'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast2\depth\20220505\working\difrlay_lib_hrast2_depth_0505.pickle',
+                   'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hrast2\depth\20220505\working\rstats_hrast2_depth_0505.pickle',
+                    'wetAreas':r'C:\LS\10_OUT\2112_Agg\outs\hrast2\depth\20220505\working\wetAreas_hrast2_depth_0505.pickle',
+                    'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hrast2\depth\20220505\working\rstatsD_hrast2_depth_0505.pickle',
+                    'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hrast2\depth\20220505\working\res_dx_hrast2_depth_0505.pickle',
+                                },
+ 
+               )
 if __name__ == "__main__": 
     
-    r3()
+    r3_depth()
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))
