@@ -527,7 +527,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             fp_serx = self.retrieve('catalog')['rlay_fp']
  
         assert isinstance(fp_serx, pd.Series)
-        assert fp_serx.name=='rlay_fp'
+
         #=======================================================================
         # #plot keys
         #=======================================================================
@@ -869,7 +869,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                          
                          
                          #plot control [matrix]
-
+                         figsize=None,
                          sharey='none',sharex='col',
                          
                          
@@ -951,7 +951,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                                     constrained_layout=True,
                                     sharey=sharey,sharex=sharex,  
                                     fig_id=0,
-                                    set_ax_title=True,
+                                    set_ax_title=True,figsize=figsize
                                     )
  
         fig.suptitle(title)
@@ -977,7 +977,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             
                 ax.plot(xar, yar, color=color,label =keys_d[plot_colr], **plot_kwargs)
             else:
-                raise IOError()
+                raise IOError(plot_type)
             
             #===================================================================
             # format
@@ -1008,8 +1008,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                 #last row
                 if row_key == row_keys[-1]:
                     ax.set_xlabel(xlabel)
-                
-                
+ 
                 ax.grid()
         
 
@@ -1020,11 +1019,8 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         # wrap
         #=======================================================================
         
-        fname = 'progres_%s_%s' % (title,self.longname)
-                
-        fname = fname.replace('=', '-').replace(' ','').replace('\'','')
-        
-        
+        fname = 'StatVsReso_%s_%s' % (title,  self.longname)
+ 
         return self.output_fig(fig, fname=fname)
     
     
@@ -1137,8 +1133,6 @@ def run( #run a basic model configuration
         #=======================================================================
         # parameters
         #=======================================================================
-         
- 
  
         #=======================================================================
         # plot control
@@ -1165,16 +1159,17 @@ def run( #run a basic model configuration
         #=======================================================================
  
         #ses.runRastAnalysis()
-        ses.gen_rdelta()
+ 
         #=======================================================================
         # PLOTS------
         #=======================================================================
         dx_raw = ses.retrieve('catalog')
         hi_res=350 #max we're using for hyd is 300
         hr_dx = dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
+        figsize=(8,12)
         for plotName, dx, xlims,  ylims,xscale, yscale, drop_zeros in [
-            #('full', dx_raw,(10, 1e4), 'log',), 
-            ('hi_res_1',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
+            ('full',dx_raw, None,None, 'log', 'linear', True),
+            ('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
             #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
             ]:
             print('\n\n%s\n\n'%plotName)
@@ -1182,19 +1177,15 @@ def run( #run a basic model configuration
             # vs Resolution-------
             #===================================================================
             #===================================================================
-            #===================================================================
-            # coln='MEAN'
-            # ses.plot_StatVsResolution(coln=coln, ylabel='mean depth (m)', dx_raw=dx,xlims=xlims,xscale=xscale,
-            #                       title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
-            #===================================================================
-            
-            
-              
-            #===================================================================
-            # coln='wetAreas'
-            # ses.plot_StatVsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
-            #                       title='%s vs. %s (%s)'%(coln, ses.resCn, plotName))
-            #===================================================================
+ #==============================================================================
+ #            coln=('diff','MEAN')
+ #            ses.plot_StatVsResolution(coln=coln, ylabel='mean depth difference (agg - true; m)', dx_raw=dx,xlims=xlims,xscale=xscale,
+ #                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName), figsize=figsize)
+ # 
+ #            coln=('raw','wetAreas')
+ #            ses.plot_StatVsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
+ #                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName), figsize=figsize)
+ #==============================================================================
  
 
             
@@ -1209,37 +1200,25 @@ def run( #run a basic model configuration
         #                  #linewidth=0.75,
         #                  )
         #=======================================================================
+ 
         
-        #pretty nice... better to connect the dots
         #=======================================================================
-        # ses.plot_rvalues(figsize=(16,12), plot_type='violin', drop_zeros=False,  write_stats=False,
-        #                     plot_rown='studyArea',plot_coln='dsampStage',
-        #                  grid=False,
-        #                  #yscale='log',
-        #                  sharex='all',
-        #                 #hrange=(0,10),  xlims=(0,10), 
-        #                 #ylims=(1e-1,10**3),
-        #                  #linewidth=0.75,
-        #                  )
+        # differences-----------
         #=======================================================================
-        #=======================================================================
-        # bin_max=5
-        # ses.plot_rvalues(figsize=(12,12), plot_type='hist', drop_zeros=False, density=True, debug_max_len=None, write_stats=False,
-        #                  xlims=(0,bin_max),ylims=(0,.2),bins=bin_max*4, bin_lims=(0,bin_max),
-        #                  )
-        #=======================================================================
-        
+        ylab='depth difference (agg - true; m)'
+        ctup = ('diff','difrlay_fp')
         #===================================================================
         # #population and mean combo w/ box plots
         #===================================================================
+        #(not interpretable... to omany zeros)
         #=======================================================================
-        # ses.plot_rValsVs(fp_serx =  hr_dx['rlay_fp'],figsize=(12,12),
-        #                  xlims=(0,hi_res), yscale='linear',
-        #                  plot_types=['line', 'box'],
+        # ses.plot_rValsVs(fp_serx =  hr_dx.loc[:, ctup],figsize=(12,12),
+        #                  xlims=(0,hi_res), yscale='linear',ylab=ylab,
+        #                  plot_types=['zero_line','line', 'box',],
         #                  #ax_d=ax_d,                     
-        #                  rkwargs = dict(debug_max_len=None,min_cell_cnt=1,drop_zeros=True),
+        #                  rkwargs = dict(debug_max_len=None,min_cell_cnt=1,drop_zeros=False),
         #                  plot_kwargs = dict(linestyle='dashed'), 
-        #                  title='Raw Depths (hi-res; no Zeros)'
+        #                  title='Depth Differences'
         #                  )
         #=======================================================================
         
@@ -1300,15 +1279,21 @@ def r2():
     return run(
         tag='r1',
         catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hrast1\hrast_run_index.csv',
+ 
+        )
+
+def r3():
+    return run(
+        tag='r3',
+        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hrast2\hrast2_run_index.csv',
         compiled_fp_d = {
  
             }
         )
-    
 if __name__ == "__main__": 
     
     #dev()
-    r2()
+    r3()
  
 
     tdelta = datetime.datetime.now() - start
