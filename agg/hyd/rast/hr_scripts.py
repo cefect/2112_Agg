@@ -11,7 +11,7 @@ small analysis to focus on rasters
 #===============================================================================
 import os, datetime, math, pickle, copy, sys
 import qgis.core
-from qgis.core import QgsRasterLayer
+from qgis.core import QgsRasterLayer, QgsMapLayerStore
 import pandas as pd
 import numpy as np
 from pandas.testing import assert_index_equal, assert_frame_equal, assert_series_equal
@@ -19,7 +19,9 @@ from pandas.testing import assert_index_equal, assert_frame_equal, assert_series
 np.random.seed(100)
 idx = pd.IndexSlice
 from hp.exceptions import Error
-from agg.hyd.hscripts import Model, StudyArea, view
+from hp.pd import get_bx_multiVal
+import hp.gdal
+from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
 
 start = datetime.datetime.now()
 print('start at %s' % start)
@@ -41,17 +43,32 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),
                 'build':lambda **kwargs: self.build_drlays2(**kwargs),
                 },
-            'rstats_basic':{ #overwrites Model's method
+            'rstats':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_stats(**kwargs),
                 },
-            'wetAreas':{ #overwrites Model's method
+            'wetAreas':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_wetAreas(**kwargs),
                 },
-            'rstats':{
+            'res_dx':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.build_rstats(**kwargs), #
+                'build':lambda **kwargs:self.build_resdx(**kwargs), #
+                },
+            
+            #difference layers
+            'difrlay_lib':{  
+                'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),
+                'build':lambda **kwargs: self.build_difrlays(**kwargs),
+                },
+            
+            'rstatsD':{  
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_stats(**kwargs),
+                },
+            'difRes':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs:self.build_difRes(**kwargs), #
                 },
                         
             }}
@@ -65,13 +82,66 @@ class RastRun(Model):
     #===========================================================================
     def runDownsample(self):
         
+        #=======================================================================
+        # #rasters and stats
+        #=======================================================================
         self.retrieve('drlay_lib')
         
-        self.retrieve('rstats_basic')
+        self.retrieve('rstats')
         
         self.retrieve('wetAreas')
         
-        self.retrieve('rstats') #combine all
+        
+        
+
+        
+        
+    def load_layer_lib(self,  # generic retrival for layer librarires
+                  fp=None, dkey=None,
+                  **kwargs):
+        """not the most memory efficient..."""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('load.%s' % dkey)
+        assert dkey in ['drlay_lib', 'difrlay_lib'], dkey
+        
+        #=======================================================================
+        # load the filepaths
+        #=======================================================================
+        fp_lib = self.load_pick(fp=fp, dkey=dkey)   
+        
+        #=======================================================================
+        # # load layers
+        #=======================================================================
+        lay_lib = dict()
+        cnt = 0
+        for k0, d0 in fp_lib.items():
+            lay_lib[k0] = dict()
+            for k1, fp in d0.items(): #usualy StudyArea
+     
+                log.info('loading %s.%s from %s' % (k0, k1, fp))
+                
+ 
+                ext = os.path.splitext(os.path.basename(fp))[1]
+                #===================================================================
+                # vectors
+                #===================================================================
+                if ext in ['.gpkg', '.geojson']:
+                
+                    lay_lib[k0][k1] = self.vlay_load(fp, logger=log, 
+                                                   #set_proj_crs=False, #these usually have different crs's
+                                                           **kwargs)
+                elif ext in ['.tif']:
+                    lay_lib[k0][k1] = self.rlay_load(fp, logger=log, 
+                                                   #set_proj_crs=False, #these usually have different crs's
+                                                           **kwargs)
+                else:
+                    raise IOError('unrecognized filetype: %s'%ext)
+                cnt+=1
+        
+        log.info('finished loading %i'%cnt)
+        return lay_lib
     
     def build_drlays2(self,
                      
@@ -174,55 +244,12 @@ class RastRun(Model):
             
         return res_lib
             
-    def load_layer_lib(self,  # generic retrival for layer librarires
-                  fp=None, dkey=None,
-                  **kwargs):
-        """not the most memory efficient..."""
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('load.%s' % dkey)
-        assert dkey in ['drlay_lib'], dkey
-        
-        #=======================================================================
-        # load the filepaths
-        #=======================================================================
-        fp_lib = self.load_pick(fp=fp, dkey=dkey)   
-        
-        #=======================================================================
-        # # load layers
-        #=======================================================================
-        lay_lib = dict()
-        cnt = 0
-        for k0, d0 in fp_lib.items():
-            lay_lib[k0] = dict()
-            for k1, fp in d0.items(): #usualy StudyArea
-     
-                log.info('loading %s.%s from %s' % (k0, k1, fp))
-                
- 
-                ext = os.path.splitext(os.path.basename(fp))[1]
-                #===================================================================
-                # vectors
-                #===================================================================
-                if ext in ['.gpkg', '.geojson']:
-                
-                    lay_lib[k0][k1] = self.vlay_load(fp, logger=log, 
-                                                   #set_proj_crs=False, #these usually have different crs's
-                                                           **kwargs)
-                elif ext in ['.tif']:
-                    lay_lib[k0][k1] = self.rlay_load(fp, logger=log, 
-                                                   #set_proj_crs=False, #these usually have different crs's
-                                                           **kwargs)
-                else:
-                    raise IOError('unrecognized filetype: %s'%ext)
-                cnt+=1
-        
-        log.info('finished loading %i'%cnt)
-        return lay_lib
+
+    
+
     
     def build_stats(self, #calc the layer stats 
-                    dkey='rstats_basic',
+                    dkey='rstats',
                     logger=None, 
                      **kwargs):
         #=======================================================================
@@ -230,14 +257,24 @@ class RastRun(Model):
         #=======================================================================
         if logger is None: logger=self.logger
         log = logger.getChild('build_stats')
-        assert dkey=='rstats_basic'
+        #assert dkey=='rstats'
+        
+        #=======================================================================
+        # retrieve approriate lib
+        #=======================================================================
+        if dkey =='rstats':
+            lay_lib = self.retrieve('drlay_lib')
+        elif dkey=='rstatsD':
+            lay_lib = self.retrieve('difrlay_lib')
+        else:
+            raise IOError(dkey)
         
         #=======================================================================
         # execut ethe function on the stack
         #=======================================================================
         return self.calc_on_layers(
             func=lambda rlay, meta_d={}, **kwargs:self.rlay_getstats(rlay, **kwargs), 
-            logger=log, dkey=dkey, **kwargs)
+            logger=log, dkey=dkey, lay_lib=lay_lib, **kwargs)
         
     def build_wetAreas(self,
                     dkey='wetAreas',
@@ -249,7 +286,7 @@ class RastRun(Model):
         log = logger.getChild('build_wetAreas')
         assert dkey=='wetAreas'
         
-        dx = self.retrieve('rstats_basic')
+        dx = self.retrieve('rstats')
         
         #=======================================================================
         # define the function
@@ -279,34 +316,51 @@ class RastRun(Model):
         """
         view(dx)
         """
-    def build_rstats(self, #just combing all the results
-                     dkey='rstats',
+    def build_resdx(self, #just combing all the results
+                     dkey='res_dx',
                      logger=None,write=None,
                       ):
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
-        log=logger.getChild('build_rstats')
+        log=logger.getChild('build_resdx')
         if write is None: write=self.write
-        assert dkey=='rstats'
-        
+        assert dkey=='res_dx'
+        resCn = self.resCn 
+        saCn = self.saCn
+ 
         #=======================================================================
         # retrieve from hr_scripts
         #=======================================================================
-        dxb = self.retrieve('rstats_basic')
+        first = True
+        d = dict()
+        for dki in ['rstats', 'wetAreas', 'rstatsD']:
+            dx = self.retrieve(dki)  
+            assert np.array_equal(dx.index.names, np.array([self.resCn, self.saCn]))
+            
+            if first:
+                dx_last = dx.copy()
+                first = False
+            else:      
+                assert_index_equal(dx.index, dx_last.index)
+                
+            d[dki] = dx.sort_index()
         
-        dxw = self.retrieve('wetAreas')
-        
-        assert_index_equal(dxb.index, dxw.index)
-        
-        assert np.array_equal(dxb.index.names, np.array([self.resCn, self.saCn]))
+            
         
         #=======================================================================
         # join
         #=======================================================================
-        rdx = dxb.join(dxw).sort_index()
+        #raw values
+        rdx1 = d['rstats'].join(d['wetAreas'])
         
+        #difference values
+        rdx = pd.concat({'raw':rdx1, 'diff':d['rstatsD']}, axis=1, names=['rtype', 'stat'])
+ 
+        """
+        view(rdx)
+        """
         #=======================================================================
         # wrap
         #=======================================================================
@@ -318,6 +372,117 @@ class RastRun(Model):
             
         return rdx
     
+    #===========================================================================
+    # DIFF rasters--------
+    #===========================================================================
+    def runDiffs(self):#run sequence for difference layer calcs
+        self.retrieve('difrlay_lib')
+        
+        dx = self.retrieve('rstatsD')
+        
+        self.retrieve('res_dx') #combine all
+        
+        """
+        view(dx.sort_index(level=1))
+        """
+    
+    def build_difrlays(self, #generate a set of delta rasters and write to the catalog
+                      dkey='difrlay_lib',
+                      lay_lib=None,
+
+                   logger=None,
+                   out_dir=None,
+ 
+                      **kwargs):
+        """
+        NOTE: this always writes to file
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('gen_rdelta')
+        assert dkey=='difrlay_lib'
+        saCn=self.saCn
+        mstore= QgsMapLayerStore()
+        if out_dir is None: out_dir= os.path.join(self.wrk_dir, 'difrlay_lib')
+            
+        if lay_lib is None: 
+            lay_lib = self.retrieve('drlay_lib')
+            
+        """
+        lay_lib.keys()
+        """
+        
+        #=======================================================================
+        # loop and execute on each layer
+        #=======================================================================
+        log.info('on %i'%len(lay_lib))
+        
+        res_lib=dict()
+        base_d = dict()
+        first=True
+        cnt=0
+        for resolution, d0 in lay_lib.items():
+            d = dict()
+            log.info('\n\nfor resolution=%i building %i delta rasters \n\n'%(resolution, len(d0)))
+            for studyArea, rlay in d0.items():
+                #setup and precheck
+                tagi = '%i.%s'%(resolution, studyArea)
+                assert isinstance(rlay, QgsRasterLayer), tagi
+                
+                #match the layers crs
+                self.qproj.setCrs(rlay.crs())
+                
+                #handle baselines
+                if first:
+                    base_d[studyArea] = self.rlay_mcopy(rlay, mstore=mstore)
+                    
+ 
+                
+                #execute
+                d[studyArea]=self.get_diff_rlay(
+                    rlay, base_d[studyArea], #agg - true
+                    logger=log.getChild('%i.%s'%(resolution, studyArea)),
+                     out_dir = os.path.join(out_dir, studyArea)
+                    )
+                cnt+=1
+ 
+            #wrap
+            res_lib[resolution] = d
+            first=False
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        #rdx = pd.concat(res_lib, names=['resolution', 'studyArea'])
+        
+        log.info('finished building %i'%cnt)
+        #=======================================================================
+        # handle layers----
+        #=======================================================================
+        self.ofp_d[dkey] = self.write_pick(res_lib,
+            os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+ 
+        return res_lib
+        
+   
+ 
+        mstore.removeAllMapLayers()
+        
+        
+ 
+
+        
+    
+    #===========================================================================
+    # HELPERS-------
+    #===========================================================================
     def calc_on_layers(self,
                        #data
                        lay_lib=None,
@@ -381,6 +546,100 @@ class RastRun(Model):
                                    logger=log)
         
         return rdx
+    
+    def get_diff_rlay(self, #top minus bottom (agg - base)
+                      top_rlay, bot_rlay, 
+                      
+                      base_resolution=None,
+                      out_dir=None,
+                      logger=None,
+                      ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('get_diff_rlay')
+        
+        temp_dir = os.path.join(self.temp_dir, 'get_diff_rlay')
+        if not os.path.exists(temp_dir): os.makedirs(temp_dir)
+        if out_dir is None: out_dir = os.path.join(self.wrk_dir, 'difrlay_lib')
+        start = datetime.datetime.now()
+        mstore = QgsMapLayerStore()
+        
+        if base_resolution is None:
+            from definitions import base_resolution
+        
+        
+        extents = self.layerextent(bot_rlay, 
+                                   precision=0.0, #adding this buffer causes some problems with the tests
+                                   ).extent()
+ 
+        """pretty slow"""
+        assert self.rlay_get_resolution(bot_rlay)==float(base_resolution)
+ 
+        #=======================================================================
+        # warop top to match
+        #=======================================================================
+        if not self.rlay_get_resolution(top_rlay)==float(base_resolution):
+            log.info('warpreproject w/ resolution=%i to %s'%(base_resolution, extents))
+            topr1_fp = self.warpreproject(top_rlay, compression='none', extents=extents, logger=log,
+                                            resolution=base_resolution,
+                                            output=os.path.join(
+                                                temp_dir, 'preWarp_%000i_%s'%(int(base_resolution), os.path.basename(top_rlay.source()))
+                                                ))
+            
+            topr1_fp = self.fillnodata(topr1_fp, output=os.path.join(
+                                                temp_dir, 'preWarp_fnd_%000i_%s'%(int(base_resolution), os.path.basename(top_rlay.source()))
+                                                ))
+            #===================================================================
+            # mstore.addMapLayer(topr1_rlay)
+            # topr1_fp = topr1_rlay.source()
+            #===================================================================
+            
+            
+        else:
+            topr1_fp = top_rlay.source()
+            
+        #=======================================================================
+        # check
+        #=======================================================================
+        """a bit slow"""
+        assert hp.gdal.getNoDataCount(topr1_fp)==0
+        assert hp.gdal.getNoDataCount(bot_rlay.source())==0
+            
+        #=======================================================================
+        # subtract
+        #=======================================================================
+ 
+        
+        log.debug('building RasterCalc')
+        with RasterCalc(topr1_fp, name='diff', session=self, logger=log,out_dir=out_dir,) as wrkr:
+            
+            top_rlay = wrkr.ref_lay #loaded during init
+            #bot_rlay = wrkr.load(bot_rlay)
+            
+            #===================================================================
+            # setup
+            #===================================================================
+            
+            entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'top':top_rlay, 'bottom':bot_rlay}.items()}
+            formula = '%s - %s'%(entries_d['top'].ref, entries_d['bottom'].ref)
+            
+            #===================================================================
+            # execute subtraction
+            #===================================================================
+            log.info('executing %s'%formula)
+            diff_fp = wrkr.rcalc(formula, layname='diff_%s'%os.path.basename(topr1_fp))
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        mstore.removeAllMapLayers()
+        assert hp.gdal.getNoDataCount(diff_fp)==0
+        
+        return diff_fp
+ 
+        
                 
     def write_lib(self, #export everything to the library and write a catalog
                     lib_dir = None, #library directory
@@ -388,8 +647,10 @@ class RastRun(Model):
                       compression='med',
                       catalog_fp=None,
                       id_params = {}, #additional parameter values to use as indexers in teh library
+                      debug_max_len = None,
                       ):
-        """no cleanup here"""
+        """no cleanup here
+        setup for one write per parameterization"""
         #=======================================================================
         # defaults
         #=======================================================================
@@ -405,7 +666,7 @@ class RastRun(Model):
         #=======================================================================
         # setup filepaths4
         #=======================================================================
-        if catalog_fp is None: catalog_fp = os.path.join(lib_dir, 'hrast_run_index.csv')
+        if catalog_fp is None: catalog_fp = os.path.join(lib_dir, '%s_run_index.csv'%self.name)
         rlay_dir = os.path.join(lib_dir, 'rlays', *list(id_params.values()))
  
         #=======================================================================
@@ -417,29 +678,53 @@ class RastRun(Model):
         # re-write raster layers
         #=======================================================================
         """todo: add filesize"""
-        drlay_lib = self.retrieve('drlay_lib')
-        #write each to file
         ofp_lib = dict()
-        for resolution, layer_d in drlay_lib.items():
-
-            ofp_lib[resolution] = self.store_layer_d(layer_d, 'drlay_lib', logger=log,
-                               write_pick=False, #need to write your own
-                               out_dir = os.path.join(rlay_dir, 'r%04i'%resolution),
-                               compression=compression, add_subfolders=False,overwrite=overwrite,                               
-                               )
+        for dkey in ['drlay_lib', 'difrlay_lib']:
+            drlay_lib = self.retrieve(dkey)
+            #write each to file
+            d=dict()
+            cnt=0
+            for resolution, layer_d in drlay_lib.items():
+    
+                d[resolution] = self.store_layer_d(layer_d, dkey, logger=log,
+                                   write_pick=False, #need to write your own
+                                   out_dir = os.path.join(rlay_dir,dkey, 'r%04i'%resolution),
+                                   compression=compression, add_subfolders=False,overwrite=overwrite,                               
+                                   )
+                
+                cnt+=1
+                if not debug_max_len is None:
+                    if cnt>=debug_max_len:
+                        log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
+                        break
+                
+            dk_clean = dkey.replace('_lib', '_fp')
+            fp_serx = pd.DataFrame.from_dict(d).stack().swaplevel().rename(dk_clean)
+            fp_serx.index.set_names([resCn, saCn], inplace=True)
+            ofp_lib[dk_clean] = fp_serx
             
+        #collect
+        fp_dx = pd.concat(ofp_lib, axis=1)
+        
+        
+
         #=======================================================================
         # build catalog
         #=======================================================================
-        rdx_raw = self.retrieve('rstats')
+        rdx_raw = self.retrieve('res_dx')
         
         #add filepaths
-        fp_serx = pd.DataFrame.from_dict(ofp_lib).stack().swaplevel().rename('rlay_fp')
-        fp_serx.index.set_names([resCn, saCn], inplace=True)
+ 
+        #assert_index_equal(fp_dx.index.sort_values(), rdx_raw.index.sort_values())
         
-        assert_index_equal(fp_serx.index.sort_values(), rdx_raw.index.sort_values())
         
-        rdx = rdx_raw.join(fp_serx).sort_index()
+        #promote columns on filepaths to match
+        cdf = pd.Series(fp_dx.columns, name='fp').to_frame()
+        cdf['rtype'] = rdx_raw.columns.unique('rtype')
+        fp_dx.columns = pd.MultiIndex.from_frame(cdf).swaplevel()
+        
+        #join
+        rdx = rdx_raw.join(fp_dx).sort_index()
         
         assert rdx.notna().any().any()
         
@@ -449,9 +734,14 @@ class RastRun(Model):
         for k,v in id_params.items():
             mdex_df[k] = v
             
+            #remove from cols
+            if k in rdx.columns.get_level_values(1):
+                """TODO: check the values are the same"""
+                rdx = rdx.drop(k, level=1, axis=1)
+            
         rdx.index = pd.MultiIndex.from_frame(mdex_df)
 
-        raise Error('make sure no indexers are also columns')
+ 
         
         #=======================================================================
         # write catalog
@@ -462,7 +752,7 @@ class RastRun(Model):
         with Catalog(catalog_fp=catalog_fp, overwrite=overwrite, logger=log) as cat:
             for rkeys, row in rdx.iterrows():
                 keys_d = dict(zip(rdx.index.names, rkeys))
-                cat.add_entry(row.to_dict(), keys_d, logger=log.getChild(str(rkeys)))
+                cat.add_entry(row, keys_d, logger=log.getChild(str(rkeys)))
         
         
         """
@@ -471,12 +761,13 @@ class RastRun(Model):
         """
         log.info('finished')
         return catalog_fp
+    
 
-        
         
 class Catalog(object): #handling the simulation index and library
     df=None
     keys = ['resolution', 'studyArea', 'downSampling', 'dsampStage', 'severity']
+    cols = ['rtype', 'stat']
  
 
     
@@ -509,7 +800,10 @@ class Catalog(object): #handling the simulation index and library
         # load existing
         #=======================================================================
         if os.path.exists(catalog_fp):
-            self.df = pd.read_csv(catalog_fp, index_col=list(range(len(self.keys))))
+            self.df = pd.read_csv(catalog_fp, 
+                                  index_col=list(range(len(self.keys))),
+                                  header = list(range(len(self.cols))),
+                                  )
             self.check(df=self.df.copy())
             self.df_raw = self.df.copy() #for checking
             
@@ -528,12 +822,15 @@ class Catalog(object): #handling the simulation index and library
         log = self.logger.getChild('check')
         if df is None: df = self.df.copy()
         log.debug('on %s'%str(df.shape))
+        
         #check columns
-        miss_l = set(self.cat_colns).difference(df.columns)
+
+        miss_l = set(self.cols).difference(df.columns.names)
         assert len(miss_l)==0, miss_l
         
-        assert df.columns.is_unique
+        assert isinstance(df.columns, pd.MultiIndex)
         
+ 
         #check index
         #=======================================================================
         # assert df[self.idn].is_unique
@@ -544,10 +841,17 @@ class Catalog(object): #handling the simulation index and library
         
         #check filepaths
         errs_d = dict()
-        for coln in ['rlay_fp']:
-            assert df[coln].is_unique
+        
+        bx_col = df.columns.get_level_values(1).str.endswith('_fp')
+        assert bx_col.any()
+        
+        for coln, cserx in df.loc[:, bx_col].items():
+ 
             
-            for id, path in df[coln].items():
+            for id, path in cserx.items():
+                if pd.isnull(path):
+                    log.warning('got null filepath on %s'%str(id))
+                    continue
                 if not os.path.exists(path):
                     errs_d['%s_%s'%(coln, id)] = path
                     
@@ -597,7 +901,7 @@ class Catalog(object): #handling the simulation index and library
  
 
     def add_entry(self,
-                  cat_d,
+                  serx,
                   keys_d={},
                   logger=None,
                   ):
@@ -612,12 +916,12 @@ class Catalog(object): #handling the simulation index and library
         cat_df = self.df
         keys = self.keys.copy()
 
-        #check
-        """only allowing these columns for now"""
-        miss_l = set(self.cat_colns).difference(cat_d.keys())
+        #check mandatory columns are there
+        miss_l = set(self.cat_colns).difference(serx.index.get_level_values(1))
         assert len(miss_l)==0, 'got %i unrecognized keys: %s'%(len(miss_l), miss_l)
         
-        for k in keys: assert k in keys_d
+        for k in keys: 
+            assert k in keys_d
         
         #=======================================================================
         # prepare new 
@@ -625,8 +929,11 @@ class Catalog(object): #handling the simulation index and library
         
         #new_df = pd.Series(cat_d).rename(keys_d.values()).to_frame().T
  
-        new_df = pd.Series(cat_d).rename(keys_d.values()).to_frame().T
+        new_df = serx.to_frame().T
         new_df.index = pd.MultiIndex.from_tuples([keys_d.values()], names=keys_d.keys())
+        """
+        view(new_df)
+        """
         #=======================================================================
         # append
         #=======================================================================
@@ -636,7 +943,9 @@ class Catalog(object): #handling the simulation index and library
         else:
             #check if present
             
-            bx = cat_df.index.to_frame().reset_index(drop=True).eq(pd.Series(keys_d), axis=1).all(axis=1)
+            bx = cat_df.index.to_frame().reset_index(drop=True).eq(
+                new_df.index.to_frame().reset_index(drop=True), 
+                axis=1).all(axis=1)
             
             
             if bx.any():
@@ -652,7 +961,9 @@ class Catalog(object): #handling the simulation index and library
                 cat_df = self.df.copy()
                 
             
-            
+            #===================================================================
+            # append
+            #===================================================================
             cat_df = cat_df.append(new_df,  verify_integrity=True)
             
         #=======================================================================
@@ -671,6 +982,8 @@ class Catalog(object): #handling the simulation index and library
     def __enter__(self):
         return self
     def __exit__(self, *args, **kwargs):
+        if self.df is None: 
+            return
         #=======================================================================
         # write if there was a change
         #=======================================================================
@@ -681,6 +994,7 @@ class Catalog(object): #handling the simulation index and library
             #===================================================================
             # delete the old for empties
             #===================================================================
+ 
             if len(df)==0:
                 try:
                     os.remove(self.catalog_fp)
@@ -743,8 +1057,9 @@ def run( #run a basic model configuration
  
         
         #=======================================================================
-        # meta
+        # debug
         #=======================================================================
+        debug_max_len=None,
  
         
  
@@ -776,10 +1091,12 @@ def run( #run a basic model configuration
                      },
                  **kwargs) as ses:
         
-        ses.runDownsample()
+        #ses.runDownsample()
+        
+        ses.runDiffs()
         
         if write_lib:
-            ses.write_lib(compression=compression, id_params=dict(downSampling=downSampling, dsampStage=dsampStage, severity=severity))
+            ses.write_lib(compression=compression, id_params=dict(downSampling=downSampling, dsampStage=dsampStage, severity=severity), debug_max_len=debug_max_len)
         
  
         
@@ -799,15 +1116,7 @@ def dev():
             }
         )
 
-def r1():
-    return run(
-        tag='r1',
-        iters=10,
-        compiled_fp_d = {
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\drlay_lib_rast_r1_0426.pickle',
-        'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\rstats_basic_rast_r1_0426.pickle',
-        }
-        )
+ 
 
 def r2():
     return run(tag='wse', name='hrast1',iters=10,
@@ -815,15 +1124,41 @@ def r2():
                downSampling='Average',
                compiled_fp_d = {
         'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\drlay_lib_hrast1_wse_0427.pickle',
-        'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\rstats_basic_hrast1_wse_0427.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\rstats_basic_hrast1_wse_0427.pickle',
         'wetAreas':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\wetAreas_hrast1_wse_0427.pickle',
-        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\rstats_hrast1_wse_0427.pickle',
-        })
+ 
+        
+        
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220505\working\difrlay_lib_hrast1_wse_0505.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220505\working\rstatsD_hrast1_wse_0505.pickle',
+        
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220505\working\res_dx_hrast1_wse_0505.pickle',
+        },
+               write_lib=True,
+               )
                
-    
+def r3():
+    return run(tag='wse', name='hrast2',iters=10,
+               dsampStage='wse', 
+               downSampling='Average',
+               compiled_fp_d = {
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\drlay_lib_hrast1_wse_0427.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\rstats_basic_hrast1_wse_0427.pickle',
+        'wetAreas':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\wetAreas_hrast1_wse_0427.pickle',
+ 
+        
+        
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220505\working\difrlay_lib_hrast1_wse_0505.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220505\working\rstatsD_hrast1_wse_0505.pickle',
+        
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220505\working\res_dx_hrast1_wse_0505.pickle',
+        },
+               write_lib=True,
+               #debug_max_len=2,
+               )
 if __name__ == "__main__": 
     
-    r2()
+    r3()
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))
