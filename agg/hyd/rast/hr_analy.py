@@ -53,6 +53,7 @@ from agg.hyd.rast.hr_scripts import RastRun, view, Catalog, Error
 from hp.plot import Plotr
 from hp.gdal import rlay_to_array, getRasterMetadata
 from hp.basic import set_info, get_dict_str
+from hp.pd import get_bx_multiVal
 #from hp.animation import capture_images
 
 class RasterAnalysis(RastRun, Plotr): #analysis of model results
@@ -104,6 +105,14 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         if catalog_fp is None: catalog_fp=self.catalog_fp
         
         return Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False, **kwargs).get()
+    
+
+                    
+ 
+                
+        
+            
+        
     
     #===========================================================================
     # PLOTRS------
@@ -697,6 +706,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                     #===============================================================
                         """
                         fig.show()
+                        boxres_d.keys()
                         """
                     elif plot_type =='box':
                         #apply shift 
@@ -706,11 +716,11 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                         
                         boxres_d = ax.boxplot(data_d.values(),   meanline=False, 
                                               positions=pos_ar,widths=width,notch=True,
-                            boxprops={'color':color},
-                            medianprops={'color':color},
+                            boxprops={'color':color, 'facecolor':color, 'linewidth':0.0, 'alpha':0.5}, patch_artist=True,
+                            medianprops={'color':'black'},
                             whiskerprops={'color':color},
                             showcaps=False,
-                            flierprops={'markeredgecolor':color, 'markersize':2,'alpha':0.3},
+                            flierprops={'markeredgecolor':color, 'markersize':2,'alpha':0.2},
                             )
                         
                     elif plot_type=='zero_line':
@@ -1154,8 +1164,8 @@ def run( #run a basic model configuration
         # compiling-----
         #=======================================================================
  
-        ses.runRastAnalysis()
-        
+        #ses.runRastAnalysis()
+        ses.gen_rdelta()
         #=======================================================================
         # PLOTS------
         #=======================================================================
@@ -1222,14 +1232,16 @@ def run( #run a basic model configuration
         #===================================================================
         # #population and mean combo w/ box plots
         #===================================================================
-        ses.plot_rValsVs(fp_serx =  hr_dx['rlay_fp'],figsize=(12,12),
-                         xlims=(0,hi_res), yscale='linear',
-                         plot_types=[ 'box','line'],
-                         #ax_d=ax_d,                     
-                         rkwargs = dict(debug_max_len=None,min_cell_cnt=1,drop_zeros=True),
-                         plot_kwargs = dict(linestyle='dashed'), 
-                         title='Raw Depths (hi-res; no Zeros)'
-                         )
+        #=======================================================================
+        # ses.plot_rValsVs(fp_serx =  hr_dx['rlay_fp'],figsize=(12,12),
+        #                  xlims=(0,hi_res), yscale='linear',
+        #                  plot_types=['line', 'box'],
+        #                  #ax_d=ax_d,                     
+        #                  rkwargs = dict(debug_max_len=None,min_cell_cnt=1,drop_zeros=True),
+        #                  plot_kwargs = dict(linestyle='dashed'), 
+        #                  title='Raw Depths (hi-res; no Zeros)'
+        #                  )
+        #=======================================================================
         
         #line only (similar to StatsVsResolution... but slower and consistent w/ box ploters)
         #=======================================================================
