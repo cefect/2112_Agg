@@ -31,7 +31,7 @@ from hp.basic import set_info, get_dict_str
 from hp.exceptions import Error, assert_func
 
 from hp.plot import Plotr
-from hp.oop import Session
+
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
     QgsWkbTypes
