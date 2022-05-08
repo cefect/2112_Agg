@@ -169,9 +169,20 @@ def r3_depth():
                                 },
  
                )
+    
+def r4_wse():
+    return run(tag='wse', name='hrast4',iters=10,
+               dsampStage='wse', 
+               downSampling='Average',
+               compiled_fp_d = {
+ 
+                },
+               write_lib=False,
+               #debug_max_len=2,
+               )
 if __name__ == "__main__": 
     
-    r3_depth()
+    r4_wse()
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))
