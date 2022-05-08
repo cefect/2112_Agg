@@ -110,7 +110,7 @@ def dev():
         tag='dev',
         iters=2,
         compiled_fp_d={
-            'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\rast\dev\20220427\working\drlay_lib_rast_dev_0427.pickle',
+ 
             }
         )
 
@@ -182,7 +182,8 @@ def r4_wse():
                )
 if __name__ == "__main__": 
     
-    r4_wse()
+    dev()
+    #r4_wse()
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))
