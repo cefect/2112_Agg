@@ -110,12 +110,7 @@ def dev():
         tag='dev',
         iters=2,
         compiled_fp_d={
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\drlay_lib_dev_dev_0509.pickle',
-        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\rstats_dev_dev_0509.pickle',
-        #'wetArea':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\wetAreas_dev_dev_0509.pickle',
-        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\difrlay_lib_dev_dev_0509.pickle',
-        #'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\rstatsD_dev_dev_0509.pickle',
-        #'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\res_dx_dev_dev_0509.pickle',
+
 
             },
         studyArea_l=['obwb'],
@@ -200,9 +195,9 @@ def r4_dep():
                )
 if __name__ == "__main__": 
     
-    #dev()
+    dev()
     #r4_wse()
-    r4_dep()
+    #r4_dep()
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))
