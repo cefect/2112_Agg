@@ -49,7 +49,7 @@ matplotlib.rcParams['legend.title_fontsize'] = 'large'
 
 print('loaded matplotlib %s'%matplotlib.__version__)
 
-from agg.hyd.rast.hr_scripts import RastRun, view, Catalog, Error
+from agg.hydR.hr_scripts import RastRun, view, Catalog, Error
 from hp.plot import Plotr
 from hp.gdal import rlay_to_array, getRasterMetadata
 from hp.basic import set_info, get_dict_str
@@ -90,8 +90,9 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,init_plt_d=None,
                          exit_summary=exit_summary,**kwargs)
         
-    def runRastAnalysis(self,
+    def compileAnalysis(self,
                         ):
+        """not much compiling... mostly working with raw rasters"""
         self.retrieve('catalog')
         
         
@@ -107,11 +108,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         return Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False, **kwargs).get()
     
 
-                    
  
-                
-        
-            
         
     
     #===========================================================================
@@ -160,7 +157,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                     yscale='linear',
                     
                     #output
-                    fmt='svg',
+                    fmt='svg',write=None,
  
                     **kwargs):
         """"
@@ -176,7 +173,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         log = self.logger.getChild('plot_rvalues')
  
         resCn, saCn = self.resCn, self.saCn
- 
+        if write is None: write=self.write
         #retrieve data
         """just the catalog... we load each raster in the loop"""
         if fp_serx is None:
@@ -448,8 +445,10 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         except Exception as e:
             log.error('failed to write meta or stats data w/ \n    %s'%e)
                
+        if write:
+            self.output_fig(fig, fname=fname, fmt=fmt)
         
-        return self.output_fig(fig, fname=fname, fmt=fmt)
+        return ax_d
  
  
 
@@ -848,7 +847,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
  
  
     
-    def plot_StatVsResolution(self, #stat against resolution plots
+    def plot_StatVsResolution(self, #single stat against resolution plots
                          #data
                          dx_raw=None, #combined model results
                          coln = 'MEAN', #variable to plot against resolution
@@ -873,13 +872,14 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                          sharey='none',sharex='col',
                          
                          
-                         logger=None):
+                         logger=None, write=None):
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is  None: logger=self.logger
         log = logger.getChild('plot_progression')
         resCn, saCn = self.resCn, self.saCn
+        if write is None: write=self.write
         
         if plot_colr is None: plot_colr=plot_bgrp
         if colorMap is None: colorMap=self.colorMap_d[plot_colr]
@@ -1011,19 +1011,199 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
  
                 ax.grid()
         
-
-        
-
-        
+ 
         #=======================================================================
         # wrap
         #=======================================================================
         
         fname = 'StatVsReso_%s_%s' % (title,  self.longname)
+        
+        if write: 
+            self.output_fig(fig, fname=fname)
  
-        return self.output_fig(fig, fname=fname)
+        return ax_d
     
-    
+    def plot_StatXVsResolution(self, #multi-stat against resolution plots
+                         #data
+                         dx_raw=None, #combined model results
+                         coln_l = [], #list of dx_raw colums to plot
+                         
+                         #plot control
+                        plot_type='line', 
+                        
+                        plot_coln='studyArea',
+                        
+                        plot_colr=None,
+                        plot_bgrp='dsampStage', #sub-group onto an axis
+                        
+                        
+                           colorMap=None,
+                         plot_kwargs = dict(marker='x'),
+                         title=None,xlabel=None,
+                         ylab_l=None,
+                         xscale='log',
+                         xlims=None,
+                         
+                         
+                         #plot control [matrix]
+                         figsize=None,
+                         sharey='none',sharex='col',
+                         
+                         
+                         logger=None, write=None):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        plot_rown='columns'
+        if logger is  None: logger=self.logger
+        log = logger.getChild('plot_progression')
+        resCn, saCn = self.resCn, self.saCn
+        if write is None: write=self.write
+        
+        if plot_colr is None: plot_colr=plot_bgrp
+        if colorMap is None: colorMap=self.colorMap_d[plot_colr]
+        
+        if xlabel is None: xlabel = resCn
+ 
+        if ylab_l is None:
+            ylab_l = coln_l
+        #=======================================================================
+        # retrival
+        #=======================================================================
+        if dx_raw is None: 
+            dx_raw = self.retrieve('catalog').loc[:, idx['raw', :]].droplevel(0, axis=1)
+        """
+        view(serx)
+        dx_raw.index.names
+        """
+        
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        for c in coln_l:
+            assert c in dx_raw.columns, c
+ 
+        
+        #=======================================================================
+        # data prep----
+        #=======================================================================
+        log.info('on %i'%len(dx_raw))
+        dx = dx_raw.loc[:, coln_l]
+        
+        #promote for consistent indexing
+        serx = dx.stack()
+        serx.index.set_names(list(dx.index.names)+['columns'], inplace=True)
+        mdex = serx.index
+        
+        #construct grouping columns
+        gcols = set()
+        for c in [plot_bgrp, plot_coln, plot_rown]:
+            if (not c is None): 
+                gcols.add(c)
+                assert c in mdex.names, c
+        gcols = list(gcols)
+ 
+        #=======================================================================
+        # plot defaults
+        #=======================================================================
+        #title
+        if title is None:
+            title='%i vs. %s'%(len(coln_l), resCn)
+        #get colors
+        ckeys = mdex.unique(plot_colr)
+        
+        """nasty workaround to get colors to match w/ hyd""" 
+        if plot_colr =='dsampStage':
+            ckeys = ['none'] + ckeys.values.tolist()
+        
+        color_d = self.get_color_d(ckeys, colorMap=colorMap)
+        
+        
+        #=======================================================================
+        # setup the figure
+        #=======================================================================
+        plt.close('all')
+ 
+        col_keys =mdex.unique(plot_coln).tolist()
+        row_keys = mdex.unique(plot_rown).tolist()
+ 
+        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                    figsize_scaler=4,
+                                    constrained_layout=True,
+                                    sharey=sharey,sharex=sharex,  
+                                    fig_id=0,
+                                    set_ax_title=True,figsize=figsize
+                                    )
+ 
+        fig.suptitle(title)
+        """
+        fig.show()
+        """
+        #=======================================================================
+        # loop and plot------
+        #=======================================================================
+        
+        for gkeys, gsx0 in serx.groupby(level=gcols):
+            keys_d = dict(zip(gcols, gkeys))
+            log.info('on %s w/ %i'%(keys_d, len(gsx0)))
+            ax = ax_d[keys_d[plot_rown]][keys_d[plot_coln]]
+            #===================================================================
+            # data prep
+            #===================================================================
+            xar = gsx0.index.get_level_values(resCn).values #resolutions
+            yar = gsx0.values
+            color=color_d[keys_d[plot_colr]]
+            #===================================================================
+            # plot
+            #===================================================================
+            if plot_type=='line':
+                ax.plot(xar, yar, color=color,label =keys_d[plot_colr], **plot_kwargs)
+            else:
+                raise IOError(plot_type)
+            
+            #===================================================================
+            # format
+            #===================================================================
+            #chang eto log scale
+            ax.set_xscale(xscale)
+            
+            if not xlims is None:
+                ax.set_xlim(xlims)
+            
+            
+        #===============================================================
+        # #wrap format subplot
+        #===============================================================
+        """best to loop on the axis container in case a plot was missed"""
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                # first row
+                if row_key == row_keys[0]:
+                    #last col
+                    if col_key == col_keys[-1]:
+                        ax.legend()
+                    
+                # first col
+                if col_key == col_keys[0]:
+                    ax.set_ylabel(ylab_l.pop(0))
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    ax.set_xlabel(xlabel)
+ 
+                ax.grid()
+        
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        
+        fname = 'StatXVsReso_%s_%s' % (title,  self.longname)
+        
+        if write: 
+            self.output_fig(fig, fname=fname)
+ 
+        return ax_d
     #===========================================================================
     # helpers-------
     #===========================================================================
@@ -1158,7 +1338,7 @@ def run( #run a basic model configuration
         # compiling-----
         #=======================================================================
  
-        #ses.runRastAnalysis()
+        ses.compileAnalysis()
  
         #=======================================================================
         # PLOTS------
@@ -1187,8 +1367,6 @@ def run( #run a basic model configuration
  #                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName), figsize=figsize)
  #==============================================================================
  
-
-            
         #===================================================================
         # value distributions----
         #===================================================================
@@ -1245,6 +1423,15 @@ def run( #run a basic model configuration
         #                  title='Raw Depths'
         #                  )
         #=======================================================================
+        
+        #=======================================================================
+        # multi-metric---------
+        #=======================================================================
+ 
+        coln_l=['MEAN', 'wetArea', 'volume']
+        ses.plot_StatXVsResolution(coln_l=coln_l, xlims=(10, 10**3),
+                                   ylab_l = ['mean depth (m)', 'wetted area (m^2)', 'flood volume (m^3)']
+                                   )
 
 
         
@@ -1290,10 +1477,15 @@ def r3():
  
             }
         )
+    
+def r4():
+    return run(tag='r4',
+               catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr4\hr4_run_index.csv',
+               )
 if __name__ == "__main__": 
     
     #dev()
-    r3()
+    r4()
  
 
     tdelta = datetime.datetime.now() - start
