@@ -2738,16 +2738,12 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         dem_raw_fp = dem_fp_d[base_resolution] #just take the highest resolution
             
         assert os.path.exists(dem_raw_fp), dem_raw_fp
-        
  
-        
         #get names
         baseName = self.get_clean_rasterName(os.path.basename(wse_raw_fp))
         if layerName is None: 
             layerName = baseName + '_%000i_dep' %resolution
-
-            
-        
+ 
         log.info('on %s w/ %s'%(os.path.basename(wse_raw_fp) ,meta_d))
         #=======================================================================
         # trim
@@ -2765,8 +2761,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         extents = self.layerextent(extents_layer, 
                                    precision=0.0, #adding this buffer causes some problems with the tests
                                    ).extent()
-        
-        
+ 
         #=======================================================================
         # check raw resolutions
         #=======================================================================
