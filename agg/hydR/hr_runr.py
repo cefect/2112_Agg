@@ -111,7 +111,8 @@ def dev():
         iters=2,
         compiled_fp_d={
  
-            }
+            },
+        studyArea_l=['obwb'],
         )
 
  
@@ -171,7 +172,7 @@ def r3_depth():
                )
     
 def r4_wse():
-    return run(tag='wse', name='hrast4',iters=10,
+    return run(tag='wse', name='hrast4',iters=7,
                dsampStage='wse', 
                downSampling='Average',
                compiled_fp_d = {
