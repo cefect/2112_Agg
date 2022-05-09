@@ -11,11 +11,15 @@ from hp.hyd import HQproj
 def convert_wse(
         out_dir=r'C:\LS\10_OUT\2112_Agg\outs\prep\0509',
         compression='med',
+        studyArea_l=None,
         ):
     from definitions import proj_lib, base_resolution
     
     if not os.path.exists(out_dir):os.makedirs(out_dir)
     
+    if not studyArea_l is None:
+        proj_lib = {k:v for k,v in proj_lib.items() if k in studyArea_l}
+        
     res_lib = dict()
     for studyArea, pars_d in proj_lib.items():
         wse_fp_d = pars_d['wse_fp_d']
@@ -26,7 +30,8 @@ def convert_wse(
         res_lib[studyArea] = dict()
         
         with HQproj(dem_fp=dem_fp, out_dir=out_dir, crs=crs,
-                    base_resolution=base_resolution) as ses:
+                    base_resolution=base_resolution,
+                    overwrite=True) as ses:
             for lvl, fp in wse_fp_d.items():
                 raw_rlay = ses.get_layer(fp, mstore=ses.mstore)
                 
@@ -39,4 +44,5 @@ def convert_wse(
         
 
 if __name__ == "__main__":
-    convert_wse()
+    convert_wse(studyArea_l=['obwb'])
+    print('finished')

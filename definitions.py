@@ -20,6 +20,7 @@ proj_lib =     { #studyArea data for hyd.runr
                'wse_fp_d':{ #10x10
                     'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0100_1218_10.tif',  
                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0200_1218_10.tif',
+                     #'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0500_1218_10.tif',
                      'hi':r'C:\LS\10_OUT\2112_Agg\outs\prep\0509\obwb\wse_sB_0500_1218_10_noGW.tif',
                      },
                'dem_fp_d':{
