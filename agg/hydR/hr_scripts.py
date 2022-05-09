@@ -38,6 +38,7 @@ class RastRun(Model):
                  **kwargs):
         
         data_retrieve_hndls = {**data_retrieve_hndls, **{
+            #depth rasters
             'drlay_lib':{ #overwrites Model's method
                 'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),
                 'build':lambda **kwargs: self.build_drlays2(**kwargs),
@@ -46,16 +47,17 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_stats(**kwargs),
                 },
-            'wetAreas':{  
+            'wetArea':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_wetAreas(**kwargs),
                 },
-            'res_dx':{
+            'volume':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.build_resdx(**kwargs), #
+                'build':lambda **kwargs: self.build_volumes(**kwargs),
                 },
+
             
-            #difference layers
+            #difference rasters
             'difrlay_lib':{  
                 'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),
                 'build':lambda **kwargs: self.build_difrlays(**kwargs),
@@ -68,6 +70,12 @@ class RastRun(Model):
             'difRes':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs:self.build_difRes(**kwargs), #
+                },
+            
+            #combiners
+            'res_dx':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs:self.build_resdx(**kwargs), #
                 },
                         
             }}
@@ -88,7 +96,9 @@ class RastRun(Model):
         
         self.retrieve('rstats')
         
-        self.retrieve('wetAreas')
+        self.retrieve('wetArea')
+        
+        self.retrieve('volume')
         
         
         
@@ -268,14 +278,14 @@ class RastRun(Model):
             logger=log, dkey=dkey, lay_lib=lay_lib, **kwargs)
         
     def build_wetAreas(self,
-                    dkey='wetAreas',
+                    dkey='wetArea',
                     logger=None, **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
         log = logger.getChild('build_wetAreas')
-        assert dkey=='wetAreas'
+        assert dkey=='wetArea'
         
         dx = self.retrieve('rstats')
         
@@ -300,14 +310,30 @@ class RastRun(Model):
         #=======================================================================
         # execute on stack
         #=======================================================================
-        return self.calc_on_layers(
-            func=func, 
-            logger=log, dkey=dkey, **kwargs)
+        return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
         
         """
         view(dx)
         """
+    def build_volumes(self,
+                    dkey='volume',
+                    logger=None, **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_volumes')
+        assert dkey=='volume'
+        
+        dx = self.retrieve('rstats')
+        
  
+        
+        serx = dx['SUM']*dx['rasterUnitsPerPixelX']*dx['rasterUnitsPerPixelY']
+        
+ 
+        return serx.rename('volume').to_frame()
+        
     
     #===========================================================================
     # DIFF rasters--------
@@ -456,11 +482,11 @@ class RastRun(Model):
         saCn = self.saCn
  
         #=======================================================================
-        # retrieve from hr_scripts
+        # retrieve and check all
         #=======================================================================
         first = True
         d = dict()
-        for dki in ['rstats', 'wetAreas', 'rstatsD']:
+        for dki in ['rstats', 'wetArea','volume', 'rstatsD']:
             dx = self.retrieve(dki)  
             assert np.array_equal(dx.index.names, np.array([self.resCn, self.saCn]))
             
@@ -475,13 +501,15 @@ class RastRun(Model):
             
         
         #=======================================================================
-        # join
+        # assemble by type
         #=======================================================================
         #raw values
-        rdx1 = d['rstats'].join(d['wetAreas'])
+        raw_dx = d['rstats'].join(d['wetArea']).join(d['volume'])
+        
+        diff_dx = d['rstatsD']
         
         #difference values
-        rdx = pd.concat({'raw':rdx1, 'diff':d['rstatsD']}, axis=1, names=['rtype', 'stat'])
+        rdx = pd.concat({'raw':raw_dx, 'diff':diff_dx}, axis=1, names=['rtype', 'stat'])
  
         """
         view(rdx)
@@ -865,7 +893,7 @@ class Catalog(object): #handling the simulation index and library
         #check filepaths
         errs_d = dict()
         
-        bx_col = df.columns.get_level_values(1).str.endswith('_fp')
+        bx_col = df.columns.get_level_values(1).str.endswith('fp')
         assert bx_col.any()
         
         for coln, cserx in df.loc[:, bx_col].items():
