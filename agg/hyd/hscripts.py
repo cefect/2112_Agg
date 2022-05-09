@@ -2876,8 +2876,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # check
         #=======================================================================
+        """ allowing this now
         if not hp.gdal.getNoDataCount(dep_fp3)==0:
-            raise Error('got some nodata')
+            raise Error('got some nodata')"""
         
         rlay = self.rlay_load(dep_fp3,logger=log)
  
