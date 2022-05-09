@@ -2827,11 +2827,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             
             
             #===================================================================
-            # #treat negatives
+            # #treat negatives (floor)
             #===================================================================
             stats_d = self.rasterlayerstatistics(dep_fp1)
             if stats_d['MIN']<0:
- 
+                assert 'need to fix the inputs so we never wse < dem'
                 entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'dep':dep_fp1}.items()}
                 formula = '{dep} * ({dep} >= 0)'.format(**{k:v.ref for k,v in entries_d.items()})
                 log.info('executing for negatives %s'%formula)
@@ -2849,6 +2849,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
 
         """
         nodcnt = hp.gdal.getNoDataCount(dep_fp1)
+        
+        """NO! need to preserve no datas to get the accurate averaging calc
         if nodcnt>0:
         
             log.info('filling %i/%i noDataCells w/ 0.0'%(nodcnt, 
@@ -2858,8 +2860,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                             output = os.path.join(self.temp_dir, os.path.basename(dep_fp1).replace('.tif', '_fillna.tif')))
             
         else:
-            dep_fp2 = dep_fp1
-        
+            dep_fp2 = dep_fp1"""
+        dep_fp2 = dep_fp1
         #=======================================================================
         # post-downsample
         #=======================================================================
