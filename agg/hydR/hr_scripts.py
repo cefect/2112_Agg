@@ -307,66 +307,14 @@ class RastRun(Model):
         """
         view(dx)
         """
-    def build_resdx(self, #just combing all the results
-                     dkey='res_dx',
-                     logger=None,write=None,
-                      ):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if logger is None: logger=self.logger
-        log=logger.getChild('build_resdx')
-        if write is None: write=self.write
-        assert dkey=='res_dx'
-        resCn = self.resCn 
-        saCn = self.saCn
  
-        #=======================================================================
-        # retrieve from hr_scripts
-        #=======================================================================
-        first = True
-        d = dict()
-        for dki in ['rstats', 'wetAreas', 'rstatsD']:
-            dx = self.retrieve(dki)  
-            assert np.array_equal(dx.index.names, np.array([self.resCn, self.saCn]))
-            
-            if first:
-                dx_last = dx.copy()
-                first = False
-            else:      
-                assert_index_equal(dx.index, dx_last.index)
-                
-            d[dki] = dx.sort_index()
-        
-            
-        
-        #=======================================================================
-        # join
-        #=======================================================================
-        #raw values
-        rdx1 = d['rstats'].join(d['wetAreas'])
-        
-        #difference values
-        rdx = pd.concat({'raw':rdx1, 'diff':d['rstatsD']}, axis=1, names=['rtype', 'stat'])
- 
-        """
-        view(rdx)
-        """
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info('finished on %s'%str(rdx.shape))
-        if write:
-            self.ofp_d[dkey] = self.write_pick(rdx,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
-                                   logger=log)
-            
-        return rdx
     
     #===========================================================================
     # DIFF rasters--------
     #===========================================================================
     def runDiffs(self):#run sequence for difference layer calcs
+        
+        
         self.retrieve('difrlay_lib')
         
         dx = self.retrieve('rstatsD')
@@ -490,7 +438,188 @@ class RastRun(Model):
  
         return res_lib
  
+    #============================================================================
+    # COMBINERS------------
+    #============================================================================
+    def build_resdx(self, #just combing all the results
+                     dkey='res_dx',
+                     logger=None,write=None,
+                      ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('build_resdx')
+        if write is None: write=self.write
+        assert dkey=='res_dx'
+        resCn = self.resCn 
+        saCn = self.saCn
+ 
+        #=======================================================================
+        # retrieve from hr_scripts
+        #=======================================================================
+        first = True
+        d = dict()
+        for dki in ['rstats', 'wetAreas', 'rstatsD']:
+            dx = self.retrieve(dki)  
+            assert np.array_equal(dx.index.names, np.array([self.resCn, self.saCn]))
+            
+            if first:
+                dx_last = dx.copy()
+                first = False
+            else:      
+                assert_index_equal(dx.index, dx_last.index)
+                
+            d[dki] = dx.sort_index()
+        
+            
+        
+        #=======================================================================
+        # join
+        #=======================================================================
+        #raw values
+        rdx1 = d['rstats'].join(d['wetAreas'])
+        
+        #difference values
+        rdx = pd.concat({'raw':rdx1, 'diff':d['rstatsD']}, axis=1, names=['rtype', 'stat'])
+ 
+        """
+        view(rdx)
+        """
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished on %s'%str(rdx.shape))
+        if write:
+            self.ofp_d[dkey] = self.write_pick(rdx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+            
+        return rdx
     
+    def write_lib(self, #export everything to the library and write a catalog
+                    lib_dir = None, #library directory
+                      overwrite=None,
+                      compression='med',
+                      catalog_fp=None,
+                      id_params = {}, #additional parameter values to use as indexers in teh library
+                      debug_max_len = None,
+                      ):
+        """no cleanup here
+        setup for one write per parameterization"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('write_lib')
+        if overwrite is None: overwrite=self.overwrite
+        if lib_dir is None:
+            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
+            
+        assert os.path.exists(lib_dir), lib_dir
+        resCn=self.resCn
+        saCn=self.saCn
+        
+        #=======================================================================
+        # setup filepaths4
+        #=======================================================================
+        if catalog_fp is None: catalog_fp = os.path.join(lib_dir, '%s_run_index.csv'%self.name)
+        rlay_dir = os.path.join(lib_dir, 'rlays', *list(id_params.values()))
+ 
+        #=======================================================================
+        # retrieve------
+        #=======================================================================
+ 
+        
+        #=======================================================================
+        # re-write raster layers
+        #=======================================================================
+        """todo: add filesize"""
+        ofp_lib = dict()
+        for dkey in ['drlay_lib', 'difrlay_lib']:
+            drlay_lib = self.retrieve(dkey)
+            #write each to file
+            d=dict()
+            cnt=0
+            for resolution, layer_d in drlay_lib.items():
+    
+                d[resolution] = self.store_layer_d(layer_d, dkey, logger=log,
+                                   write_pick=False, #need to write your own
+                                   out_dir = os.path.join(rlay_dir,dkey, 'r%04i'%resolution),
+                                   compression=compression, add_subfolders=False,overwrite=overwrite,                               
+                                   )
+                
+                cnt+=1
+                if not debug_max_len is None:
+                    if cnt>=debug_max_len:
+                        log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
+                        break
+                
+            dk_clean = dkey.replace('_lib', '_fp')
+            fp_serx = pd.DataFrame.from_dict(d).stack().swaplevel().rename(dk_clean)
+            fp_serx.index.set_names([resCn, saCn], inplace=True)
+            ofp_lib[dk_clean] = fp_serx
+            
+        #collect
+        fp_dx = pd.concat(ofp_lib, axis=1)
+        
+        
+
+        #=======================================================================
+        # build catalog
+        #=======================================================================
+        rdx_raw = self.retrieve('res_dx')
+        
+        #=======================================================================
+        # #add filepaths
+        #=======================================================================
+ 
+        #promote columns on filepaths to match
+        cdf = pd.Series(fp_dx.columns, name='fp').to_frame()
+        cdf['rtype'] = rdx_raw.columns.unique('rtype')
+        cdf['fp']='fp' #drop redundant info.. easier for post analyssis
+        fp_dx.columns = pd.MultiIndex.from_frame(cdf).swaplevel()
+        
+        #join
+        rdx = rdx_raw.join(fp_dx).sort_index()
+        
+        assert rdx.notna().any().any()
+        
+        #add additional id params
+        #add singgle value levels from a dictionary
+        mdex_df = rdx.index.to_frame().reset_index(drop=True)
+        for k,v in id_params.items():
+            mdex_df[k] = v
+            
+            #remove from cols
+            if k in rdx.columns.get_level_values(1):
+                """TODO: check the values are the same"""
+                rdx = rdx.drop(k, level=1, axis=1)
+            
+        rdx.index = pd.MultiIndex.from_frame(mdex_df)
+
+ 
+        
+        #=======================================================================
+        # write catalog
+        #=======================================================================
+        miss_l = set(rdx.index.names).symmetric_difference(Catalog.keys)
+        assert len(miss_l)==0, 'key mistmatch with catalog worker'
+        
+        with Catalog(catalog_fp=catalog_fp, overwrite=overwrite, logger=log) as cat:
+            for rkeys, row in rdx.iterrows():
+                keys_d = dict(zip(rdx.index.names, rkeys))
+                cat.add_entry(row, keys_d, logger=log.getChild(str(rkeys)))
+        
+        
+        """
+        rdx.index.names.to_list()
+        view(rdx)
+        """
+        log.info('finished')
+        return catalog_fp
+    
+
+
     #===========================================================================
     # HELPERS-------
     #===========================================================================
@@ -656,127 +785,6 @@ class RastRun(Model):
  
         
                 
-    def write_lib(self, #export everything to the library and write a catalog
-                    lib_dir = None, #library directory
-                      overwrite=None,
-                      compression='med',
-                      catalog_fp=None,
-                      id_params = {}, #additional parameter values to use as indexers in teh library
-                      debug_max_len = None,
-                      ):
-        """no cleanup here
-        setup for one write per parameterization"""
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('write_lib')
-        if overwrite is None: overwrite=self.overwrite
-        if lib_dir is None:
-            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
-            
-        assert os.path.exists(lib_dir), lib_dir
-        resCn=self.resCn
-        saCn=self.saCn
-        
-        #=======================================================================
-        # setup filepaths4
-        #=======================================================================
-        if catalog_fp is None: catalog_fp = os.path.join(lib_dir, '%s_run_index.csv'%self.name)
-        rlay_dir = os.path.join(lib_dir, 'rlays', *list(id_params.values()))
- 
-        #=======================================================================
-        # retrieve------
-        #=======================================================================
- 
-        
-        #=======================================================================
-        # re-write raster layers
-        #=======================================================================
-        """todo: add filesize"""
-        ofp_lib = dict()
-        for dkey in ['drlay_lib', 'difrlay_lib']:
-            drlay_lib = self.retrieve(dkey)
-            #write each to file
-            d=dict()
-            cnt=0
-            for resolution, layer_d in drlay_lib.items():
-    
-                d[resolution] = self.store_layer_d(layer_d, dkey, logger=log,
-                                   write_pick=False, #need to write your own
-                                   out_dir = os.path.join(rlay_dir,dkey, 'r%04i'%resolution),
-                                   compression=compression, add_subfolders=False,overwrite=overwrite,                               
-                                   )
-                
-                cnt+=1
-                if not debug_max_len is None:
-                    if cnt>=debug_max_len:
-                        log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
-                        break
-                
-            dk_clean = dkey.replace('_lib', '_fp')
-            fp_serx = pd.DataFrame.from_dict(d).stack().swaplevel().rename(dk_clean)
-            fp_serx.index.set_names([resCn, saCn], inplace=True)
-            ofp_lib[dk_clean] = fp_serx
-            
-        #collect
-        fp_dx = pd.concat(ofp_lib, axis=1)
-        
-        
-
-        #=======================================================================
-        # build catalog
-        #=======================================================================
-        rdx_raw = self.retrieve('res_dx')
-        
-        #add filepaths
- 
-        #assert_index_equal(fp_dx.index.sort_values(), rdx_raw.index.sort_values())
-        
-        
-        #promote columns on filepaths to match
-        cdf = pd.Series(fp_dx.columns, name='fp').to_frame()
-        cdf['rtype'] = rdx_raw.columns.unique('rtype')
-        fp_dx.columns = pd.MultiIndex.from_frame(cdf).swaplevel()
-        
-        #join
-        rdx = rdx_raw.join(fp_dx).sort_index()
-        
-        assert rdx.notna().any().any()
-        
-        #add additional id params
-        #add singgle value levels from a dictionary
-        mdex_df = rdx.index.to_frame().reset_index(drop=True)
-        for k,v in id_params.items():
-            mdex_df[k] = v
-            
-            #remove from cols
-            if k in rdx.columns.get_level_values(1):
-                """TODO: check the values are the same"""
-                rdx = rdx.drop(k, level=1, axis=1)
-            
-        rdx.index = pd.MultiIndex.from_frame(mdex_df)
-
- 
-        
-        #=======================================================================
-        # write catalog
-        #=======================================================================
-        miss_l = set(rdx.index.names).symmetric_difference(Catalog.keys)
-        assert len(miss_l)==0, 'key mistmatch with catalog worker'
-        
-        with Catalog(catalog_fp=catalog_fp, overwrite=overwrite, logger=log) as cat:
-            for rkeys, row in rdx.iterrows():
-                keys_d = dict(zip(rdx.index.names, rkeys))
-                cat.add_entry(row, keys_d, logger=log.getChild(str(rkeys)))
-        
-        
-        """
-        rdx.index.names.to_list()
-        view(rdx)
-        """
-        log.info('finished')
-        return catalog_fp
-    
 
         
 class Catalog(object): #handling the simulation index and library
