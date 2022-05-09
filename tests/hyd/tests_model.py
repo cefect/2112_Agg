@@ -13,8 +13,7 @@ TODO: clean out old pickles
 
 import os  
 import pytest
- 
-
+print('pytest.__version__:' + pytest.__version__)
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal, assert_index_equal
 idx = pd.IndexSlice
@@ -31,7 +30,7 @@ from agg.hyd.hscripts import StudyArea as CalcStudyArea
 from agg.hyd.hscripts import vlay_get_fdf, RasterCalc
 from agg.hyd.hscripts import Model as CalcSession
 
-from tests.conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds, proj_lib, check_layer_d
+from conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds, proj_lib, check_layer_d
 #===============================================================================
 # fixtures-----
 #===============================================================================
