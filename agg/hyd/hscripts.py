@@ -2737,7 +2737,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         else:"""
         dem_raw_fp = dem_fp_d[base_resolution] #just take the highest resolution
             
-        assert os.path.exists(dem_raw_fp)
+        assert os.path.exists(dem_raw_fp), dem_raw_fp
         
  
         
