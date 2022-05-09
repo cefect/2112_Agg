@@ -110,7 +110,13 @@ def dev():
         tag='dev',
         iters=2,
         compiled_fp_d={
- 
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\drlay_lib_dev_dev_0509.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\rstats_dev_dev_0509.pickle',
+        #'wetArea':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\wetAreas_dev_dev_0509.pickle',
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\difrlay_lib_dev_dev_0509.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\rstatsD_dev_dev_0509.pickle',
+        #'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220509\working\res_dx_dev_dev_0509.pickle',
+
             },
         studyArea_l=['obwb'],
         )
@@ -172,7 +178,7 @@ def r3_depth():
                )
     
 def r4_wse():
-    return run(tag='wse', name='hrast4',iters=7,
+    return run(tag='wse', name='hr4',iters=7,
                dsampStage='wse', 
                downSampling='Average',
                compiled_fp_d = {
@@ -183,8 +189,8 @@ def r4_wse():
                )
 if __name__ == "__main__": 
     
-    dev()
-    #r4_wse()
+    #dev()
+    r4_wse()
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))
