@@ -211,30 +211,22 @@ class RastRun(Model):
                                     dsampStage=dStage, downSampling=dSamp,
                                      **kwargs)
                 
+                for sa, rlay in res_lib[resolution].items():
+                    assert isinstance(rlay, QgsRasterLayer), sa
+                
                 cnt+=len(res_lib[resolution])
             except Exception as e:
                 raise IOError('failed on %i w/ \n    %s'%(resolution, e))
  
         self.temp_dir = temp_dir #revert
         log.info('finished building %i'%cnt)
+        
+ 
         #=======================================================================
         # handle layers----
         #=======================================================================
- 
         if write:
-            if out_dir is None: out_dir = os.path.join(self.wrk_dir, dkey)
-            ofp_lib = dict()
-            
-            #write each to file
-            for resolution, layer_d in res_lib.items():
-                ofp_lib[resolution] = self.store_layer_d(layer_d, dkey, logger=log,
-                                   write_pick=False, #need to write your own
-                                   out_dir = os.path.join(out_dir, 'r%i'%resolution)
-                                   )
-                
-            #write the pick
-            self.ofp_d[dkey] = self.write_pick(ofp_lib,
-                os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+            self.store_lay_lib(dkey,  res_lib, out_dir=out_dir, logger=log)
             
         #=======================================================================
         # wrap
@@ -385,16 +377,43 @@ class RastRun(Model):
         view(dx.sort_index(level=1))
         """
     
+
+    def store_lay_lib(self, dkey, res_lib,
+                      out_dir=None, 
+                      logger=None):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('store_lay_lib')
+        if out_dir is None:
+            out_dir = os.path.join(self.wrk_dir, dkey)
+        ofp_lib = dict()
+        
+        #=======================================================================
+        # #write each to file
+        #=======================================================================
+        for resolution, layer_d in res_lib.items():
+            ofp_lib[resolution] = self.store_layer_d(layer_d, dkey, logger=log, 
+                write_pick=False, #need to write your own
+                out_dir=os.path.join(out_dir, 'r%i' % resolution))
+        
+        #=======================================================================
+        # #write the pick
+        #=======================================================================
+        self.ofp_d[dkey] = self.write_pick(ofp_lib, 
+            os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+
     def build_difrlays(self, #generate a set of delta rasters and write to the catalog
                       dkey='difrlay_lib',
                       lay_lib=None,
 
                    logger=None,
-                   out_dir=None,
+                   out_dir=None,write=None,
  
                       **kwargs):
         """
-        NOTE: this always writes to file
+        revised to match behavior of build_drlays2
         """
         
         #=======================================================================
@@ -404,6 +423,7 @@ class RastRun(Model):
         log = logger.getChild('gen_rdelta')
         assert dkey=='difrlay_lib'
         saCn=self.saCn
+        if write is None: write=self.write
         mstore= QgsMapLayerStore()
         if out_dir is None: out_dir= os.path.join(self.wrk_dir, 'difrlay_lib')
             
@@ -437,15 +457,14 @@ class RastRun(Model):
                 #handle baselines
                 if first:
                     base_d[studyArea] = self.rlay_mcopy(rlay, mstore=mstore)
-                    
  
-                
                 #execute
                 d[studyArea]=self.get_diff_rlay(
                     rlay, base_d[studyArea], #agg - true
                     logger=log.getChild('%i.%s'%(resolution, studyArea)),
                      out_dir = os.path.join(out_dir, studyArea)
                     )
+                assert isinstance(d[studyArea], QgsRasterLayer)
                 cnt+=1
  
             #wrap
@@ -461,23 +480,16 @@ class RastRun(Model):
         #=======================================================================
         # handle layers----
         #=======================================================================
-        self.ofp_d[dkey] = self.write_pick(res_lib,
-            os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+ 
+        if write:
+            self.store_lay_lib(dkey,  res_lib, out_dir=out_dir, logger=log)
             
         #=======================================================================
         # wrap
         #=======================================================================
  
         return res_lib
-        
-   
  
-        mstore.removeAllMapLayers()
-        
-        
- 
-
-        
     
     #===========================================================================
     # HELPERS-------
@@ -515,7 +527,9 @@ class RastRun(Model):
             for studyArea, rlay in d0.items():
                 #setup and precheck
                 tagi = '%i.%s'%(resolution, studyArea)
-                assert isinstance(rlay, QgsRasterLayer), tagi
+                if not isinstance(rlay, QgsRasterLayer):
+                    raise Error('got bad type on %s: %s'%(
+                        tagi, type(rlay)))
                 
                 #match the layers crs
                 self.qproj.setCrs(rlay.crs())
@@ -561,7 +575,7 @@ class RastRun(Model):
         
         temp_dir = os.path.join(self.temp_dir, 'get_diff_rlay')
         if not os.path.exists(temp_dir): os.makedirs(temp_dir)
-        if out_dir is None: out_dir = os.path.join(self.wrk_dir, 'difrlay_lib')
+        if out_dir is None: out_dir = os.path.join(self.temp_dir, 'difrlay_lib')
         start = datetime.datetime.now()
         mstore = QgsMapLayerStore()
         
@@ -636,7 +650,9 @@ class RastRun(Model):
         mstore.removeAllMapLayers()
         assert hp.gdal.getNoDataCount(diff_fp)==0
         
-        return diff_fp
+        diff_rlay = self.rlay_load(diff_fp, logger=log)
+        
+        return diff_rlay
  
         
                 
