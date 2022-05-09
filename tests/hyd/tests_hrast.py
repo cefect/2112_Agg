@@ -32,6 +32,7 @@ from agg.hyd.hscripts import Model as CalcSession
 
 from conftest import retrieve_finv_d, retrieve_data, search_fp, build_compileds, proj_lib, check_layer_d
 
+from definitions import base_resolution
 
 
 #===============================================================================
@@ -68,14 +69,14 @@ def extent(studyAreaWrkr):
 @pytest.fixture   
 def dem_fp(studyAreaWrkr, tmp_path, extent):
     np.random.seed(100)
-    return studyAreaWrkr.randomuniformraster(5, bounds=(0,5), extent=extent,
+    return studyAreaWrkr.randomuniformraster(base_resolution, bounds=(0,5), extent=extent,
                                              output=os.path.join(tmp_path, 'dem_random.tif'))
 
 @pytest.fixture
 # were setup to filter out ground water... but tests are much simpler if we ignore this   
 def wse_fp(studyAreaWrkr, tmp_path, extent):
     np.random.seed(100)
-    return studyAreaWrkr.randomuniformraster(5, bounds=(5,7), extent=extent,
+    return studyAreaWrkr.randomuniformraster(base_resolution, bounds=(5,7), extent=extent,
                                              output=os.path.join(tmp_path, 'wse_random.tif'))
     
 @pytest.fixture   
@@ -107,13 +108,14 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
 @pytest.mark.parametrize('dsampStage, resolution, downSampling',[
-    ['none',5, 'none'], #raw... no rexampling
-    ['depth',50,'Average'],
-    ['wse',50,'Average'],
-    ['depth',50,'Maximum'],
+    ['none',base_resolution, 'none'], #raw... no rexampling
+    ['depth',30,'Average'],
+    ['wse',30,'Average'],
+    ['depth',30,'Maximum'],
+    ['depth',30,'Nearest neighbour'],
     ])  
 def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling, 
                    dem_fp, wse_fp, #randomly generated rasters 
@@ -124,7 +126,7 @@ def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling,
     #===========================================================================
     rlay = studyAreaWrkr.get_drlay(
         wse_fp_d = {'hi':wse_fp},
-        dem_fp_d = {5:dem_fp},
+        dem_fp_d = {base_resolution:dem_fp},
         resolution=resolution, downSampling=downSampling, dsampStage=dsampStage, trim=False)
     
     #===========================================================================
@@ -135,7 +137,7 @@ def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling,
     assert stats_d['resolution']==resolution
         
     #check nodata values
-    assert hp.gdal.getNoDataCount(rlay.source())==0
+    assert hp.gdal.getNoDataCount(rlay.source())==0, 'should be true for our random rasters'
     assert rlay.crs() == studyAreaWrkr.qproj.crs()
     #stats_d = studyAreaWrkr.rlay_getstats(rlay)
     
