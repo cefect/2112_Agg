@@ -20,9 +20,7 @@ def run( #run a basic model configuration
         name='hrast0',
         overwrite=True,
         trim=False,
-        
-        
-        
+
         #=======================================================================
         # write control
         #=======================================================================
@@ -42,7 +40,6 @@ def run( #run a basic model configuration
         #=======================================================================
         prec=3,        
 
- 
         #=======================================================================
         # #parameters
         #=======================================================================
@@ -50,16 +47,12 @@ def run( #run a basic model configuration
         #raster downSampling and selection  (StudyArea.get_raster())
         dsampStage='wse', downSampling='Average', severity = 'hi', 
         #resolution=5, this is what we iterate on
-        
- 
-        
+
         #=======================================================================
         # debug
         #=======================================================================
         debug_max_len=None,
- 
-        
- 
+
         **kwargs):
     print('START run w/ %s.%s and '%(name, tag))
  
@@ -80,25 +73,17 @@ def run( #run a basic model configuration
     with RastRun(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
                      write=write,exit_summary=exit_summary,prec=prec,
                  bk_lib = {
- 
-                     
-                     'drlay_lib':dict( severity=severity, downSampling=downSampling, dsampStage=dsampStage, iters=iters),
- 
-                                          
+                     'drlay_lib':dict( severity=severity, downSampling=downSampling, dsampStage=dsampStage, iters=iters),                  
                      },
                  **kwargs) as ses:
         
         ses.runDownsample()
         
-        ses.runDiffs()
+        #ses.runDiffs()
         
         if write_lib:
             ses.write_lib(compression=compression, id_params=dict(downSampling=downSampling, dsampStage=dsampStage, severity=severity), debug_max_len=debug_max_len)
-        
- 
-        
- 
-        
+
     print('\nfinished %s'%tag)
     
     return 
@@ -182,8 +167,7 @@ def r4(**kwargs):
 def r4_wse():
     return r4(tag='wse', dsampStage='wse',  
                compiled_fp_d = {
-                   'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr4\wse\20220509\working\drlay_lib_hr4_wse_0509.pickle',
-                   'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr4\wse\20220509\working\difrlay_lib_hr4_wse_0509.pickle'
+ 
                 }, 
                )
     
