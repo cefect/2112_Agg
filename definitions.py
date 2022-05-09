@@ -23,9 +23,8 @@ proj_lib =     { #studyArea data for hyd.runr
                      'hi':r'C:\LS\10_OUT\2112_Agg\outs\prep\0509\obwb\wse_sB_0500_1218_10_noGW.tif',
                      },
                'dem_fp_d':{
-                    1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_01_aoi07_0304.tif',
-                    5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_05_aoi07_0304b.tif',
-                    10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_5x5_cmp_aoi04_10_0509.tif'
+ 
+                    10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_10_aoi08.tif'
                     #10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\dem\obwb_NHC2020_DEM_20210804_10_aoi07_0419.tif',
                        },
                     }, 
