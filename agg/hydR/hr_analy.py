@@ -1427,10 +1427,10 @@ def run( #run a basic model configuration
         #=======================================================================
         # multi-metric---------
         #=======================================================================
- 
+        #nice plot showing the major raw statistics 
         coln_l=['MEAN', 'wetArea', 'volume']
         ses.plot_StatXVsResolution(coln_l=coln_l, xlims=(10, 10**3),
-                                   ylab_l = ['mean depth (m)', 'wetted area (m^2)', 'flood volume (m^3)']
+                                   ylab_l = ['mean depth (m)', 'wetted area (m^2)', 'inundation volume (m^3)']
                                    )
 
 
