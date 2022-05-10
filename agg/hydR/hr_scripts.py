@@ -21,6 +21,8 @@ idx = pd.IndexSlice
 from hp.exceptions import Error
 from hp.pd import get_bx_multiVal
 import hp.gdal
+
+from hp.Q import assert_rlay_equal
 from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
 
 
@@ -241,11 +243,10 @@ class RastRun(Model):
         #=======================================================================
         # wrap
         #=======================================================================
+        assert_lay_lib(res_lib, msg='%s post'%dkey)
  
             
         return res_lib
-            
-
     
 
     
@@ -388,6 +389,8 @@ class RastRun(Model):
                       **kwargs):
         """
         revised to match behavior of build_drlays2
+        
+        NULLS: treating these as zeros for difference calculations
         """
         
         #=======================================================================
@@ -430,7 +433,10 @@ class RastRun(Model):
                 
                 #handle baselines
                 if first:
-                    base_d[studyArea] = self.rlay_mcopy(rlay, mstore=mstore)
+                    base_d[studyArea] = self.get_layer(
+                        self.fillnodata(rlay,fval=0, logger=log,
+                                        output=os.path.join(self.temp_dir, 
+                                                '%s_fnd.tif'%rlay.name())), mstore=mstore)
  
                 #execute
                 d[studyArea]=self.get_diff_rlay(
@@ -438,6 +444,7 @@ class RastRun(Model):
                     logger=log.getChild('%i.%s'%(resolution, studyArea)),
                      out_dir = os.path.join(out_dir, studyArea)
                     )
+                
                 assert isinstance(d[studyArea], QgsRasterLayer)
                 cnt+=1
  
@@ -461,7 +468,8 @@ class RastRun(Model):
         #=======================================================================
         # wrap
         #=======================================================================
- 
+        mstore.removeAllMapLayers()
+        assert_lay_lib(res_lib, msg='%s post'%dkey)
         return res_lib
  
     #============================================================================
@@ -740,81 +748,75 @@ class RastRun(Model):
             from definitions import base_resolution
         
         
-        extents = self.layerextent(bot_rlay, 
-                                   precision=0.0, #adding this buffer causes some problems with the tests
-                                   ).extent()
+        extents = self.layerextent(bot_rlay,precision=0.0, ).extent()
  
         """pretty slow"""
         assert self.rlay_get_resolution(bot_rlay)==float(base_resolution)
+        
+        #=======================================================================
+        # fill nulls
+        #=======================================================================
+        assert hp.gdal.getNoDataCount(bot_rlay.source())==0
+        
+        topr1_fp = self.fillnodata(top_rlay, fval=0, logger=log,
+                           output=os.path.join(temp_dir, '%s_fnd.tif'%top_rlay.name()))
  
         #=======================================================================
         # warop top to match
         #=======================================================================
-        if not self.rlay_get_resolution(top_rlay)==float(base_resolution):
+        tres = self.rlay_get_resolution(top_rlay)
+        if tres > float(base_resolution):
             log.info('warpreproject w/ resolution=%i to %s'%(base_resolution, extents))
-            topr1_fp = self.warpreproject(top_rlay, compression='none', extents=extents, logger=log,
+            topr2_fp = self.warpreproject(topr1_fp, compression='none', extents=extents, logger=log,
                                             resolution=base_resolution,
                                             output=os.path.join(
                                                 temp_dir, 'preWarp_%000i_%s'%(int(base_resolution), os.path.basename(top_rlay.source()))
                                                 ))
-            
-            topr1_fp = self.fillnodata(topr1_fp, output=os.path.join(
-                                                temp_dir, 'preWarp_fnd_%000i_%s'%(int(base_resolution), os.path.basename(top_rlay.source()))
-                                                ))
-            #===================================================================
-            # mstore.addMapLayer(topr1_rlay)
-            # topr1_fp = topr1_rlay.source()
-            #===================================================================
-            
-            
+        elif tres < float(base_resolution):
+            raise IOError(tres)
+ 
         else:
-            topr1_fp = top_rlay.source()
-            
-        #=======================================================================
-        # check
-        #=======================================================================
-        """a bit slow"""
-        assert hp.gdal.getNoDataCount(topr1_fp)==0
-        assert hp.gdal.getNoDataCount(bot_rlay.source())==0
-            
+            topr2_fp = topr1_fp
+ 
         #=======================================================================
         # subtract
         #=======================================================================
- 
         
         log.debug('building RasterCalc')
-        with RasterCalc(topr1_fp, name='diff', session=self, logger=log,out_dir=out_dir,) as wrkr:
+        with RasterCalc(topr2_fp, name='diff', session=self, logger=log,out_dir=out_dir,
+                        ) as wrkr:
+ 
+            entries_d = {k:wrkr._rCalcEntry(v) for k,v in {
+                'top':wrkr.ref_lay, 'bottom':bot_rlay}.items()}
             
-            top_rlay = wrkr.ref_lay #loaded during init
-            #bot_rlay = wrkr.load(bot_rlay)
+            assert_rlay_equal(entries_d['top'].raster, entries_d['bottom'].raster)
             
-            #===================================================================
-            # setup
-            #===================================================================
-            
-            entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'top':top_rlay, 'bottom':bot_rlay}.items()}
             formula = '%s - %s'%(entries_d['top'].ref, entries_d['bottom'].ref)
             
             #===================================================================
             # execute subtraction
             #===================================================================
             log.info('executing %s'%formula)
-            diff_fp = wrkr.rcalc(formula, layname='diff_%s'%os.path.basename(topr1_fp))
+            diff_fp1 = wrkr.rcalc(formula, layname='diff_%s'%os.path.basename(topr1_fp).replace('.tif', ''))
             
         #=======================================================================
-        # wrap
+        # null check
         #=======================================================================
-        mstore.removeAllMapLayers()
-        assert hp.gdal.getNoDataCount(diff_fp)==0
+        null_cnt = hp.gdal.getNoDataCount(diff_fp1)
+        if not null_cnt==0:
+            basename, ext = os.path.splitext(diff_fp1)
+            """not sure why this is happenning for some layers"""
+            log.warning('got %i nulls on diff for %s...filling'%(null_cnt, top_rlay.name()))
+            diff_fp2 = self.fillnodata(diff_fp1, fval=0.0, logger=log,
+                                       output=basename+'_fnd.tif')
+        else:
+            diff_fp2 = diff_fp1
         
-        diff_rlay = self.rlay_load(diff_fp, logger=log)
         
-        return diff_rlay
  
-        
-                
-
-        
+        mstore.removeAllMapLayers()
+        return self.rlay_load(diff_fp2, logger=log)
+ 
 class Catalog(object): #handling the simulation index and library
     df=None
     keys = ['resolution', 'studyArea', 'downSampling', 'dsampStage', 'severity']
@@ -1062,11 +1064,20 @@ class Catalog(object): #handling the simulation index and library
                 self.logger.info('wrote %s to %s'%(str(df.shape), self.catalog_fp))
         
 #===============================================================================
-# class StudyArea2(RastRun, StudyArea):
-#     pass
+# funcs
 #===============================================================================
-
-
+def assert_lay_lib(lib_d, msg=''):
+    if __debug__:
+        assert isinstance(lib_d, dict)
+        for k0,d0 in lib_d.items():
+            if not isinstance(d0, dict):
+                raise AssertionError('bad subtype on %s: %s\n'%(
+                    k0, type(d0))+msg)
+            
+            for k1, lay in d0.items():
+                if not isinstance(lay, QgsRasterLayer):
+                    raise AssertionError('bad type on %s.%s: %s\n'%(
+                        k0,k1, type(lay))+msg)
 
 
  
