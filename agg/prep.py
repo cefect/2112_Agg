@@ -8,6 +8,11 @@ from qgis.core import QgsCoordinateReferenceSystem
 from hp.hyd import HQproj
 
 
+def build_random( #construct a random project
+        base_proj='obwb'
+        ):
+    pass
+
 def convert_wse(
         out_dir=r'C:\LS\10_OUT\2112_Agg\outs\prep\0510',
         compression='med',
