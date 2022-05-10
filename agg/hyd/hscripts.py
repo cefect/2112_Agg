@@ -2863,12 +2863,14 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if dsampStage =='depth':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
  
-            dep_fp3a = self.get_resamp(dep_fp2, resolution, downSampling,  extents=extents, logger=log)
+            dep_fp3 = self.get_resamp(dep_fp2, resolution, downSampling,  extents=extents, logger=log)
             
-            #fill nulls again
-            """still possible to get nulls after we resample here with the new extents"""
-            dep_fp3 = self.fillnodata(dep_fp3a, fval=0, logger=log, 
-                            output = os.path.join(self.temp_dir, os.path.basename(dep_fp2).replace('.tif', '_fillna.tif')))
+            #===================================================================
+            # #fill nulls again
+            # """still possible to get nulls after we resample here with the new extents"""
+            # dep_fp3 = self.fillnodata(dep_fp3a, fval=0, logger=log, 
+            #                 output = os.path.join(self.temp_dir, os.path.basename(dep_fp2).replace('.tif', '_fillna.tif')))
+            #===================================================================
             
         else:
             dep_fp3 = dep_fp2
