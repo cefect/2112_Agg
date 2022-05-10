@@ -179,7 +179,15 @@ def r4_wse():
 def r4_dep():
     return r4(tag='depth', dsampStage='depth',  
                compiled_fp_d = {
- 
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\drlay_lib_hr4_depth_0510.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\rstats_hr4_depth_0510.pickle',
+        'wetArea':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\wetArea_hr4_depth_0510.pickle',
+       'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\difrlay_lib_hr4_depth_0510.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\rstatsD_hr4_depth_0510.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\res_dx_hr4_depth_0510.pickle',
+            'res_dx_fp':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\res_dx_fp_hr4_depth_0510.pickle',
+
+
                 }, 
                )
 if __name__ == "__main__": 
