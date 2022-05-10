@@ -114,6 +114,7 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
     ['none',base_resolution, 'none'], #raw... no rexampling
     ['post',30,'Average'],
     ['pre',30,'Average'],
+    ['preGW',30,'Average'],
     ['post',30,'Maximum'],
     ['post',30,'Nearest neighbour'],
     ])  
