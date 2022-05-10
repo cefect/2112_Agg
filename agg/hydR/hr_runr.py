@@ -79,7 +79,7 @@ def run( #run a basic model configuration
         
         ses.runDownsample()
         
-        #ses.runDiffs()
+        ses.runDiffs()
         
         if write_lib:
             ses.write_lib(compression=compression, id_params=dict(downSampling=downSampling, dsampStage=dsampStage, severity=severity), debug_max_len=debug_max_len)
@@ -95,8 +95,7 @@ def dev():
         tag='dev',
         iters=2,
         compiled_fp_d={
-
-
+ 
             },
         studyArea_l=['obwb'],
         )
@@ -167,7 +166,10 @@ def r4(**kwargs):
 def r4_wse():
     return r4(tag='wse', dsampStage='wse',  
                compiled_fp_d = {
- 
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr4\wse\20220510\working\drlay_lib_hr4_wse_0510.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hr4\wse\20220510\working\rstats_hr4_wse_0510.pickle',
+        'wetArea':r'C:\LS\10_OUT\2112_Agg\outs\hr4\wse\20220510\working\wetArea_hr4_wse_0510.pickle',
+
                 }, 
                )
     
@@ -179,8 +181,8 @@ def r4_dep():
                )
 if __name__ == "__main__": 
     
-    dev()
-    #r4_wse()
+    #dev()
+    r4_wse()
     #r4_dep()
 
     tdelta = datetime.datetime.now() - start
