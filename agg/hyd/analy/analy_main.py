@@ -186,7 +186,7 @@ def run( #run a basic model configuration
         
         #main matrix plots (of depth)
         for plotName, mids, baseID in [
-            #('wse',         list(range(9)),     0), #base
+            #('pre',         list(range(9)),     0), #base
             #('depth convexHull',       [0, 21,22,3,34,35,6,36,37,], 0),
                              #
                              

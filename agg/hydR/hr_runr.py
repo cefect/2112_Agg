@@ -45,7 +45,7 @@ def run( #run a basic model configuration
         #=======================================================================
         iters=3, #resolution iterations
         #raster downSampling and selection  (StudyArea.get_raster())
-        dsampStage='wse', downSampling='Average', severity = 'hi', 
+        dsampStage='pre', downSampling='Average', severity = 'hi', 
         #resolution=5, this is what we iterate on
 
         #=======================================================================
@@ -103,8 +103,8 @@ def dev():
  
 
 def r2():
-    return run(tag='wse', name='hrast1',iters=10,
-               dsampStage='wse', 
+    return run(tag='pre', name='hrast1',iters=10,
+               dsampStage='pre', 
                downSampling='Average',
                compiled_fp_d = {
         'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\drlay_lib_hrast1_wse_0427.pickle',
@@ -122,8 +122,8 @@ def r2():
                )
                
 def r3_wse():
-    return run(tag='wse', name='hrast2',iters=10,
-               dsampStage='wse', 
+    return run(tag='pre', name='hrast2',iters=10,
+               dsampStage='pre', 
                downSampling='Average',
                compiled_fp_d = {
         'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast1\wse\20220427\working\drlay_lib_hrast1_wse_0427.pickle',
@@ -142,8 +142,8 @@ def r3_wse():
                )
     
 def r3_depth():
-    return run(tag='depth', name='hrast2',iters=10,
-               dsampStage='depth', 
+    return run(tag='post', name='hrast2',iters=10,
+               dsampStage='post', 
                downSampling='Average',
                compiled_fp_d = {
                    'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrast2\depth\20220505\working\drlay_lib_hrast2_depth_0505.pickle',
@@ -164,7 +164,7 @@ def r4(**kwargs):
     return run(name='hr4', **{**rkwargs, **kwargs})
 
 def r4_wse():
-    return r4(tag='wse', dsampStage='wse',  
+    return r4(tag='pre', dsampStage='pre',  
                compiled_fp_d = {
         'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr4\wse\20220510\working\drlay_lib_hr4_wse_0510.pickle',
         'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hr4\wse\20220510\working\rstats_hr4_wse_0510.pickle',
@@ -177,7 +177,7 @@ def r4_wse():
                )
     
 def r4_dep():
-    return r4(tag='depth', dsampStage='depth',  
+    return r4(tag='post', dsampStage='post',  
                compiled_fp_d = {
         'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\drlay_lib_hr4_depth_0510.pickle',
         'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hr4\depth\20220510\working\rstats_hr4_depth_0510.pickle',
@@ -198,13 +198,13 @@ def r5(**kwargs):
     return run(name='hr5', **{**rkwargs, **kwargs})
 
 def r5_wse():
-    return r4(tag='wse', dsampStage='wse',  
+    return r4(tag='pre', dsampStage='pre',  
                compiled_fp_d = {
 
                 }, )
     
 def r5_dep():
-    return r4(tag='depth', dsampStage='depth',  
+    return r4(tag='post', dsampStage='post',  
                compiled_fp_d = {
 
                 }, )

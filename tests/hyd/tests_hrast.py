@@ -112,10 +112,10 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
 @pytest.mark.parametrize('dsampStage, resolution, downSampling',[
     ['none',base_resolution, 'none'], #raw... no rexampling
-    ['depth',30,'Average'],
-    ['wse',30,'Average'],
-    ['depth',30,'Maximum'],
-    ['depth',30,'Nearest neighbour'],
+    ['post',30,'Average'],
+    ['pre',30,'Average'],
+    ['post',30,'Maximum'],
+    ['post',30,'Nearest neighbour'],
     ])  
 def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling, 
                    dem_fp, wse_fp, #randomly generated rasters 
@@ -151,7 +151,7 @@ def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling,
         dtm_rlay = wrkr.load(dem_fp)
  
  
-        entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'wse':wse_rlay, 'dtm':dtm_rlay}.items()}
+        entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'pre':wse_rlay, 'dtm':dtm_rlay}.items()}
         
         formula = '{wse} - {dtm}'.format(**{k:v.ref for k,v in entries_d.items()})
         

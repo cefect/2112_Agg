@@ -133,8 +133,8 @@ def proj_lib(tmpdir_factory,   #assemble a proj_lib
     ])
 @pytest.mark.parametrize('dsampStage, resolution, downSampling', [
     ['none', base_resolution, 'none'],
-    ['wse', 20,'Nearest neighbour'],
-    ['depth', 20, 'Average'],
+    ['pre', 20,'Nearest neighbour'],
+    ['post', 20, 'Average'],
     ])
 @pytest.mark.parametrize('vid', [
     798,

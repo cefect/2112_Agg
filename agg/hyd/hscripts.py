@@ -21,7 +21,7 @@ from hp.basic import set_info
 
 from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
     vlay_get_fdata, vlay_get_fdf, Error, vlay_dtypes, QgsFeatureRequest, vlay_get_geo, \
-    QgsWkbTypes, QgsRasterLayer, RasterCalc, QgsVectorLayer
+    QgsWkbTypes, QgsRasterLayer, RasterCalc, QgsVectorLayer, assert_rlay_equal
 
 import hp.gdal
 from hp.exceptions import assert_func
@@ -334,7 +334,7 @@ class Model(HydSession, QSession):  # single model run
         'severity':{'vals':['hi', 'lo'],                                'dkey':'drlay_d'},
         'resolution':{'vals':list(range(10,500)),                         'dkey':'drlay_d'},
         'downSampling':{'vals':['none','Average', 'Mode', 'Nearest neighbour'],                    'dkey':'drlay_d'},
-        'dsampStage':{'vals':['none', 'wse', 'depth'],                  'dkey':'drlay_d'},
+        'dsampStage':{'vals':['none', 'pre', 'post'],                  'dkey':'drlay_d'},
         
         'samp_method':{'vals':['points', 'zonal', 'true_mean'],         'dkey':'rsamps'},
         'zonal_stat':{'vals':['Mean', 'Minimum', 'Maximum', 'Median', 'none'], 'dkey':'rsamps'},
@@ -2666,10 +2666,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    #raster downsampling
                    dsampStage='none', #which stage of the depth raster calculation to apply the downsampling
                         #none: no downSampling happening
-                        #wse: resample both rasters before subtraction  
-                        #depth: subtract rasters first, then resample the result
+                        #pre: resample both rasters before subtraction  
+                        #preGW:same as wse, but with a groundwater filter
+                        #post: subtract rasters first, then resample the result
                    downSampling='none',
-                   post_ds_correct=True, #for dsampStage='wse', need to correct corrupted rasters
+                   post_ds_correct=True, #for dsampStage='pre', need to correct corrupted rasters
                   resolution=None, #0=raw (nicer for variable consistency)
                   base_resolution=None, #resolution of raw data
                    
@@ -2710,7 +2711,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # parameter checks
         #=======================================================================
  
-        assert dsampStage in ['none', 'depth', 'wse'], dsampStage
+        assert dsampStage in ['none', 'post', 'pre', 'preGW'], dsampStage
         #parameter logic
         if dsampStage =='none':
             assert resolution==base_resolution, resolution
@@ -2723,6 +2724,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert resolution>=base_resolution
         assert isinstance(resolution, int)
         
+
         #=======================================================================
         # #select raster filepaths
         #=======================================================================
@@ -2770,50 +2772,49 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert self.rlay_get_resolution(wse_raw_fp)==float(base_resolution)
         assert self.rlay_get_resolution(dem_raw_fp)==float(base_resolution)
  
+        #=======================================================================
+        # helper funcs
+        #=======================================================================
+        def get_resamp(fp):
+            return self.get_resamp(fp, resolution, downSampling,  extents=extents, logger=log)
+        
+        def get_warp(fp):
+            return self.warpreproject(fp, compression='none', extents=extents, logger=log,
+                                        resolution=base_resolution,
+                                        output=os.path.join(temp_dir, 'preCalc_%s'%os.path.basename(fp)))
         
         #=======================================================================
         # preCalc 
         #=======================================================================
- 
-        if dsampStage in ['none', 'depth']:
+        if dsampStage in ['none', 'post']:
             """easier and cleaner to always start with the same warp"""
             log.info('warpreproject w/ resolution=%i to %s'%(base_resolution, extents))
-            wse_fp = self.warpreproject(wse_raw_fp, compression='none', extents=extents, logger=log,
-                                        resolution=base_resolution,
-                                        output=os.path.join(temp_dir, 'preCalc_%s'%os.path.basename(wse_raw_fp)))
-            
-            dem_fp = self.warpreproject(dem_raw_fp, compression='none', extents=extents, logger=log,
-                                        resolution=base_resolution,
-                                        output=os.path.join(temp_dir, 'preCalc_%s'%os.path.basename(dem_raw_fp)))
-            
-
+            wse_fp = get_warp(wse_raw_fp)
+            dem_fp = get_warp(dem_raw_fp)
  
- 
-        elif dsampStage == 'wse':
+        elif dsampStage == 'pre':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
-            wse1_fp = self.get_resamp(wse_raw_fp, resolution, downSampling,  extents=extents, logger=log)
-            dem_fp = self.get_resamp(dem_raw_fp, resolution, downSampling,  extents=extents, logger=log)
+            wse_fp = get_resamp(wse_raw_fp)
+            dem_fp = get_resamp(dem_raw_fp)
+            
+        elif dsampStage == 'preGW':
+            log.info('downSampling w/ dsampStage=%s'%dsampStage)
+            wse1_fp = get_resamp(wse_raw_fp)
+            dem_fp = get_resamp(dem_raw_fp)
             
             #===================================================================
             # remove groundwater from wse
             #===================================================================
-            if post_ds_correct:
-                with HQproj(dem_fp=dem_fp, out_dir=temp_dir, crs=None,base_resolution=resolution,
-                    overwrite=True, session=self, logger=log) as wrkr:
-                    wse1_rlay = wrkr.get_layer(wse1_fp, mstore=wrkr.mstore)
-                    wse2_rlay = wrkr.wse_remove_gw(wse1_rlay)
-                    wse_fp = wse2_rlay.source()
-                
-                
-            else:
-                wse_fp = wse1_fp
-            
- 
+            with HQproj(dem_fp=dem_fp, out_dir=temp_dir, crs=None,base_resolution=resolution,
+                overwrite=True, session=self, logger=log) as wrkr:
+                wse1_rlay = wrkr.get_layer(wse1_fp, mstore=wrkr.mstore)
+                wse2_rlay = wrkr.wse_remove_gw(wse1_rlay)
+                wse_fp = wse2_rlay.source()
         else:
             raise Error('badd dsampStage: %s'%dsampStage)
         
+        assert_rlay_equal(wse_fp, dem_fp, msg='dem and wse dont match')
  
-        assert_func(lambda:self.rlay_check_match(wse_fp, dem_fp), msg='dem and wse dont match')
         #=======================================================================
         # subtraction
         #=======================================================================
@@ -2826,7 +2827,6 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             #===================================================================
             # setup
             #===================================================================
-            
             entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'top':wse_rlay, 'bottom':dtm_rlay}.items()}
             formula = '%s - %s'%(entries_d['top'].ref, entries_d['bottom'].ref)
             
@@ -2835,14 +2835,13 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             #===================================================================
             log.info('executing %s'%formula)
             dep_fp1 = wrkr.rcalc(formula, layname=layerName)
-            
-            
+
             #===================================================================
             # #treat negatives (floor)
             #===================================================================
             stats_d = self.rasterlayerstatistics(dep_fp1)
             if stats_d['MIN']<0:
-                raise Error('need to fix the inputs so we never wse < dem')
+                assert dsampStage == 'pre'
                 entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'dep':dep_fp1}.items()}
                 formula = '{dep} * ({dep} >= 0)'.format(**{k:v.ref for k,v in entries_d.items()})
                 log.info('executing for negatives %s'%formula)
@@ -2876,7 +2875,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # post-downsample
         #=======================================================================
-        if dsampStage =='depth':
+        if dsampStage =='post':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
  
             dep_fp3 = self.get_resamp(dep_fp2, resolution, downSampling,  extents=extents, logger=log)
@@ -2905,8 +2904,6 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert rlay.crs()==self.qproj.crs()
         assert int(self.rlay_get_resolution(rlay))==resolution
 
-        
-        
         #=======================================================================
         # wrap
         #=======================================================================
@@ -2916,9 +2913,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         
         log.info('finished in %s on \'%s\' (%i x %i = %i)'%(tdelta,
             rlay.name(), rlay.width(), rlay.height(), rlay.width()*rlay.height()))
-        
-        
-        
+
         return rlay
     
     def get_resamp(self, #wrapper for  warpreproject

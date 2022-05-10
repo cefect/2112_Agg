@@ -174,7 +174,7 @@ class RastRun(Model):
                      base_resolution=None, #resolution of raw data
                      
                      #parameters [get_drlay]. for non base_resolution
-                     dsampStage='wse',downSampling='Average',
+                     dsampStage='pre',downSampling='Average',
                      
                      #outputs
                      out_dir=None,
