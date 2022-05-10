@@ -58,6 +58,10 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_volumes(**kwargs),
                 },
+            'negCnt':{  
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_negCnt(**kwargs),
+                },
 
             
             #difference rasters
@@ -112,6 +116,8 @@ class RastRun(Model):
         self.retrieve('wetArea')
         
         self.retrieve('volume')
+        
+        self.retrieve('negCnt')
         
         
         
@@ -293,6 +299,7 @@ class RastRun(Model):
     def build_wetAreas(self,
                     dkey='wetArea',
                     logger=None, **kwargs):
+        """TODO: write a test for this"""
         #=======================================================================
         # defaults
         #=======================================================================
@@ -307,9 +314,12 @@ class RastRun(Model):
         #=======================================================================
         def func(rlay, logger=None, meta_d={}):
             
+            
+            assert hp.gdal.getNoDataCount(rlay.source())==0
+            
             #build a mask layer
             mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name(),
-                                        thresh_type='lower', rval=0.0)
+                                        thresh_type='lower_neq', thresh=0.01)
             
             #tally all the 1s
             wet_cnt = self.rasterlayerstatistics(mask_rlay)['SUM']
@@ -326,9 +336,32 @@ class RastRun(Model):
         #=======================================================================
         return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
         
-        """
-        view(dx)
-        """
+    def build_negCnt(self,#negative cell count
+                    dkey='negCnt',
+                    logger=None, **kwargs):
+        """TODO: write a test for this"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_negCnt')
+        assert dkey=='negCnt'
+ 
+        #=======================================================================
+        # define the function
+        #=======================================================================
+        def func(rlay, logger=None, meta_d={}):
+            #build a mask layer
+            mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_neg_mask'%rlay.name(),
+                                        thresh_type='upper_neq', thresh=0.0)
+            
+            #tally all the 1s 
+            return {dkey:self.rasterlayerstatistics(mask_rlay)['SUM']}
+ 
+        #=======================================================================
+        # execute on stack
+        #=======================================================================
+        return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
     def build_volumes(self,
                     dkey='volume',
                     logger=None, **kwargs):
@@ -507,7 +540,7 @@ class RastRun(Model):
         #=======================================================================
         first = True
         d = dict()
-        for dki in ['rstats', 'wetArea','volume', 'rstatsD']:
+        for dki in ['rstats', 'wetArea','volume', 'rstatsD', 'negCnt']:
             dx = self.retrieve(dki)  
             assert np.array_equal(dx.index.names, np.array([self.resCn, self.saCn]))
             
@@ -525,7 +558,7 @@ class RastRun(Model):
         # assemble by type
         #=======================================================================
         #raw values
-        raw_dx = d['rstats'].join(d['wetArea']).join(d['volume'])
+        raw_dx = d['rstats'].join(d['wetArea']).join(d['volume']).join(d['negCnt'])
         
         diff_dx = d['rstatsD']
         
