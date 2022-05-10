@@ -308,7 +308,8 @@ class RastRun(Model):
         def func(rlay, logger=None, meta_d={}):
             
             #build a mask layer
-            mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name())
+            mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name(),
+                                        thresh_type='lower', rval=0.0)
             
             #tally all the 1s
             wet_cnt = self.rasterlayerstatistics(mask_rlay)['SUM']
@@ -414,7 +415,7 @@ class RastRun(Model):
         saCn=self.saCn
         if write is None: write=self.write
         mstore= QgsMapLayerStore()
-        if out_dir is None: out_dir= os.path.join(self.wrk_dir, 'difrlay_lib')
+        if out_dir is None: out_dir= self.temp_dir
             
         if lay_lib is None: 
             lay_lib = self.retrieve('drlay_lib')
@@ -475,7 +476,7 @@ class RastRun(Model):
         #=======================================================================
  
         if write:
-            self.store_lay_lib(dkey,  res_lib, out_dir=out_dir, logger=log)
+            self.store_lay_lib(dkey,  res_lib, logger=log)
             
         #=======================================================================
         # wrap
@@ -1009,7 +1010,7 @@ class Catalog(object): #handling the simulation index and library
         cat_df = self.df
         keys = self.keys.copy()
 
-        log.info('w/ %i'%len(serx))
+        log.debug('w/ %i'%len(serx))
         #check mandatory columns are there
         miss_l = set(self.cat_colns).difference(serx.index.get_level_values(1))
         assert len(miss_l)==0, 'got %i unrecognized keys: %s'%(len(miss_l), miss_l)
