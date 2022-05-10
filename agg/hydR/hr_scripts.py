@@ -95,7 +95,7 @@ class RastRun(Model):
         
         if lib_dir is None:
             lib_dir = os.path.join(self.work_dir, 'lib', self.name)
-        assert os.path.exists(lib_dir), lib_dir
+        #assert os.path.exists(lib_dir), lib_dir
         self.lib_dir=lib_dir
     #===========================================================================
     # DATA construction-----------

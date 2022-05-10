@@ -1430,7 +1430,7 @@ def run( #run a basic model configuration
         #nice plot showing the major raw statistics 
         coln_l=['MEAN', 'wetArea', 'volume']
         ses.plot_StatXVsResolution(coln_l=coln_l, xlims=(10, 10**3),
-                                   ylab_l = ['mean depth (m)', 'wetted area (m^2)', 'inundation volume (m^3)']
+                                   ylab_l = ['mean depth (m)', 'wet area (m^2)', 'wet volume (m^3)']
                                    )
 
 
@@ -1450,33 +1450,7 @@ def dev():
                 
         )
     
-def r1():
-    return run(
-        tag='r1',
  
-        compiled_fp_d = {
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\drlay_lib_rast_r1_0426.pickle',
-        'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\rstats_basic_rast_r1_0426.pickle',
-        'wetAreas':r'C:\LS\10_OUT\2112_Agg\outs\rast\r1\20220426\working\wetAreas_rast_r1_0426.pickle',
-        #'rstats':r'C:\LS\10_OUT\2112_Agg\outs\rast_analy\r1\20220426\working\rstats_rast_analy_r1_0426.pickle',
-            }
-        )
-        
-def r2():
-    return run(
-        tag='r1',
-        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hrast1\hrast_run_index.csv',
- 
-        )
-
-def r3():
-    return run(
-        tag='r3',
-        catalog_fp = r'C:\LS\10_OUT\2112_Agg\lib\hrast2\hrast2_run_index.csv',
-        compiled_fp_d = {
- 
-            }
-        )
     
 def r4():
     return run(tag='r4',
