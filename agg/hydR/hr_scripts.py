@@ -1039,13 +1039,10 @@ class Catalog(object): #handling the simulation index and library
             
             cdf = cat_df.index.to_frame().reset_index(drop=True)
             ndf = new_df.index.to_frame().reset_index(drop=True)
-            
  
-            bx = cdf.apply(lambda x:ndf.eq(x), axis=1, result_type='broadcast')
-            
-            bx = cat_df.index.to_frame().reset_index(drop=True).eq(
-                new_df.index.to_frame().reset_index(drop=True), 
-                axis=1).all(axis=1)
+            bxdf = cdf.apply(lambda s:ndf.eq(s).iloc[0,:], axis=1)
+            bx = bxdf.all(axis=1)
+ 
             
             
             if bx.any():
