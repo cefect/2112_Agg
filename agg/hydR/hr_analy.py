@@ -1438,6 +1438,7 @@ def run( #run a basic model configuration
             'MEAN':'mean depth (m)',
             'volume':'wet volume (m^3)', 
              'wetArea': 'wet area (m^2)', 
+             'negCnt':'negCnt'
              #'STD_DEV':'stdev (m)'
               }
  
@@ -1481,7 +1482,7 @@ def r7():
 if __name__ == "__main__": 
     
     #dev()
-    #r5()
+ 
     r7()
  
 
