@@ -190,11 +190,30 @@ def r4_dep():
 
                 }, 
                )
+    
+def r5(**kwargs):
+    rkwargs = dict(
+        iters=3, downSampling='Average',write_lib=True, studyArea_l=['obwb'],
+        )    
+    return run(name='hr5', **{**rkwargs, **kwargs})
+
+def r5_wse():
+    return r4(tag='wse', dsampStage='wse',  
+               compiled_fp_d = {
+
+                }, )
+    
+def r5_dep():
+    return r4(tag='depth', dsampStage='depth',  
+               compiled_fp_d = {
+
+                }, )
+
 if __name__ == "__main__": 
     
     #dev()
-    #r4_wse()
-    r4_dep()
+    r5_wse()
+    #r5_dep()
 
     tdelta = datetime.datetime.now() - start
     print('finished in %s' % (tdelta))

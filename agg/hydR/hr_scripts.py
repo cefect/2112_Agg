@@ -240,7 +240,7 @@ class RastRun(Model):
                 
                 cnt+=len(res_lib[resolution])
             except Exception as e:
-                raise IOError('failed on %i w/ \n    %s'%(resolution, e))
+                raise IOError('failed get_drlay on reso=%i w/ \n    %s'%(resolution, e))
  
         self.temp_dir = temp_dir #revert
         log.info('finished building %i'%cnt)
