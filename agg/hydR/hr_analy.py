@@ -1431,10 +1431,18 @@ def run( #run a basic model configuration
         # multi-metric---------
         #=======================================================================
         #nice plot showing the major raw statistics 
-        coln_l=['MEAN', 'wetArea', 'volume', 'MAX']
-        ses.plot_StatXVsResolution(coln_l=coln_l, xlims=(10, 10**4),
-                                   ylab_l = ['mean depth (m)', 'wet area (m^2)', 'wet volume (m^3)', 'max depth (m)']
-                                   )
+ 
+        col_d={
+            'MAX':'max depth (m)',
+            'MIN':'min depth (m)',
+            'MEAN':'mean depth (m)',
+            'volume':'wet volume (m^3)', 
+             'wetArea': 'wet area (m^2)', 
+  
+              'STD_DEV':'stdev (m)'
+              }
+ 
+        ses.plot_StatXVsResolution(coln_l=list(col_d.keys()), xlims=(10, 10**3),ylab_l = list(col_d.values()))
 
 
         
@@ -1462,10 +1470,15 @@ def r4():
     
 def r5():
     return run(tag='r5',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr5\hr5_run_index.csv',)
+
+def r6():
+    return run(tag='r6',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr6\hr6_run_index.csv',)
+
 if __name__ == "__main__": 
     
     #dev()
-    r5()
+    #r5()
+    r6()
  
 
     tdelta = datetime.datetime.now() - start
