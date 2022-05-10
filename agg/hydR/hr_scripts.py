@@ -58,9 +58,9 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_volumes(**kwargs),
                 },
-            'negCnt':{  
+            'gwArea':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.build_negCnt(**kwargs),
+                'build':lambda **kwargs: self.build_gwArea(**kwargs),
                 },
 
             
@@ -117,7 +117,7 @@ class RastRun(Model):
         
         self.retrieve('volume')
         
-        self.retrieve('negCnt')
+        self.retrieve('gwArea')
         
         
         
@@ -336,17 +336,18 @@ class RastRun(Model):
         #=======================================================================
         return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
         
-    def build_negCnt(self,#negative cell count
-                    dkey='negCnt',
+    def build_gwArea(self,#negative cell count
+                    dkey='gwArea',
                     logger=None, **kwargs):
         """TODO: write a test for this"""
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
-        log = logger.getChild('build_negCnt')
-        assert dkey=='negCnt'
+        log = logger.getChild('build_gwArea')
+        assert dkey=='gwArea'
  
+        dx = self.retrieve('rstats')
         #=======================================================================
         # define the function
         #=======================================================================
@@ -355,8 +356,15 @@ class RastRun(Model):
             mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_neg_mask'%rlay.name(),
                                         thresh_type='upper_neq', thresh=0.0)
             
-            #tally all the 1s 
-            return {dkey:self.rasterlayerstatistics(mask_rlay)['SUM']}
+            #tally all the 1s
+            wet_cnt = self.rasterlayerstatistics(mask_rlay)['SUM']
+            
+            #retrieve stats for this iter
+            stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
+            
+            
+            return {dkey:wet_cnt * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX']}
+ 
  
         #=======================================================================
         # execute on stack
@@ -540,7 +548,7 @@ class RastRun(Model):
         #=======================================================================
         first = True
         d = dict()
-        for dki in ['rstats', 'wetArea','volume', 'rstatsD', 'negCnt']:
+        for dki in ['rstats', 'wetArea','volume', 'rstatsD', 'gwArea']:
             dx = self.retrieve(dki)  
             assert np.array_equal(dx.index.names, np.array([self.resCn, self.saCn]))
             
@@ -558,7 +566,7 @@ class RastRun(Model):
         # assemble by type
         #=======================================================================
         #raw values
-        raw_dx = d['rstats'].join(d['wetArea']).join(d['volume']).join(d['negCnt'])
+        raw_dx = d['rstats'].join(d['wetArea']).join(d['volume']).join(d['gwArea'])
         
         diff_dx = d['rstatsD']
         
