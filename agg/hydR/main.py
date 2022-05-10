@@ -3,31 +3,35 @@ Created on May 8, 2022
 
 @author: cefect
 '''
-import sys, argparse
+import sys, argparse, datetime
+start = datetime.datetime.now()
+ 
 from agg.hydR.hr_runr import run
 
 if __name__ == "__main__":
     print(sys.argv)
-    raise IOError('do me')
+ 
     #===========================================================================
     # setup argument parser 
     #===========================================================================
-    parser = argparse.ArgumentParser(prog='hyd',description='execute hyd.models')
+    parser = argparse.ArgumentParser(prog='hydR',description='execute hydR.models')
     #add arguments
-    parser.add_argument('modelID', help='specify the model code', type=int)
-    parser.add_argument("-name",'-n', help='name for the run group', type=str, default='hyd') #this defaults to None if not passed
-    parser.add_argument("-dev",'-d', help='flag for dev runs', action='store_true')
+    parser.add_argument('-tag','-t', help='run label', type=str)
+    parser.add_argument("-name",'-n', help='name for the run group', type=str, default='hydR') #this defaults to None if not passed
     parser.add_argument("-write",'-w', help='flag for writing intermediate pickels', action='store_true') #defaults to False
+    parser.add_argument("-write_lib",'-wl', help='flag for writing to library', action='store_true') #defaults to False
+    parser.add_argument("-iters",'-i', help='resolution iterations', type=int, default=7)  
+    parser.add_argument("-dsampStage",help='raster downsampling stage', type=str, default='pre')  
+    parser.add_argument("-downSampling",help='raster downsampling GDAL.warp method', type=str, default='Average') 
     
     
     args = parser.parse_args()
     kwargs = vars(args)
     print('parser got these kwargs: \n    %s'%kwargs) #print all the parsed arguments in dictionary form
+ 
+    print('\n\nSTART (tag=%s) \n\n\n\n'%kwargs['tag'])
+    run(**kwargs)
     
-    dev = kwargs.pop('dev')
-    print('\n\nSTART (dev=%s) \n\n\n\n'%dev)
-    if dev:
-        run_auto_dev(**kwargs)
-        
-    else:
-        run_autoPars(**kwargs)
+    tdelta = datetime.datetime.now() - start
+    print('finished in %s' % (tdelta))
+    

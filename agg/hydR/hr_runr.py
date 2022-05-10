@@ -32,7 +32,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #data
         #=======================================================================
-        studyArea_l = None, #convenience filtering of proj_lib
+        studyArea_l = ['obwb'], #convenience filtering of proj_lib
         proj_lib = None,
         
         #=======================================================================
