@@ -1,5 +1,5 @@
 
-SET dsampStage=post
+SET dsampStage=pre
 
 call C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\bats\setup.bat
 

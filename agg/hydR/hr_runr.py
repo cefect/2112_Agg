@@ -211,8 +211,8 @@ def r5_dep():
 
 if __name__ == "__main__": 
     
-    #dev()
-    r5_wse()
+    dev()
+    #r5_wse()
     #r5_dep()
 
     tdelta = datetime.datetime.now() - start

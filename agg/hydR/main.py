@@ -18,8 +18,8 @@ if __name__ == "__main__":
     #add arguments
     parser.add_argument('-tag','-t', help='run label', type=str)
     parser.add_argument("-name",'-n', help='name for the run group', type=str, default='hydR') #this defaults to None if not passed
-    parser.add_argument("-write",'-w', help='flag for writing intermediate pickels', action='store_true') #defaults to True
-    parser.add_argument("-write_lib",'-wl', help='flag for writing to library', action='store_false') #defaults to True
+    parser.add_argument("-write",'-w', help='flag for writing intermediate data', action='store_false') #defaults to True
+    parser.add_argument("-write_lib",'-wl', help='flag for storing results to library', action='store_false') #defaults to True
     parser.add_argument("-iters",'-i', help='resolution iterations', type=int, default=7)  
     parser.add_argument("-dsampStage",help='raster downsampling stage', type=str, default='pre')  
     parser.add_argument("-downSampling",help='raster downsampling GDAL.warp method', type=str, default='Average') 
