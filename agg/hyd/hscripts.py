@@ -2670,7 +2670,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                         #preGW:same as wse, but with a groundwater filter
                         #post: subtract rasters first, then resample the result
                    downSampling='none',
-                   post_ds_correct=True, #for dsampStage='pre', need to correct corrupted rasters
+
                   resolution=None, #0=raw (nicer for variable consistency)
                   base_resolution=None, #resolution of raw data
                    
@@ -2842,15 +2842,17 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             #===================================================================
             # #treat negatives (floor)
             #===================================================================
-            stats_d = self.rasterlayerstatistics(dep_fp1)
-            if stats_d['MIN']<0:
-                assert dsampStage == 'pre'
-                entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'dep':dep_fp1}.items()}
-                formula = '{dep} * ({dep} >= 0)'.format(**{k:v.ref for k,v in entries_d.items()})
-                log.info('executing for negatives %s'%formula)
-                dep_fp1 = wrkr.rcalc(formula, layname=baseName, 
-                                 ofp=os.path.join(os.path.dirname(dep_fp1),os.path.basename(dep_fp1).replace('.tif', '_posi.tif'))
-                                 )
+            #===================================================================
+            # stats_d = self.rasterlayerstatistics(dep_fp1)
+            # if stats_d['MIN']<0:
+            #     assert dsampStage == 'pre'
+            #     entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'dep':dep_fp1}.items()}
+            #     formula = '{dep} * ({dep} >= 0)'.format(**{k:v.ref for k,v in entries_d.items()})
+            #     log.info('executing for negatives %s'%formula)
+            #     dep_fp1 = wrkr.rcalc(formula, layname=baseName, 
+            #                      ofp=os.path.join(os.path.dirname(dep_fp1),os.path.basename(dep_fp1).replace('.tif', '_posi.tif'))
+            #                      )
+            #===================================================================
 
 
         #=======================================================================
@@ -2881,7 +2883,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if dsampStage =='post':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
  
-            dep_fp3 = self.get_resamp(dep_fp2, resolution, downSampling,  extents=extents, logger=log)
+            dep_fp3 = self.get_resamp(dep_fp2)
             
             #===================================================================
             # #fill nulls again
@@ -2894,13 +2896,19 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             dep_fp3 = dep_fp2
             
         #=======================================================================
+        # post null filling
+        #=======================================================================
+        """having nulls on the depth values breaks some of the raster stat calculators (esp. mean)
+        dont' confuse our treatment of nulls on WSE (preserving) with depths (forcing to zero)
+            except for dsampStage=pre... where we do preserve the nulls"""
+        dep_fp4 = self.fillnodata(dep_fp3, fval=0.0, logger=log)
+            
+        #=======================================================================
         # check
         #=======================================================================
-        """ allowing this now
-        if not hp.gdal.getNoDataCount(dep_fp3)==0:
-            raise Error('got some nodata')"""
+ 
         
-        rlay = self.rlay_load(dep_fp3,logger=log)
+        rlay = self.rlay_load(dep_fp4,logger=log)
  
         #stats_d = self.get_rasterstats(rlay)
         #assert stats_d['resolution'] == resolution
