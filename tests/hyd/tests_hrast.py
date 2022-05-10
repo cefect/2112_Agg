@@ -151,7 +151,7 @@ def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling,
         dtm_rlay = wrkr.load(dem_fp)
  
  
-        entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'pre':wse_rlay, 'dtm':dtm_rlay}.items()}
+        entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'wse':wse_rlay, 'dtm':dtm_rlay}.items()}
         
         formula = '{wse} - {dtm}'.format(**{k:v.ref for k,v in entries_d.items()})
         
