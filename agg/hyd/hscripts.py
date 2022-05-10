@@ -2680,10 +2680,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    ):
         
         """separate function for 'severity' and 'resolution' (gdalwarp)
-        
-        todo: add trimming?
-        
-        zero handling?
+ 
         """
            
         #=======================================================================

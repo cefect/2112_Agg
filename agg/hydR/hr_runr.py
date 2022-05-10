@@ -191,11 +191,11 @@ def r4_dep():
                 }, 
                )
     
-def r5(**kwargs):
+def r7(**kwargs):
     rkwargs = dict(
-        iters=3, downSampling='Average',write_lib=True, studyArea_l=['obwb'],
+        iters=3, downSampling='Average',write_lib=False, studyArea_l=['obwb'],
         )    
-    return run(name='hr5', **{**rkwargs, **kwargs})
+    return run(name='hr7', **{**rkwargs, **kwargs})
 
 def r5_wse():
     return r4(tag='pre', dsampStage='pre',  
@@ -203,16 +203,22 @@ def r5_wse():
 
                 }, )
     
-def r5_dep():
+def r7_post():
     return r4(tag='post', dsampStage='post',  
                compiled_fp_d = {
-
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr7\post\20220510\working\drlay_lib_hr7_post_0510.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hr7\post\20220510\working\rstats_hr7_post_0510.pickle',
+        #'wetArea':r'C:\LS\10_OUT\2112_Agg\outs\hr7\post\20220510\working\wetArea_hr7_post_0510.pickle',
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hr7\post\20220510\working\difrlay_lib_hr7_post_0510.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hr7\post\20220510\working\rstatsD_hr7_post_0510.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hr7\post\20220510\working\res_dx_hr7_post_0510.pickle',
+        'res_dx_fp':r'C:\LS\10_OUT\2112_Agg\outs\hr7\post\20220510\working\res_dx_fp_hr7_post_0510.pickle',
                 }, )
 
 if __name__ == "__main__": 
     
     dev()
-    #r5_wse()
+    #r7_post()
     #r5_dep()
 
     tdelta = datetime.datetime.now() - start
