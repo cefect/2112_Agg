@@ -37,6 +37,7 @@ class RastRun(Model):
     def __init__(self,
                  name='rast',
                  data_retrieve_hndls={},
+                 lib_dir=None,
                  **kwargs):
         
         data_retrieve_hndls = {**data_retrieve_hndls, **{
@@ -79,6 +80,11 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs:self.build_resdx(**kwargs), #
                 },
+            
+            'res_dx_fp':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs:self.build_resdxfp(**kwargs), #
+                },
                         
             }}
         
@@ -86,6 +92,11 @@ class RastRun(Model):
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
         
+        
+        if lib_dir is None:
+            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
+        assert os.path.exists(lib_dir), lib_dir
+        self.lib_dir=lib_dir
     #===========================================================================
     # DATA construction-----------
     #===========================================================================
@@ -133,7 +144,8 @@ class RastRun(Model):
      
                 log.info('loading %s.%s from %s' % (k0, k1, fp))
                 
- 
+                assert isinstance(fp, str), 'got bad type on %s.%s: %s'%(k0, k1, type(fp))
+                assert os.path.exists(fp), fp
                 ext = os.path.splitext(os.path.basename(fp))[1]
                 #===================================================================
                 # vectors
@@ -533,23 +545,27 @@ class RastRun(Model):
             
         return rdx
     
-    def write_lib(self, #export everything to the library and write a catalog
+    def build_resdxfp(self, #export everything to the library and write a catalog
+                      dkey='res_dx_fp',
                     lib_dir = None, #library directory
                       overwrite=None,
                       compression='med',
-                      catalog_fp=None,
+                      
                       id_params = {}, #additional parameter values to use as indexers in teh library
                       debug_max_len = None,
-                      ):
+                      write=None, logger=None):
         """no cleanup here
         setup for one write per parameterization"""
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('write_lib')
+        assert dkey=='res_dx_fp'
+        if logger is None: logger=self.logger
+        log = logger.getChild(dkey)
         if overwrite is None: overwrite=self.overwrite
+        if write is None: write=self.write
         if lib_dir is None:
-            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
+            lib_dir = self.lib_dir
             
         assert os.path.exists(lib_dir), lib_dir
         resCn=self.resCn
@@ -558,29 +574,25 @@ class RastRun(Model):
         #=======================================================================
         # setup filepaths4
         #=======================================================================
-        if catalog_fp is None: catalog_fp = os.path.join(lib_dir, '%s_run_index.csv'%self.name)
+        
         rlay_dir = os.path.join(lib_dir, 'rlays', *list(id_params.values()))
  
-        #=======================================================================
-        # retrieve------
-        #=======================================================================
  
-        
         #=======================================================================
         # re-write raster layers
         #=======================================================================
         """todo: add filesize"""
         ofp_lib = dict()
-        for dkey in ['drlay_lib', 'difrlay_lib']:
-            drlay_lib = self.retrieve(dkey)
+        for dki in ['drlay_lib', 'difrlay_lib']:
+            drlay_lib = self.retrieve(dki)
             #write each to file
             d=dict()
             cnt=0
             for resolution, layer_d in drlay_lib.items():
     
-                d[resolution] = self.store_layer_d(layer_d, dkey, logger=log,
+                d[resolution] = self.store_layer_d(layer_d, dki, logger=log,
                                    write_pick=False, #need to write your own
-                                   out_dir = os.path.join(rlay_dir,dkey, 'r%04i'%resolution),
+                                   out_dir = os.path.join(rlay_dir,dki, 'r%04i'%resolution),
                                    compression=compression, add_subfolders=False,overwrite=overwrite,                               
                                    )
                 
@@ -590,7 +602,7 @@ class RastRun(Model):
                         log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
                         break
                 
-            dk_clean = dkey.replace('_lib', '_fp')
+            dk_clean = dki.replace('_lib', '_fp')
             fp_serx = pd.DataFrame.from_dict(d).stack().swaplevel().rename(dk_clean)
             fp_serx.index.set_names([resCn, saCn], inplace=True)
             ofp_lib[dk_clean] = fp_serx
@@ -632,9 +644,37 @@ class RastRun(Model):
                 rdx = rdx.drop(k, level=1, axis=1)
             
         rdx.index = pd.MultiIndex.from_frame(mdex_df)
-
- 
         
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished on %s'%str(rdx.shape))
+        if write:
+            self.ofp_d[dkey] = self.write_pick(rdx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+        
+        return rdx
+
+    def write_lib(self,
+                  catalog_fp=None,
+                  lib_dir = None, #library directory
+                  rdx = None,
+                  overwrite=None, logger=None, **kwargs):
+        
+        if overwrite is None: overwrite=self.overwrite
+        if logger is None: logger=self.logger
+        log=logger.getChild('write_lib')
+        
+        
+        if lib_dir is None:
+            lib_dir = self.lib_dir
+            
+        if catalog_fp is None: 
+            catalog_fp = os.path.join(lib_dir, '%s_run_index.csv'%self.name)
+            
+        if rdx is None:
+            rdx=self.retrieve('res_dx_fp', lib_dir=lib_dir, **kwargs)
         #=======================================================================
         # write catalog
         #=======================================================================
@@ -969,6 +1009,7 @@ class Catalog(object): #handling the simulation index and library
         cat_df = self.df
         keys = self.keys.copy()
 
+        log.info('w/ %i'%len(serx))
         #check mandatory columns are there
         miss_l = set(self.cat_colns).difference(serx.index.get_level_values(1))
         assert len(miss_l)==0, 'got %i unrecognized keys: %s'%(len(miss_l), miss_l)
@@ -995,6 +1036,12 @@ class Catalog(object): #handling the simulation index and library
             cat_df=new_df
         else:
             #check if present
+            
+            cdf = cat_df.index.to_frame().reset_index(drop=True)
+            ndf = new_df.index.to_frame().reset_index(drop=True)
+            
+ 
+            bx = cdf.apply(lambda x:ndf.eq(x), axis=1, result_type='broadcast')
             
             bx = cat_df.index.to_frame().reset_index(drop=True).eq(
                 new_df.index.to_frame().reset_index(drop=True), 
