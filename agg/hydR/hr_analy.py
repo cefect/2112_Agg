@@ -1038,7 +1038,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                         
                         
                            colorMap=None,
-                         plot_kwargs = dict(marker='x'),
+                         plot_kwargs = dict(alpha=0.5),
                          title=None,xlabel=None,
                          ylab_l=None,
                          xscale='log',
@@ -1117,7 +1117,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             ckeys = ['none'] + ckeys.values.tolist()
         
         color_d = self.get_color_d(ckeys, colorMap=colorMap)
-        
+        marker_d = {k:plt.Line2D.filled_markers[i] for i, k in enumerate(ckeys)}
         
         #=======================================================================
         # setup the figure
@@ -1157,7 +1157,10 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             # plot
             #===================================================================
             if plot_type=='line':
-                ax.plot(xar, yar, color=color,label =keys_d[plot_colr], **plot_kwargs)
+                
+                
+                ax.plot(xar, yar, color=color,label =keys_d[plot_colr],
+                        marker=marker_d[keys_d[plot_colr]], **plot_kwargs)
             else:
                 raise IOError(plot_type)
             
@@ -1428,9 +1431,9 @@ def run( #run a basic model configuration
         # multi-metric---------
         #=======================================================================
         #nice plot showing the major raw statistics 
-        coln_l=['MEAN', 'wetArea', 'volume']
-        ses.plot_StatXVsResolution(coln_l=coln_l, xlims=(10, 10**3),
-                                   ylab_l = ['mean depth (m)', 'wet area (m^2)', 'wet volume (m^3)']
+        coln_l=['MEAN', 'wetArea', 'volume', 'MAX']
+        ses.plot_StatXVsResolution(coln_l=coln_l, xlims=(10, 10**4),
+                                   ylab_l = ['mean depth (m)', 'wet area (m^2)', 'wet volume (m^3)', 'max depth (m)']
                                    )
 
 
@@ -1456,10 +1459,13 @@ def r4():
     return run(tag='r4',
                catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr4\hr4_run_index.csv',
                )
+    
+def r5():
+    return run(tag='r5',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr5\hr5_run_index.csv',)
 if __name__ == "__main__": 
     
     #dev()
-    r4()
+    r5()
  
 
     tdelta = datetime.datetime.now() - start
