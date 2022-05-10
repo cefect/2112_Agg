@@ -25,7 +25,7 @@ from hp.Q import Qproj, QgsCoordinateReferenceSystem, QgsMapLayerStore, view, \
 
 import hp.gdal
 from hp.exceptions import assert_func
-
+from hp.hyd import HQproj
 
 from agg.coms.scripts import QSession, BaseSession
 from agg.coms.scripts import Catalog
@@ -2669,6 +2669,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                         #wse: resample both rasters before subtraction  
                         #depth: subtract rasters first, then resample the result
                    downSampling='none',
+                   post_ds_correct=True, #for dsampStage='wse', need to correct corrupted rasters
                   resolution=None, #0=raw (nicer for variable consistency)
                   base_resolution=None, #resolution of raw data
                    
@@ -2790,8 +2791,23 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
         elif dsampStage == 'wse':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
-            wse_fp = self.get_resamp(wse_raw_fp, resolution, downSampling,  extents=extents, logger=log)
+            wse1_fp = self.get_resamp(wse_raw_fp, resolution, downSampling,  extents=extents, logger=log)
             dem_fp = self.get_resamp(dem_raw_fp, resolution, downSampling,  extents=extents, logger=log)
+            
+            #===================================================================
+            # remove groundwater from wse
+            #===================================================================
+            if post_ds_correct:
+                with HQproj(dem_fp=dem_fp, out_dir=temp_dir, crs=None,base_resolution=resolution,
+                    overwrite=True, session=self, logger=log) as wrkr:
+                    wse1_rlay = wrkr.get_layer(wse1_fp, mstore=wrkr.mstore)
+                    wse2_rlay = wrkr.wse_remove_gw(wse1_rlay)
+                    wse_fp = wse2_rlay.source()
+                
+                
+            else:
+                wse_fp = wse1_fp
+            
  
         else:
             raise Error('badd dsampStage: %s'%dsampStage)
@@ -2826,7 +2842,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             #===================================================================
             stats_d = self.rasterlayerstatistics(dep_fp1)
             if stats_d['MIN']<0:
-                assert 'need to fix the inputs so we never wse < dem'
+                raise Error('need to fix the inputs so we never wse < dem')
                 entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'dep':dep_fp1}.items()}
                 formula = '{dep} * ({dep} >= 0)'.format(**{k:v.ref for k,v in entries_d.items()})
                 log.info('executing for negatives %s'%formula)
@@ -2843,7 +2859,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         in these cells
 
         """
-        nodcnt = hp.gdal.getNoDataCount(dep_fp1)
+        #nodcnt = hp.gdal.getNoDataCount(dep_fp1)
         
         """NO! need to preserve no datas to get the accurate averaging calc
         if nodcnt>0:
