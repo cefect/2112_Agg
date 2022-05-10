@@ -9,7 +9,7 @@ from hp.hyd import HQproj
 
 
 def convert_wse(
-        out_dir=r'C:\LS\10_OUT\2112_Agg\outs\prep\0509',
+        out_dir=r'C:\LS\10_OUT\2112_Agg\outs\prep\0510',
         compression='med',
         studyArea_l=None,
         ):
