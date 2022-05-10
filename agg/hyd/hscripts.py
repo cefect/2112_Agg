@@ -2883,7 +2883,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if dsampStage =='post':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
  
-            dep_fp3 = self.get_resamp(dep_fp2)
+            dep_fp3 = get_resamp(dep_fp2)
             
             #===================================================================
             # #fill nulls again
