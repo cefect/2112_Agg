@@ -2782,6 +2782,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             return self.warpreproject(fp, compression='none', extents=extents, logger=log,
                                         resolution=base_resolution,
                                         output=os.path.join(temp_dir, 'preCalc_%s'%os.path.basename(fp)))
+            
+        def glay(fp):
+            return self.get_layer(fp, mstore=mstore)
         
         #=======================================================================
         # preCalc 
@@ -2813,7 +2816,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         else:
             raise Error('badd dsampStage: %s'%dsampStage)
         
-        assert_rlay_equal(wse_fp, dem_fp, msg='dem and wse dont match')
+        assert_rlay_equal(glay(wse_fp), glay(dem_fp), msg='dem and wse dont match')
  
         #=======================================================================
         # subtraction
