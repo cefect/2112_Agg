@@ -1071,7 +1071,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         # retrival
         #=======================================================================
         if dx_raw is None: 
-            dx_raw = self.retrieve('catalog').loc[:, idx['raw', :]].droplevel(0, axis=1)
+            dx_raw = self.retrieve('catalog').loc[:, idx['depth', :]].droplevel(0, axis=1)
         """
         view(serx)
         dx_raw.index.names
@@ -1145,7 +1145,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         
         for gkeys, gsx0 in serx.groupby(level=gcols):
             keys_d = dict(zip(gcols, gkeys))
-            log.info('on %s w/ %i'%(keys_d, len(gsx0)))
+            log.debug('on %s w/ %i'%(keys_d, len(gsx0)))
             ax = ax_d[keys_d[plot_rown]][keys_d[plot_coln]]
             #===================================================================
             # data prep
@@ -1175,16 +1175,17 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             
             
         #===============================================================
-        # #wrap format subplot
+        # #wrap format subplot------
         #===============================================================
         """best to loop on the axis container in case a plot was missed"""
         for row_key, d in ax_d.items():
             for col_key, ax in d.items():
                 # first row
                 if row_key == row_keys[0]:
-                    #last col
-                    if col_key == col_keys[-1]:
-                        ax.legend()
+                    pass
+                #last col
+                if col_key == col_keys[-1]:
+                    ax.legend()
                     
                 # first col
                 if col_key == col_keys[0]:
@@ -1347,7 +1348,13 @@ def run( #run a basic model configuration
         # PLOTS------
         #=======================================================================
         dx_raw = ses.retrieve('catalog')
-        hi_res=350 #max we're using for hyd is 300
+        """
+        view(dx_raw)
+        """
+        #remove these distorting values
+        dx_raw.loc[idx[:, :, :, 'postFN', :], idx['depth', 'noData_pct']]=np.nan
+        
+        hi_res=10**3 #max we're using for hyd is 300
         hr_dx = dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
         figsize=(8,12)
         for plotName, dx, xlims,  ylims,xscale, yscale, drop_zeros in [
@@ -1369,6 +1376,29 @@ def run( #run a basic model configuration
  #            ses.plot_StatVsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
  #                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName), figsize=figsize)
  #==============================================================================
+             #=======================================================================
+            # multi-metric---------
+            #=======================================================================
+            #nice plot showing the major raw statistics 
+     
+            col_d={
+                'MAX':'max depth (m)',
+                'MIN':'min depth (m)',
+                'MEAN':'global mean depth (m)',
+                'wetMean':'wet mean depth (m)',
+                'volume':'wet volume (m^3)', 
+                 'wetArea': 'wet area (m^2)', 
+                 'gwArea':'gwArea',
+                 'STD_DEV':'stdev (m)',
+                 #'noData_cnt':'noData_cnt',
+                 'noData_pct':'noData_pct'
+            
+                  }
+     
+            ses.plot_StatXVsResolution(
+                dx_raw=dx.loc[:, idx['depth', :]].droplevel(0, axis=1), 
+                coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
+                title=plotName)
  
         #===================================================================
         # value distributions----
@@ -1427,23 +1457,7 @@ def run( #run a basic model configuration
         #                  )
         #=======================================================================
         
-        #=======================================================================
-        # multi-metric---------
-        #=======================================================================
-        #nice plot showing the major raw statistics 
- 
-        col_d={
-            'MAX':'max depth (m)',
-            'MIN':'min depth (m)',
-            'MEAN':'mean depth (m)',
-            'volume':'wet volume (m^3)', 
-             'wetArea': 'wet area (m^2)', 
-             'negCnt':'negCnt',
-             'STD_DEV':'stdev (m)',
-        'noData_cnt':'noData_cnt'
-              }
- 
-        ses.plot_StatXVsResolution(coln_l=list(col_d.keys()), xlims=(10, 10**3),ylab_l = list(col_d.values()))
+
         
         
 
@@ -1466,27 +1480,18 @@ def dev():
     
  
     
-def r4():
-    return run(tag='r4',
-               catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr4\hr4_run_index.csv',
-               )
-    
-def r5():
-    return run(tag='r5',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr5\hr5_run_index.csv',)
-
-def r6():
-    return run(tag='r6',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr6\hr6_run_index.csv',)
+ 
 
 def r7():
     return run(tag='r7',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr7\hr7_run_index.csv',)
 
+def r8():
+    return run(tag='r8',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr8\hr8_run_index.csv',)
+
 if __name__ == "__main__": 
     #wet mean
 
-    
-    dev()
- 
-    #r7()
+    r8()
  
 
     tdelta = datetime.datetime.now() - start
