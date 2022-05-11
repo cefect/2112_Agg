@@ -1696,7 +1696,10 @@ class Model(HydSession, QSession):  # single model run
             
             with StudyArea(session=self, name=name, 
                            **pars_d, **init_kwargs) as wrkr:
-                
+                """
+                wrkr.trim
+                self.trim
+                """
                 # raw raster samples
                 f = getattr(wrkr, meth)
                 res_d[name] = f(**kwargs)
@@ -1779,7 +1782,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                  aoi=None,
                  
                  # control
-                 trim=True,
+                 trim=None,
                  idfn='id',  # unique key for assets
                  ** kwargs):
         
@@ -1797,7 +1800,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # simple attach
         #=======================================================================
         self.idfn = idfn
-        
+        self.trim=trim
         self.finv_fnl.append(idfn)
         
         #=======================================================================
@@ -1811,41 +1814,44 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # load aoi
         #=======================================================================
-        if not aoi is None and trim:
+        if not aoi is None and self.trim:
             self.load_aoi(aoi)
             
         #=======================================================================
         # load finv
         #=======================================================================
-        finv_raw = self.vlay_load(finv_fp, dropZ=True, reproj=True)
-        
-        # field slice
-        fnl = [f.name() for f in finv_raw.fields()]
-        drop_l = list(set(fnl).difference(self.finv_fnl))
-        if len(drop_l) > 0:
-            finv1 = self.deletecolumn(finv_raw, drop_l)
-            self.mstore.addMapLayer(finv_raw)
-        else:
-            finv1 = finv_raw
-        
-        # spatial slice
-        if not self.aoi_vlay is None:
-            finv2 = self.slice_aoi(finv1)
-            self.mstore.addMapLayer(finv1)
-        
-        else:
-            finv2 = finv1
-        
-        finv2.setName(finv_raw.name())
+        if not finv_fp is None:
+            finv_raw = self.vlay_load(finv_fp, dropZ=True, reproj=True)
             
-        # check
-        miss_l = set(self.finv_fnl).symmetric_difference([f.name() for f in finv2.fields()])
-        assert len(miss_l) == 0, 'unexpected fieldnames on \'%s\' :\n %s' % (miss_l, finv2.name())
-  
+            # field slice
+            fnl = [f.name() for f in finv_raw.fields()]
+            drop_l = list(set(fnl).difference(self.finv_fnl))
+            if len(drop_l) > 0:
+                finv1 = self.deletecolumn(finv_raw, drop_l)
+                self.mstore.addMapLayer(finv_raw)
+            else:
+                finv1 = finv_raw
+            
+            # spatial slice
+            if not self.aoi_vlay is None:
+                finv2 = self.slice_aoi(finv1)
+                self.mstore.addMapLayer(finv1)
+            
+            else:
+                finv2 = finv1
+            
+            finv2.setName(finv_raw.name())
+                
+            # check
+            miss_l = set(self.finv_fnl).symmetric_difference([f.name() for f in finv2.fields()])
+            assert len(miss_l) == 0, 'unexpected fieldnames on \'%s\' :\n %s' % (miss_l, finv2.name())
+            
+            self.finv_vlay = finv2
+      
         #=======================================================================
         # attachments
         #=======================================================================
-        self.finv_vlay = finv2
+        
         
         self.wse_fp_d=wse_fp_d
         self.dem_fp_d=dem_fp_d
@@ -2699,7 +2705,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    
                    #gen 
                   logger=None, layerName=None,
-                  trim=True, #generally just trimming this by default
+                  trim=None, #generally just trimming this by default
                    ):
         
         """separate function for 'severity' and 'resolution' (gdalwarp)
@@ -2773,10 +2779,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         if trim:
  
-            """NOTE: this makes the output senstivite to the finv
-
-            e.g., slicing the finv could slightly change the sampling results"""
-            extents_layer = self.finv_vlay
+            extents_layer = self.aoi_vlay
  
         else:
             extents_layer = self.get_layer(wse_raw_fp, mstore=mstore)
