@@ -1670,7 +1670,7 @@ class Model(HydSession, QSession):  # single model run
         # defaults
         #=======================================================================
         if logger is None: logger = self.logger
-        log = logger.getChild('run_studyAreas')
+        log = logger.getChild('sa_get')
         
         if proj_lib is None: 
             proj_lib = self.proj_lib
@@ -1710,6 +1710,29 @@ class Model(HydSession, QSession):  # single model run
             self.ofp_d[dkey] = self.write_pick(res_d, os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
         
         return res_d
+    
+    def _get_sa(self, #retrieve a specific studyArea
+                pars_d=None,
+                       logger=None,
+                       **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger = self.logger
+        log = logger.getChild('_get_sa')
+        
+ 
+ 
+        #=======================================================================
+        # loop and load
+        #=======================================================================
+        """pass Q handles?
+            no.. these are automatically scraped from teh session already"""
+        init_kwargs = {k:getattr(self,k) for k in [
+            'prec', 'trim', 'out_dir', 'overwrite', 'tag', 'temp_dir',  
+            #'logger', automatically scraped from the session
+             ]}
+        return StudyArea(session=self,**pars_d, **init_kwargs, **kwargs)  
     
 
     
