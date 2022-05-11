@@ -1038,7 +1038,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                         
                         
                            colorMap=None,
-                         plot_kwargs = dict(alpha=0.5),
+                         plot_kwargs = dict(alpha=1.0),
                          title=None,xlabel=None,
                          ylab_l=None,
                          xscale='log',
@@ -1433,13 +1433,14 @@ def run( #run a basic model configuration
         #nice plot showing the major raw statistics 
  
         col_d={
-            #'MAX':'max depth (m)',
-            #'MIN':'min depth (m)',
+            'MAX':'max depth (m)',
+            'MIN':'min depth (m)',
             'MEAN':'mean depth (m)',
             'volume':'wet volume (m^3)', 
              'wetArea': 'wet area (m^2)', 
-             'negCnt':'negCnt'
-             #'STD_DEV':'stdev (m)'
+             'negCnt':'negCnt',
+             'STD_DEV':'stdev (m)',
+        'noData_cnt':'noData_cnt'
               }
  
         ses.plot_StatXVsResolution(coln_l=list(col_d.keys()), xlims=(10, 10**3),ylab_l = list(col_d.values()))
@@ -1480,6 +1481,8 @@ def r7():
     return run(tag='r7',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr7\hr7_run_index.csv',)
 
 if __name__ == "__main__": 
+    #wet mean
+    #null count
     
     #dev()
  

@@ -2737,7 +2737,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # parameter checks
         #=======================================================================
  
-        assert dsampStage in ['none', 'post', 'pre', 'preGW'], dsampStage
+        assert dsampStage in ['none', 'post', 'pre', 'preGW', 'postFN'], dsampStage
         #parameter logic
         if dsampStage =='none':
             assert resolution==base_resolution, resolution
@@ -2810,9 +2810,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             return self.get_layer(fp, mstore=mstore)
         
         #=======================================================================
-        # preCalc 
+        # preCalc -----------
         #=======================================================================
-        if dsampStage in ['none', 'post']:
+        if dsampStage in ['none', 'post', 'postFN']:
             """easier and cleaner to always start with the same warp"""
             log.info('warpreproject w/ resolution=%i to %s'%(base_resolution, extents))
             wse_fp = get_warp(wse_raw_fp)
@@ -2842,7 +2842,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         assert_rlay_equal(glay(wse_fp), glay(dem_fp), msg='dem and wse dont match')
  
         #=======================================================================
-        # subtraction
+        # subtraction--------
         #=======================================================================
         log.info('building RasterCalc')
         with RasterCalc(wse_fp, name='dep', session=self, logger=log,out_dir=self.temp_dir,) as wrkr:
@@ -2901,19 +2901,22 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             dep_fp2 = dep_fp1"""
         dep_fp2 = dep_fp1
         #=======================================================================
-        # post-downsample
+        # post-downsample---------
         #=======================================================================
         if dsampStage =='post':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
  
             dep_fp3 = get_resamp(dep_fp2)
+        
+        elif dsampStage =='postFN':
+            #fill nulls 
+
+            dep_fp3a = self.fillnodata(dep_fp2, fval=0, logger=log, 
+                            output = os.path.join(self.temp_dir, os.path.basename(dep_fp2).replace('.tif', '_fillna.tif')))
             
-            #===================================================================
-            # #fill nulls again
-            # """still possible to get nulls after we resample here with the new extents"""
-            # dep_fp3 = self.fillnodata(dep_fp3a, fval=0, logger=log, 
-            #                 output = os.path.join(self.temp_dir, os.path.basename(dep_fp2).replace('.tif', '_fillna.tif')))
-            #===================================================================
+            dep_fp3 = get_resamp(dep_fp3a)
+            
+
             
         else:
             dep_fp3 = dep_fp2

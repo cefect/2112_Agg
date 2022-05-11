@@ -1,4 +1,4 @@
-SET DS_L=(pre, post, preGW)
+SET DS_L=(pre, post, preGW, postFN)
 
 SET LAG=5
 

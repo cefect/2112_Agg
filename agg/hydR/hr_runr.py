@@ -94,6 +94,7 @@ def dev():
         trim=True, compression='none',name='dev',
         tag='dev',
         iters=2,
+        dsampStage='postFN',
         compiled_fp_d={
  
             },
@@ -207,8 +208,8 @@ def r7_post():
 
 if __name__ == "__main__": 
     
-    #dev()
-    r7_post()
+    dev()
+    #r7_post()
     #r5_dep()
 
     tdelta = datetime.datetime.now() - start
