@@ -178,6 +178,7 @@ class RastRun(Model):
                      iters=3, #number of downsamples to perform
                      resolution_scale = 2, 
                      base_resolution=None, #resolution of raw data
+                     proj_lib=None,
                      
                      #parameters [get_drlay]. for non base_resolution
                      dsampStage='pre',downSampling='Average',
@@ -202,6 +203,14 @@ class RastRun(Model):
         assert not downSampling=='none'
         
         temp_dir = self.temp_dir #collect
+        #=======================================================================
+        # clean proj_lib
+        #=======================================================================
+        if proj_lib is None:
+            proj_lib = copy.deepcopy(self.proj_lib)
+        for sa, d in proj_lib.items():
+            if 'finv_fp' in d:
+                del d['finv_fp']
         #=======================================================================
         # build iter loop
         #=======================================================================
@@ -240,9 +249,10 @@ class RastRun(Model):
             # #build the depth layer
             #===================================================================
             try:
-                res_lib[resolution] = self.sa_get(meth='get_drlay', logger=log.getChild(str(i)), dkey=dkey, write=False,
+                res_lib[resolution] = self.sa_get(meth='get_drlay', logger=log.getChild(str(i)), 
+                                                  dkey=dkey, write=False,
                                     resolution=resolution, base_resolution=base_resolution,
-                                    dsampStage=dStage, downSampling=dSamp,
+                                    dsampStage=dStage, downSampling=dSamp,proj_lib=proj_lib,
                                      **kwargs)
                 
                 for sa, rlay in res_lib[resolution].items():
@@ -357,12 +367,17 @@ class RastRun(Model):
         # define the function
         #=======================================================================
         def func(rlay, logger=None, meta_d={}):
-            #build a mask layer
-            mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_neg_mask'%rlay.name(),
-                                        thresh_type='upper_neq', thresh=0.0)
+
+            if self.rlay_getstats(rlay)['MIN']<0:
+                wet_cnt=0
+            else:
             
-            #tally all the 1s
-            wet_cnt = self.rasterlayerstatistics(mask_rlay)['SUM']
+                #build a mask layer
+                mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_neg_mask'%rlay.name(),
+                                            thresh_type='upper_neq', thresh=0.0)
+                
+                #tally all the 1s
+                wet_cnt = self.rasterlayerstatistics(mask_rlay)['SUM']
             
             #retrieve stats for this iter
             stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
