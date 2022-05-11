@@ -72,6 +72,10 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_wetMean(**kwargs),
                 },
+            'noData_pct':{  
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_noDataPct(**kwargs),
+                },
 
             
             #difference rasters
@@ -130,6 +134,8 @@ class RastRun(Model):
         self.retrieve('gwArea')
         
         self.retrieve('wetMean')
+        
+        self.retrieve('noData_pct')
         
         
         
@@ -372,7 +378,7 @@ class RastRun(Model):
             
             #build a mask layer
             mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name(),
-                                        thresh_type='lower_neq', thresh=0.01)
+                                        thresh_type='lower_neq', thresh=0.00)
             
             #tally all the 1s
             wet_cnt = self.rasterlayerstatistics(mask_rlay)['SUM']
@@ -408,7 +414,7 @@ class RastRun(Model):
         #=======================================================================
         def func(rlay, logger=None, meta_d={}):
 
-            if self.rlay_getstats(rlay)['MIN']<0:
+            if self.rlay_getstats(rlay)['MIN']>=0:
                 wet_cnt=0
             else:
             
@@ -421,8 +427,7 @@ class RastRun(Model):
             
             #retrieve stats for this iter
             stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
-            
-            
+
             return {dkey:wet_cnt * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX']}
  
  
@@ -465,6 +470,27 @@ class RastRun(Model):
         """
  
         serx = dx['SUM']/dx['wetCnt']
+        
+ 
+        return serx.rename(dkey).to_frame()
+    
+    def build_noDataPct(self,
+                    dkey='noData_pct',
+                    logger=None, **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_noDataPct')
+        assert dkey=='noData_pct'
+        
+        dx = self.retrieve('rstats').drop('noData_cnt', axis=1).join(self.retrieve('noData_cnt'))
+        
+        """
+        view(dx)
+        """
+ 
+        serx = dx['noData_cnt']/dx['cell_cnt']
         
  
         return serx.rename(dkey).to_frame()
@@ -609,17 +635,17 @@ class RastRun(Model):
     # COMBINERS------------
     #============================================================================
     def build_resdx(self, #just combing all the results
-                     dkey='res_dx',
-                     
-                     phase_l=['depth', 'diff'],
-                     phase_d = {
-                         'depth':('rstats', 'wetArea','volume','gwArea','noData_cnt', 'wetMean'),
-                         'diff':('rstatsD',)
-                         
-                         },
- 
-                     logger=None,write=None,
-                      ):
+        dkey='res_dx',
+        
+        phase_l=['depth', 'diff'],
+        phase_d = {
+            'depth':('rstats', 'wetArea','volume','gwArea','noData_cnt', 'wetMean', 'noData_pct'),
+            'diff':('rstatsD',)
+            
+            },
+
+        logger=None,write=None,
+         ):
         #=======================================================================
         # defaults
         #=======================================================================
