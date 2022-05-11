@@ -68,6 +68,10 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 #'build':lambda **kwargs: self.build_stats(**kwargs),
                 },
+            'wetMean':{  
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs: self.build_wetMean(**kwargs),
+                },
 
             
             #difference rasters
@@ -124,6 +128,8 @@ class RastRun(Model):
         self.retrieve('volume')
         
         self.retrieve('gwArea')
+        
+        self.retrieve('wetMean')
         
         
         
@@ -375,13 +381,15 @@ class RastRun(Model):
             stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
             
             
-            return {dkey:wet_cnt * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX']}
+            return {dkey:wet_cnt * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX'],
+                    'wetCnt':wet_cnt}
  
             
         #=======================================================================
         # execute on stack
         #=======================================================================
-        return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
+        rdx = self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
+        return rdx
         
     def build_gwArea(self,#negative cell count
                     dkey='gwArea',
@@ -422,6 +430,7 @@ class RastRun(Model):
         # execute on stack
         #=======================================================================
         return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
+    
     def build_volumes(self,
                     dkey='volume',
                     logger=None, **kwargs):
@@ -433,15 +442,32 @@ class RastRun(Model):
         assert dkey=='volume'
         
         dx = self.retrieve('rstats')
-        
  
-        
         serx = dx['SUM']*dx['rasterUnitsPerPixelX']*dx['rasterUnitsPerPixelY']
         
  
         return serx.rename('volume').to_frame()
         
-    
+    def build_wetMean(self,
+                    dkey='wetMean',
+                    logger=None, **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_wetMean')
+        assert dkey=='wetMean'
+        
+        dx = self.retrieve('rstats').join(self.retrieve('wetArea'))
+        
+        """
+        view(dx)
+        """
+ 
+        serx = dx['SUM']/dx['wetCnt']
+        
+ 
+        return serx.rename(dkey).to_frame()
     #===========================================================================
     # DIFF rasters--------
     #===========================================================================
@@ -587,7 +613,7 @@ class RastRun(Model):
                      
                      phase_l=['depth', 'diff'],
                      phase_d = {
-                         'depth':('rstats', 'wetArea','volume','gwArea','noData_cnt'),
+                         'depth':('rstats', 'wetArea','volume','gwArea','noData_cnt', 'wetMean'),
                          'diff':('rstatsD',)
                          
                          },

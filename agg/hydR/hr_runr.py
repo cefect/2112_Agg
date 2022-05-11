@@ -104,14 +104,7 @@ def dev():
         iters=2,
         dsampStage='pre',
         compiled_fp_d={
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220511\working\drlay_lib_dev_dev_0511.pickle',
-        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220511\working\noData_cnt_dev_dev_0511.pickle',
-        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220511\working\rstats_dev_dev_0511.pickle',
-        'wetArea':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220511\working\wetArea_dev_dev_0511.pickle',
-        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220511\working\gwArea_dev_dev_0511.pickle',
-        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220511\working\res_dx_dev_dev_0511.pickle',
-        'res_dx_fp':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220511\working\res_dx_fp_dev_dev_0511.pickle',
-
+ 
             },
         #studyArea_l=['obwb'],
         phase_l=['depth']

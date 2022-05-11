@@ -1482,11 +1482,11 @@ def r7():
 
 if __name__ == "__main__": 
     #wet mean
-    #null count
+
     
-    #dev()
+    dev()
  
-    r7()
+    #r7()
  
 
     tdelta = datetime.datetime.now() - start
