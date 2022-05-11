@@ -2844,7 +2844,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # subtraction--------
         #=======================================================================
-        log.info('building RasterCalc')
+        log.debug('building RasterCalc')
         with RasterCalc(wse_fp, name='dep', session=self, logger=log,out_dir=self.temp_dir,) as wrkr:
             
             wse_rlay = wrkr.ref_lay #loaded during init
@@ -2859,7 +2859,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             #===================================================================
             # execute subtraction
             #===================================================================
-            log.info('executing %s'%formula)
+            log.debug('executing %s'%formula)
             dep_fp1 = wrkr.rcalc(formula, layname=layerName)
 
             #===================================================================
@@ -2924,6 +2924,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # post null filling
         #=======================================================================
+        null_cnt = hp.gdal.getNoDataCount(dep_fp3)
         """having nulls on the depth values breaks some of the raster stat calculators (esp. mean)
         dont' confuse our treatment of nulls on WSE (preserving) with depths (forcing to zero)
             except for dsampStage=pre... where we do preserve the nulls"""
@@ -2951,7 +2952,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log.info('finished in %s on \'%s\' (%i x %i = %i)'%(tdelta,
             rlay.name(), rlay.width(), rlay.height(), rlay.width()*rlay.height()))
 
-        return rlay
+        return {'rlay':rlay, 'noData_cnt':null_cnt}
     
     def get_resamp(self, #wrapper for  warpreproject
                    fp_raw, resolution, downSampling,  

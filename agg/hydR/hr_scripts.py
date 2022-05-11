@@ -62,6 +62,10 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_gwArea(**kwargs),
                 },
+            'noData_cnt':{  #note, rstats will also have this
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                #'build':lambda **kwargs: self.build_stats(**kwargs),
+                },
 
             
             #difference rasters
@@ -226,6 +230,7 @@ class RastRun(Model):
         #execute
         log.info('constructing %i: %s'%(len(resolution_iters), resolution_iters))
         res_lib = dict()
+        nd_res_lib=dict()
         cnt=0
         for i, resolution in enumerate(resolution_iters):
             log.info('\n\n%i/%i at %i\n'%(i+1, len(resolution_iters), resolution))
@@ -249,16 +254,21 @@ class RastRun(Model):
             # #build the depth layer
             #===================================================================
             try:
-                res_lib[resolution] = self.sa_get(meth='get_drlay', logger=log.getChild(str(i)), 
+                d = self.sa_get(meth='get_drlay', logger=log.getChild(str(i)), 
                                                   dkey=dkey, write=False,
                                     resolution=resolution, base_resolution=base_resolution,
                                     dsampStage=dStage, downSampling=dSamp,proj_lib=proj_lib,
                                      **kwargs)
                 
+                #extract
+                res_lib[resolution] = {k:d0.pop('rlay') for k, d0 in d.items()}
                 for sa, rlay in res_lib[resolution].items():
                     assert isinstance(rlay, QgsRasterLayer), sa
                 
                 cnt+=len(res_lib[resolution])
+                
+                #nodata counts
+                nd_res_lib[resolution] = pd.DataFrame.from_dict(d)
                 
             except Exception as e:
                 raise IOError('failed get_drlay on reso=%i w/ \n    %s'%(resolution, e))
@@ -274,8 +284,27 @@ class RastRun(Model):
             self.store_lay_lib(dkey,  res_lib, out_dir=out_dir, logger=log)
             
         #=======================================================================
-        # wrap
+        # handle meta
         #=======================================================================
+        if write:
+            rdx = pd.concat(nd_res_lib).T.stack(level=0).swaplevel().sort_index()
+            
+            self.ofp_d['noData_cnt'] = self.write_pick(rdx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+            
+        #=======================================================================
+        # wrap-----
+        #=======================================================================
+        """
+        MultiIndex([(10,  'obwb'),
+            (10, 'noise'),
+            (20,  'obwb'),
+            (20, 'noise')],
+           names=['resolution', 'studyArea'])
+        """
+        
+        
         assert_lay_lib(res_lib, msg='%s post'%dkey)
  
             
@@ -323,6 +352,9 @@ class RastRun(Model):
         assert dkey=='wetArea'
         
         dx = self.retrieve('rstats')
+        """
+        dx.index
+        """
         
         #=======================================================================
         # define the function
@@ -568,7 +600,7 @@ class RastRun(Model):
         #=======================================================================
         first = True
         d = dict()
-        for dki in ['rstats', 'wetArea','volume', 'rstatsD', 'gwArea']:
+        for dki in ['rstats', 'wetArea','volume', 'rstatsD', 'gwArea', 'noData_cnt']:
             dx = self.retrieve(dki)  
             assert np.array_equal(dx.index.names, np.array([self.resCn, self.saCn]))
             
@@ -585,6 +617,7 @@ class RastRun(Model):
         #=======================================================================
         # assemble by type
         #=======================================================================
+        raise Error('noData_cnt and separate out differances')
         #raw values
         raw_dx = d['rstats'].join(d['wetArea']).join(d['volume']).join(d['gwArea'])
         
