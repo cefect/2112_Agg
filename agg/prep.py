@@ -14,6 +14,7 @@ np.random.seed(100)
 class RandomSA(StudyArea, HQproj):
     def __init__(self,
                  resolution=None,
+                 extent_fp=None,
                  **kwargs):
         
         if resolution is None:
@@ -25,7 +26,7 @@ class RandomSA(StudyArea, HQproj):
         
 
         
-        self.set_extent(self.dem_fp_d[base_resolution])
+        self.set_extent(extent_fp)
         
     def set_extent(self,
                     raw_fp,
@@ -39,7 +40,7 @@ class RandomSA(StudyArea, HQproj):
         mstore = QgsMapLayerStore()
         raw_rlay = self.get_layer(raw_fp, mstore=mstore)
         
-        assert self.rlay_get_resolution(raw_rlay)==self.resolution
+        #assert self.rlay_get_resolution(raw_rlay)==self.resolution
         
         #=======================================================================
         # wrap
@@ -66,15 +67,13 @@ class RandomSA(StudyArea, HQproj):
         
         log.info('built %s'%fp)
         return self.get_layer(fp)
-        
-        
-        
-        
-        
+    
+ 
+ 
 
 def build_random_proj( #construct a random project
         base_proj='obwb',
-        
+        extent_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\aoi01_rand_0511.gpkg',
         #init kwargs
         init_kwargs = dict(trim=False,overwrite=True),
 
@@ -84,7 +83,7 @@ def build_random_proj( #construct a random project
     
  
     
-    with RandomSA(tag='rand', name='prep',
+    with RandomSA(tag='rand', name='prep',extent_fp=extent_fp,
                    **init_kwargs, **proj_lib[base_proj]) as ses:
         
         #get the random layers
