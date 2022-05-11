@@ -221,7 +221,9 @@ class RastRun(Model):
         for i, resolution in enumerate(resolution_iters):
             log.info('\n\n%i/%i at %i\n'%(i+1, len(resolution_iters), resolution))
             
-            #handle parameters
+            #===================================================================
+            # #handle parameters
+            #===================================================================
             if i==0:
                 """because get_drlay has expectations for the base
                 could also skip the downsampling... but this is mroe consistent"""
@@ -234,7 +236,9 @@ class RastRun(Model):
             if not os.path.exists(self.temp_dir):os.makedirs(self.temp_dir)
             
             
-            #build the depth layer
+            #===================================================================
+            # #build the depth layer
+            #===================================================================
             try:
                 res_lib[resolution] = self.sa_get(meth='get_drlay', logger=log.getChild(str(i)), dkey=dkey, write=False,
                                     resolution=resolution, base_resolution=base_resolution,
@@ -245,6 +249,7 @@ class RastRun(Model):
                     assert isinstance(rlay, QgsRasterLayer), sa
                 
                 cnt+=len(res_lib[resolution])
+                
             except Exception as e:
                 raise IOError('failed get_drlay on reso=%i w/ \n    %s'%(resolution, e))
  
