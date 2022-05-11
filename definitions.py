@@ -30,10 +30,10 @@ proj_lib =     { #studyArea data for hyd.runr
                        },
                     }, 
             
-            'noise':{
+            'noise':{ #generated using prep.py
                   'EPSG': 2955, 
                  #'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_aoi06_0410.gpkg', 
-                 #'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
+                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\aoi01_rand_0511.gpkg',
                  
                'wse_fp_d':{ #10x10
  
