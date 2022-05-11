@@ -2749,8 +2749,6 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             
         assert resolution>=base_resolution
         assert isinstance(resolution, int)
-        
-
         #=======================================================================
         # #select raster filepaths
         #=======================================================================
@@ -2778,7 +2776,6 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # trim
         #=======================================================================
         if trim:
- 
             extents_layer = self.aoi_vlay
  
         else:
