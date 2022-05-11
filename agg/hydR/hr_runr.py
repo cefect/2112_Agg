@@ -207,8 +207,8 @@ def r7_post():
 
 if __name__ == "__main__": 
     
-    dev()
-    #r7_post()
+    #dev()
+    r7_post()
     #r5_dep()
 
     tdelta = datetime.datetime.now() - start
