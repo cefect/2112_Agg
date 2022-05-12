@@ -52,14 +52,11 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_stats(**kwargs),
                 },
-            'wetArea':{  
+            'wetStats':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.build_wetAreas(**kwargs),
+                'build':lambda **kwargs: self.build_wetStats(**kwargs),
                 },
-            'volume':{  
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.build_volumes(**kwargs),
-                },
+ 
             'gwArea':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_gwArea(**kwargs),
@@ -68,10 +65,7 @@ class RastRun(Model):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 #'build':lambda **kwargs: self.build_stats(**kwargs),
                 },
-            'wetMean':{  
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs: self.build_wetMean(**kwargs),
-                },
+ 
             'noData_pct':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_noDataPct(**kwargs),
@@ -127,13 +121,13 @@ class RastRun(Model):
         
         self.retrieve('rstats')
         
-        self.retrieve('wetArea')
+        self.retrieve('wetStats')
         
-        self.retrieve('volume')
+ 
         
         self.retrieve('gwArea')
         
-        self.retrieve('wetMean')
+ 
         
         self.retrieve('noData_pct')
         
@@ -353,16 +347,16 @@ class RastRun(Model):
             func=lambda rlay, meta_d={}, **kwargs:self.rlay_getstats(rlay, **kwargs), 
             logger=log, dkey=dkey, lay_lib=lay_lib, **kwargs)
         
-    def build_wetAreas(self,
-                    dkey='wetArea',
+    def build_wetStats(self, #calc wetted stats
+                    dkey='wetStats',
                     logger=None, **kwargs):
-        """TODO: write a test for this"""
+ 
         #=======================================================================
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
-        log = logger.getChild('build_wetAreas')
-        assert dkey=='wetArea'
+        log = logger.getChild('build_wetStats')
+        assert dkey=='wetStats'
         
         dx = self.retrieve('rstats')
         """
@@ -387,9 +381,31 @@ class RastRun(Model):
             #retrieve stats for this iter
             stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
             
-            
-            return {dkey:wet_cnt * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX'],
+            res_d = {'wetArea':wet_cnt * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX'],
                     'wetCnt':wet_cnt}
+            
+                        
+            #===================================================================
+            # wet volume     
+            #===================================================================
+            #apply the mask
+            rlay_maskd = self.mask_apply(rlay, mask_rlay, logger=log, layname='%s_noGW'%rlay.name())
+            
+            mask_stats = self.rasterlayerstatistics(rlay_maskd)
+            tval = mask_stats['SUM']
+            
+            res_d.update( {'wetVolume':tval * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX'],
+                    'tval':tval})
+            
+            #===================================================================
+            # wet mean
+            #===================================================================
+            assert round(tval/wet_cnt, 3)==round(mask_stats['MEAN'], 3)
+            res_d['wetMean'] = mask_stats['MEAN']
+            
+            
+            return res_d
+            
  
             
         #=======================================================================
@@ -437,76 +453,81 @@ class RastRun(Model):
         #=======================================================================
         return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
     
-    def build_volumes(self,
-                    dkey='volume',
-                    logger=None, **kwargs):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if logger is None: logger=self.logger
-        log = logger.getChild('build_volumes')
-        assert dkey=='volume'
+ #==============================================================================
+ #    def build_volumes(self,
+ #                    dkey='wetVolume',
+ #                    logger=None, **kwargs):
+ #        #=======================================================================
+ #        # defaults
+ #        #=======================================================================
+ #        if logger is None: logger=self.logger
+ #        log = logger.getChild('build_volumes')
+ #        assert dkey=='wetVolume'
+ #        
+ #        dx = self.retrieve('rstats')
+ # 
+ #        
+ #        #=======================================================================
+ #        # define the function
+ #        #=======================================================================
+ #        """need to filter out negatives first"""
+ #        def func(rlay, logger=None, meta_d={}):
+ #            
+ #            
+ #            assert hp.gdal.getNoDataCount(rlay.source())==0
+ #            
+ #            #build a mask layer
+ #            mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name(),
+ #                                        thresh_type='lower_neq', thresh=0.00)
+ #            
+ #            #apply the mask
+ #            rlay_maskd = self.mask_apply(rlay, mask_rlay, logger=log, layname='%s_noGW'%rlay.name())
+ #            
+ #            tval = self.rasterlayerstatistics(rlay_maskd)['SUM']
+ #            
+ #            
+ #            #retrieve stats for this iter
+ #            stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
+ #            
+ #            
+ #            return {dkey:tval * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX'],
+ #                    'tval':tval}
+ # 
+ #            
+ #        #=======================================================================
+ #        # execute on stack
+ #        #=======================================================================
+ # 
+ #        return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
+ #==============================================================================
         
-        dx = self.retrieve('rstats')
- 
-        
-        #=======================================================================
-        # define the function
-        #=======================================================================
-        """need to filter out negatives first"""
-        def func(rlay, logger=None, meta_d={}):
-            
-            
-            assert hp.gdal.getNoDataCount(rlay.source())==0
-            
-            #build a mask layer
-            mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name(),
-                                        thresh_type='lower_neq', thresh=0.00)
-            
-            #apply the mask
-            rlay_maskd = self.mask_apply(rlay, mask_rlay, logger=log, layname='%s_noGW'%rlay.name())
-            
-            tval = self.rasterlayerstatistics(rlay_maskd)['SUM']
-            
-            
-            #retrieve stats for this iter
-            stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
-            
-            
-            return {dkey:tval * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX'],
-                    'tval':tval}
- 
-            
-        #=======================================================================
-        # execute on stack
-        #=======================================================================
- 
-        return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
-        
-    def build_wetMean(self,
-                    dkey='wetMean',
-                    logger=None, **kwargs):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if logger is None: logger=self.logger
-        log = logger.getChild('build_wetMean')
-        assert dkey=='wetMean'
-        
-        dx = self.retrieve('rstats').join(self.retrieve('wetArea'))
-        
-        """
-        view(dx)
-        """
- 
-        serx = dx['SUM']/dx['wetCnt']
-        
- 
-        return serx.rename(dkey).to_frame()
+ #==============================================================================
+ #    def build_wetMean(self,
+ #                    dkey='wetMean',
+ #                    logger=None, **kwargs):
+ #        #=======================================================================
+ #        # defaults
+ #        #=======================================================================
+ #        if logger is None: logger=self.logger
+ #        log = logger.getChild('build_wetMean')
+ #        assert dkey=='wetMean'
+ #        
+ #        dx = self.retrieve('rstats').join(self.retrieve('wetStats'))
+ #        
+ #        """
+ #        view(dx)
+ #        """
+ # 
+ #        serx = dx['SUM']/dx['wetCnt']
+ #        
+ # 
+ #        return serx.rename(dkey).to_frame()
+ #==============================================================================
     
     def build_noDataPct(self,
                     dkey='noData_pct',
                     logger=None, **kwargs):
+        """TODO: write a test for this (need to run get_drlay)"""
         #=======================================================================
         # defaults
         #=======================================================================
@@ -534,12 +555,7 @@ class RastRun(Model):
         
         dx = self.retrieve('rstatsD')
         
-        
-        
-        """
-        view(dx.sort_index(level=1))
-        """
-    
+ 
 
     def store_lay_lib(self, dkey, res_lib,
                       out_dir=None, 
@@ -669,7 +685,7 @@ class RastRun(Model):
         
         phase_l=['depth', 'diff'],
         phase_d = {
-            'depth':('rstats', 'wetArea','volume','gwArea','noData_cnt', 'wetMean', 'noData_pct'),
+            'depth':('rstats', 'wetStats', 'gwArea','noData_cnt', 'noData_pct'),
             'diff':('rstatsD',)
             
             },
