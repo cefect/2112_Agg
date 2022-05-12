@@ -38,7 +38,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #data
         #=======================================================================
-        studyArea_l = ['obwb', 'noise'], #convenience filtering of proj_lib
+        studyArea_l = ['obwb', 'LMFRA'], #convenience filtering of proj_lib
         proj_lib = None,
         
         #=======================================================================
@@ -50,7 +50,7 @@ def run( #run a basic model configuration
         # #parameters
         #=======================================================================
         #aggregation
-        aggType = 'none', aggLevel = 0,
+        aggType = 'convexHulls', aggIters = 3,
         
         #sampling (geo). see Model.build_sampGeo()
         sgType = 'poly', 
@@ -82,7 +82,7 @@ def run( #run a basic model configuration
     with ExpoRun(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
                      write=write,exit_summary=exit_summary,prec=prec,
                  bk_lib = {
-                     'finv_agg_d':dict(aggLevel=aggLevel, aggType=aggType),
+                     'finv_agg_d':dict(aggType=aggType, iters=aggIters),
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat),
                      },
                  **kwargs) as ses:

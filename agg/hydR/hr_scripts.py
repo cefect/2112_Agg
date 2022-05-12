@@ -22,7 +22,7 @@ from hp.exceptions import Error
 from hp.pd import get_bx_multiVal
 import hp.gdal
 
-from hp.Q import assert_rlay_equal
+from hp.Q import assert_rlay_equal, QgsMapLayer
 from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
 
 class RRcoms(Model):
@@ -513,9 +513,10 @@ class RastRun(RRcoms):
         # #write each to file
         #=======================================================================
         for resolution, layer_d in res_lib.items():
+            out_dir=os.path.join(out_dir, 'r%i' % resolution)
             ofp_lib[resolution] = self.store_layer_d(layer_d, dkey, logger=log, 
                 write_pick=False, #need to write your own
-                out_dir=os.path.join(out_dir, 'r%i' % resolution))
+                out_dir=out_dir)
         
         #=======================================================================
         # #write the pick
@@ -856,6 +857,8 @@ class RastRun(RRcoms):
                        
                        #parameters
                        func=lambda rlay, **kwargs:{},
+                       subIndexer='resolution',
+                       format='dataFrame',
                        
                        #writing
                        write=None, dkey=None,
@@ -883,7 +886,7 @@ class RastRun(RRcoms):
             for studyArea, rlay in d0.items():
                 #setup and precheck
                 tagi = '%i.%s'%(resolution, studyArea)
-                if not isinstance(rlay, QgsRasterLayer):
+                if not isinstance(rlay, QgsMapLayer):
                     raise Error('got bad type on %s: %s'%(
                         tagi, type(rlay)))
                 
@@ -891,21 +894,32 @@ class RastRun(RRcoms):
                 self.qproj.setCrs(rlay.crs())
                 
                 #execute
-                res = func(rlay, logger=log.getChild(tagi),meta_d={'studyArea':studyArea, 'resolution':resolution}, **kwargs)
+                res = func(rlay, logger=log.getChild(tagi),meta_d={'studyArea':studyArea, subIndexer:resolution}, **kwargs)
                 
                 #post
-                assert isinstance(res, dict)                
+                
+                #assert isinstance(res, dict)                
                 d[studyArea]=res
                 
             #wrap
-            res_d[resolution] = pd.DataFrame(d).T
+            if format=='dataFrame':
+                res_d[resolution] = pd.DataFrame(d).T
+            else:
+                res_d[resolution]=d
             
         #=======================================================================
         # wrap
         #=======================================================================
-        rdx = pd.concat(res_d, names=['resolution', 'studyArea'])
+        if format=='dataFrame':
+            rdx = pd.concat(res_d, names=[subIndexer, 'studyArea'])
+            
+            assert isinstance(rdx, pd.DataFrame)
+            
+        elif format=='dict':
+            rdx = res_d
+        else:
+            raise IOError(format)
         
-        assert isinstance(rdx, pd.DataFrame)
         
         log.info('finished on %i'%len(rdx))
         

@@ -1914,9 +1914,71 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                 
         return rname
     
-    def get_finv_clean(self,
+    def get_finv_agg_d(self, #wrapper for executing multiple finv constructors
                        #data
                        finv_vlay_raw=None,
+                       
+                       #aggregation pars
+                       aggType=None, aggLevel_l=None,
+                       
+                       #pars
+                       get_lookup=False,
+                       
+                       #gen
+                        idfn=None, logger=None,
+                      **kwargs):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('get_finv_agg_d')
+        
+        if finv_vlay_raw is None: finv_vlay_raw = self.finv_vlay
+        if idfn is None: idfn = self.idfn
+ 
+        
+        kwargsi = dict(get_lookup=get_lookup, finv_vlay=finv_vlay_raw, idfn=idfn)
+        #=======================================================================
+        # loop and build each
+        #=======================================================================
+        fam_d, finv_d=dict(), dict()
+        for i, aggLevel in enumerate(aggLevel_l):
+            log.info('building %i/%i w/ \'%s\'\n\n'%(i+1, len(aggLevel_l), aggType))
+            temp_dir = os.path.join(self.temp_dir, 'get_finv_agg_d', str(i))
+            if not os.path.exists(temp_dir):os.makedirs(temp_dir)
+            #===================================================================
+            # retrieve the function
+            #===================================================================
+            if aggType == 'none':  # see Test_p1_finv_none
+                f = self.get_finv_clean
+ 
+            elif aggType == 'gridded':  # see Test_p1_finv_gridded
+                f = self.get_finv_gridPoly 
+  
+            elif aggType=='convexHulls':
+                f = self.get_finv_convexHull 
+ 
+            else:
+                raise Error('not implemented')
+            
+            fam_d[aggLevel], finv_d[aggLevel] = f(aggLevel=aggLevel, logger=logger.getChild(str(i)),
+                                                  temp_dir=temp_dir, **kwargsi, **kwargs)
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        faMap_dx = pd.concat(fam_d, axis=1)
+        faMap_dx.columns = aggLevel_l
+        
+        log.info('finished on %i'%len(aggLevel_l))
+        
+        return {'faMap_dx':faMap_dx, 'finv_d':finv_d}
+                     
+    
+    def get_finv_clean(self,
+                       #data
+                       finv_vlay=None,
                        
                        #pars
                        get_lookup=False,
@@ -1931,7 +1993,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if logger is None: logger=self.logger
         log = logger.getChild('get_finv_clean')
         
-        if finv_vlay_raw is None: finv_vlay_raw = self.finv_vlay
+        if finv_vlay is None: finv_vlay = self.finv_vlay
+        finv_vlay_raw = finv_vlay
         if idfn is None: idfn = self.idfn
         mstore = QgsMapLayerStore() 
         #=======================================================================
@@ -1939,13 +2002,13 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         """general pre-cleaning of the finv happens in __init__"""
         
-        drop_fnl = set([f.name() for f in finv_vlay_raw.fields()]).difference([idfn])
+        drop_fnl = set([f.name() for f in finv_vlay.fields()]).difference([idfn])
  
         if len(drop_fnl) > 0:
-            vlay1 = self.deletecolumn(finv_vlay_raw, list(drop_fnl), logger=log)
-            mstore.addMapLayer(finv_vlay_raw)  
+            vlay1 = self.deletecolumn(finv_vlay, list(drop_fnl), logger=log)
+            mstore.addMapLayer(finv_vlay)  
         else:
-            vlay1 = finv_vlay_raw
+            vlay1 = finv_vlay
             
         
             
@@ -2014,6 +2077,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
                   overwrite=None,
                   finv_vlay=None,
+                  temp_dir=None,
                   **kwargs):
         """
         
@@ -2030,6 +2094,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log = self.logger.getChild('get_finvs_gridPoly')
         gcn = self.gcn
         if overwrite is None: overwrite = self.overwrite
+        if temp_dir is None: temp_dir=self.temp_dir
         
         if idfn is None: idfn = self.idfn
         grid_size = aggLevel
@@ -2108,7 +2173,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         jd = self.joinattributesbylocation(finv_pts, gvlay4, jvlay_fnl=gcn,
                                            method=1, logger=log,
                                            # predicate='touches',
-                 output_nom=os.path.join(self.temp_dir, 'finv_grid_noMatch_%i_%s.gpkg' % (
+                 output_nom=os.path.join(temp_dir, 'finv_grid_noMatch_%i_%s.gpkg' % (
                                              grid_size, self.longname)))
         
         # check match
@@ -2180,6 +2245,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
                   overwrite=None,
                   finv_vlay=None,
+                  temp_dir=None,
                   **kwargs):
         """
  
@@ -2192,6 +2258,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log = self.logger.getChild('get_finv_convexHull')
         gcn = self.gcn
         if overwrite is None: overwrite = self.overwrite
+        if temp_dir is None: temp_dir=self.temp_dir
         
         if idfn is None: idfn = self.idfn
  
@@ -2242,7 +2309,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         finv_gkey_df, vlay3 = self.get_finv_links(vlay2,finv_raw_vlay = finv_vlay,
                             logger=log, idfn=idfn,
                             allow_miss=False, #should have no orphaned hulls... occasionally were still getting some
-                            )
+                            temp_dir=temp_dir)
         
         vlay4 = self.multiparttosingleparts(vlay3, logger=log)
         #=======================================================================
@@ -2264,6 +2331,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                        idfn=None,
                        allow_miss=True, 
                        write=None,
+                       temp_dir=None,
                   **kwargs):
         """
  
@@ -2278,6 +2346,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
         if write is None: write=self.write
         if idfn is None: idfn = self.idfn
+        if temp_dir is None: temp_dir=self.temp_dir
  
         
         if finv_raw_vlay is None: finv_raw_vlay = self.get_finv_clean(idfn=idfn, **kwargs)
@@ -2312,7 +2381,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         if not 'Point' in QgsWkbTypes().displayString(finv_raw_vlay.wkbType()):
             cent_fp = self.centroids(finv_raw_vlay, logger=log,
-                         output=os.path.join(self.temp_dir, '%s_pts.gpkg'%finv_raw_vlay.name()))
+                         output=os.path.join(temp_dir, '%s_pts.gpkg'%finv_raw_vlay.name()))
             f_vlay1 = self.get_layer(cent_fp, mstore=mstore)
  
             f_vlay1.setName('%s_pts'%finv_raw_vlay.name())
@@ -2335,7 +2404,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         jd = self.joinattributesbylocation(f_vlay1, agg_vlay1, jvlay_fnl=gcn,
                                            method=1, logger=log,
                                            # predicate='touches',
-                 output_nom=os.path.join(self.temp_dir, 'finv_noMatch_%i_%s.gpkg' % (
+                 output_nom=os.path.join(temp_dir, 'finv_noMatch_%i_%s.gpkg' % (
                                              afcnt, self.longname)))
         
         
