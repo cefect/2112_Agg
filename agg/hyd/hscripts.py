@@ -604,6 +604,7 @@ class Model(HydSession, QSession):  # single model run
         gcn = self.gcn
         log.info('building \'%s\' ' % (aggType))
  
+        assert not aggLevel is None
         aggLevel = int(aggLevel)
         #assert isinstance(aggLevel, int), 'got bad aggLevel type: %s (%s)'%(aggLevel, type(aggLevel))
         if not aggType == 'none': 

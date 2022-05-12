@@ -3,7 +3,7 @@ Created on Apr. 26, 2022
 
 @author: cefect
 
-small analysis to focus on rasters
+analysis to focus on rasters
 '''
 
 #===============================================================================
@@ -25,19 +25,32 @@ import hp.gdal
 from hp.Q import assert_rlay_equal
 from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
 
-
-
-
-class RastRun(Model):
+class RRcoms(Model):
     resCn='resolution'
     saCn='studyArea'
     
     id_params=dict()
     
     def __init__(self,
+                  lib_dir=None,
+                 **kwargs):
+        
+        super().__init__(**kwargs)
+                
+                
+        if lib_dir is None:
+            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
+        #assert os.path.exists(lib_dir), lib_dir
+        self.lib_dir=lib_dir
+    
+
+
+class RastRun(RRcoms):
+
+    def __init__(self,
                  name='rast',
                  data_retrieve_hndls={},
-                 lib_dir=None,
+ 
                  **kwargs):
         
 
@@ -105,10 +118,7 @@ class RastRun(Model):
                          **kwargs)
         
         
-        if lib_dir is None:
-            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
-        #assert os.path.exists(lib_dir), lib_dir
-        self.lib_dir=lib_dir
+
     #===========================================================================
     # RASTER DATA construction-----------
     #===========================================================================
