@@ -322,11 +322,11 @@ class RastRun(Model):
             
         return res_lib
     
-
-    
+ 
     def build_stats(self, #calc the layer stats 
                     dkey='rstats',
                     logger=None, 
+                    lay_lib=None,
                      **kwargs):
         #=======================================================================
         # defaults
@@ -338,12 +338,13 @@ class RastRun(Model):
         #=======================================================================
         # retrieve approriate lib
         #=======================================================================
-        if dkey =='rstats':
-            lay_lib = self.retrieve('drlay_lib')
-        elif dkey=='rstatsD':
-            lay_lib = self.retrieve('difrlay_lib')
-        else:
-            raise IOError(dkey)
+        if lay_lib is None:
+            if dkey =='rstats':
+                lay_lib = self.retrieve('drlay_lib')
+            elif dkey=='rstatsD':
+                lay_lib = self.retrieve('difrlay_lib')
+            else:
+                raise IOError(dkey)
         
         #=======================================================================
         # execut ethe function on the stack
@@ -448,10 +449,39 @@ class RastRun(Model):
         
         dx = self.retrieve('rstats')
  
-        serx = dx['SUM']*dx['rasterUnitsPerPixelX']*dx['rasterUnitsPerPixelY']
         
+        #=======================================================================
+        # define the function
+        #=======================================================================
+        """need to filter out negatives first"""
+        def func(rlay, logger=None, meta_d={}):
+            
+            
+            assert hp.gdal.getNoDataCount(rlay.source())==0
+            
+            #build a mask layer
+            mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name(),
+                                        thresh_type='lower_neq', thresh=0.00)
+            
+            #apply the mask
+            rlay_maskd = self.mask_apply(rlay, mask_rlay, logger=log, layname='%s_noGW'%rlay.name())
+            
+            tval = self.rasterlayerstatistics(rlay_maskd)['SUM']
+            
+            
+            #retrieve stats for this iter
+            stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
+            
+            
+            return {dkey:tval * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX'],
+                    'tval':tval}
  
-        return serx.rename('volume').to_frame()
+            
+        #=======================================================================
+        # execute on stack
+        #=======================================================================
+ 
+        return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
         
     def build_wetMean(self,
                     dkey='wetMean',
