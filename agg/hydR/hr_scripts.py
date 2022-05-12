@@ -110,7 +110,7 @@ class RastRun(Model):
         #assert os.path.exists(lib_dir), lib_dir
         self.lib_dir=lib_dir
     #===========================================================================
-    # DATA construction-----------
+    # RASTER DATA construction-----------
     #===========================================================================
     def runDownsample(self):
         
@@ -452,77 +452,7 @@ class RastRun(Model):
         # execute on stack
         #=======================================================================
         return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
-    
- #==============================================================================
- #    def build_volumes(self,
- #                    dkey='wetVolume',
- #                    logger=None, **kwargs):
- #        #=======================================================================
- #        # defaults
- #        #=======================================================================
- #        if logger is None: logger=self.logger
- #        log = logger.getChild('build_volumes')
- #        assert dkey=='wetVolume'
- #        
- #        dx = self.retrieve('rstats')
- # 
- #        
- #        #=======================================================================
- #        # define the function
- #        #=======================================================================
- #        """need to filter out negatives first"""
- #        def func(rlay, logger=None, meta_d={}):
- #            
- #            
- #            assert hp.gdal.getNoDataCount(rlay.source())==0
- #            
- #            #build a mask layer
- #            mask_rlay = self.mask_build(rlay, logger=logger, layname='%s_mask'%rlay.name(),
- #                                        thresh_type='lower_neq', thresh=0.00)
- #            
- #            #apply the mask
- #            rlay_maskd = self.mask_apply(rlay, mask_rlay, logger=log, layname='%s_noGW'%rlay.name())
- #            
- #            tval = self.rasterlayerstatistics(rlay_maskd)['SUM']
- #            
- #            
- #            #retrieve stats for this iter
- #            stats_ser = dx.loc[idx[meta_d['resolution'], meta_d['studyArea']], :]
- #            
- #            
- #            return {dkey:tval * stats_ser['rasterUnitsPerPixelY']*stats_ser['rasterUnitsPerPixelX'],
- #                    'tval':tval}
- # 
- #            
- #        #=======================================================================
- #        # execute on stack
- #        #=======================================================================
- # 
- #        return self.calc_on_layers(func=func, logger=log, dkey=dkey, **kwargs)
- #==============================================================================
-        
- #==============================================================================
- #    def build_wetMean(self,
- #                    dkey='wetMean',
- #                    logger=None, **kwargs):
- #        #=======================================================================
- #        # defaults
- #        #=======================================================================
- #        if logger is None: logger=self.logger
- #        log = logger.getChild('build_wetMean')
- #        assert dkey=='wetMean'
- #        
- #        dx = self.retrieve('rstats').join(self.retrieve('wetStats'))
- #        
- #        """
- #        view(dx)
- #        """
- # 
- #        serx = dx['SUM']/dx['wetCnt']
- #        
- # 
- #        return serx.rename(dkey).to_frame()
- #==============================================================================
+ 
     
     def build_noDataPct(self,
                     dkey='noData_pct',
@@ -546,7 +476,7 @@ class RastRun(Model):
  
         return serx.rename(dkey).to_frame()
     #===========================================================================
-    # DIFF rasters--------
+    # RASTER DIFFs--------
     #===========================================================================
     def runDiffs(self):#run sequence for difference layer calcs
         
@@ -1281,11 +1211,7 @@ class Catalog(object): #handling the simulation index and library
  
         
         log.info('added %s'%len(keys_d))
-                                
-        
-
  
-        
         
     def __enter__(self):
         return self
