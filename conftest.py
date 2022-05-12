@@ -63,11 +63,7 @@ def feedback(logger):
 
 
 
-@pytest.fixture(scope='session')
-def base_dir():
-    base_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\compiled'
-    assert os.path.exists(base_dir)
-    return base_dir
+
 
 
 

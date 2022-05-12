@@ -3,7 +3,7 @@ Created on Feb. 20, 2022
 
 @author: cefect
 
-tests for hyd model
+tests for hyd model exposure calcs
 
 TODO: clean out old pickles
 '''
@@ -38,6 +38,11 @@ from definitions import base_resolution
 #===============================================================================
 # fixtures-----
 #===============================================================================
+@pytest.fixture(scope='session')
+def base_dir():
+    base_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\hyd\data\compiled'
+    assert os.path.exists(base_dir)
+    return base_dir
 
 @pytest.fixture(scope='module')
 def df_d():
