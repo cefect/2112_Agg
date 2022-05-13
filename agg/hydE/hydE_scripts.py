@@ -32,9 +32,8 @@ from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
 from agg.hydR.hr_scripts import RastRun
 
 class ExpoRun(RastRun):
-    ridn='rawid'
-    agCn='aggLevel'
-    reCn='resolution'
+
+ 
     def __init__(self,
                  name='expo',
                  data_retrieve_hndls={},
@@ -407,7 +406,7 @@ class ExpoRun(RastRun):
         gcn = self.gcn
         agCn=self.agCn
         saCn=self.saCn
-        reCn=self.reCn
+        reCn=self.resCn
         #=======================================================================
         # retrieve
         #=======================================================================
@@ -457,6 +456,11 @@ class ExpoRun(RastRun):
                                    logger=log)
         return rserx
     
+    
+def aggLevel_remap(l):
+    return ['aL%03i'%i for i in l]
+    
+    
 def cat_reindex(serx):
     agCn=ExpoRun.agCn
     dx1 = serx.unstack(level=agCn).swaplevel(axis=1).copy().swaplevel(axis=0).sort_index()
@@ -464,7 +468,7 @@ def cat_reindex(serx):
     #add prefix to aggLevel names
     idx_raw = dx1.columns.get_level_values(agCn)
     if 'int' in idx_raw.dtype.name:
-        dx1.columns.set_levels(level=agCn, levels=['aL%03i'%i for i in idx_raw],
+        dx1.columns.set_levels(level=agCn, levels=aggLevel_remap(idx_raw),
                                verify_integrity=False, inplace=True)
     
     return dx1.sort_index(axis=1)

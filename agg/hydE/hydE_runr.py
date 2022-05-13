@@ -49,6 +49,11 @@ def run( #run a basic model configuration
         #=======================================================================
         # #parameters
         #=======================================================================
+        #raster downSampling and selection  (StudyArea.get_raster())
+        iters=3, #resolution iterations
+        dsampStage='pre', downSampling='Average', severity = 'hi', 
+        
+        
         #aggregation
         aggType = 'convexHulls', aggIters = 3,
         
@@ -57,11 +62,14 @@ def run( #run a basic model configuration
         
         #sampling (method). see Model.build_rsamps()
         samp_method = 'zonal', zonal_stat='Mean',  # stats to use for zonal. 2=mean
+        
+        #outputting
+        compression='med',
 
         #=======================================================================
         # debug
         #=======================================================================
-        phase_l=['expo'],
+        phase_l=['depth', 'expo'],
 
         **kwargs):
     print('START run w/ %s.%s and '%(name, tag))
@@ -77,25 +85,44 @@ def run( #run a basic model configuration
         miss_l = set(studyArea_l).difference(proj_lib.keys())
         assert len(miss_l)==0, 'passed %i studyAreas not in proj_lib: %s'%(len(miss_l), miss_l)
         proj_lib = {k:v for k,v in proj_lib.items() if k in studyArea_l}
+        
+    
+    #indexing parameters for catalog
+    id_params={
+                **dict(downSampling=downSampling, dsampStage=dsampStage, severity=severity),
+                **dict(aggType=aggType, samp_method=samp_method)}
     #===========================================================================
     # execute
     #===========================================================================
     with ExpoRun(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
-                     write=write,exit_summary=exit_summary,prec=prec,
+                     write=write,exit_summary=exit_summary,prec=prec,phase_l=phase_l,
                  bk_lib = {
+                     'drlay_lib':dict( severity=severity, downSampling=downSampling, dsampStage=dsampStage, iters=iters),
                      'finv_agg_lib':dict(aggType=aggType, iters=aggIters),
                      'finv_sg_lib':dict(sgType=sgType),
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat),
-                     'res_dx':dict(phase_l=phase_l),
+                     'res_dx':dict(),
+                     'layxport':dict(compression=compression, id_params=id_params)
                      },
                  **kwargs) as ses:
         
-        ses.runExpo()
- 
- 
+        #=======================================================================
+        # call each phase
+        #=======================================================================
+        if 'depth' in phase_l:
+            ses.runDownsample()
         
+        if 'diff' in phase_l:
+            ses.runDiffs()
+            
+        if 'expo' in phase_l:
+            ses.runExpo()
+ 
+        #=======================================================================
+        # write results to library
+        #=======================================================================
         if write_lib:
-            ses.write_lib(phase_l=phase_l)
+            ses.write_lib(id_params=id_params)
 
     print('\nfinished %s'%tag)
     
@@ -104,16 +131,24 @@ def run( #run a basic model configuration
 
 def dev():
     return run(
-        trim=True, name='hydEdev',
+        trim=True, name='hydE_dev',
         tag='dev',
  
  
         compiled_fp_d={
-'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220513\working\drlay_lib_dev_dev_0513.pickle',
-        'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_lib_hrdev_dev_0513.pickle',
-        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_mindex_hrdev_dev_0513.pickle',
-        'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_sg_lib_hrdev_dev_0513.pickle',
-        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220513\working\rsamps_hydEdev_dev_0513.pickle',
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\drlay_lib_hydE_dev_dev_0513.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\noData_cnt_hydE_dev_dev_0513.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\rstats_hydE_dev_dev_0513.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\wetStats_hydE_dev_dev_0513.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\gwArea_hydE_dev_dev_0513.pickle',
+        'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\finv_agg_lib_hydE_dev_dev_0513.pickle',
+        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\finv_agg_mindex_hydE_dev_dev_0513.pickle',
+        'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\finv_sg_lib_hydE_dev_dev_0513.pickle',
+        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\rsamps_hydE_dev_dev_0513.pickle',
+        #'rsampStats':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\rsampStats_hydE_dev_dev_0513.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\res_dx_hydE_dev_dev_0513.pickle',
+        'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220513\working\layxport_hydE_dev_dev_0513.pickle',
+
 
              },
         #studyArea_l=['obwb'],

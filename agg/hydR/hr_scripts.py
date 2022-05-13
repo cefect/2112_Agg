@@ -27,6 +27,8 @@ from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
 
 class RRcoms(Model):
     resCn='resolution'
+    ridn='rawid'
+    agCn='aggLevel'
     saCn='studyArea'
     
     id_params=dict()
@@ -49,6 +51,7 @@ class RastRun(RRcoms):
 
     def __init__(self,
                  name='rast',
+                 phase_l=['depth'],
                  data_retrieve_hndls={},
  
                  **kwargs):
@@ -106,16 +109,20 @@ class RastRun(RRcoms):
                 'build':lambda **kwargs:self.build_resdx(**kwargs), #
                 },
             
-            'res_dx_fp':{
+            'layxport':{
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.build_resdxfp(**kwargs), #
+                'build':lambda **kwargs:self.build_layxport(**kwargs), #
                 },
+            
+ 
                         
             }}
         
         super().__init__( 
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
+        
+        self.phase_l=phase_l
         
         
 
@@ -714,38 +721,42 @@ class RastRun(RRcoms):
             
         return rdx
     
-    def build_resdxfp(self, #export everything to the library and write a catalog
-                      dkey='res_dx_fp',
+    def build_layxport(self, #export layers to library
+                      dkey='layxport',
                     lib_dir = None, #library directory
                       overwrite=None,
                       compression='med',
                       
                       id_params = {}, #additional parameter values to use as indexers in teh library
                       debug_max_len = None,
-                      phase_l=['depth', 'diff'],
+                      phase_l=None,
                       write=None, logger=None):
         """no cleanup here
         setup for one write per parameterization"""
         #=======================================================================
         # defaults
         #=======================================================================
-        assert dkey=='res_dx_fp'
+        assert dkey=='layxport'
         if logger is None: logger=self.logger
         log = logger.getChild(dkey)
         if overwrite is None: overwrite=self.overwrite
         if write is None: write=self.write
         if lib_dir is None:
             lib_dir = self.lib_dir
+        
+        if phase_l is None: phase_l=self.phase_l
             
         assert os.path.exists(lib_dir), lib_dir
         resCn=self.resCn
         saCn=self.saCn
+        agCn=self.agCn
         
+ 
         #=======================================================================
         # setup filepaths4
         #=======================================================================
         
-        rlay_dir = os.path.join(lib_dir, 'rlays', *list(id_params.values()))
+        rlay_dir = os.path.join(lib_dir, 'layers', *list(id_params.values()))
  
  
         #=======================================================================
@@ -753,71 +764,171 @@ class RastRun(RRcoms):
         #=======================================================================
         """todo: add filesize"""
         ofp_lib = dict()
-        for dki in [v for k,v in {
-            'depth':'drlay_lib', 'diff':'difrlay_lib','expo':'finv_agg_lib'
-            }.items() if k in phase_l]:
+        cnt0=0
+        for phase, (dki, icoln) in  {
+            'depth':('drlay_lib', resCn),
+             'diff':('difrlay_lib', resCn),
+             'expo':('finv_agg_lib',agCn),
+            }.items():
             
-            drlay_lib = self.retrieve(dki)
-            #write each to file
+            #phase selector
+            if not phase in phase_l:continue
+            
+            #===================================================================
+            # #add pages
+            #===================================================================
+            if not icoln in ofp_lib:
+                ofp_lib[icoln] = dict()
+            
+            if not phase in ofp_lib[icoln]:
+                ofp_lib[icoln][phase] = dict()
+ 
+            
+            #===================================================================
+            # #retrieve
+            #===================================================================
+            lay_lib = self.retrieve(dki)
+            assert_lay_lib(lay_lib, msg=dki)
+            
+            #===================================================================
+            # #write each layer to file
+            #===================================================================
             d=dict()
             cnt=0
-            for resolution, layer_d in drlay_lib.items():
+            for indx, layer_d in lay_lib.items():
     
-                d[resolution] = self.store_layer_d(layer_d, dki, logger=log,
+                d[indx] = self.store_layer_d(layer_d, dki, logger=log,
                                    write_pick=False, #need to write your own
-                                   out_dir = os.path.join(rlay_dir,dki, 'r%04i'%resolution),
+                                   out_dir = os.path.join(rlay_dir,dki, '%s%04i'%(icoln[0], indx)),
                                    compression=compression, add_subfolders=False,overwrite=overwrite,                               
                                    )
                 
+                #debug handler
                 cnt+=1
                 if not debug_max_len is None:
                     if cnt>=debug_max_len:
                         log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
                         break
-                
+            cnt0+=cnt
             #===================================================================
             # compile
             #===================================================================
-            dk_clean = dki.replace('_lib','')
+            #dk_clean = dki.replace('_lib','')
             fp_serx = pd.DataFrame.from_dict(d).stack().swaplevel().rename('fp')
-            fp_serx.index.set_names([resCn, saCn], inplace=True)
+            fp_serx.index.set_names([icoln, saCn], inplace=True)
             
             #===================================================================
             # filesizes
             #===================================================================
             dx = fp_serx.to_frame()
-            dx['size_MB'] = np.nan
+            dx['fp_sizeMB'] = np.nan
             for gkeys, fp in fp_serx.items():
-                dx.loc[gkeys, 'size_MB'] = Path(fp).stat().st_size*1e-6
+                dx.loc[gkeys, 'fp_sizeMB'] = Path(fp).stat().st_size*1e-6
             
-            ofp_lib[dk_clean] = dx
+            dx.columns.name='stat'
+            assert len(dx)>0
+            ofp_lib[icoln][phase][dki] = dx
             
-        #collect
-        fp_dx = pd.concat(ofp_lib, axis=1)
+        #=======================================================================
+        # #concat by indexer
+        #=======================================================================
+        """because phases have separate indexers but both use this function:
+            depths + diffs: indexed by resolution
+            expo: indexed by aggLevel
+        """
+        d = dict()
+        for icoln, slib in ofp_lib.items():
+            assert len(slib)>0, icoln
+            d0={k:pd.concat(d, axis=1, names=['dkey']) for k,d in slib.items() if len(d)>0}
+            d[icoln] = pd.concat(d0, axis=1,
+                              names=['phase'])
+            
+        #=======================================================================
+        # write
+        #=======================================================================
+        log.info('finished writing %i'%cnt0)
+        if write:
+            self.ofp_d[dkey] = self.write_pick(d,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+            
+        return d
         
-        
+   
 
-        #=======================================================================
-        # build catalog
-        #=======================================================================
-        rdx_raw = self.retrieve('res_dx')
+    def write_lib(self,
+                  catalog_fp=None,
+                  lib_dir = None, #library directory
+                  rdx = None, lx_d=None,
+                  overwrite=None, logger=None,
+                  id_params={},
+                  ):
         
         #=======================================================================
-        # #add filepaths
+        # defautls
+        #=======================================================================
+        if overwrite is None: overwrite=self.overwrite
+        if logger is None: logger=self.logger
+        log=logger.getChild('write_lib')
+        
+        resCn=self.resCn
+        saCn=self.saCn
+        agCn=self.agCn
+        
+        
+        if lib_dir is None:
+            lib_dir = self.lib_dir
+            
+        if catalog_fp is None: 
+            catalog_fp = os.path.join(lib_dir, '%s_run_index.csv'%self.name)
+            
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if rdx is None:
+            rdx=self.retrieve('res_dx')
+           
+        if lx_d is None: 
+            lx_d = self.retrieve('layxport', id_params=id_params, lib_dir=lib_dir)
+            
+        #=======================================================================
+        # build catalog--------
         #=======================================================================
  
-        #promote columns on filepaths to match
-        cdf = pd.Series(fp_dx.columns, name='fp').to_frame()
-        cdf['rtype'] = rdx_raw.columns.unique('rtype')
-        cdf['fp']='fp' #drop redundant info.. easier for post analyssis
-        fp_dx.columns = pd.MultiIndex.from_frame(cdf).swaplevel()
-        
-        #join
-        rdx = rdx_raw.join(fp_dx).sort_index()
+        #=======================================================================
+        # join filepaths
+        #=======================================================================
+        #simple join on resolution
+        if resCn in lx_d:
+            rdx = rdx.join(lx_d[resCn] ).sort_index()
+            
+        #stacked join for aggLevel
+        if agCn in lx_d:
+            """these are just the inventories... not the samples.
+            so we have 1 layer per aggLevel (common to all resolutions)"""
+            from agg.hydE.hydE_scripts import aggLevel_remap
+            
+            #add prefix to aggLevel columns
+            dxi = lx_d[agCn].copy()
+            new_l = aggLevel_remap(dxi.index.get_level_values(agCn))
+            
+            #check all the new labels are in there arleady
+            miss_l = set(new_l).difference(rdx.columns.unique(agCn))
+            assert len(miss_l)==0, miss_l
+ 
+            dxi.index.set_levels(level=agCn, levels=new_l, verify_integrity=False, inplace=True)
+            
+            #join in (and fill down)
+            dxi1 = dxi.unstack(level=agCn).droplevel('dkey', axis=1).reorder_levels(rdx.columns.names, axis=1)
+            rdx = rdx.join(dxi1)
         
         assert rdx.notna().any().any()
+        rdx = rdx.sort_index(axis=1)
         
-        #add additional id params
+        
+        #=======================================================================
+        # #add additional indexers
+        #=======================================================================
         #add singgle value levels from a dictionary
         mdex_df = rdx.index.to_frame().reset_index(drop=True)
         for k,v in id_params.items():
@@ -831,40 +942,10 @@ class RastRun(RRcoms):
         rdx.index = pd.MultiIndex.from_frame(mdex_df)
         
         #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info('finished on %s'%str(rdx.shape))
-        if write:
-            self.ofp_d[dkey] = self.write_pick(rdx,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
-                                   logger=log)
-        
-        return rdx
-
-    def write_lib(self,
-                  catalog_fp=None,
-                  lib_dir = None, #library directory
-                  rdx = None,
-                  overwrite=None, logger=None, **kwargs):
-        
-        if overwrite is None: overwrite=self.overwrite
-        if logger is None: logger=self.logger
-        log=logger.getChild('write_lib')
-        
-        
-        if lib_dir is None:
-            lib_dir = self.lib_dir
-            
-        if catalog_fp is None: 
-            catalog_fp = os.path.join(lib_dir, '%s_run_index.csv'%self.name)
-            
-        if rdx is None:
-            rdx=self.retrieve('res_dx_fp', lib_dir=lib_dir, **kwargs)
-        #=======================================================================
-        # write catalog
+        # write catalog-----
         #=======================================================================
         miss_l = set(rdx.index.names).symmetric_difference(Catalog.keys)
-        assert len(miss_l)==0, 'key mistmatch with catalog worker'
+        assert len(miss_l)==0, 'key mistmatch with catalog worker: %s'%miss_l
         
         with Catalog(catalog_fp=catalog_fp, overwrite=overwrite, logger=log) as cat:
             for rkeys, row in rdx.iterrows():
@@ -1057,7 +1138,8 @@ class RastRun(RRcoms):
  
 class Catalog(object): #handling the simulation index and library
     df=None
-    keys = ['resolution', 'studyArea', 'downSampling', 'dsampStage', 'severity']
+    keys = ['resolution', 'studyArea', 'downSampling', 'dsampStage', 'severity',
+            'aggType', 'samp_method']
     cols = ['rtype', 'stat']
  
 
@@ -1071,11 +1153,7 @@ class Catalog(object): #handling the simulation index and library
         if logger is None:
             import logging
             logger = logging.getLogger()
-            
-
-        
-
-        
+ 
         #=======================================================================
         # attachments
         #=======================================================================
@@ -1085,7 +1163,8 @@ class Catalog(object): #handling the simulation index and library
         
         
         #mandatory keys
-        self.cat_colns = ['cell_cnt']
+        """not using this anymore"""
+        self.cat_colns = []
         
         #=======================================================================
         # load existing
@@ -1210,7 +1289,7 @@ class Catalog(object): #handling the simulation index and library
         log.debug('w/ %i'%len(serx))
         #check mandatory columns are there
         miss_l = set(self.cat_colns).difference(serx.index.get_level_values(1))
-        assert len(miss_l)==0, 'got %i unrecognized keys: %s'%(len(miss_l), miss_l)
+        assert len(miss_l)==0, 'got %i missing cols: %s'%(len(miss_l), miss_l)
         
         for k in keys: 
             assert k in keys_d
@@ -1313,7 +1392,7 @@ def assert_lay_lib(lib_d, msg=''):
                     k0, type(d0))+msg)
             
             for k1, lay in d0.items():
-                if not isinstance(lay, QgsRasterLayer):
+                if not isinstance(lay, QgsMapLayer):
                     raise AssertionError('bad type on %s.%s: %s\n'%(
                         k0,k1, type(lay))+msg)
 
