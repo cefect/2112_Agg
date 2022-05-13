@@ -756,7 +756,7 @@ class RastRun(RRcoms):
         # setup filepaths4
         #=======================================================================
         
-        rlay_dir = os.path.join(lib_dir, 'layers', *list(id_params.values()))
+        rlay_dir = os.path.join(lib_dir, 'data', *list(id_params.values()))
  
  
         #=======================================================================

@@ -63,6 +63,11 @@ class ExpoRun(RastRun):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_rsampStats(**kwargs),
                 },
+            
+            'assetCat':{  # lib of aggrtevated finv vlays
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),  # vlays need additional loading
+                'build':lambda **kwargs: self.build_assetCat(**kwargs),
+                },
                         
             }}
         
@@ -83,6 +88,9 @@ class ExpoRun(RastRun):
         
         #get per-run stats
         self.retrieve('rsampStats')
+        
+        #reshape for catalog
+        self.retrieve('assetCat')
         
     def build_finv_agg2(self,  # build aggregated finvs
                        dkey=None,
@@ -456,7 +464,60 @@ class ExpoRun(RastRun):
                                    logger=log)
         return rserx
     
-    
+    def build_assetCat(self, #reshape asset data to match raster catalog
+                       dkey='assetCat',
+                       
+                       #data
+                       dx=None,finv_agg_mindex=None,
+                       
+                       #defaults 
+                       write=None, logger=None,**kwargs):
+        """
+        see self.build_rsamps()
+        
+        I think its easier to store this uncomopressed
+            then we dont have to deal with the finv_agg_d anymore
+            
+        need to mirror the same structure we're using for layers
+            1 pickle per raster
+ 
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_assetCat')
+        if write is None: write=self.write
+        gcn = self.gcn
+        agCn=self.agCn
+        saCn=self.saCn
+        reCn=self.resCn
+        ridn = self.ridn
+        
+        
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if dx is None:
+            dx = self.retrieve('rsamps')
+            
+        serx = dx.stack().swaplevel().sort_index().rename('rsamps')
+        if finv_agg_mindex is None:
+            finv_agg_mindex = self.retrieve('finv_agg_mindex')
+            
+            
+        #=======================================================================
+        # write pickles
+        #=======================================================================
+        out_dir = os.path.join(lib_dir, 'data', *list(id_params.values()))
+            
+        """
+        view(serx)
+        """
+            
+            
+            
 def aggLevel_remap(l):
     return ['aL%03i'%i for i in l]
     
