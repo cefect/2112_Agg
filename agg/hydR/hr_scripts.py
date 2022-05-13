@@ -154,7 +154,7 @@ class RastRun(RRcoms):
         # defaults
         #=======================================================================
         log = self.logger.getChild('load.%s' % dkey)
-        assert dkey in ['drlay_lib', 'difrlay_lib', 'finv_agg_d'], dkey
+        assert dkey in ['drlay_lib', 'difrlay_lib', 'finv_agg_lib', 'finv_sg_lib'], dkey
         
         #=======================================================================
         # load the filepaths
@@ -476,15 +476,11 @@ class RastRun(RRcoms):
         assert dkey=='noData_pct'
         
         dx = self.retrieve('rstats').drop('noData_cnt', axis=1).join(self.retrieve('noData_cnt'))
-        
-        """
-        view(dx)
-        """
  
         serx = dx['noData_cnt']/dx['cell_cnt']
-        
  
         return serx.rename(dkey).to_frame()
+    
     #===========================================================================
     # RASTER DIFFs--------
     #===========================================================================

@@ -38,7 +38,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #data
         #=======================================================================
-        studyArea_l = ['obwb', 'LMFRA'], #convenience filtering of proj_lib
+        studyArea_l = ['obwb'], #convenience filtering of proj_lib
         proj_lib = None,
         
         #=======================================================================
@@ -83,8 +83,8 @@ def run( #run a basic model configuration
     with ExpoRun(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
                      write=write,exit_summary=exit_summary,prec=prec,
                  bk_lib = {
-                     'finv_agg_d':dict(aggType=aggType, iters=aggIters),
-                     'finv_sg_d':dict(sgType=sgType),
+                     'finv_agg_lib':dict(aggType=aggType, iters=aggIters),
+                     'finv_sg_lib':dict(sgType=sgType),
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat),
                      },
                  **kwargs) as ses:
@@ -108,9 +108,12 @@ def dev():
  
  
         compiled_fp_d={
-        'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_d_hrdev_dev_0513.pickle',
+'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220513\working\drlay_lib_dev_dev_0513.pickle',
+        'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_lib_hrdev_dev_0513.pickle',
         'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_mindex_hrdev_dev_0513.pickle',
-            },
+        'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_sg_lib_hrdev_dev_0513.pickle',
+
+             },
         #studyArea_l=['obwb'],
         phase_l=['depth']
         )

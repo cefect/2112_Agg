@@ -104,12 +104,7 @@ def dev():
         iters=2,
         dsampStage='pre',
         compiled_fp_d={
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220512\working\drlay_lib_dev_dev_0512.pickle',
-        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220512\working\noData_cnt_dev_dev_0512.pickle',
-        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220512\working\rstats_dev_dev_0512.pickle',
-        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220512\working\wetStats_dev_dev_0512.pickle',
-        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220512\working\gwArea_dev_dev_0512.pickle',
-        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\dev\dev\20220512\working\res_dx_dev_dev_0512.pickle',
+ 
 
             },
         #studyArea_l=['obwb'],

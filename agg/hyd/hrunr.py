@@ -249,8 +249,6 @@ def run( #run a basic model configuration
         dsampStage='none', resolution=5, downSampling='none', 
         severity = 'hi', 
         
-
-      
  
         #vfunc selection
         vid = 798, 

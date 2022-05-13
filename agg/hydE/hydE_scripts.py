@@ -43,18 +43,18 @@ class ExpoRun(RastRun):
         
         data_retrieve_hndls = {**data_retrieve_hndls, **{
             # aggregating inventories
-            'finv_agg_d':{  # lib of aggrtevated finv vlays
+            'finv_agg_lib':{  # lib of aggrtevated finv vlays
                 'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_finv_agg2(**kwargs),
                 },
             
-            'finv_sg_d':{  # sampling geometry
+            'finv_sg_lib':{  # sampling geometry
                 'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_sampGeo2(**kwargs),
                 },
                         
             'rsamps':{  # lib of aggrtevated finv vlays
-                'compiled':lambda **kwargs:self.load_pickel(**kwargs),  # vlays need additional loading
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_rsamps2(**kwargs),
                 },
                         
@@ -67,10 +67,10 @@ class ExpoRun(RastRun):
     def runExpo(self):
         
         #build the inventory (polygons)
-        self.retrieve('finv_agg_d')
+        self.retrieve('finv_agg_lib')
         
         #build the sampling geometry
-        self.retrieve('finv_sg_d')
+        self.retrieve('finv_sg_lib')
         
         #sample all the rasters
         self.retrieve('rsamps')
@@ -105,7 +105,7 @@ class ExpoRun(RastRun):
         log = logger.getChild('build_finv_agg')
         if write is None: write=self.write
  
-        assert dkey in ['finv_agg_d',
+        assert dkey in ['finv_agg_lib',
                         #'finv_agg_mindex', #makes specifycing keys tricky... 
                         ], 'bad dkey: \'%s\''%dkey
  
@@ -170,7 +170,7 @@ class ExpoRun(RastRun):
         """saving write till here to match other functions
         might run into memory problems though....
         consider writing after each studyArea"""
-        dkey1 = 'finv_agg_d'
+        dkey1 = 'finv_agg_lib'
         if write:
             self.store_lay_lib(finv_agg_d,dkey1,  logger=log)
         
@@ -241,7 +241,7 @@ class ExpoRun(RastRun):
         """while we build two results here... we need to return the one specified by the user
         the other can still be retrieved from the data_d"""
  
-        if dkey == 'finv_agg_d':
+        if dkey == 'finv_agg_lib':
             result = finv_agg_d
         elif dkey == 'finv_agg_mindex':
             result = dx
@@ -249,7 +249,7 @@ class ExpoRun(RastRun):
         return result
     
     def build_sampGeo2(self,  # sampling geometry no each asset
-                     dkey='finv_sg_d',
+                     dkey='finv_sg_lib',
                      sgType='centroids',
                      
                      finv_agg_d=None,
@@ -263,12 +263,12 @@ class ExpoRun(RastRun):
         #=======================================================================
         # defauts
         #=======================================================================
-        assert dkey == 'finv_sg_d'
+        assert dkey == 'finv_sg_lib'
         if logger is None: logger=self.logger
         log = logger.getChild('build_sampGeo')
         if write is None: write=self.write
         
-        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', write=write)
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_lib', write=write)
  
         #=======================================================================
         # loop each polygon layer and build sampling geometry
@@ -310,7 +310,7 @@ class ExpoRun(RastRun):
         
     def build_rsamps2(self,  # sample all the rasters and all the finvs
                        dkey='rsamps',
-                       finv_sg_d=None, drlay_lib=None,
+                       finv_agg_lib=None, drlay_lib=None,
                        
                        #parameters
                        samp_method='points',  # method for raster sampling
@@ -332,15 +332,14 @@ class ExpoRun(RastRun):
  
         assert dkey =='rsamps'
  
-        gcn = self.gcn
-        saCn=self.saCn
+ 
         log.info('building \'%s\' ' % (samp_method))
         
         #=======================================================================
         # retrieve
         #=======================================================================
-        if finv_sg_d is None:
-            finv_sg_d = self.retrieve('finv_agg_d')
+        if finv_agg_lib is None:
+            finv_agg_lib = self.retrieve('finv_agg_lib')
             
         if drlay_lib is None:
             """consider allowing to load from library"""
@@ -353,7 +352,7 @@ class ExpoRun(RastRun):
         if proj_lib is None:
             proj_lib = copy.deepcopy(self.proj_lib)
         for sa, d in proj_lib.items():
-            for k in ['wse_fp_d', 'dem_fp_d', 'finv_fp']:
+            for k in ['wse_fp_d', 'dem_fp_d', 'finv_fp', 'aoi']:
                 if k in d:
                     del d[k]
  
@@ -363,28 +362,20 @@ class ExpoRun(RastRun):
         """these should always be polygons"""
  
         res_d = self.sa_get(meth='get_rsamps_d', write=False, dkey=dkey, 
-                            samp_method=samp_method, drlay_lib=drlay_lib,
+                            samp_method=samp_method, 
+                            drlay_lib=drlay_lib,finv_agg_lib=finv_agg_lib,
                             **kwargs)
+ 
+ 
+        rdx = pd.concat(res_d, names=[self.saCn])
         
- 
-        
-      
-            
- 
- 
         #=======================================================================
         # write
         #=======================================================================
-        # save the pickle
         if write:
-            self.ofp_d[dkey1] = self.write_pick(dx,
-                           os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey1, self.longname)), logger=log)
-        
-        # save to data
-        self.data_d[dkey1] = copy.deepcopy(dx)
- 
- 
-        
-        return result
+            self.ofp_d[dkey] = self.write_pick(rdx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+        return rdx
         
 

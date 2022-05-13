@@ -314,11 +314,6 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
  
 
 class Model(HydSession, QSession):  # single model run
-    """
-    
-    """
-    
-
  
     
     #supported parameter values
@@ -1547,7 +1542,6 @@ class Model(HydSession, QSession):  # single model run
             out_fp = os.path.join(od, layer.name())
             
  
-            
             #===================================================================
             # write vectors
             #===================================================================
@@ -1960,7 +1954,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                 f = self.get_finv_convexHull 
  
             else:
-                raise Error('not implemented')
+                raise Error(aggType)
             
             fam_d[aggLevel], finv_d[aggLevel] = f(aggLevel=aggLevel, logger=logger.getChild(str(i)),
                                                   temp_dir=temp_dir, **kwargsi, **kwargs)
@@ -3051,11 +3045,70 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             logger=log)
             
         return wd_fp 
+    
+    
+    def get_rsamps_d(self, #wrapper for executing multiple rsamps
+                       #data
+                       finv_agg_lib=None, drlay_lib=None,
+                       
+                       #defaults
+                          logger=None,out_dir=None,
+                      **kwargs):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('get_rsamps_d')
+        if out_dir is None:out_dir = self.temp_dir
+        
+        #=======================================================================
+        # extract
+        #=======================================================================
+        finv_agg_d = self._from_lib(finv_agg_lib)
+        drlay_d = self._from_lib(drlay_lib)
+        
+ 
+        #=======================================================================
+        # loop and build each
+        #=======================================================================
+        log.info('\n\n%s sampling %i x %i = %i\n\n'%(self.name, 
+            len(finv_agg_d), len(drlay_d), len(finv_agg_d)*len(drlay_d)))
+            
+        res_lib = {k:dict() for k in finv_agg_d.keys()}
+        for aggLevel, finv_vlay in finv_agg_d.items():
+ 
+            for resolution, drlay in drlay_d.items():
+                k = '%s.%s'%(aggLevel, resolution)
+                log.debug('%s for %s X %s'%(k, finv_vlay.name(), drlay.name()))
+                
+                res_lib[aggLevel][resolution] = self.get_rsamps(
+                    finv_sg_d={self.name:finv_vlay},
+                    drlay_d={self.name:drlay},
+                    idfn=self.gcn, #not sure why
+                    out_dir =os.path.join( out_dir, k),logger=log.getChild(k),
+                    **kwargs).iloc[:, 0]
+            
+ 
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        d = {k:pd.concat(d, axis=1) for k,d in res_lib.items()}
+        rdx = pd.concat(d, axis=0, names=['aggLevel', self.gcn])
+        
+        """
+        view(rdx)
+        """
+        
+        log.info('finished on %s'%str(rdx.shape))
+        
+        return rdx
                    
 
-    def get_rsamps(self,  # sample a set of rastsers withon a single finv
+    def get_rsamps(self,  # sample a raster with a finv
                    
-                   finv_sg_d=None, drlay_d=None,
+                   finv_sg_d=None, drlay_d=None, #{name:layer}
                    idfn=None,
                    logger=None,
                    
@@ -3100,6 +3153,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if len(drop_fnl) > 0:
             finv_vlay = self.deletecolumn(finv_vlay_raw, list(drop_fnl), logger=log)
             self.mstore.addMapLayer(finv_vlay)  # keep the raw alive
+            finv_vlay.setName(finv_vlay_raw.name()+'_dc')
         else:
             finv_vlay = finv_vlay_raw
             
@@ -3169,15 +3223,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log.info('finished on %s and %i rasters w/ %i/%i dry' % (
             finv_vlay.name(), 1, res_df.isna().sum().sum(), res_df.size))
         
-        return res_df
+        return res_df #always 1 column
     
-    #===========================================================================
-    # def __exit__(self,  # destructor
-    #              * args, **kwargs):
-    #     
-    #     print('__exit__ on studyArea')
-    #     super().__exit__(*args, **kwargs)  # initilzie teh baseclass
-    #===========================================================================
+    def _from_lib(self, lib_raw): #extract yoru data froma lib
+        return {k:lay for k,d in lib_raw.items() for sa,lay in d.items() if sa==self.name }
+ 
     
 class ModelStoch(Model):
     def __init__(self,
