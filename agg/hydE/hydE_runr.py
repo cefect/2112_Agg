@@ -106,7 +106,8 @@ def dev():
  
  
         compiled_fp_d={
- 
+        'finv_agg_d':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_d_hrdev_dev_0513.pickle',
+        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_mindex_hrdev_dev_0513.pickle',
             },
         #studyArea_l=['obwb'],
         phase_l=['depth']

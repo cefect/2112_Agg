@@ -113,7 +113,7 @@ def test_finv_gridPoly(studyAreaWrkr, aggLevel):
      
     assert 'Polygon' in QgsWkbTypes().displayString(finv_agg_vlay.wkbType())
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('studyAreaWrkr',['testSet1'], indirect=True) 
 @pytest.mark.parametrize('dsampStage, resolution, downSampling',[
     ['none',base_resolution, 'none'], #raw... no rexampling
@@ -130,11 +130,13 @@ def test_get_drlay(studyAreaWrkr, dsampStage, resolution, downSampling,
     #===========================================================================
     # get calc result
     #===========================================================================
-    rlay = studyAreaWrkr.get_drlay(
+    d = studyAreaWrkr.get_drlay(
         wse_fp_d = {'hi':wse_fp},
         dem_fp_d = {base_resolution:dem_fp},
         resolution=resolution, downSampling=downSampling, dsampStage=dsampStage, trim=False)
     
+    #{'rlay':rlay, 'noData_cnt':null_cnt}
+    rlay = d.pop('rlay')
     #===========================================================================
     # check result----
     #===========================================================================
@@ -386,7 +388,7 @@ def test_sampGeo(session, sgType, finv_agg_fn, true_dir, write, base_dir):
 # Rsamp tests
 #===============================================================================
 #rsamps methods are only applicable for certain geometry types  
-
+@pytest.mark.dev
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_poly_test_finv_ag0','test_sampGeo_poly_test_finv_ag1',])
 @pytest.mark.parametrize('samp_method',['zonal'], indirect=False)
@@ -399,10 +401,7 @@ def test_rsamps_poly(session, finv_sg_d_fn,samp_method, true_dir, write, base_di
                 samp_method=samp_method, write=write, finv_sg_d_fn=finv_sg_d_fn,wd_rlay=wd_rlay,
                 )
     
-
-    
-
-
+ 
 @pytest.mark.parametrize('finv_sg_d_fn',[ #see test_sampGeo
     'test_sampGeo_centroids_test_fi1','test_sampGeo_centroids_test_fi0'])
 @pytest.mark.parametrize('samp_method',['points'], indirect=False) 
