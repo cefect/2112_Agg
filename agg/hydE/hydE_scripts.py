@@ -33,6 +33,8 @@ from agg.hydR.hr_scripts import RastRun
 
 class ExpoRun(RastRun):
     ridn='rawid'
+    agCn='aggLevel'
+    reCn='resolution'
     def __init__(self,
                  name='expo',
                  data_retrieve_hndls={},
@@ -57,6 +59,11 @@ class ExpoRun(RastRun):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_rsamps2(**kwargs),
                 },
+            
+            'rsampStats':{  # lib of aggrtevated finv vlays
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),  # vlays need additional loading
+                'build':lambda **kwargs: self.build_rsampStats(**kwargs),
+                },
                         
             }}
         
@@ -74,6 +81,9 @@ class ExpoRun(RastRun):
         
         #sample all the rasters
         self.retrieve('rsamps')
+        
+        #get per-run stats
+        self.retrieve('rsampStats')
         
     def build_finv_agg2(self,  # build aggregated finvs
                        dkey=None,
@@ -368,7 +378,7 @@ class ExpoRun(RastRun):
  
  
         rdx = pd.concat(res_d, names=[self.saCn])
-        
+        rdx.columns.name='resolution'
         #=======================================================================
         # write
         #=======================================================================
@@ -379,3 +389,91 @@ class ExpoRun(RastRun):
         return rdx
         
 
+    def build_rsampStats(self,  # sample all the rasters and all the finvs
+                       dkey='rsampStats',
+                       npstats = ['mean', 'min', 'max', 'count'],
+                       write=None, logger=None,**kwargs):
+        """
+        see self.build_rsamps()
+ 
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_rsampStats')
+        if write is None: write=self.write
+        gcn = self.gcn
+        agCn=self.agCn
+        saCn=self.saCn
+        reCn=self.reCn
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        dx = self.retrieve('rsamps')
+        serx = dx.stack().swaplevel().sort_index()
+ 
+        #=======================================================================
+        # helpers
+        #=======================================================================
+        def statFunc(obj, stat_l=npstats, pfx=''):
+            return {pfx+stat:getattr(obj, stat)() for stat in stat_l}
+                
+        #=======================================================================
+        # basic stats
+        #=======================================================================
+
+        res_d = statFunc(serx.groupby(level=[saCn,agCn, reCn] ))
+        
+        #=======================================================================
+        # wet stats
+        #=======================================================================
+ 
+        res_d.update(statFunc(serx[serx>0].groupby(level=[saCn,agCn, reCn] ), pfx='wet_'))
+ 
+        #=======================================================================
+        # compile
+        #=======================================================================
+        rserx = pd.concat(res_d, axis=1, names=['stat'])
+        
+        
+        #=======================================================================
+        # meta stats
+        #=======================================================================
+        rserx['wet_pct'] = rserx['wet_count']/rserx['count']
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        """no... storing in the native format of this worker
+        #unstack to match hydR catalog indexing
+        resdx = self._cat_reindex(rserx)"""
+        
+        
+        if write:
+            self.ofp_d[dkey] = self.write_pick(rserx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+        return rserx
+    
+def cat_reindex(serx):
+    agCn=ExpoRun.agCn
+    dx1 = serx.unstack(level=agCn).swaplevel(axis=1).copy().swaplevel(axis=0).sort_index()
+    
+    #add prefix to aggLevel names
+    idx_raw = dx1.columns.get_level_values(agCn)
+    if 'int' in idx_raw.dtype.name:
+        dx1.columns.set_levels(level=agCn, levels=['aL%03i'%i for i in idx_raw],
+                               verify_integrity=False, inplace=True)
+    
+    return dx1.sort_index(axis=1)
+ 
+            
+        
+        
+        
+        
+        
+        
+        

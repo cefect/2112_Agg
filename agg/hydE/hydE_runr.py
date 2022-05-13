@@ -61,7 +61,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # debug
         #=======================================================================
-        phase_l=['depth'],
+        phase_l=['expo'],
 
         **kwargs):
     print('START run w/ %s.%s and '%(name, tag))
@@ -86,6 +86,7 @@ def run( #run a basic model configuration
                      'finv_agg_lib':dict(aggType=aggType, iters=aggIters),
                      'finv_sg_lib':dict(sgType=sgType),
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat),
+                     'res_dx':dict(phase_l=phase_l),
                      },
                  **kwargs) as ses:
         
@@ -94,7 +95,7 @@ def run( #run a basic model configuration
  
         
         if write_lib:
-            pass
+            ses.write_lib(phase_l=phase_l)
 
     print('\nfinished %s'%tag)
     
@@ -103,7 +104,7 @@ def run( #run a basic model configuration
 
 def dev():
     return run(
-        trim=True, name='hrdev',
+        trim=True, name='hydEdev',
         tag='dev',
  
  
@@ -112,10 +113,11 @@ def dev():
         'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_lib_hrdev_dev_0513.pickle',
         'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_agg_mindex_hrdev_dev_0513.pickle',
         'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hrdev\dev\20220513\working\finv_sg_lib_hrdev_dev_0513.pickle',
+        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220513\working\rsamps_hydEdev_dev_0513.pickle',
 
              },
         #studyArea_l=['obwb'],
-        phase_l=['depth']
+        #phase_l=['depth']
         )
 
  

@@ -1505,6 +1505,7 @@ class Model(HydSession, QSession):  # single model run
                        write_pick=True,
                        overwrite=None,
                        add_subfolders=True,
+                       compression=None,
                        **kwargs):
         
         #=======================================================================
@@ -1549,7 +1550,8 @@ class Model(HydSession, QSession):  # single model run
                 # write each sstudy area
                 ofp_d[studyArea] = self.vlay_write(layer,out_fp,logger=log, **kwargs)
             elif isinstance(layer, QgsRasterLayer):
-                ofp_d[studyArea] = self.rlay_write(layer,ofp=out_fp,logger=log, **kwargs)
+                ofp_d[studyArea] = self.rlay_write(layer,ofp=out_fp,logger=log, compression=compression,
+                                                   **kwargs)
             else:
                 raise Error('bad type: %s'%type(layer))
             
