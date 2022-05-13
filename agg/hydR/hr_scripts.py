@@ -689,10 +689,16 @@ class RastRun(RRcoms):
         d1 = dict()
         for phase in phase_l:
             di = {k:d[k] for k in phase_d[phase]}
-            d1[phase] = pd.concat(di, axis=1).droplevel(level=0, axis=1)
+            dxi = pd.concat(di, axis=1).droplevel(level=0, axis=1)
+            
+            #add dummy level to early phases
+            if not isinstance(dxi.columns, pd.MultiIndex):
+                dxi = pd.concat({'na':dxi}, axis=1)
+                
+            d1[phase] = dxi
  
-        #difference values
-        rdx = pd.concat(d1, axis=1, names=['rtype', 'stat'])
+ 
+        rdx = pd.concat(d1, axis=1, names=['phase','aggLevel', 'stat'])
  
         """
         view(rdx)
