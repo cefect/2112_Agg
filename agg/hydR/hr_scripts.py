@@ -154,7 +154,7 @@ class RastRun(RRcoms):
         # defaults
         #=======================================================================
         log = self.logger.getChild('load.%s' % dkey)
-        assert dkey in ['drlay_lib', 'difrlay_lib'], dkey
+        assert dkey in ['drlay_lib', 'difrlay_lib', 'finv_agg_d'], dkey
         
         #=======================================================================
         # load the filepaths
@@ -299,7 +299,7 @@ class RastRun(RRcoms):
         # handle layers----
         #=======================================================================
         if write:
-            self.store_lay_lib(dkey,  res_lib, out_dir=out_dir, logger=log)
+            self.store_lay_lib(  res_lib, dkey,out_dir=out_dir, logger=log)
             
         #=======================================================================
         # handle meta
@@ -497,7 +497,7 @@ class RastRun(RRcoms):
         
  
 
-    def store_lay_lib(self, dkey, res_lib,
+    def store_lay_lib(self,  res_lib,dkey,
                       out_dir=None, 
                       logger=None):
         #=======================================================================
@@ -609,7 +609,7 @@ class RastRun(RRcoms):
         #=======================================================================
  
         if write:
-            self.store_lay_lib(dkey,  res_lib, logger=log)
+            self.store_lay_lib(  res_lib, dkey,logger=log)
             
         #=======================================================================
         # wrap
