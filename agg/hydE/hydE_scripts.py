@@ -44,10 +44,19 @@ class ExpoRun(RastRun):
         data_retrieve_hndls = {**data_retrieve_hndls, **{
             # aggregating inventories
             'finv_agg_d':{  # lib of aggrtevated finv vlays
-                'compiled':lambda **kwargs:self.load_layer_d(**kwargs),  # vlays need additional loading
+                'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_finv_agg2(**kwargs),
                 },
- 
+            
+            'finv_sg_d':{  # sampling geometry
+                'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),  # vlays need additional loading
+                'build':lambda **kwargs: self.build_sampGeo2(**kwargs),
+                },
+                        
+            'rsamps':{  # lib of aggrtevated finv vlays
+                'compiled':lambda **kwargs:self.load_pickel(**kwargs),  # vlays need additional loading
+                'build':lambda **kwargs: self.build_rsamps2(**kwargs),
+                },
                         
             }}
         
@@ -57,7 +66,14 @@ class ExpoRun(RastRun):
         
     def runExpo(self):
         
+        #build the inventory (polygons)
         self.retrieve('finv_agg_d')
+        
+        #build the sampling geometry
+        self.retrieve('finv_sg_d')
+        
+        #sample all the rasters
+        self.retrieve('rsamps')
         
     def build_finv_agg2(self,  # build aggregated finvs
                        dkey=None,
@@ -134,9 +150,7 @@ class ExpoRun(RastRun):
             
         assert len(finv_gkey_df_d) > 0, 'got no links!'
         assert len(finv_agg_d) > 0, 'got no layers!'
-
-        
-        
+ 
         #=======================================================================
         # check
         #=======================================================================
@@ -158,7 +172,7 @@ class ExpoRun(RastRun):
         consider writing after each studyArea"""
         dkey1 = 'finv_agg_d'
         if write:
-            self.store_lay_lib(dkey1, finv_agg_d, logger=log)
+            self.store_lay_lib(finv_agg_d,dkey1,  logger=log)
         
         self.data_d[dkey1] = finv_agg_d
         #=======================================================================
@@ -233,8 +247,144 @@ class ExpoRun(RastRun):
             result = dx
         
         return result
-        
     
+    def build_sampGeo2(self,  # sampling geometry no each asset
+                     dkey='finv_sg_d',
+                     sgType='centroids',
+                     
+                     finv_agg_d=None,
+                     
+                     #defaults
+                     logger=None,write=None,
+                     ):
+        """
+        see test_sampGeo
+        """
+        #=======================================================================
+        # defauts
+        #=======================================================================
+        assert dkey == 'finv_sg_d'
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_sampGeo')
+        if write is None: write=self.write
+        
+        if finv_agg_d is None: finv_agg_d = self.retrieve('finv_agg_d', write=write)
  
+        #=======================================================================
+        # loop each polygon layer and build sampling geometry
+        #=======================================================================
+        
+        #retrieve indexers from layer
+        def func(poly_vlay, logger=None, meta_d={}):
+            assert 'Polygon' in QgsWkbTypes().displayString(poly_vlay.wkbType())
+            if sgType == 'centroids':
+                """works on point layers"""
+                sg_vlay = self.centroids(poly_vlay, logger=log)
+                
+            elif sgType == 'poly':
+                assert 'Polygon' in QgsWkbTypes().displayString(poly_vlay.wkbType()
+                                                                ), 'bad type on %s' % (meta_d)
+                poly_vlay.selectAll()
+                sg_vlay = self.saveselectedfeatures(poly_vlay, logger=log)  # just get a copy
+                
+            else:
+                raise Error('not implemented')
+            
+            sg_vlay.setName('%s_%s'%(poly_vlay.name(), sgType))
+            return sg_vlay        
+        
+        
+        lay_lib = self.calc_on_layers(lay_lib=finv_agg_d, func=func, subIndexer='aggLevel', 
+                                  format='dict',write=False, dkey=dkey)
+        
+ 
+        #=======================================================================
+        # store layers
+        #=======================================================================
+        if write: 
+            ofp_d = self.store_lay_lib(lay_lib,dkey,  logger=log)
+        
+ 
+        
+        return lay_lib
+        
+    def build_rsamps2(self,  # sample all the rasters and all the finvs
+                       dkey='rsamps',
+                       finv_sg_d=None, drlay_lib=None,
+                       
+                       #parameters
+                       samp_method='points',  # method for raster sampling
+                     
+                       #defaults
+                       proj_lib=None,
+                       write=None, logger=None,**kwargs):
+        """
+        see self.build_rsamps()
+ 
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_rsamps2')
+        if write is None: write=self.write
+ 
+        assert dkey =='rsamps'
+ 
+        gcn = self.gcn
+        saCn=self.saCn
+        log.info('building \'%s\' ' % (samp_method))
+        
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if finv_sg_d is None:
+            finv_sg_d = self.retrieve('finv_agg_d')
+            
+        if drlay_lib is None:
+            """consider allowing to load from library"""
+            drlay_lib = self.retrieve('drlay_lib')
+        
+        
+        #=======================================================================
+        # clean proj_lib
+        #=======================================================================
+        if proj_lib is None:
+            proj_lib = copy.deepcopy(self.proj_lib)
+        for sa, d in proj_lib.items():
+            for k in ['wse_fp_d', 'dem_fp_d', 'finv_fp']:
+                if k in d:
+                    del d[k]
+ 
+        #=======================================================================
+        # build aggregated finvs------
+        #=======================================================================
+        """these should always be polygons"""
+ 
+        res_d = self.sa_get(meth='get_rsamps_d', write=False, dkey=dkey, 
+                            samp_method=samp_method, drlay_lib=drlay_lib,
+                            **kwargs)
+        
+ 
+        
+      
+            
+ 
+ 
+        #=======================================================================
+        # write
+        #=======================================================================
+        # save the pickle
+        if write:
+            self.ofp_d[dkey1] = self.write_pick(dx,
+                           os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey1, self.longname)), logger=log)
+        
+        # save to data
+        self.data_d[dkey1] = copy.deepcopy(dx)
+ 
+ 
+        
+        return result
         
 

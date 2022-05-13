@@ -54,6 +54,7 @@ def run( #run a basic model configuration
         
         #sampling (geo). see Model.build_sampGeo()
         sgType = 'poly', 
+        
         #sampling (method). see Model.build_rsamps()
         samp_method = 'zonal', zonal_stat='Mean',  # stats to use for zonal. 2=mean
 
@@ -83,6 +84,7 @@ def run( #run a basic model configuration
                      write=write,exit_summary=exit_summary,prec=prec,
                  bk_lib = {
                      'finv_agg_d':dict(aggType=aggType, iters=aggIters),
+                     'finv_sg_d':dict(sgType=sgType),
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat),
                      },
                  **kwargs) as ses:
