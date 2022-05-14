@@ -132,10 +132,49 @@ def convert_wse(
                                compression=compression)
         
         
+def check_projLib(
+        proj_lib=None):
+    
+    if proj_lib is None:
+        from definitions import proj_lib
         
+    #===========================================================================
+    # loop on study areas
+    #===========================================================================
+    err_d = dict()
+    for studyArea, d in proj_lib.items():
+ 
+        #=======================================================================
+        # check layer containers
+        #=======================================================================
+        for k0, fp_d in {k:v for k,v in d.items() if k in ['wse_fp_d', 'dem_fp_d']}.items():
+            for k1, fp in fp_d.items():
+                if not os.path.exists(fp):
+                    err_d['%s.%s.%s'%(studyArea, k0, k1)] = 'bad filepath: %s'%fp
+ 
+        
+        #=======================================================================
+        # check individual layers
+        #=======================================================================
+        for k, fp in {k:v for k,v in d.items() if k in ['finv_fp', 'aoi']}.items():
+            if not os.path.exists(fp):
+                err_d['%s.%s'%(studyArea, k)] = 'bad filepath: %s'%fp
+        
+        
+    #===============================================================================
+    # wrap
+    #===============================================================================
+    if len(err_d)>0:
+        print('got %i errors'%len(err_d))
+        for k,v in err_d.items():
+            print('%s:    %s'%(k,v))
+            
+    else:
+        print('no errors')
+            
         
 
 if __name__ == "__main__":
-    build_random_proj()
+    check_projLib()
     #convert_wse(studyArea_l=['obwb'])
     print('finished')

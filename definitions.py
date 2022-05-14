@@ -18,10 +18,9 @@ proj_lib =     { #studyArea data for hyd.runr
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                  
                'wse_fp_d':{ #10x10
-                    'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0100_1218_10.tif',  
-                     'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0200_1218_10.tif',
-                     #'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\wse_sB_0500_1218_10.tif',
-                     'hi':r'C:\LS\10_OUT\2112_Agg\outs\prep\0509\obwb\wse_sB_0500_1218_10_noGW.tif',
+                    'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\noGW\wse_sB_0100_1218_10_noGW.tif',  
+                     'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\noGW\wse_sB_0200_1218_10_noGW.tif',
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\wsl\wse_sB_1223\10\noGW\wse_sB_0500_1218_10_noGW.tif',
                      },
                'dem_fp_d':{
  
@@ -33,14 +32,14 @@ proj_lib =     { #studyArea data for hyd.runr
             'noise':{ #generated using prep.py
                   'EPSG': 2955, 
                   #manual w/ random points and hex grid
-                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\rand\0512\finv_noise_0512.gpkg', 
+                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\noise\0512\finv_noise_0512.gpkg', 
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\aoi01_rand_0511.gpkg',
                  
                'wse_fp_d':{ #10x10
-                     'hi':r'C:\LS\10_OUT\2112_Agg\outs\prep\rand\20220511\wse_raw_prep_rand_0511_noGW.tif',
+                     'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\noise\20220511\wse_raw_prep_rand_0511_noGW.tif',
                      },
                'dem_fp_d':{
-                    10:r'C:\LS\10_OUT\2112_Agg\outs\prep\rand\20220511\dem_prep_rand_0511.tif'
+                    10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\noise\20220511\dem_prep_rand_0511.tif'
                        },
                     }, 
             
