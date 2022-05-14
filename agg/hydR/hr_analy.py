@@ -34,10 +34,12 @@ plt.style.use('default')
 matplotlib_font = {
         'family' : 'serif',
         'weight' : 'normal',
-        'size'   : 8}
+        'size'   : 12}
 
 matplotlib.rc('font', **matplotlib_font)
-matplotlib.rcParams['axes.titlesize'] = 10 #set the figure title size
+matplotlib.rcParams['axes.titlesize'] = 14 
+matplotlib.rcParams['axes.labelsize'] = 14
+
 matplotlib.rcParams['figure.titlesize'] = 16
 matplotlib.rcParams['figure.titleweight']='bold'
 
@@ -877,7 +879,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         # defaults
         #=======================================================================
         if logger is  None: logger=self.logger
-        log = logger.getChild('plot_progression')
+        log = logger.getChild('plot_StatVsResolution')
         resCn, saCn = self.resCn, self.saCn
         if write is None: write=self.write
         
@@ -1038,7 +1040,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                         
                         
                            colorMap=None,
-                         plot_kwargs = dict(alpha=1.0),
+                         plot_kwargs = dict(alpha=0.8),
                          title=None,xlabel=None,
                          ylab_l=None,
                          xscale='log',
@@ -1048,6 +1050,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                          #plot control [matrix]
                          figsize=None,
                          sharey='none',sharex='col',
+                         set_ax_title=True,
                          
                          
                          logger=None, write=None):
@@ -1056,7 +1059,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         #=======================================================================
         plot_rown='columns'
         if logger is  None: logger=self.logger
-        log = logger.getChild('plot_progression')
+        log = logger.getChild('plot_StatXVsResolution')
         resCn, saCn = self.resCn, self.saCn
         if write is None: write=self.write
         
@@ -1132,7 +1135,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
                                     constrained_layout=True,
                                     sharey=sharey,sharex=sharex,  
                                     fig_id=0,
-                                    set_ax_title=True,figsize=figsize
+                                    set_ax_title=set_ax_title,figsize=figsize
                                     )
  
         fig.suptitle(title)
@@ -1182,10 +1185,12 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
             for col_key, ax in d.items():
                 # first row
                 if row_key == row_keys[0]:
-                    pass
-                #last col
-                if col_key == col_keys[-1]:
-                    ax.legend()
+                    if not set_ax_title:
+                        ax.set_title(col_key)
+                     
+                    #last col
+                    if col_key == col_keys[-1]:
+                        ax.legend()
                     
                 # first col
                 if col_key == col_keys[0]:
@@ -1347,19 +1352,19 @@ def run( #run a basic model configuration
         #=======================================================================
         # PLOTS------
         #=======================================================================
-        dx_raw = ses.retrieve('catalog')
+        #change order
+        dx_raw = ses.retrieve('catalog').loc[idx[('obwb', 'LMFRA', 'Calgary', 'noise'), :], :]
         """
         view(dx_raw)
         """
-        #remove these distorting values
-        dx_raw.loc[idx[:, :, :, 'postFN', :], idx['depth', 'noData_pct']]=np.nan
+ 
         
         hi_res=10**3 #max we're using for hyd is 300
         hr_dx = dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
         figsize=(8,12)
         for plotName, dx, xlims,  ylims,xscale, yscale, drop_zeros in [
             ('full',dx_raw, None,None, 'log', 'linear', True),
-            ('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
+            #('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
             #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
             ]:
             print('\n\n%s\n\n'%plotName)
@@ -1382,23 +1387,28 @@ def run( #run a basic model configuration
             #nice plot showing the major raw statistics 
      
             col_d={
-                'MAX':'max depth (m)',
-                'MIN':'min depth (m)',
-                'MEAN':'global mean depth (m)',
+                #===============================================================
+                # 'MAX':'max depth (m)',
+                # 'MIN':'min depth (m)',
+                # 'MEAN':'global mean depth (m)',
+                #===============================================================
                 'wetMean':'wet mean depth (m)',
-                'volume':'wet volume (m^3)', 
+                'wetVolume':'wet volume (m^3)', 
                  'wetArea': 'wet area (m^2)', 
-                 'gwArea':'gwArea',
-                 'STD_DEV':'stdev (m)',
+                 #'gwArea':'gwArea',
+                 #'STD_DEV':'stdev (m)',
                  #'noData_cnt':'noData_cnt',
-                 'noData_pct':'noData_pct'
+                 'noData_pct':'no data (%)'
             
                   }
-     
+            """
+            view(dx)
+            """
             ses.plot_StatXVsResolution(
-                dx_raw=dx.loc[:, idx['depth', :]].droplevel(0, axis=1), 
+                set_ax_title=False,
+                dx_raw=dx.droplevel(0, axis=1), 
                 coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                title=plotName)
+                title='')
  
         #===================================================================
         # value distributions----
@@ -1466,18 +1476,7 @@ def run( #run a basic model configuration
         out_dir = ses.out_dir
     return out_dir
 
-def dev():
-    return run(
-        tag='dev',
-        compiled_fp_d={
-            'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\drlay_lib_rast1_dev_0426.pickle',
-            'rstats_basic':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\rstats_rast1_dev_0426.pickle',
-            'wetAreas':r'C:\LS\10_OUT\2112_Agg\outs\rast1\dev\20220426\working\wetAreas_rast1_dev_0426.pickle',
-            'rstats':r'C:\LS\10_OUT\2112_Agg\outs\rastAnaly\dev\20220426\working\rstats_rastAnaly_dev_0426.pickle',
-            }
-                
-        )
-    
+ 
  
     
  
@@ -1488,10 +1487,13 @@ def r7():
 def r8():
     return run(tag='r8',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hr8\hr8_run_index.csv',)
 
+def r01():
+    return run(tag='r01',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv',)
+
 if __name__ == "__main__": 
     #wet mean
 
-    r8()
+    r01()
  
 
     tdelta = datetime.datetime.now() - start

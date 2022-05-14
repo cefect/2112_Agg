@@ -2835,7 +2835,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #get names
         baseName = self.get_clean_rasterName(os.path.basename(wse_raw_fp))
         if layerName is None: 
-            layerName = baseName + '_%000i_%s_dep' %(resolution, dsampStage)
+            layerName = baseName + '_%03i_%s_dep' %(resolution, dsampStage)
  
         log.info('on %s w/ %s'%(os.path.basename(wse_raw_fp) ,meta_d))
         #=======================================================================
