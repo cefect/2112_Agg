@@ -58,7 +58,7 @@ from hp.basic import set_info, get_dict_str
 from hp.pd import get_bx_multiVal
 #from hp.animation import capture_images
 
-class RasterAnalysis(RastRun, Plotr): #analysis of model results
+class RasterPlotr(RastRun, Plotr): #analysis of model results
 
     
         #colormap per data type
@@ -75,7 +75,7 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
     
     def __init__(self,
  
-                 name='rast_analy',
+                 name='hydR_plot',
                  plt=None,
                  exit_summary=False,
                  **kwargs):
@@ -1338,7 +1338,7 @@ def run( #run a basic model configuration
         
         **kwargs):
     
-    with RasterAnalysis(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
+    with RasterPlotr(tag=tag, overwrite=overwrite,  transparent=transparent, plt=plt, 
                         
                        bk_lib = {
                            'catalog':dict(catalog_fp=catalog_fp),
