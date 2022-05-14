@@ -104,7 +104,8 @@ def dev():
         trim=True, compression='none',name='hydR_dev',
         tag='dev',
         iters=2,
-        dsampStage='pre',
+        dsampStage='postFN',
+        downSampling='Nearest neighbour',
         compiled_fp_d={
  
 
@@ -179,11 +180,11 @@ def preGW():
         )
 if __name__ == "__main__": 
     
-    #dev()
+    dev()
     #post()
     #postFN()
     #pre()
-    preGW()
+    #preGW()
     #r5_dep()
 
     tdelta = datetime.datetime.now() - start
