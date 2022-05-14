@@ -118,7 +118,7 @@ def dev():
  
 def r01(**kwargs):
     rkwargs = dict(
-        iters=8, downSampling='Average',write_lib=False, 
+        iters=8, downSampling='Average',write_lib=True, 
         )    
     return run(name='hydR01', **{**rkwargs, **kwargs})
 
@@ -131,15 +131,59 @@ def postFN():
         'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\postFN\20220514\working\rstats_hydR01_postFN_0514.pickle',
         'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\postFN\20220514\working\wetStats_hydR01_postFN_0514.pickle',
         'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\postFN\20220514\working\gwArea_hydR01_postFN_0514.pickle',
-
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\postFN\20220514\working\res_dx_hydR01_postFN_0514.pickle',
+        'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\postFN\20220514\working\layxport_hydR01_postFN_0514.pickle',
             }
         )
 
- 
+def post():
+    return r01(
+        dsampStage='post',tag='post',
+        compiled_fp_d={
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\post\20220514\working\drlay_lib_hydR01_post_0514.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\post\20220514\working\noData_cnt_hydR01_post_0514.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\post\20220514\working\rstats_hydR01_post_0514.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\post\20220514\working\wetStats_hydR01_post_0514.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\post\20220514\working\gwArea_hydR01_post_0514.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\post\20220514\working\res_dx_hydR01_post_0514.pickle',
+        'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\post\20220514\working\layxport_hydR01_post_0514.pickle',
+            }
+        )
+    
+def pre():
+    return r01(
+        dsampStage='pre',tag='pre',
+        compiled_fp_d={
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\pre\20220514\working\drlay_lib_hydR01_pre_0514.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\pre\20220514\working\noData_cnt_hydR01_pre_0514.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\pre\20220514\working\rstats_hydR01_pre_0514.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\pre\20220514\working\wetStats_hydR01_pre_0514.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\pre\20220514\working\gwArea_hydR01_pre_0514.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\pre\20220514\working\res_dx_hydR01_pre_0514.pickle',
+        'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\pre\20220514\working\layxport_hydR01_pre_0514.pickle',
+            }
+        )
+    
+def preGW():
+    return r01(
+        dsampStage='preGW',tag='preGW',
+        compiled_fp_d={
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\drlay_lib_hydR01_preGW_0514.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\noData_cnt_hydR01_preGW_0514.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\rstats_hydR01_preGW_0514.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\wetStats_hydR01_preGW_0514.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\gwArea_hydR01_preGW_0514.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\res_dx_hydR01_preGW_0514.pickle',
+        'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\layxport_hydR01_preGW_0514.pickle',
+            }
+        )
 if __name__ == "__main__": 
     
-    dev()
+    #dev()
+    #post()
     #postFN()
+    #pre()
+    preGW()
     #r5_dep()
 
     tdelta = datetime.datetime.now() - start

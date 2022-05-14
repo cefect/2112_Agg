@@ -963,7 +963,9 @@ class RastRun(RRcoms):
         miss_l = set(cdx.index.names).difference(Catalog.keys)
         assert len(miss_l)==0, 'key mistmatch with catalog worker: %s'%miss_l
         
-        with Catalog(catalog_fp=catalog_fp, overwrite=overwrite, logger=log) as cat:
+        with Catalog(catalog_fp=catalog_fp, overwrite=overwrite, logger=log, 
+                     index_col=list(range(len(cdx.index.names)))
+                                    ) as cat:
             for rkeys, row in cdx.iterrows():
                 keys_d = dict(zip(cdx.index.names, rkeys))
                 cat.add_entry(row, keys_d, logger=log.getChild(str(rkeys)))
@@ -1156,7 +1158,7 @@ class Catalog(object): #handling the simulation index and library
     df=None
     keys = ['resolution', 'studyArea', 'downSampling', 'dsampStage', 'severity',
             'aggType', 'samp_method', 'aggLevel']
-    cols = ['rtype', 'stat']
+    cols = ['dkey', 'stat']
  
 
     
@@ -1164,6 +1166,7 @@ class Catalog(object): #handling the simulation index and library
                  catalog_fp='fp', 
                  logger=None,
                  overwrite=True,
+                 index_col=list(range(5)),
                  ):
         
         if logger is None:
@@ -1187,8 +1190,8 @@ class Catalog(object): #handling the simulation index and library
         #=======================================================================
         if os.path.exists(catalog_fp):
             self.df = pd.read_csv(catalog_fp, 
-                                  index_col=list(range(len(self.keys))),
-                                  header = list(range(len(self.cols))),
+                                  index_col=index_col,
+                                  header = [0,1],
                                   )
             self.check(df=self.df.copy())
             self.df_raw = self.df.copy() #for checking
@@ -1209,21 +1212,31 @@ class Catalog(object): #handling the simulation index and library
         if df is None: df = self.df.copy()
         log.debug('on %s'%str(df.shape))
         
-        #check columns
-
-        miss_l = set(self.cols).difference(df.columns.names)
+        
+        
+        #=======================================================================
+        # #check columns
+        #=======================================================================
+        assert not None in df.columns.names
+        miss_l = set(self.cols).symmetric_difference(df.columns.names)
         assert len(miss_l)==0, miss_l
         
         assert isinstance(df.columns, pd.MultiIndex)
         
  
-        #check index
+        #=======================================================================
+        # #check index
+        #=======================================================================
+        assert not None in df.index.names
         #=======================================================================
         # assert df[self.idn].is_unique
         # assert 'int' in df[self.idn].dtype.name
         #=======================================================================
         assert isinstance(df.index, pd.MultiIndex)
-        assert np.array_equal(np.array(df.index.names), np.array(self.keys))
+        
+        miss_l = set(df.index.names).difference(self.keys)
+        assert len(miss_l)==0, miss_l
+ 
         
         #check filepaths
         errs_d = dict()
