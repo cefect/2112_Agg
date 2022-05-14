@@ -32,7 +32,7 @@ from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
 from agg.hydR.hr_scripts import RastRun
 
 class ExpoRun(RastRun):
-
+    phase_l=['depth', 'diff', 'expo']
  
     def __init__(self,
                  name='expo',
@@ -75,6 +75,8 @@ class ExpoRun(RastRun):
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
         
+        self.rcol_l.append(self.agCn)
+        
     def runExpo(self):
         
         #build the inventory (polygons)
@@ -90,7 +92,7 @@ class ExpoRun(RastRun):
         self.retrieve('rsampStats')
         
         #reshape for catalog
-        self.retrieve('assetCat')
+        #self.retrieve('assetCat')
         
     def build_finv_agg2(self,  # build aggregated finvs
                        dkey=None,
@@ -510,6 +512,7 @@ class ExpoRun(RastRun):
         #=======================================================================
         # write pickles
         #=======================================================================
+        return
         out_dir = os.path.join(lib_dir, 'data', *list(id_params.values()))
             
         """
