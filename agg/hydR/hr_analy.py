@@ -68,7 +68,8 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
  
         'resolution':'copper',
         'dkey':'Pastel2',
-        'dsampStage':'Set1'
+        'dsampStage':'Set1',
+        'downSampling':'Set1',
  
         }
     
@@ -1117,7 +1118,9 @@ class RasterAnalysis(RastRun, Plotr): #analysis of model results
         
         """nasty workaround to get colors to match w/ hyd""" 
         if plot_colr =='dsampStage':
-            ckeys = ['none'] + ckeys.values.tolist()
+            ckeys = ['none'] + ckeys.values.tolist() #['none', 'post', 'postFN', 'pre', 'preGW']
+        elif plot_colr=='downSampling':
+            ckeys = ['nn', '0', 'Average', '1', '2']
         
         color_d = self.get_color_d(ckeys, colorMap=colorMap)
         marker_d = {k:plt.Line2D.filled_markers[i] for i, k in enumerate(ckeys)}
@@ -1358,34 +1361,26 @@ def run( #run a basic model configuration
         view(dx_raw)
         """
  
-        
+        #resolution filtering
         hi_res=10**3 #max we're using for hyd is 300
         hr_dx = dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
+        
+ 
+        
         figsize=(8,12)
         for plotName, dx, xlims,  ylims,xscale, yscale, drop_zeros in [
-            ('full',dx_raw, None,None, 'log', 'linear', True),
+            ('',dx_raw, None,None, 'log', 'linear', True),
+ 
             #('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
             #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
             ]:
             print('\n\n%s\n\n'%plotName)
-            #===================================================================
-            # vs Resolution-------
-            #===================================================================
-            #===================================================================
- #==============================================================================
- #            coln=('diff','MEAN')
- #            ses.plot_StatVsResolution(coln=coln, ylabel='mean depth difference (agg - true; m)', dx_raw=dx,xlims=xlims,xscale=xscale,
- #                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName), figsize=figsize)
- # 
- #            coln=('raw','wetAreas')
- #            ses.plot_StatVsResolution(coln=coln, ylabel='wet area (m2)', dx_raw=dx,xlims=xlims,xscale=xscale,
- #                                  title='%s vs. %s (%s)'%(coln, ses.resCn, plotName), figsize=figsize)
- #==============================================================================
-             #=======================================================================
-            # multi-metric---------
+ 
+ 
+            #=======================================================================
+            # multi-metric vs Resolution---------
             #=======================================================================
             #nice plot showing the major raw statistics 
-     
             col_d={
                 #===============================================================
                 # 'MAX':'max depth (m)',
@@ -1401,14 +1396,40 @@ def run( #run a basic model configuration
                  'noData_pct':'no data (%)'
             
                   }
+     
+            #===================================================================
+            # compare dsampStage
+            #===================================================================
+            bx = dx.index.get_level_values('downSampling')=='Average'
+
             """
             view(dx)
             """
-            ses.plot_StatXVsResolution(
-                set_ax_title=False,
-                dx_raw=dx.droplevel(0, axis=1), 
-                coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                title='')
+            #===================================================================
+            # ses.plot_StatXVsResolution(
+            #     set_ax_title=False,
+            #     dx_raw=dx[bx].droplevel(0, axis=1), 
+            #     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
+            #     title=plotName)
+            #===================================================================
+            
+            #===================================================================
+            # compare downSampling
+            #===================================================================
+            print('\n\n %s: downSampling comparison\n\n'%plotName)
+            
+            for dsampStage in ['postFN', 'pre']:
+                bx = dx.index.get_level_values('dsampStage')==dsampStage
+                assert bx.any()
+    
+                """
+                view(dx)
+                """
+                ses.plot_StatXVsResolution(
+                    set_ax_title=False,
+                    dx_raw=dx[bx].droplevel(0, axis=1), 
+                    coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
+                    title=plotName + '_'+dsampStage, plot_bgrp='downSampling')
  
         #===================================================================
         # value distributions----
