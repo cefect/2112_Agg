@@ -726,13 +726,13 @@ class RastRun(RRcoms):
                 new_name=list(el_d['diff_left'])[0]
                 
                 #check the existing indexers match
-                assert_index_equal(
-                    dxi.index.droplevel(new_name).to_frame().drop_duplicates(
-                        ).sort_index().index.reorder_levels(rdx.index.names), 
-                    rdx.index)
+                skinny_mindex = dxi.index.droplevel(new_name).to_frame().drop_duplicates(
+                        ).sort_index().index.reorder_levels(rdx.index.names).sort_values()
+                        
+                assert_index_equal(skinny_mindex,rdx.index)
                 
                 #simple join seems to work
-                rdx = rdx.join(dxi)
+                rdx = rdx.join(dxi).sort_index()
                 
             elif len(el_d['diff_right'])==1:
                 """trying to join a smaller index onto the results which have already been expanded"""

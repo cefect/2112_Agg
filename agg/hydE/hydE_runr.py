@@ -38,7 +38,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # #data
         #=======================================================================
-        studyArea_l = ['obwb'], #convenience filtering of proj_lib
+        studyArea_l = None, #convenience filtering of proj_lib
         proj_lib = None,
         
         #=======================================================================
@@ -131,7 +131,7 @@ def run( #run a basic model configuration
 
 def dev():
     return run(
-        trim=True, name='hydE_dev',
+        trim=True, name='hydEdev',
         tag='dev',
  
  
@@ -141,15 +141,13 @@ def dev():
         'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\rstats_hydE_dev_dev_0514.pickle',
         'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\wetStats_hydE_dev_dev_0514.pickle',
         'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\gwArea_hydE_dev_dev_0514.pickle',
-        'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\finv_agg_lib_hydE_dev_dev_0514.pickle',
-        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\finv_agg_mindex_hydE_dev_dev_0514.pickle',
-        'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\finv_sg_lib_hydE_dev_dev_0514.pickle',
-        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\rsamps_hydE_dev_dev_0514.pickle',
-        'rsampStats':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\rsampStats_hydE_dev_dev_0514.pickle',
-        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\res_dx_hydE_dev_dev_0514.pickle',
-        #'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\layxport_hydE_dev_dev_0514.pickle',
- 
         
+        'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\finv_agg_lib_hydEdev_dev_0514.pickle',
+        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\finv_agg_mindex_hydEdev_dev_0514.pickle',
+        'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\finv_sg_lib_hydEdev_dev_0514.pickle',
+        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\rsamps_hydEdev_dev_0514.pickle',
+        'rsampStats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\rsampStats_hydEdev_dev_0514.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\res_dx_hydEdev_dev_0514.pickle',
              },
         #studyArea_l=['obwb'],
         #phase_l=['depth']
