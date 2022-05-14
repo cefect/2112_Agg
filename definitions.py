@@ -49,13 +49,13 @@ proj_lib =     { #studyArea data for hyd.runr
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
                 
                 'wse_fp_d':{ #10x10
-                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0500_WL_simu_0415_aoi09_0304.tif', 
-                      'mid':r'C:/LS/10_OUT/2112_Agg/ins/hyd/LMFRA/wsl/AG4_Fr_0200_WL_simu_0415_aoi09_0419.tif',
-                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\AG4_Fr_0100_WL_simu_0415_aoi09_0304.tif',
+                      'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\noGW_0514\AG4_Fr_0500_WL_simu_0415_aoi09_0304_noGW.tif', 
+                      'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\noGW_0514\AG4_Fr_0200_WL_simu_0415_aoi09_0419_noGW.tif',
+                      'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\wsl\noGW_0514\AG4_Fr_0100_WL_simu_0415_aoi09_0304_noGW.tif',
                       },
                 'dem_fp_d':{
-                     1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi09_0304.tif', #not exactly 1x1
-                     5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_05_aoi09_0304.tif',
+                     #1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_01_aoi09_0304.tif', #not exactly 1x1
+                     #5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_05_aoi09_0304.tif',
                      10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\dem\LMFRA_NHC2019_dtm_10_aoi09_0419.tif'
                       },
                     }, 
@@ -67,13 +67,13 @@ proj_lib =     { #studyArea data for hyd.runr
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
    
                 'wse_fp_d':{ #10x10
-                    'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0500_170729_aoi01_0304.tif', 
-                    'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0200_170729_aoi01_0304.tif',
-                    'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\IBI_2017CoC_s0_0100_170729_aoi01_0304.tif',
+                    'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\noGW_0514\IBI_2017CoC_s0_0500_170729_aoi01_0304_noGW.tif', 
+                    'mid':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\noGW_0514\IBI_2017CoC_s0_0200_170729_aoi01_0304_noGW.tif',
+                    'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\noGW_0514\IBI_2017CoC_s0_0100_170729_aoi01_0304_noGW.tif',
                       },
                 'dem_fp_d':{
-                      1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_01_aoi01_0304.tif',
-                      5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_05_aoi01_0304.tif',
+                      #1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_01_aoi01_0304.tif',
+                      #5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_05_aoi01_0304.tif',
                       10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_10_aoi01_0304.tif',
     
                       },

@@ -101,12 +101,16 @@ def build_random_proj( #construct a random project
  
 
 def convert_wse(
-        out_dir=r'C:\LS\10_OUT\2112_Agg\outs\prep\0510',
+        out_dir=r'C:\LS\10_OUT\2112_Agg\outs\prep\0514',
         compression='med',
         studyArea_l=None,
+        proj_lib=None,
         ):
     
-    
+    if proj_lib is None:
+        from definitions import proj_lib
+        
+        
     if not os.path.exists(out_dir):os.makedirs(out_dir)
     
     if not studyArea_l is None:
@@ -127,7 +131,9 @@ def convert_wse(
             for lvl, fp in wse_fp_d.items():
                 raw_rlay = ses.get_layer(fp, mstore=ses.mstore)
                 
-                rlay = ses.wse_remove_gw(raw_rlay)
+                rlay = ses.wse_remove_gw(raw_rlay, out_dir=ses.temp_dir)
+                
+                #write w/ compression
                 ses.rlay_write(rlay, out_dir=os.path.join(out_dir, studyArea),
                                compression=compression)
         
@@ -175,6 +181,6 @@ def check_projLib(
         
 
 if __name__ == "__main__":
-    check_projLib()
-    #convert_wse(studyArea_l=['obwb'])
+    #check_projLib()
+    convert_wse(studyArea_l=['LMFRA', 'Calgary'])
     print('finished')
