@@ -174,8 +174,8 @@ def cvh():
     
 if __name__ == "__main__": 
     
-    dev()
-    #cvh()
+    #dev()
+    cvh()
  
 
     tdelta = datetime.datetime.now() - start

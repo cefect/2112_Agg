@@ -138,6 +138,7 @@ class RRcoms(Model):
                 """writing to temp as we never store these"""
                 cnt+=1
                 meta_d[dkey] = '%s (%i)'%(type(res).__name__, len(res))
+                assert not dkey in self.compiled_fp_d
                 self.compiled_fp_d[dkey] = self.write_pick(res, 
                                     os.path.join(self.temp_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
                 
