@@ -2097,6 +2097,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         fam_d, finv_d=dict(), dict()
         for i, aggLevel in enumerate(aggLevel_l):
+            assert isinstance(aggLevel, int)
             log.info('building %i/%i w/ \'%s\'\n\n'%(i+1, len(aggLevel_l), aggType))
             temp_dir = os.path.join(self.temp_dir, 'get_finv_agg_d', str(i))
             if not os.path.exists(temp_dir):os.makedirs(temp_dir)
