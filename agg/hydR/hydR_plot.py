@@ -51,7 +51,7 @@ matplotlib.rcParams['legend.title_fontsize'] = 'large'
 
 print('loaded matplotlib %s'%matplotlib.__version__)
 
-from agg.hydR.hr_scripts import RastRun,  Catalog, Error
+from agg.hydR.hydR_scripts import RastRun,  Catalog, Error
 from hp.pd import view
 from hp.plot import Plotr
 from hp.gdal import rlay_to_array, getRasterMetadata

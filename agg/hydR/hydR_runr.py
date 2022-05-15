@@ -9,7 +9,7 @@ np.random.seed(100)
 
 start = datetime.datetime.now()
 print('start at %s' % start)
-from agg.hydR.hr_scripts import RastRun
+from agg.hydR.hydR_scripts import RastRun
 
 
 def run( #run a basic model configuration

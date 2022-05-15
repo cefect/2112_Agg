@@ -31,7 +31,7 @@ from hp.Q import assert_rlay_equal, vlay_get_fdf
 from hp.err_calc import ErrorCalcs
 
 from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
-from agg.hydR.hr_scripts import RastRun
+from agg.hydR.hydR_scripts import RastRun
 
 class ExpoRun(RastRun):
     phase_l=['depth', 'diff', 'expo']
