@@ -35,7 +35,7 @@ class Session(RastRun):
         
 
 @pytest.fixture
-def ses(tmp_path,write,logger, feedback,
+def ses(tmp_path,write,logger, feedback, #session for depth runs
         array,
         resolution):
  
@@ -48,10 +48,11 @@ def ses(tmp_path,write,logger, feedback,
         assert len(ses.data_d)==0
         ses.data_d['drlay_lib'] = ses.ar2lib(array, resolution=resolution)
  
- 
         yield ses
         
 
+
+        
 @pytest.fixture
 def resolution(request):
     return request.param
@@ -60,6 +61,10 @@ def resolution(request):
 def array(request):
     return request.param
  
+
+#===============================================================================
+# DEPTH RASERTS------
+#===============================================================================
 
 @pytest.mark.parametrize('resolution', [10.0])
 @pytest.mark.parametrize('array',[
@@ -99,7 +104,7 @@ def test_rstats(ses, array):
     #nodata
     assert np.isnan(ar).sum()==rserx['noData_cnt']
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('resolution', [10.0])
 @pytest.mark.parametrize('array',[
      np.random.random((5,5))-0.5,
@@ -145,8 +150,43 @@ def test_gwArea(ses, array, resolution):
     
     #wetArea
     assert rserx['gwArea']==wet_cnt*(resolution**2)
-    
+
+#===============================================================================
+# DIFFERENCE RASTERS---------
+#===============================================================================
+@pytest.fixture
+def ses_diff(tmp_path,write,logger, feedback, #session for difference rastser runs
+        array,
+        resolution):
  
+    np.random.seed(100)
+    with Session(out_dir = tmp_path,  wrk_dir=None, prec=prec,
+                     overwrite=write,write=write, logger=logger,feedback=feedback,
+                     driverName='GeoJSON', #nicer for writing small test datasets
+                     ) as ses:
+        
+        assert len(ses.data_d)==0
+        ses.data_d['difrlay_lib'] = ses.ar2lib(array, resolution=resolution)
+ 
+        yield ses
+        
+        
+@pytest.mark.dev
+@pytest.mark.parametrize('resolution', [10.0])
+@pytest.mark.parametrize('array',[
+     np.random.random((5,5))-0.5,
+     np.random.random((5,5)),
+     #np.array([(1,np.nan),(1,2)]),  #depth raster... no nulls
+     ], indirect=True)  
+def test_rmseD(ses_diff, array, resolution):
+    dkey='rmseD'
+    rserx=ses_diff.retrieve(dkey).iloc[0,:]
+ 
+    rmse = np.sqrt(np.mean(array**2))
+ 
+    
+    #wetArea
+    assert round(rserx[0], prec)==round(rmse, prec)
  
      
  
