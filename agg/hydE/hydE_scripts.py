@@ -268,18 +268,24 @@ class ExpoRun(RastRun):
         # save to data
         self.data_d[dkey1] = copy.deepcopy(df)
  
- 
-        
         return finv_agg_d
-    
+    #===========================================================================
+    #     if dkey=='finv_agg_lib':
+    #         return finv_agg_d
+    #     elif dkey=='faggMap':
+    #         return df.copy()
+    #     else:
+    #         raise KeyError(dkey)
+    # 
+    #===========================================================================
     def build_faggMap(self, #construct the map linking 
                         dkey='faggMap',
-                        finv_agg_lib=None,
+                        #finv_agg_lib=None,
                      #defaults
                      logger=None,write=None,
                      ):
         """typically this is constructed by build_finv_agg2"""
-        raise IOError('no way to retrieve this... need to reconstruct')
+        #'no way to retrieve faggMap. this... need to reconstruct')
         #=======================================================================
         # defauts
         #=======================================================================
@@ -288,8 +294,11 @@ class ExpoRun(RastRun):
         log = logger.getChild('build_faggMap')
         if write is None: write=self.write
         
-        if finv_agg_lib is None: 
-            finv_agg_lib=self.retrieve('finv_agg_lib')
+        assert not 'finv_agg_lib' in self.compiled_fp_d, 'having finv_agg_lib compiled and faggMap NOT compiled is not supported'
+        assert not 'finv_agg_lib' in self.data_d
+        self.retrieve('finv_agg_lib')
+            
+        return self.data_d[dkey].copy()
     
     def build_sampGeo2(self,  # sampling geometry no each asset
                      dkey='finv_sg_lib',

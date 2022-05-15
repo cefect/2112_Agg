@@ -80,7 +80,7 @@ def run( #run a basic model configuration
                  bk_lib = {
                      'drlay_lib':dict( severity=severity, downSampling=downSampling, dsampStage=dsampStage, iters=iters),
                      'res_dx':dict(phase_l=phase_l), 
-                     'layxport':dict(compression=compression, debug_max_len=debug_max_len, phase_l=phase_l, id_params=id_params), 
+                     'dataExport':dict(compression=compression, debug_max_len=debug_max_len, phase_l=phase_l, id_params=id_params), 
           
                      },
                  **kwargs) as ses:

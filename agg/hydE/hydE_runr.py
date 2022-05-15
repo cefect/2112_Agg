@@ -102,7 +102,7 @@ def run( #run a basic model configuration
                      'finv_sg_lib':dict(sgType=sgType),
                      'rsamps':dict(samp_method=samp_method, zonal_stat=zonal_stat),
                      'res_dx':dict(),
-                     'layxport':dict(compression=compression, id_params=id_params)
+                     'dataExport':dict(compression=compression, id_params=id_params)
                      },
                  **kwargs) as ses:
         

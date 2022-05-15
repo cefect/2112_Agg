@@ -1514,10 +1514,13 @@ def r8():
 def r01():
     return run(tag='r01',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv',)
 
+def r02():
+    return run(tag='r02',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR02\hydR02_run_index.csv',)
+
 if __name__ == "__main__": 
     #wet mean
 
-    r01()
+    r02()
  
 
     tdelta = datetime.datetime.now() - start

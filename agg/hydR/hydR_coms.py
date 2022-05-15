@@ -40,9 +40,23 @@ class RRcoms(Model):
     
     def __init__(self,
                   lib_dir=None,
+                  data_retrieve_hndls={},
                  **kwargs):
         
-        super().__init__(**kwargs)
+        data_retrieve_hndls = {**data_retrieve_hndls, **{
+                        #combiners
+            'res_dx':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs:self.build_resdx(**kwargs), #
+                },
+            
+            'dataExport':{
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),
+                'build':lambda **kwargs:self.build_dataExport(**kwargs), #
+                },
+            }}
+        
+        super().__init__(data_retrieve_hndls=data_retrieve_hndls, **kwargs)
                 
                 
         if lib_dir is None:
@@ -62,6 +76,7 @@ class RRcoms(Model):
                        
                        logger=None,
                        pick_index_map=None,
+                       studyArea_l=None, #for checks
                        ):
         """
         because we generally execute a group of parameterizations (id_params) as 1 run (w/ a batch script)
@@ -78,6 +93,9 @@ class RRcoms(Model):
         if logger is None: logger=self.logger
         if pick_index_map is None: pick_index_map=self.pick_index_map
         log=logger.getChild('compileFromCat')
+        saCn=self.saCn
+        if studyArea_l is None:
+            studyArea_l=list(self.proj_lib.keys())
         
         #=======================================================================
         # for dkey in dkey_l:
@@ -97,8 +115,15 @@ class RRcoms(Model):
             dx_raw=cat.get()
             
             bx = get_bx_multiVal(dx_raw, id_params, matchOn='index', log=log)
+            
+            #===================================================================
+            # check
+            #===================================================================
             assert bx.any(), id_params
             
+            miss_l = set(dx_raw.index.unique(saCn)).symmetric_difference(studyArea_l)
+            assert len(miss_l)==0, 'got %i studyAreas conflicting between proj_lib and catalog'%len(miss_l)
+ 
             #===================================================================
             # loop and build
             #===================================================================
@@ -106,6 +131,10 @@ class RRcoms(Model):
             cnt=0
             for dkey, gdx in dx_raw.loc[bx, :].droplevel(list(id_params.keys())).groupby(level='dkey', axis=1):
                 if dkey.startswith('_'): continue #special meta
+                
+                if dkey in ['finv_agg_lib']:
+                    log.warning('%s not impleented... skipping'%dkey)
+                    continue
             
  
                 log.debug('on %s\n\n'%dkey)
@@ -470,7 +499,14 @@ class RRcoms(Model):
                     dx.loc[gkeys, 'fp_sizeMB'] = Path(fp).stat().st_size*1e-6
                 
                 dx.columns.name='stat'
+                
+                #===============================================================
+                # wrap
+                #===============================================================
                 assert len(dx)>0
+                
+                assert not dx.index.to_frame().isna().any().any(), dki
+                
                 ofp_lib[dki] = pd.concat({dki:dx}, axis=1, names=['dkey'])
             
         #=======================================================================
@@ -485,12 +521,16 @@ class RRcoms(Model):
         for dki, dxi in ofp_lib.items():
             if rdx is None: 
                 rdx = dxi.copy()
+
             else:
                 rdx = rdx.merge(dxi, how='outer', left_index=True, right_index=True, sort=True)
                 
-                """
-                view(rdx.merge(dxi, how='outer', left_index=True, right_index=True))
-                """
+            assert rdx.notna().all().all(), dki
+            assert rdx.index.to_frame().notna().all().all(), dki
+                
+            """
+            view(rdx.merge(dxi, how='outer', left_index=True, right_index=True))
+            """
  
         rdx = rdx.reorder_levels(self.rcol_l, axis=0).sort_index()
         #=======================================================================
@@ -947,6 +987,15 @@ def assert_lay_lib(lib_d, msg=''):
                     k0, type(d0))+msg)
             
             for k1, lay in d0.items():
+                if k1 is None:
+                    raise AssertionError('bad key on %s.%s: \n'%(
+                        k0,k1 )+msg)
                 if not isinstance(lay, QgsMapLayer):
                     raise AssertionError('bad type on %s.%s: %s\n'%(
                         k0,k1, type(lay))+msg)
+                    
+                    
+                    
+                    
+                    
+                    

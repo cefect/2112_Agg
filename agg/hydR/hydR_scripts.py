@@ -95,16 +95,7 @@ class RastRun(RRcoms):
                 },
  
             
-            #combiners
-            'res_dx':{
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.build_resdx(**kwargs), #
-                },
-            
-            'layxport':{
-                'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.build_layxport(**kwargs), #
-                },
+
             
  
                         
