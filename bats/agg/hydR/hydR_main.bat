@@ -7,7 +7,7 @@ REM execute
  
 @echo on
  
-python -O C:\LS\09_REPOS\02_JOBS\2112_agg\cef\agg\hydR\main.py -t post_nn -n hydR02 -i 8 -dsampStage post -downSampling nn
+python -O C:\LS\09_REPOS\02_JOBS\2112_agg\cef\agg\hydR\main.py -t post_nn -n hydR02 -i 8 -dsampStage post -downSampling nn 
  
 ECHO finished 
 

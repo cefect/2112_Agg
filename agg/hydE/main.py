@@ -33,12 +33,19 @@ if __name__ == "__main__":
     parser.add_argument("-aggIters",help='number of aggLevels to execute', type=int, default=5)
     parser.add_argument("-samp_method",help='method for sampling rasters w/ finvs', type=str, default='zonal')
     parser.add_argument("-zonal_stat",help='for samp_method=zonal, statistc to apply', type=str, default='Mean')
+    parser.add_argument("-index_col_n", '-idcn',help='index columns on the catalog', type=int, default=None)
      
     
     
     args = parser.parse_args()
     kwargs = vars(args)
     print('parser got these kwargs: \n    %s'%kwargs) #print all the parsed arguments in dictionary form
+    
+    
+    n = kwargs.pop('index_col_n')
+    if not n is None:
+        kwargs['index_col'] = list(range(n))
+    
  
     print('\n\nSTART (tag=%s) \n\n\n\n'%kwargs['tag'])
     run(**kwargs)
