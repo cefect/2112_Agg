@@ -109,17 +109,25 @@ def run( #run a basic model configuration
 
 def dev():
     return run(
-        trim=True, compression='none',name='hydR_dev',
+        trim=True, compression='none',name='hydRd',
         tag='dev',
         iters=2,
         dsampStage='postFN',
         downSampling='Nearest neighbour',
         compiled_fp_d={
-            'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\drlay_lib_hydR_dev_dev_0515.pickle',
-
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\drlay_lib_hydR_dev_dev_0515.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\noData_cnt_hydR_dev_dev_0515.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\rstats_hydR_dev_dev_0515.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\wetStats_hydR_dev_dev_0515.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\gwArea_hydR_dev_dev_0515.pickle',
+        #'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\res_dx_hydR_dev_dev_0515.pickle',
+        'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\layxport_hydR_dev_dev_0515.pickle',
+        
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\difrlay_lib_hydR_dev_dev_0515.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\rstatsD_hydR_dev_dev_0515.pickle',
             },
         #studyArea_l=['obwb'],
-        phase_l=['depth']
+        phase_l=['depth', 'diff']
         )
 
  

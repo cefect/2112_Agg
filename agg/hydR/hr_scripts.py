@@ -22,11 +22,11 @@ from hp.exceptions import Error
 from hp.pd import get_bx_multiVal
 import hp.gdal
 
-from hp.Q import assert_rlay_equal, QgsMapLayer
+from hp.Q import assert_rlay_equal, QgsMapLayer, view
 from hp.basic import set_info
 from agg.hyd.hscripts import  RasterCalc
 
-from agg.hydR.hydR_coms import RRcoms, Catalog
+from agg.hydR.hydR_coms import RRcoms, Catalog, assert_lay_lib
     
 
 
@@ -67,6 +67,7 @@ class RastRun(RRcoms):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_gwArea(**kwargs),
                 },
+            
             'noData_cnt':{  #note, rstats will also have this
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 #'build':lambda **kwargs: self.build_stats(**kwargs),
@@ -88,10 +89,11 @@ class RastRun(RRcoms):
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
                 'build':lambda **kwargs: self.build_stats(**kwargs),
                 },
-            'difRes':{
+            'rmseD':{  
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),
-                'build':lambda **kwargs:self.build_difRes(**kwargs), #
+                'build':lambda **kwargs: self.build_rmseD(**kwargs),
                 },
+ 
             
             #combiners
             'res_dx':{
@@ -536,7 +538,10 @@ class RastRun(RRcoms):
         log = logger.getChild('build_noDataPct')
         assert dkey=='noData_pct'
         
-        dx = self.retrieve('rstats').drop('noData_cnt', axis=1).join(self.retrieve('noData_cnt'))
+        """need to execute drlays"""
+        ndc_dx = self.retrieve('noData_cnt')
+        
+        dx = self.retrieve('rstats').drop('noData_cnt', axis=1).join(ndc_dx)
  
         serx = dx['noData_cnt2']/dx['cell_cnt']
  
@@ -552,34 +557,12 @@ class RastRun(RRcoms):
         
         dx = self.retrieve('rstatsD')
         
+        dx = self.retrieve('rmseD')
+        
+        
  
 
-    def store_lay_lib(self,  res_lib,dkey,
-                      out_dir=None, 
-                      logger=None):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        if logger is None: logger=self.logger
-        log=logger.getChild('store_lay_lib')
-        if out_dir is None:
-            out_dir = os.path.join(self.wrk_dir, dkey)
-        ofp_lib = dict()
-        
-        #=======================================================================
-        # #write each to file
-        #=======================================================================
-        for resolution, layer_d in res_lib.items():
-            out_dir=os.path.join(out_dir, 'r%i' % resolution)
-            ofp_lib[resolution] = self.store_layer_d(layer_d, dkey, logger=log, 
-                write_pick=False, #need to write your own
-                out_dir=out_dir)
-        
-        #=======================================================================
-        # #write the pick
-        #=======================================================================
-        self.ofp_d[dkey] = self.write_pick(ofp_lib, 
-            os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+
 
     def build_difrlays(self, #generate a set of delta rasters and write to the catalog
                       dkey='difrlay_lib',
@@ -674,6 +657,51 @@ class RastRun(RRcoms):
         mstore.removeAllMapLayers()
         assert_lay_lib(res_lib, msg='%s post'%dkey)
         return res_lib
+    
+    
+    def build_rmseD(self,#negative cell count
+                    dkey='rmseD',
+                    lay_lib=None,
+                    logger=None, **kwargs):
+ 
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_rmseD')
+        assert dkey=='rmseD'
+ 
+ 
+        #=======================================================================
+        # retrieve approriate lib
+        #=======================================================================
+        if lay_lib is None:
+            lay_lib = self.retrieve('difrlay_lib')
+            
+        #=======================================================================
+        # calculator
+        #=======================================================================
+        def func(rlay, logger=None, meta_d={}):
+            
+            #square the differences
+            res_fp = self.rastercalculator(rlay, '{}@1^2'.format(rlay.name()), logger=log)
+            
+            #get the stats
+            sum_sq = self.rasterlayerstatistics(res_fp, logger=log)['SUM']
+            
+            
+            cnt = float(self.rlay_get_cellCnt(res_fp, exclude_nulls=False)) #shouldnt be any nulls
+            
+ 
+            return {'rmse':math.sqrt(sum_sq/cnt)}
+        
+        #=======================================================================
+        # execut ethe function on the stack
+        #=======================================================================
+        serx= self.calc_on_layers(
+            func=func, logger=log, dkey=dkey, lay_lib=lay_lib, **kwargs)
+        
+        return serx
  
     #============================================================================
     # COMBINERS------------
@@ -684,7 +712,7 @@ class RastRun(RRcoms):
         phase_l=None,
         phase_d = {
             'depth':('rstats', 'wetStats', 'gwArea','noData_cnt', 'noData_pct'),
-            'diff':('rstatsD',),
+            'diff':('rstatsD','rmseD'),
             'expo':('rsampStats',)
             
             },
@@ -1027,6 +1055,9 @@ class RastRun(RRcoms):
     #===========================================================================
     # HELPERS-------
     #===========================================================================
+    
+
+        
     def calc_on_layers(self,
                        #data
                        lay_lib=None,

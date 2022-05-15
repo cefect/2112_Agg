@@ -42,6 +42,33 @@ class RRcoms(Model):
             lib_dir = os.path.join(self.work_dir, 'lib', self.name)
         #assert os.path.exists(lib_dir), lib_dir
         self.lib_dir=lib_dir
+        
+    def store_lay_lib(self,  res_lib,dkey,
+                      out_dir=None, 
+                      logger=None):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('store_lay_lib')
+        if out_dir is None:
+            out_dir = os.path.join(self.wrk_dir, dkey)
+        ofp_lib = dict()
+        
+        #=======================================================================
+        # #write each to file
+        #=======================================================================
+        for resolution, layer_d in res_lib.items():
+            out_dir=os.path.join(out_dir, 'r%i' % resolution)
+            ofp_lib[resolution] = self.store_layer_d(layer_d, dkey, logger=log, 
+                write_pick=False, #need to write your own
+                out_dir=out_dir)
+        
+        #=======================================================================
+        # #write the pick
+        #=======================================================================
+        self.ofp_d[dkey] = self.write_pick(ofp_lib, 
+            os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
 
 class Catalog(object): #handling the simulation index and library
     df=None
