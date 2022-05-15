@@ -113,6 +113,7 @@ class RastRun(RRcoms):
         pick_index_map.update({
             'drlay_lib':(self.resCn, self.saCn),
             })
+        pick_index_map['difrlay_lib'] = copy.copy(pick_index_map['drlay_lib'])
         self.pick_index_map=pick_index_map
         
         super().__init__( 
@@ -126,7 +127,7 @@ class RastRun(RRcoms):
     #===========================================================================
     def compileFromCat(self, #construct pickle from the catalog and add to compiled
                        catalog_fp='',
-                       dkey_l = ['drlay_lib'], #dkeys to laod
+                       #dkey_l = ['drlay_lib'], #dkeys to laod
                        
                        id_params={}, #index values identifying this run
                        
@@ -149,9 +150,11 @@ class RastRun(RRcoms):
         if pick_index_map is None: pick_index_map=self.pick_index_map
         log=logger.getChild('compileFromCat')
         
-        for dkey in dkey_l:
-            assert dkey in pick_index_map
-            assert not dkey in self.compiled_fp_d, dkey
+        #=======================================================================
+        # for dkey in dkey_l:
+        #     assert dkey in pick_index_map
+        #     assert not dkey in self.compiled_fp_d, dkey
+        #=======================================================================
         #=======================================================================
         # load the catalog
         #=======================================================================
@@ -159,18 +162,46 @@ class RastRun(RRcoms):
         with Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False,
                        index_col=self.index_col ) as cat:
             
-            for dkey in dkey_l:
+            #===================================================================
+            # data prep
+            #===================================================================
+            dx_raw=cat.get()
+            
+            bx = get_bx_multiVal(dx_raw, id_params, matchOn='index', log=log)
+            
+            #===================================================================
+            # loop and build
+            #===================================================================
+            cnt=0
+            for dkey, gdx in dx_raw.loc[bx, :].droplevel(list(id_params.keys())).groupby(level='dkey', axis=1):
+                print(dkey)
+            
+ 
                 log.info('\n\n on %s\n\n'%dkey)
                 
-                #pull the filepaths from the catalog
-                fp_d = cat.get_dkey_fp(dkey=dkey, pick_indexers=pick_index_map[dkey], id_params=id_params)
+                #===============================================================
+                # filepaths
+                #===============================================================
+                if 'fp' in gdx.columns.unique(1):
+                
+                    #pull the filepaths from the catalog
+                    assert dkey in pick_index_map
+                    res = cat.get_dkey_fp(dkey=dkey, pick_indexers=pick_index_map[dkey], dx_raw=gdx)
+                    
+                #===============================================================
+                # data frames
+                #===============================================================
+                else:
+                    res = gdx.droplevel(0, axis=1).sort_index()
+                    
                 
                 #save as a pickel
                 """writing to temp as we never store these"""
-                self.compiled_fp_d[dkey] = self.write_pick(fp_d, 
+                cnt+=1
+                self.compiled_fp_d[dkey] = self.write_pick(res, 
                                     os.path.join(self.temp_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
                 
-        log.info('finished on %i'%len(dkey_l))
+        log.info('finished on %i'%cnt)
         
         return
                 
@@ -617,14 +648,26 @@ class RastRun(RRcoms):
                 #match the layers crs
                 self.qproj.setCrs(rlay.crs())
                 
-                #handle baselines
+                temp_dir = os.path.join(self.temp_dir, studyArea, str(resolution))
+                if not os.path.exists(temp_dir): os.makedirs(temp_dir) 
+                #===============================================================
+                # #handle baselines
+                #===============================================================
                 if first:
+                    """not sure why this is needed?"""
+                    rlay = self.get_layer(self.warpreproject(rlay, 
+                                  output=os.path.join(temp_dir, os.path.basename(rlay.source())), 
+                                    resolution=resolution, compression='none', crsOut=self.qproj.crs(),   
+                                    logger=log), mstore=mstore)
+                    
                     base_d[studyArea] = self.get_layer(
                         self.fillnodata(rlay,fval=0, logger=log,
                                         output=os.path.join(self.temp_dir, 
                                                 '%s_fnd.tif'%rlay.name())), mstore=mstore)
  
-                #execute
+                #===============================================================
+                # #execute
+                #===============================================================
                 d[studyArea]=self.get_diff_rlay(
                     rlay, base_d[studyArea], #agg - true
                     logger=log.getChild('%i.%s'%(resolution, studyArea)),
@@ -682,7 +725,7 @@ class RastRun(RRcoms):
         # calculator
         #=======================================================================
         def func(rlay, logger=None, meta_d={}):
-            
+            logger.info('on %s'%rlay.name())
             #square the differences
             res_fp = self.rastercalculator(rlay, '{}@1^2'.format(rlay.name()), logger=log)
             
@@ -787,7 +830,10 @@ class RastRun(RRcoms):
             #===================================================================
             # simple joins
             #===================================================================
-            if np.array_equal(dxi.index, rdx.index):
+            if len(el_d['symmetric_difference'])==0: 
+                dxi = dxi.reorder_levels(rdx.index.names).sort_index()
+                assert_index_equal(dxi.index, rdx.index)
+ 
                 rdx = rdx.join(dxi)
                 
             #===================================================================
@@ -809,6 +855,7 @@ class RastRun(RRcoms):
             elif len(el_d['diff_right'])==1:
                 """trying to join a smaller index onto the results which have already been expanded"""
                 raise IOError('not implmeented')
+ 
             
             else:
                 raise IOError(el_d)        
@@ -1030,6 +1077,16 @@ class RastRun(RRcoms):
         cdx.index = pd.MultiIndex.from_frame(mdex_df)
         
         #=======================================================================
+        # add metadata
+        #=======================================================================
+        meta_d = {'tag':self.tag, 'date':datetime.datetime.now().strftime('%y-%m-%d.%H%M'),
+                  'runtime_mins':(datetime.datetime.now() - self.start).total_seconds()/60.0
+                  }
+        cdx = cdx.join(pd.concat({'_meta':pd.DataFrame(meta_d, index=cdx.index)}, axis=1))
+ 
+ 
+        
+        #=======================================================================
         # write catalog-----
         #=======================================================================
         miss_l = set(cdx.index.names).difference(Catalog.keys)
@@ -1045,7 +1102,7 @@ class RastRun(RRcoms):
         
         """
         rdx.index.names.to_list()
-        view(rdx)
+        view(cdx)
         """
         log.info('finished')
         return catalog_fp

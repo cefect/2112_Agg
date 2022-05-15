@@ -302,7 +302,7 @@ class Catalog(object): #handling the simulation index and library
                    
                    #parmaeters
                    pick_indexers=tuple(), #map of how the pickels are indexed
-                   id_params={}, #additional indexers identfying this run
+                   #id_params={}, #additional indexers identfying this run
                    #defaults
                    logger=None,
                    **kwargs):
@@ -319,31 +319,36 @@ class Catalog(object): #handling the simulation index and library
         #=======================================================================
         assert dkey in dx_raw.columns.get_level_values(0), dkey
         
-        #indexers implied by this selection
-        keys_s = set(pick_indexers).union(id_params.keys())
-        
-        #compoared to indexers found on the catalog
-        miss_l = set(keys_s).difference(dx_raw.index.names)
-        assert len(miss_l)==0
+        #=======================================================================
+        # #indexers implied by this selection
+        # keys_s = set(pick_indexers).union(id_params.keys())
+        # 
+        # #compoared to indexers found on the catalog
+        # miss_l = set(keys_s).difference(dx_raw.index.names)
+        # assert len(miss_l)==0
+        #=======================================================================
         
         #=======================================================================
         # prep columns
         #=======================================================================
         
         #slice to just this data
-        serx0 = dx_raw.loc[:,idx[dkey, 'fp']]
+        serx1 = dx_raw.loc[:,idx[dkey, 'fp']]
         
  
-        
         #=======================================================================
         # prep index
         #=======================================================================
         
-        bx = get_bx_multiVal(serx0, id_params, matchOn='index', log=log)
-        
-        serx1 = serx0[bx].droplevel(list(id_params.keys()))
+        #=======================================================================
+        # bx = get_bx_multiVal(serx0, id_params, matchOn='index', log=log)
+        # 
+        # serx1 = serx0[bx].droplevel(list(id_params.keys()))
+        #=======================================================================
         
         assert serx1.is_unique
+        
+        assert len(serx1)>0
         
         #=======================================================================
         # collapse to dict

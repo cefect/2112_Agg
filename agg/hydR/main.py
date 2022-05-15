@@ -22,7 +22,9 @@ if __name__ == "__main__":
     parser.add_argument("-write_lib",'-wl', help='flag for storing results to library', action='store_false') #defaults to True
     parser.add_argument("-iters",'-i', help='resolution iterations', type=int, default=7)  
     parser.add_argument("-dsampStage",help='raster downsampling stage', type=str, default='pre')  
-    parser.add_argument("-downSampling",help='raster downsampling GDAL.warp method', type=str, default='Average') 
+    parser.add_argument("-downSampling",help='raster downsampling GDAL.warp method', type=str, default='Average')
+    
+    parser.add_argument("-catalog_fp",help='optional file path of catalog', type=str, default=None)
     
     
     args = parser.parse_args()
