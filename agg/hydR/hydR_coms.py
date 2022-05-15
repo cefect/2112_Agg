@@ -29,8 +29,10 @@ from agg.hyd.hscripts import Model
 class RRcoms(Model):
     resCn='resolution'
     
-    
+    agCn='' #placeholder for build_layxport
     saCn='studyArea'
+    
+ 
     
     id_params=dict()
     
@@ -93,6 +95,7 @@ class RRcoms(Model):
             dx_raw=cat.get()
             
             bx = get_bx_multiVal(dx_raw, id_params, matchOn='index', log=log)
+            assert bx.any(), id_params
             
             #===================================================================
             # loop and build
@@ -104,6 +107,11 @@ class RRcoms(Model):
  
                 log.info('\n\n on %s\n\n'%dkey)
                 
+                if gdx.isna().all().all():
+                    log.warning('no data for %s... skipping'%dkey)
+                    continue
+                
+                assert gdx.notna().all().all()
                 #===============================================================
                 # filepaths
                 #===============================================================
@@ -125,6 +133,11 @@ class RRcoms(Model):
                 cnt+=1
                 self.compiled_fp_d[dkey] = self.write_pick(res, 
                                     os.path.join(self.temp_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+                
+            #===================================================================
+            # wrap
+            #===================================================================
+            cat.df=None #avoid writing
                 
         log.info('finished on %i'%cnt)
         
@@ -180,9 +193,7 @@ class RRcoms(Model):
         log=logger.getChild('build_resdx')
         if write is None: write=self.write
         assert dkey=='res_dx'
-        resCn = self.resCn 
-        saCn = self.saCn
-        agCn=self.agCn
+ 
         if phase_l is None: phase_l=self.phase_l
  
         #clean out
@@ -191,7 +202,7 @@ class RRcoms(Model):
         #=======================================================================
         # reindexing functions
         #=======================================================================
-        from agg.hydE.hydE_scripts import cat_reindex as hydE_reindexer
+        #from agg.hydE.hydE_scripts import cat_reindex as hydE_reindexer
         
         reindex_d = {'expo':lambda x:x.sort_index(sort_remaining=True),
                      'depth':lambda x:x.sort_index(sort_remaining=True),
@@ -297,6 +308,8 @@ class RRcoms(Model):
                       
                       id_params = {}, #additional parameter values to use as indexers in teh library
                       debug_max_len = None,
+                      
+                      #defaults
                       phase_l=None,
                       write=None, logger=None):
         """no cleanup here
@@ -444,9 +457,7 @@ class RRcoms(Model):
         if logger is None: logger=self.logger
         log=logger.getChild('write_lib')
         
-        resCn=self.resCn
-        saCn=self.saCn
-        agCn=self.agCn
+ 
         
         
         if lib_dir is None:
@@ -794,7 +805,7 @@ class Catalog(object): #handling the simulation index and library
         # serx1 = serx0[bx].droplevel(list(id_params.keys()))
         #=======================================================================
         
-        assert serx1.is_unique
+        assert serx1.is_unique, dkey
         
         assert len(serx1)>0
         

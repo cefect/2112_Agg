@@ -130,7 +130,7 @@ def dev():
 def r01(**kwargs):
     rkwargs = dict(
         iters=8, downSampling='Average',write_lib=True, 
-        #catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv',
+        catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv',
         phase_l=['depth']
         )    
     return run(name='hydR01', **{**rkwargs, **kwargs})
@@ -181,13 +181,15 @@ def preGW():
     return r01(
         dsampStage='preGW',tag='preGW',
         compiled_fp_d={
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\drlay_lib_hydR01_preGW_0514.pickle',
-        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\noData_cnt_hydR01_preGW_0514.pickle',
-        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\rstats_hydR01_preGW_0514.pickle',
-        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\wetStats_hydR01_preGW_0514.pickle',
-        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\gwArea_hydR01_preGW_0514.pickle',
-        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\res_dx_hydR01_preGW_0514.pickle',
-        'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\layxport_hydR01_preGW_0514.pickle',
+        #=======================================================================
+        # 'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\drlay_lib_hydR01_preGW_0514.pickle',
+        # 'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\noData_cnt_hydR01_preGW_0514.pickle',
+        # 'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\rstats_hydR01_preGW_0514.pickle',
+        # 'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\wetStats_hydR01_preGW_0514.pickle',
+        # 'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\gwArea_hydR01_preGW_0514.pickle',
+        # 'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\res_dx_hydR01_preGW_0514.pickle',
+        # 'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\layxport_hydR01_preGW_0514.pickle',
+        #=======================================================================
             }
         )
     
@@ -197,8 +199,10 @@ if __name__ == "__main__":
     #dev()
  
     #post()
-    postFN()
-    pre()
+    #===========================================================================
+    # postFN()
+    # pre()
+    #===========================================================================
     preGW()
     #r5_dep()
 

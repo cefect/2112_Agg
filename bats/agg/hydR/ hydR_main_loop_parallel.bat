@@ -1,5 +1,5 @@
-REM SET DS_L=(pre)
-SET DS_L=(post, preGW, postFN, pre)
+REM SET DS_L=(post, preGW, postFN, pre)
+SET DS_L=(preGW)
 SET CAT_FP=C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv
 SET LAG=5
 
