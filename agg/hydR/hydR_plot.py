@@ -1420,7 +1420,7 @@ def run( #run a basic model configuration
             #===================================================================
             print('\n\n %s: downSampling comparison\n\n'%plotName)
              
-            for dsampStage in ['pre']:
+            for dsampStage in ['pre', 'post']:
                 bx = dx.index.get_level_values('dsampStage')==dsampStage
                 assert bx.any()
      
