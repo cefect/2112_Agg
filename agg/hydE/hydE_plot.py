@@ -61,7 +61,7 @@ from hp.pd import get_bx_multiVal, view
 
 class ExpoPlotr(RasterPlotr, ExpoRun): #analysis of model results
 
-    index_col = list(range(8))
+    
     def __init__(self,
  
                  name='hydE_plot',

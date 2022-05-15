@@ -24,39 +24,23 @@ import hp.gdal
 
 from hp.Q import assert_rlay_equal, QgsMapLayer
 from hp.basic import set_info
-from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
+from agg.hyd.hscripts import  RasterCalc
 
-class RRcoms(Model):
-    resCn='resolution'
-    ridn='rawid'
-    agCn='aggLevel'
-    saCn='studyArea'
-    
-    id_params=dict()
-    
-    def __init__(self,
-                  lib_dir=None,
-                 **kwargs):
-        
-        super().__init__(**kwargs)
-                
-                
-        if lib_dir is None:
-            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
-        #assert os.path.exists(lib_dir), lib_dir
-        self.lib_dir=lib_dir
+from agg.hydR.hydR_coms import RRcoms, Catalog
     
 
 
 class RastRun(RRcoms):
     
     phase_l=['depth', 'diff']
+    index_col = list(range(5))
     
     def __init__(self,
                  name='rast',
                  phase_l=['depth'],
                  data_retrieve_hndls={},
                  rcol_l=None, 
+                 pick_index_map={},
                  **kwargs):
         
         
@@ -124,11 +108,71 @@ class RastRun(RRcoms):
                         
             }}
         
+        pick_index_map.update({
+            'drlay_lib':(self.resCn, self.saCn),
+            })
+        self.pick_index_map=pick_index_map
+        
         super().__init__( 
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
         
         self.phase_l=phase_l
+        
+    #===========================================================================
+    # COMPILEERS----
+    #===========================================================================
+    def compileFromCat(self, #construct pickle from the catalog and add to compiled
+                       catalog_fp='',
+                       dkey_l = ['drlay_lib'], #dkeys to laod
+                       
+                       id_params={}, #index values identifying this run
+                       
+                       logger=None,
+                       pick_index_map=None,
+                       ):
+        """
+        because we generally execute a group of parameterizations (id_params) as 1 run (w/ a batch script)
+            then compile together in the catalog for analysis
+            
+        loading straight from the catalog is nice if we want to add one calc to the catalog set
+        
+        our framework is still constrained to only execute 1 parameterization per call
+            add a wrapping for loop to execute on the whole catalog
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        if pick_index_map is None: pick_index_map=self.pick_index_map
+        log=logger.getChild('compileFromCat')
+        
+        for dkey in dkey_l:
+            assert dkey in pick_index_map
+            assert not dkey in self.compiled_fp_d, dkey
+        #=======================================================================
+        # load the catalog
+        #=======================================================================
+        
+        with Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False,
+                       index_col=self.index_col ) as cat:
+            
+            for dkey in dkey_l:
+                log.info('\n\n on %s\n\n'%dkey)
+                
+                #pull the filepaths from the catalog
+                fp_d = cat.get_dkey_fp(dkey=dkey, pick_indexers=pick_index_map[dkey], id_params=id_params)
+                
+                #save as a pickel
+                """writing to temp as we never store these"""
+                self.compiled_fp_d[dkey] = self.write_pick(fp_d, 
+                                    os.path.join(self.temp_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+                
+        log.info('finished on %i'%len(dkey_l))
+        
+        return
+                
+            
         
         
 

@@ -33,6 +33,7 @@ from agg.hydR.hr_scripts import RastRun
 
 class ExpoRun(RastRun):
     phase_l=['depth', 'diff', 'expo']
+    index_col = list(range(8))
  
     def __init__(self,
                  name='expo',

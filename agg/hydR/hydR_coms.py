@@ -4,6 +4,45 @@ Created on May 15, 2022
 @author: cefect
 '''
 
+
+#===============================================================================
+# imports-----------
+#===============================================================================
+import os, datetime, math, pickle, copy, sys
+import qgis.core
+from qgis.core import QgsRasterLayer, QgsMapLayerStore
+import pandas as pd
+import numpy as np
+ 
+
+idx = pd.IndexSlice
+from hp.exceptions import Error
+from hp.pd import get_bx_multiVal, view
+ 
+from hp.Q import assert_rlay_equal, QgsMapLayer
+from hp.basic import set_info
+from agg.hyd.hscripts import Model
+
+class RRcoms(Model):
+    resCn='resolution'
+    ridn='rawid'
+    agCn='aggLevel'
+    saCn='studyArea'
+    
+    id_params=dict()
+    
+    def __init__(self,
+                  lib_dir=None,
+                 **kwargs):
+        
+        super().__init__(**kwargs)
+                
+                
+        if lib_dir is None:
+            lib_dir = os.path.join(self.work_dir, 'lib', self.name)
+        #assert os.path.exists(lib_dir), lib_dir
+        self.lib_dir=lib_dir
+
 class Catalog(object): #handling the simulation index and library
     df=None
     keys = ['resolution', 'studyArea', 'downSampling', 'dsampStage', 'severity',
@@ -229,6 +268,75 @@ class Catalog(object): #handling the simulation index and library
  
         
         log.info('added %s'%len(keys_d))
+        
+    def get_dkey_fp(self, #build a pickle by dkey
+                   dkey='', 
+                   dx_raw=None, #catalog frame
+                   
+                   #parmaeters
+                   pick_indexers=tuple(), #map of how the pickels are indexed
+                   id_params={}, #additional indexers identfying this run
+                   #defaults
+                   logger=None,
+                   **kwargs):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('build_pick_%s'%dkey)
+        if dx_raw is None: dx_raw=self.get()
+        ln1 = pick_indexers[0]
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        assert dkey in dx_raw.columns.get_level_values(0), dkey
+        
+        #indexers implied by this selection
+        keys_s = set(pick_indexers).union(id_params.keys())
+        
+        #compoared to indexers found on the catalog
+        miss_l = set(keys_s).difference(dx_raw.index.names)
+        assert len(miss_l)==0
+        
+        #=======================================================================
+        # prep columns
+        #=======================================================================
+        
+        #slice to just this data
+        serx0 = dx_raw.loc[:,idx[dkey, 'fp']]
+        
+ 
+        
+        #=======================================================================
+        # prep index
+        #=======================================================================
+        
+        bx = get_bx_multiVal(serx0, id_params, matchOn='index', log=log)
+        
+        serx1 = serx0[bx].droplevel(list(id_params.keys()))
+        
+        assert serx1.is_unique
+        
+        #=======================================================================
+        # collapse to dict
+        #=======================================================================
+        res_d = dict()
+        for studyArea, gserx in serx1.groupby(level=ln1):
+            d =  gserx.droplevel(level=ln1).to_dict()
+            
+            #check these
+            for k,fp in d.items():
+                assert os.path.exists(fp), 'bad fp on %s.%s: \n    %s'%(studyArea, k, fp)
+                
+            res_d[studyArea] = d
+            
+            
+        log.info('got %i'%len(serx1))
+        
+        return res_d
+        
+ 
  
         
     def __enter__(self):

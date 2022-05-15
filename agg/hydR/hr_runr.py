@@ -35,6 +35,9 @@ def run( #run a basic model configuration
         studyArea_l = None, #convenience filtering of proj_lib
         proj_lib = None,
         
+        #optional loading data from the catalog
+        catalog_fp=None,
+        
         #=======================================================================
         # session pars
         #=======================================================================
@@ -82,6 +85,11 @@ def run( #run a basic model configuration
                      },
                  **kwargs) as ses:
         
+        #
+        if not catalog_fp is None:
+            ses.compileFromCat(catalog_fp=catalog_fp,id_params=id_params)
+            
+ 
         if 'depth' in phase_l:
             ses.runDownsample()
         
@@ -107,7 +115,7 @@ def dev():
         dsampStage='postFN',
         downSampling='Nearest neighbour',
         compiled_fp_d={
- 
+            'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR_dev\dev\20220515\working\drlay_lib_hydR_dev_dev_0515.pickle',
 
             },
         #studyArea_l=['obwb'],
@@ -120,6 +128,7 @@ def dev():
 def r01(**kwargs):
     rkwargs = dict(
         iters=8, downSampling='Average',write_lib=True, 
+        #catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv',
         )    
     return run(name='hydR01', **{**rkwargs, **kwargs})
 
@@ -178,9 +187,12 @@ def preGW():
         'layxport':r'C:\LS\10_OUT\2112_Agg\outs\hydR01\preGW\20220514\working\layxport_hydR01_preGW_0514.pickle',
             }
         )
+    
+ 
 if __name__ == "__main__": 
     
     dev()
+ 
     #post()
     #postFN()
     #pre()

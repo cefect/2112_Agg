@@ -59,7 +59,7 @@ from hp.pd import get_bx_multiVal
 #from hp.animation import capture_images
 
 class RasterPlotr(RastRun, Plotr): #analysis of model results
-    index_col = list(range(5))
+    
     
     def __init__(self,
  
