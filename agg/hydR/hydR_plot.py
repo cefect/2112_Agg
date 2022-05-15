@@ -1391,6 +1391,7 @@ def run( #run a basic model configuration
                 'wetMean':'wet mean depth (m)',
                 'wetVolume':'wet volume (m^3)', 
                  'wetArea': 'wet area (m^2)', 
+                 'rmse':'RMSE (m)',
                  #'gwArea':'gwArea',
                  #'STD_DEV':'stdev (m)',
                  #'noData_cnt':'noData_cnt',
@@ -1401,36 +1402,37 @@ def run( #run a basic model configuration
             #===================================================================
             # compare dsampStage
             #===================================================================
+            print('\n\n %s: dsampStage comparison\n\n'%plotName)
             bx = dx.index.get_level_values('downSampling')=='Average'
 
             """
             view(dx)
             """
-            #===================================================================
-            # ses.plot_StatXVsResolution(
-            #     set_ax_title=False,
-            #     dx_raw=dx[bx].droplevel(0, axis=1), 
-            #     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-            #     title=plotName)
-            #===================================================================
+            ses.plot_StatXVsResolution(
+                set_ax_title=False,
+                dx_raw=dx[bx].droplevel(0, axis=1), 
+                coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
+                title=plotName)
             
             #===================================================================
             # compare downSampling
             #===================================================================
-            print('\n\n %s: downSampling comparison\n\n'%plotName)
-            
-            for dsampStage in ['postFN', 'pre']:
-                bx = dx.index.get_level_values('dsampStage')==dsampStage
-                assert bx.any()
-    
-                """
-                view(dx)
-                """
-                ses.plot_StatXVsResolution(
-                    set_ax_title=False,
-                    dx_raw=dx[bx].droplevel(0, axis=1), 
-                    coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=plotName + '_'+dsampStage, plot_bgrp='downSampling')
+    #===========================================================================
+    #         print('\n\n %s: downSampling comparison\n\n'%plotName)
+    #         
+    #         for dsampStage in ['postFN', 'pre']:
+    #             bx = dx.index.get_level_values('dsampStage')==dsampStage
+    #             assert bx.any()
+    # 
+    #             """
+    #             view(dx)
+    #             """
+    #             ses.plot_StatXVsResolution(
+    #                 set_ax_title=False,
+    #                 dx_raw=dx[bx].droplevel(0, axis=1), 
+    #                 coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
+    #                 title=plotName + '_'+dsampStage, plot_bgrp='downSampling')
+    #===========================================================================
  
         #===================================================================
         # value distributions----
