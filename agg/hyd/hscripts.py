@@ -13,7 +13,7 @@ import os, datetime, math, pickle, copy, random, pprint, shutil
 import pandas as pd
 import numpy as np
 
-from pandas.testing import assert_index_equal
+from pandas.testing import assert_index_equal, assert_series_equal
 
 idx = pd.IndexSlice
 
@@ -66,6 +66,8 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
     gcn = 'gid'
     scale_cn = 'tvals'
     idn = 'modelID'
+    
+    agg_inv_d = {'mean':'join', 'sum':'divide'} #reverse aggregation actions
     
     def __init__(self, 
                  data_retrieve_hndls={},
@@ -318,6 +320,7 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
                       aggMethod='mean',
                       mindex=None,
                       logger=None,
+                      agg_name=None, #index name which will be collapsed
                       ):
         #=======================================================================
         # defaults
@@ -336,11 +339,12 @@ class HydSession(BaseSession): #mostly shares between hyd.scripts and hyd.analy
         #=======================================================================
         # prep
         #=======================================================================
-        #get the index name which will be collapsed
-        l = list(set(dx_raw.index.names).symmetric_difference(mindex.names))
-        assert len(l)==1
-        
-        agg_name = l[0]
+        if agg_name is None:
+            #get the index name which will be collapsed
+            l = list(set(dx_raw.index.names).symmetric_difference(mindex.names))
+            assert len(l)==1
+            
+            agg_name = l[0]
         #=======================================================================
         # aggregate (collapse)
         #=======================================================================

@@ -28,6 +28,8 @@ from hp.pd import get_bx_multiVal
 import hp.gdal
 
 from hp.Q import assert_rlay_equal, vlay_get_fdf
+from hp.err_calc import ErrorCalcs
+
 from agg.hyd.hscripts import Model, StudyArea, view, RasterCalc
 from agg.hydR.hr_scripts import RastRun
 
@@ -404,6 +406,9 @@ class ExpoRun(RastRun):
         rdx.columns.name='resolution'
         rserx = rdx.stack().swaplevel().sort_index().rename(dkey)
         
+        rserx = rserx.reorder_levels(self.rcol_l+[self.gcn]).sort_index()
+ 
+        
         #join 
         #=======================================================================
         # write
@@ -461,7 +466,7 @@ class ExpoRun(RastRun):
         #=======================================================================
         # compile
         #=======================================================================
-        rserx = pd.concat(res_d, axis=1, names=['stat'])
+        rserx = pd.concat(res_d, axis=1, names=['stat']).reorder_levels(self.rcol_l)
         
         
         #=======================================================================
@@ -477,6 +482,8 @@ class ExpoRun(RastRun):
         resdx = self._cat_reindex(rserx)"""
         
         
+        
+        
         if write:
             self.ofp_d[dkey] = self.write_pick(rserx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
@@ -485,7 +492,11 @@ class ExpoRun(RastRun):
     
     def build_rsampErr(self,  # sample all the rasters and all the finvs
                        dkey='rsampErr',
- 
+                       
+                       #paramters
+                       confusion=False,
+                       
+                       #defaults
                        write=None, logger=None,**kwargs):
         """
         see self.build_rsamps()
@@ -502,34 +513,95 @@ class ExpoRun(RastRun):
         agCn=self.agCn
         saCn=self.saCn
         reCn=self.resCn
+        ridn=self.ridn
+        rcol_l = self.rcol_l.copy() #results columns for this worker
         #=======================================================================
         # retrieve
         #=======================================================================
-        dx_raw = self.retrieve('rsamps')
-        fa_mindex = self.get_faMindex()
+        serx_raw = self.retrieve('rsamps').sort_index()
+        fmindex1 = self.get_faMindex()
         
             
         #=======================================================================
         # prep
         #=======================================================================
-        #disaggregate
-        dx1 = self.get_aggregate(dx_raw, mindex=fa_mindex, aggMethod='join', logger=log)
+        #expand resolutions onto fa_mindex
+        
+        fmindex2 = pd.concat({k:fmindex1.to_frame() for k in serx_raw.index.unique(reCn)}, axis=0, names=[reCn]
+                             ).index
+        
+        fmindex2 = fmindex2.reorder_levels(rcol_l.copy() + [gcn, ridn]).sort_values()
  
+        #disaggregate
+        serx1 = self.get_aggregate(serx_raw, mindex=fmindex2, aggMethod='join', logger=log, agg_name=ridn)
+        
+        #=======================================================================
+        # calc errors-----
+        #=======================================================================
+        res_d = dict()
+        #gcoln_l = [reCn, agCn]
+        drop_cols = list(set(serx1.index.names).difference([ridn]))
+        base_d = dict()
+        for gkeys, gserx in serx1.groupby(level=rcol_l):
+            keys_d = dict(zip(rcol_l, gkeys))
+            log.info('%s w/ %i'%(keys_d, len(gserx)))
+            
+            gserx = gserx.sort_index(level=ridn)
+            #===================================================================
+            # setup base
+            #===================================================================
+            if keys_d[reCn]==min(serx1.index.unique(reCn)) and keys_d[agCn]==min(serx1.index.unique(agCn)):
+                """because we neeed to group by SA which has unique indexers
+                alternatively, could just do a lookup"""
+                base_d[keys_d[saCn]] = gserx
+                
+            bserx = base_d[keys_d[saCn]].copy()
+ 
+                
+            #===================================================================
+            # compute errorsr
+            #===================================================================
+            assert np.array_equal(
+                np.array(gserx.index.get_level_values(ridn)),
+                np.array(bserx.index.get_level_values(ridn)),), keys_d
+            
+ 
+            with ErrorCalcs(pred_ser=gserx.droplevel(drop_cols), true_ser=bserx.droplevel(drop_cols), logger=log) as eW:
+                """
+                
+                eW.data_retrieve_hndls.keys()
+                
+                """
+                err_d = eW.get_all(dkeys_l=['bias', 'bias_shift', 'meanError', 'meanErrorAbs', 'RMSE', 'pearson'])
+ 
+                rser = pd.Series(err_d, name=gkeys) #convert remainers to a series
+                #===============================================================
+                # confusion
+                #===============================================================
+                if confusion:
+     
+                    #calc matrix
+                    cm_df, cm_dx = eW.get_confusion()
+                    rser = rser.append(cm_dx.droplevel(['pred', 'true']).iloc[:, 0])
+                    
+            res_d[gkeys] = rser
+ 
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        rdx = pd.concat(res_d, axis=1, names=rcol_l).T.sort_index().reorder_levels(rcol_l)
  
         
         #=======================================================================
         # write
         #=======================================================================
-        """no... storing in the native format of this worker
-        #unstack to match hydR catalog indexing
-        resdx = self._cat_reindex(rserx)"""
-        
+ 
         
         if write:
-            self.ofp_d[dkey] = self.write_pick(rserx,
+            self.ofp_d[dkey] = self.write_pick(rdx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
-        return rserx
+        return rdx
     
     def get_faMindex(self, #get raw-agg keys mapped as a multiindex
  

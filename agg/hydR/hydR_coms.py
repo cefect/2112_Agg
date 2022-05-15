@@ -16,11 +16,11 @@ from qgis.core import QgsRasterLayer, QgsMapLayerStore
 import pandas as pd
 import numpy as np
  
-from pandas.testing import assert_index_equal, assert_frame_equal, assert_series_equal
+#from pandas.testing import assert_index_equal, assert_frame_equal, assert_series_equal
 
 idx = pd.IndexSlice
 from hp.exceptions import Error
-from hp.pd import get_bx_multiVal, view
+from hp.pd import get_bx_multiVal, view, assert_index_equal
  
 from hp.Q import assert_rlay_equal, QgsMapLayer
 from hp.basic import set_info
@@ -167,7 +167,7 @@ class RRcoms(Model):
         phase_d = {
             'depth':('rstats', 'wetStats', 'gwArea','noData_cnt', 'noData_pct'),
             'diff':('rstatsD','rmseD'),
-            'expo':('rsampStats',)
+            'expo':('rsampStats','rsampErr')
             
             },
 
@@ -215,10 +215,10 @@ class RRcoms(Model):
                  
                 #check consistency within phase
                 if first:
-                    dx_last = dx.copy()
+                    mindex_last = dx.index
                     first = False
                 else:      
-                    assert_index_equal(dx.index, dx_last.index)
+                    assert_index_equal(dx.index, mindex_last, msg='%s.%s'%(phase, dki))
                     
     
                 d[dki] = dx.sort_index()

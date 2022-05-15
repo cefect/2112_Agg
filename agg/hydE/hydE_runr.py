@@ -145,8 +145,7 @@ def dev():
         'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_agg_lib_hydEdev_dev_0515.pickle',
         'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_agg_mindex_hydEdev_dev_0515.pickle',
         'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_sg_lib_hydEdev_dev_0515.pickle',
-        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\rsamps_hydEdev_dev_0515.pickle',
-        'rsampStats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\rsampStats_hydEdev_dev_0515.pickle',
+ 
  
              },
         studyArea_l=['obwb', 'LMFRA'],

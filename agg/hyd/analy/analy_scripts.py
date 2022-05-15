@@ -65,7 +65,7 @@ def get_ax(
  
 class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
     
-    agg_inv_d = {'mean':'join', 'sum':'divide'} #reverse aggregation actions
+    
     
     
     #colormap per data type
@@ -796,10 +796,10 @@ class ModelAnalysis(HydSession, Qproj, Plotr): #analysis of model results
         #===============================================================
         if confusion:
             """I think it makes more sense to report confusion on the expanded trues"""
-        #disaggregate
+            #disaggregate
             gdx1_exp = self.get_aggregate(agg_dx, mindex=true_dx.index, 
                 aggMethod=self.agg_inv_d[aggMethod], logger=log)
-        #calc matrix
+            #calc matrix
             cm_df, cm_dx = ErrorCalcs(pred_ser=gdx1_exp, true_ser=true_dx, logger=log).get_confusion()
             rser = rser.append(cm_dx.droplevel(['pred', 'true']).iloc[:, 0])
         #===============================================================
