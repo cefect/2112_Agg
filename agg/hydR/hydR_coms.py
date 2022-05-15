@@ -29,14 +29,14 @@ from agg.hyd.hscripts import Model
 class RRcoms(Model):
     resCn='resolution'
     
-    agCn='' #placeholder for build_layxport
+    agCn='' #placeholder for build_dataExport
     saCn='studyArea'
     
  
     
     id_params=dict()
     
-    dkey_from_cat=list() #built by compileFromCat to inform build_layxport not to write files to library again
+    dkey_from_cat=list() #built by compileFromCat to inform build_dataExport not to write files to library again
     
     def __init__(self,
                   lib_dir=None,
@@ -108,7 +108,7 @@ class RRcoms(Model):
                 if dkey.startswith('_'): continue #special meta
             
  
-                log.info('\n\n on %s\n\n'%dkey)
+                log.debug('on %s\n\n'%dkey)
                 
                 if gdx.isna().all().all():
                     log.warning('no data for %s... skipping'%dkey)
@@ -140,7 +140,8 @@ class RRcoms(Model):
                 meta_d[dkey] = '%s (%i)'%(type(res).__name__, len(res))
                 assert not dkey in self.compiled_fp_d
                 self.compiled_fp_d[dkey] = self.write_pick(res, 
-                                    os.path.join(self.temp_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+                                    os.path.join(self.temp_dir, '%s_%s.pickle' % (dkey, self.longname)), 
+                                    logger=log.getChild(dkey))
                 
             #===================================================================
             # wrap
@@ -357,8 +358,8 @@ class RRcoms(Model):
             
         return rdx
     
-    def build_layxport(self, #export layers to library
-                      dkey='layxport',
+    def build_dataExport(self, #export layers to library
+                      dkey='dataExport',
                     lib_dir = None, #library directory
                       overwrite=None,
                       compression='med', #keepin this separate from global compression (which applys to all ops)
@@ -374,7 +375,7 @@ class RRcoms(Model):
         #=======================================================================
         # defaults
         #=======================================================================
-        assert dkey=='layxport'
+        assert dkey=='dataExport'
         if logger is None: logger=self.logger
         log = logger.getChild(dkey)
         if overwrite is None: overwrite=self.overwrite
@@ -403,73 +404,74 @@ class RRcoms(Model):
         """todo: add filesize"""
         ofp_lib = dict()
         cnt0=0
-        for phase, (dki, icoln) in  {
-            'depth':('drlay_lib', resCn),
-             'diff':('difrlay_lib', resCn),
-             'expo':('finv_agg_lib',agCn),
+        for phase, (dki_l, icoln) in  {
+            'depth':(['drlay_lib'], resCn),
+             'diff':(['difrlay_lib'], resCn),
+             'expo':(['finv_agg_lib'],agCn),
             }.items():
             
             #phase selector
             if not phase in phase_l:continue
             
-
-            
- 
             #===================================================================
-            # #retrieve
+            # loop on each key
             #===================================================================
-            lay_lib = self.retrieve(dki)
-            assert_lay_lib(lay_lib, msg=dki)
-            
-            
-            #===============================================================
-            # handle catalog loaded layers
-            #===============================================================
-            if dki in self.dkey_from_cat:
-                log.warning('\'%s\' was loaded from the catalog... skipping'%dki)
-                
-                d = self.load_pick(fp=self.compiled_fp_d[dki], dkey=dkey) 
-                cnt = len(d) 
-                
-            else:
+            for dki in dki_l:
                 #===================================================================
-                # #write each layer to file
+                # #retrieve
                 #===================================================================
-                d=dict()
-                cnt=0
-                for indx, layer_d in lay_lib.items():
- 
-                    d[indx] = self.store_layer_d(layer_d, dki, logger=log,
-                                       write_pick=False, #need to write your own
-                                       out_dir = os.path.join(rlay_dir,dki, '%s%04i'%(icoln[0], indx)),
-                                       compression=compression, add_subfolders=False,overwrite=overwrite,                               
-                                       )
+                lay_lib = self.retrieve(dki)
+                assert_lay_lib(lay_lib, msg=dki)
+                
+                
+                #===============================================================
+                # handle catalog loaded layers
+                #===============================================================
+                if dki in self.dkey_from_cat:
+                    log.warning('\'%s\' was loaded from the catalog... skipping'%dki)
                     
-                    #debug handler
-                    cnt+=1
-                    if not debug_max_len is None:
-                        if cnt>=debug_max_len:
-                            log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
-                            break
-            cnt0+=cnt
-            #===================================================================
-            # compile
-            #===================================================================
-            #dk_clean = dki.replace('_lib','')
-            fp_serx = pd.DataFrame.from_dict(d).stack().swaplevel().rename('fp')
-            fp_serx.index.set_names([icoln, saCn], inplace=True)
-            
-            #===================================================================
-            # filesizes
-            #===================================================================
-            dx = fp_serx.to_frame()
-            dx['fp_sizeMB'] = np.nan
-            for gkeys, fp in fp_serx.items():
-                dx.loc[gkeys, 'fp_sizeMB'] = Path(fp).stat().st_size*1e-6
-            
-            dx.columns.name='stat'
-            assert len(dx)>0
-            ofp_lib[dki] = pd.concat({dki:dx}, axis=1, names=['dkey'])
+                    d = self.load_pick(fp=self.compiled_fp_d[dki], dkey=dkey) 
+                    cnt = len(d) 
+                    
+                else:
+                    #===================================================================
+                    # #write each layer to file
+                    #===================================================================
+                    d=dict()
+                    cnt=0
+                    for indx, layer_d in lay_lib.items():
+     
+                        d[indx] = self.store_layer_d(layer_d, dki, logger=log,
+                                           write_pick=False, #need to write your own
+                                           out_dir = os.path.join(rlay_dir,dki, '%s%04i'%(icoln[0], indx)),
+                                           compression=compression, add_subfolders=False,overwrite=overwrite,                               
+                                           )
+                        
+                        #debug handler
+                        cnt+=1
+                        if not debug_max_len is None:
+                            if cnt>=debug_max_len:
+                                log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
+                                break
+                cnt0+=cnt
+                #===================================================================
+                # compile
+                #===================================================================
+                #dk_clean = dki.replace('_lib','')
+                fp_serx = pd.DataFrame.from_dict(d).stack().swaplevel().rename('fp')
+                fp_serx.index.set_names([icoln, saCn], inplace=True)
+                
+                #===================================================================
+                # filesizes
+                #===================================================================
+                dx = fp_serx.to_frame()
+                dx['fp_sizeMB'] = np.nan
+                for gkeys, fp in fp_serx.items():
+                    dx.loc[gkeys, 'fp_sizeMB'] = Path(fp).stat().st_size*1e-6
+                
+                dx.columns.name='stat'
+                assert len(dx)>0
+                ofp_lib[dki] = pd.concat({dki:dx}, axis=1, names=['dkey'])
             
         #=======================================================================
         # #concat by indexer
@@ -535,7 +537,7 @@ class RRcoms(Model):
             res_dx=self.retrieve('res_dx')
            
         if ldx is None: 
-            ldx = self.retrieve('layxport', id_params=id_params, lib_dir=lib_dir)
+            ldx = self.retrieve('dataExport', id_params=id_params, lib_dir=lib_dir)
         
         assert_index_equal(res_dx.index, ldx.index)    
         #=======================================================================

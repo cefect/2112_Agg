@@ -152,7 +152,7 @@ def dev():
  
  
              },
-        studyArea_l=['obwb', 'LMFRA'],
+        studyArea_l=['obwb'],
         catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydEdev\hydEdev_run_index.csv',
         #phase_l=['depth', 'expo']
         )
@@ -174,8 +174,8 @@ def cvh():
     
 if __name__ == "__main__": 
     
-    #dev()
-    cvh()
+    dev()
+    #cvh()
  
 
     tdelta = datetime.datetime.now() - start

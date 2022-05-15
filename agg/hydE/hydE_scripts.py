@@ -55,6 +55,11 @@ class ExpoRun(RastRun):
                 'build':lambda **kwargs: self.build_finv_agg2(**kwargs),
                 },
             
+            'faggMap':{  #map of aggregated to raw finvs
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),  # vlays need additional loading
+                'build':lambda **kwargs: self.build_faggMap(**kwargs),
+                },
+            
             'finv_sg_lib':{  # sampling geometry
                 'compiled':lambda **kwargs:self.load_layer_lib(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_sampGeo2(**kwargs),
@@ -99,6 +104,7 @@ class ExpoRun(RastRun):
         
         #build the inventory (polygons)
         #self.retrieve('finv_agg_lib')
+        self.retrieve('faggMap')
         
         #build the sampling geometry
         #self.retrieve('finv_sg_lib')
@@ -112,6 +118,7 @@ class ExpoRun(RastRun):
         
         self.retrieve('rsampErr')
         
+
         #reshape for catalog
         #self.retrieve('assetCat')
         
@@ -146,7 +153,7 @@ class ExpoRun(RastRun):
         if write is None: write=self.write
  
         assert dkey in ['finv_agg_lib',
-                        #'finv_agg_mindex', #makes specifycing keys tricky... 
+                        #'faggMap', #makes specifycing keys tricky... 
                         ], 'bad dkey: \'%s\''%dkey
  
         gcn = self.gcn
@@ -226,31 +233,17 @@ class ExpoRun(RastRun):
         # assemble
         #=======================================================================
         
-        dkey1 = 'finv_agg_mindex'
+        dkey1 = 'faggMap'
         df = pd.concat(finv_gkey_df_d, verify_integrity=True, names=[self.saCn, self.ridn]) 
         
         df.columns.name=self.agCn
         #=======================================================================
         # check
         #=======================================================================
-        #retrieve indexers from layer
-        def func(vlay, logger=None, meta_d={}):
-            df = vlay_get_fdf(vlay)
-            assert len(df.columns)==1
-            df1 = df.set_index(gcn).sort_index()
-            df1.index.name=vlay.name()
-            return df1           
         
-        
-        index_lib = self.calc_on_layers(lay_lib=finv_agg_d, func=func, subIndexer='aggLevel', 
-                                  format='dict',
-                            write=False, dkey=dkey1)
-        
-        d = dict()
-        for k,v in index_lib.items():
-            d[k] = pd.concat(v, names=[self.saCn, gcn])
-            
-        mindex = pd.concat(d, names=['aggLevel']).reorder_levels([self.saCn, 'aggLevel', gcn]).sort_index().index
+        #retrieve directly from layres
+        mindex = self.get_indexers_from_layers(lay_lib=finv_agg_d, dkey=dkey)
+
  
         gb = mindex.to_frame().groupby(level=[saCn, 'aggLevel'])
         #check against previous
@@ -275,18 +268,28 @@ class ExpoRun(RastRun):
         # save to data
         self.data_d[dkey1] = copy.deepcopy(df)
  
-        #=======================================================================
-        # return requested data
-        #=======================================================================
-        """while we build two results here... we need to return the one specified by the user
-        the other can still be retrieved from the data_d"""
  
-        if dkey == 'finv_agg_lib':
-            result = finv_agg_d
-        elif dkey == 'finv_agg_mindex':
-            result = df
         
-        return result
+        return finv_agg_d
+    
+    def build_faggMap(self, #construct the map linking 
+                        dkey='faggMap',
+                        finv_agg_lib=None,
+                     #defaults
+                     logger=None,write=None,
+                     ):
+        """typically this is constructed by build_finv_agg2"""
+        raise IOError('no way to retrieve this... need to reconstruct')
+        #=======================================================================
+        # defauts
+        #=======================================================================
+        assert dkey == 'faggMap'
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_faggMap')
+        if write is None: write=self.write
+        
+        if finv_agg_lib is None: 
+            finv_agg_lib=self.retrieve('finv_agg_lib')
     
     def build_sampGeo2(self,  # sampling geometry no each asset
                      dkey='finv_sg_lib',
@@ -629,7 +632,7 @@ class ExpoRun(RastRun):
         reCn=self.resCn
         
         if finv_agg_mindex is None:
-            finv_agg_mindex=self.retrieve('finv_agg_mindex')
+            finv_agg_mindex=self.retrieve('faggMap')
             
         #=======================================================================
         # precheck
@@ -645,6 +648,48 @@ class ExpoRun(RastRun):
         col_l.remove(reCn) 
         
         return fa_mindex.reorder_levels(col_l).sort_values()
+    
+    def get_indexers_from_layers(self, #retrieve indexers from layers
+                     #defaults
+                     lay_lib=None,
+                     dkey='get_indexers'):
+        """only retrives gids (not rawids)"""
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+    
+        gcn=self.gcn
+        agCn=self.agCn
+        #=======================================================================
+        # retrival
+        #=======================================================================
+        if lay_lib is None:
+            lay_lib = self.retrieve('finv_agg_lib')
+ 
+        
+        
+        #retrieve indexers from layer
+        def func(vlay, logger=None, meta_d={}):
+            df = vlay_get_fdf(vlay)
+            assert len(df.columns)==1
+            df1 = df.set_index(gcn).sort_index()
+            df1.index.name=vlay.name()
+            return df1           
+        
+        
+        index_lib = self.calc_on_layers(lay_lib=lay_lib, func=func, subIndexer=agCn, 
+                                  format='dict',
+                            write=False, dkey=dkey)
+        
+        d = dict()
+        for k,v in index_lib.items():
+            d[k] = pd.concat(v, names=[self.saCn, gcn])
+            
+            
+        mindex = pd.concat(d, names=[agCn]).reorder_levels([self.saCn, agCn, gcn]).sort_index().index
+        
+        return mindex
         
  
         
@@ -689,7 +734,7 @@ class ExpoRun(RastRun):
             
         serx = dx.stack().swaplevel().sort_index().rename('rsamps')
         if finv_agg_mindex is None:
-            finv_agg_mindex = self.retrieve('finv_agg_mindex')
+            finv_agg_mindex = self.retrieve('faggMap')
             
             
         #=======================================================================
