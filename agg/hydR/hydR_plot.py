@@ -59,25 +59,14 @@ from hp.pd import get_bx_multiVal
 #from hp.animation import capture_images
 
 class RasterPlotr(RastRun, Plotr): #analysis of model results
-
-    
-        #colormap per data type
-    colorMap_d = {
- 
-        'studyArea':'Dark2',
- 
-        'resolution':'copper',
-        'dkey':'Pastel2',
-        'dsampStage':'Set1',
-        'downSampling':'Set1',
- 
-        }
+    index_col = list(range(5))
     
     def __init__(self,
  
                  name='hydR_plot',
                  plt=None,
                  exit_summary=False,
+                 colorMap_d={},
                  **kwargs):
         
         data_retrieve_hndls = {
@@ -88,6 +77,15 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
             
             }
         
+        colorMap_d.update({
+            'studyArea':'Dark2',
+            'resolution':'copper',
+            'dkey':'Pastel2',
+            'dsampStage':'Set1',
+            'downSampling':'Set1', 
+                        })
+        
+        self.colorMap_d=colorMap_d
         self.plt=plt
         
         super().__init__(data_retrieve_hndls=data_retrieve_hndls,name=name,init_plt_d=None,
@@ -108,7 +106,9 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         assert dkey=='catalog'
         if catalog_fp is None: catalog_fp=self.catalog_fp
         
-        return Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False, **kwargs).get()
+        return Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False,
+                       index_col=self.index_col,
+                        **kwargs).get()
     
 
  

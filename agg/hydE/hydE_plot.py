@@ -51,31 +51,33 @@ matplotlib.rcParams['legend.title_fontsize'] = 'large'
 
 print('loaded matplotlib %s'%matplotlib.__version__)
 
-from hydR.hydR_plot import RasterPlotr
+from agg.hydR.hydR_plot import RasterPlotr
+from agg.hydE.hydE_scripts import ExpoRun
 from hp.plot import Plotr
 from hp.gdal import rlay_to_array, getRasterMetadata
 from hp.basic import set_info, get_dict_str
-from hp.pd import get_bx_multiVal
+from hp.pd import get_bx_multiVal, view
 #from hp.animation import capture_images
 
-class ExpoPlotr(RasterPlotr): #analysis of model results
+class ExpoPlotr(RasterPlotr, ExpoRun): #analysis of model results
 
-    
-        #colormap per data type
-    colorMap_d = {
- 
- 
-        }
-    
+    index_col = list(range(8))
     def __init__(self,
  
                  name='hydE_plot',
+                 colorMap_d={
+                     
+                     },
  
                  **kwargs):
         
+        
+        colorMap_d.update({
+            'aggLevel':'copper'
+                        })
  
         
-        super().__init__(name=name, **kwargs)
+        super().__init__(name=name,colorMap_d=colorMap_d, **kwargs)
         
  
     
@@ -130,24 +132,81 @@ def run( #run a basic model configuration
         #=======================================================================
         #change order
         dx_raw = ses.retrieve('catalog').loc[idx[('obwb', 'LMFRA', 'Calgary', 'noise'), :], :]
+        
+        #just the expo stats
+        dx1 = dx_raw.loc[:, idx[('rsampStats'), :]].droplevel(0, axis=1)
         """
         view(dx_raw)
         """
  
         #resolution filtering
         hi_res=10**3 #max we're using for hyd is 300
-        hr_dx = dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
+        hr_dx = dx1.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
         
  
         
         figsize=(8,12)
-        for plotName, dx, xlims,  ylims,xscale, yscale, drop_zeros in [
-            ('',dx_raw, None,None, 'log', 'linear', True),
+        for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
+            ('',dx1, None,None, 'log', 'linear', True),
  
             #('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
             #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
             ]:
             print('\n\n%s\n\n'%plotName)
+            
+            #=======================================================================
+            # multi-metric vs Resolution---------
+            #=======================================================================
+            #nice plot showing the major raw statistics 
+            col_d={
+                'mean': 'sampled mean (m)',
+                #'max': 'sampled max (m)',
+                #'min': 'sampled min (m)',
+                'wet_mean': 'sampled wet mean (m)',
+                #'wet_max': 'sampled wet max (m)',
+                #'wet_min': 'sampled wet min (m)',
+                'wet_pct': 'wet assets (pct)'
+                }
+
+     
+            #===================================================================
+            # compare dsampStage
+            #===================================================================
+            bx = dxi.index.get_level_values('downSampling')=='Average'
+            
+ 
+
+            """
+            view(dx)
+            """
+            #===================================================================
+            # ses.plot_StatXVsResolution(
+            #     set_ax_title=False,
+            #     dx_raw=dx[bx].droplevel(0, axis=1), 
+            #     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
+            #     title=plotName)
+            #===================================================================
+            
+            #===================================================================
+            # compare downSampling
+            #===================================================================
+            print('\n\n %s: downSampling comparison\n\n'%plotName)
+            
+            for dsampStage in [
+                #'postFN', 
+                'pre']:
+                bx = dxi.index.get_level_values('dsampStage')==dsampStage
+                assert bx.any()
+    
+                """
+                view(dxi)
+                """
+                ses.plot_StatXVsResolution(
+                    set_ax_title=False,
+                    dx_raw=dxi[bx], 
+                    coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
+                    title=plotName + '_'+dsampStage, plot_bgrp='aggLevel')
+                                       
  
  
             
@@ -160,7 +219,7 @@ def run( #run a basic model configuration
  
 
 def r01():
-    return run(tag='r01',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv',)
+    return run(tag='r01',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydE01\hydE01_run_index.csv',)
 
 if __name__ == "__main__": 
     #wet mean
