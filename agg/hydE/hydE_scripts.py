@@ -43,7 +43,7 @@ class ExpoRun(RastRun):
     def __init__(self,
                  name='expo',
                  data_retrieve_hndls={},
-                 pick_index_map={},
+                 pick_index_map={},phase_d={},
                  **kwargs):
         
 
@@ -91,10 +91,21 @@ class ExpoRun(RastRun):
             'finv_agg_lib':(self.agCn, self.saCn),
             })
         pick_index_map['finv_sg_lib'] = copy.copy(pick_index_map['finv_agg_lib'])
+        
+        
+        #=======================================================================
+        # phase
+        #=======================================================================
+        phase_d.update({
+ 
+            'expo':('rsampStats','rsampErr')
+            
+            })
+        
  
         
         
-        super().__init__( pick_index_map=pick_index_map,
+        super().__init__( pick_index_map=pick_index_map,phase_d=phase_d,
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
         

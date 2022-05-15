@@ -41,6 +41,7 @@ class RRcoms(Model):
     def __init__(self,
                   lib_dir=None,
                   data_retrieve_hndls={},
+                  phase_d={},phase_l=None,
                  **kwargs):
         
         data_retrieve_hndls = {**data_retrieve_hndls, **{
@@ -55,6 +56,21 @@ class RRcoms(Model):
                 'build':lambda **kwargs:self.build_dataExport(**kwargs), #
                 },
             }}
+        
+            
+        
+        #=======================================================================
+        # handle phase keys
+        #=======================================================================
+        if phase_l is None:
+            phase_l=list(phase_d.keys())
+            
+        for p in phase_l:
+            assert p in phase_d
+            
+        self.phase_d={k:v for k,v in phase_d.items() if k in phase_l}
+        self.phase_l=phase_l
+        
         
         super().__init__(data_retrieve_hndls=data_retrieve_hndls, **kwargs)
                 
@@ -77,7 +93,9 @@ class RRcoms(Model):
                        logger=None,
                        pick_index_map=None,
                        studyArea_l=None, #for checks
+                       #phase_d=None,
                        index_col=None,
+                       dkey_skip_l=[],
                        ):
         """
         because we generally execute a group of parameterizations (id_params) as 1 run (w/ a batch script)
@@ -99,8 +117,11 @@ class RRcoms(Model):
         if studyArea_l is None:
             studyArea_l=list(self.proj_lib.keys())
             
+        #if phase_d is None: phase_d=self.phase_d
+            
         id_params = id_params.copy()
         
+        #dkey_l = {e for k,v in phase_d.items() for e in v}
         #=======================================================================
         # for dkey in dkey_l:
         #     assert dkey in pick_index_map
@@ -140,6 +161,8 @@ class RRcoms(Model):
             cnt=0
             for dkey, gdx in dx_raw.loc[bx, :].droplevel(list(id_params.keys())).groupby(level='dkey', axis=1):
                 if dkey.startswith('_'): continue #special meta
+                
+                if dkey in dkey_skip_l: continue #skip those not specified
                 
                 if dkey in ['finv_agg_lib']:
                     log.warning('%s not impleented... skipping'%dkey)
@@ -273,12 +296,7 @@ class RRcoms(Model):
         dkey='res_dx',
         
         phase_l=None,
-        phase_d = {
-            'depth':('rstats', 'wetStats', 'gwArea','noData_cnt', 'noData_pct'),
-            'diff':('rstatsD','rmseD'),
-            'expo':('rsampStats','rsampErr')
-            
-            },
+        phase_d = None,
 
         logger=None,write=None,
          ):
@@ -291,6 +309,7 @@ class RRcoms(Model):
         assert dkey=='res_dx'
  
         if phase_l is None: phase_l=self.phase_l
+        if phase_d is None: phase_d=self.phase_d.copy()
  
         #clean out
         phase_d = {k:v for k,v in phase_d.items() if k in phase_l}

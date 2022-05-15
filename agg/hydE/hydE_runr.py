@@ -42,7 +42,7 @@ def run( #run a basic model configuration
         proj_lib = None,
         
         #running from teh catalog
-        catalog_fp=None,index_col=None,
+        catalog_fp=None,index_col=None,dkey_skip_l=['difrlay_lib'],
         
         #=======================================================================
         # session pars
@@ -113,7 +113,7 @@ def run( #run a basic model configuration
         # precompiole from catalog
         #=======================================================================
         if not catalog_fp is None:
-            ses.compileFromCat(catalog_fp=catalog_fp,id_params=id_params, index_col=index_col)
+            ses.compileFromCat(catalog_fp=catalog_fp,id_params=id_params, index_col=index_col, dkey_skip_l=dkey_skip_l)
         #=======================================================================
         # call each phase
         #=======================================================================

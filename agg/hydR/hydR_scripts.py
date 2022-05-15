@@ -41,6 +41,7 @@ class RastRun(RRcoms):
                  data_retrieve_hndls={},
                  rcol_l=None, 
                  pick_index_map={},
+                 phase_d={},
                  **kwargs):
         
         
@@ -94,20 +95,31 @@ class RastRun(RRcoms):
                 'build':lambda **kwargs: self.build_rmseD(**kwargs),
                 },
  
-            
-
-            
- 
-                        
+           
             }}
         
+        #=======================================================================
+        # pickle indexers
+        #=======================================================================
         pick_index_map.update({
             'drlay_lib':(self.resCn, self.saCn),
             })
         pick_index_map['difrlay_lib'] = copy.copy(pick_index_map['drlay_lib'])
         self.pick_index_map=pick_index_map
         
-        super().__init__( 
+        #=======================================================================
+        # phase
+        #=======================================================================
+        phase_d.update({
+            'depth':('rstats', 'wetStats', 'gwArea','noData_cnt', 'noData_pct'),
+            'diff':('rstatsD','rmseD'),
+ 
+            
+            })
+        
+        
+        
+        super().__init__(phase_d=phase_d,
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
         
