@@ -9,11 +9,14 @@ Created on May 15, 2022
 # imports-----------
 #===============================================================================
 import os, datetime, math, pickle, copy, sys
+from pathlib import Path
+
 import qgis.core
 from qgis.core import QgsRasterLayer, QgsMapLayerStore
 import pandas as pd
 import numpy as np
  
+from pandas.testing import assert_index_equal, assert_frame_equal, assert_series_equal
 
 idx = pd.IndexSlice
 from hp.exceptions import Error
@@ -25,8 +28,8 @@ from agg.hyd.hscripts import Model
 
 class RRcoms(Model):
     resCn='resolution'
-    ridn='rawid'
-    agCn='aggLevel'
+    
+    
     saCn='studyArea'
     
     id_params=dict()
@@ -42,6 +45,90 @@ class RRcoms(Model):
             lib_dir = os.path.join(self.work_dir, 'lib', self.name)
         #assert os.path.exists(lib_dir), lib_dir
         self.lib_dir=lib_dir
+        
+        
+    #===========================================================================
+    # COMPILEERS----
+    #===========================================================================
+    def compileFromCat(self, #construct pickle from the catalog and add to compiled
+                       catalog_fp='',
+                       #dkey_l = ['drlay_lib'], #dkeys to laod
+                       
+                       id_params={}, #index values identifying this run
+                       
+                       logger=None,
+                       pick_index_map=None,
+                       ):
+        """
+        because we generally execute a group of parameterizations (id_params) as 1 run (w/ a batch script)
+            then compile together in the catalog for analysis
+            
+        loading straight from the catalog is nice if we want to add one calc to the catalog set
+        
+        our framework is still constrained to only execute 1 parameterization per call
+            add a wrapping for loop to execute on the whole catalog
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        if pick_index_map is None: pick_index_map=self.pick_index_map
+        log=logger.getChild('compileFromCat')
+        
+        #=======================================================================
+        # for dkey in dkey_l:
+        #     assert dkey in pick_index_map
+        #     assert not dkey in self.compiled_fp_d, dkey
+        #=======================================================================
+        #=======================================================================
+        # load the catalog
+        #=======================================================================
+        
+        with Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False,
+                       index_col=self.index_col ) as cat:
+            
+            #===================================================================
+            # data prep
+            #===================================================================
+            dx_raw=cat.get()
+            
+            bx = get_bx_multiVal(dx_raw, id_params, matchOn='index', log=log)
+            
+            #===================================================================
+            # loop and build
+            #===================================================================
+            cnt=0
+            for dkey, gdx in dx_raw.loc[bx, :].droplevel(list(id_params.keys())).groupby(level='dkey', axis=1):
+                print(dkey)
+            
+ 
+                log.info('\n\n on %s\n\n'%dkey)
+                
+                #===============================================================
+                # filepaths
+                #===============================================================
+                if 'fp' in gdx.columns.unique(1):
+                
+                    #pull the filepaths from the catalog
+                    assert dkey in pick_index_map
+                    res = cat.get_dkey_fp(dkey=dkey, pick_indexers=pick_index_map[dkey], dx_raw=gdx)
+                    
+                #===============================================================
+                # data frames
+                #===============================================================
+                else:
+                    res = gdx.droplevel(0, axis=1).sort_index()
+                    
+                
+                #save as a pickel
+                """writing to temp as we never store these"""
+                cnt+=1
+                self.compiled_fp_d[dkey] = self.write_pick(res, 
+                                    os.path.join(self.temp_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+                
+        log.info('finished on %i'%cnt)
+        
+        return
         
     def store_lay_lib(self,  res_lib,dkey,
                       out_dir=None, 
@@ -69,6 +156,367 @@ class RRcoms(Model):
         #=======================================================================
         self.ofp_d[dkey] = self.write_pick(ofp_lib, 
             os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
+        
+    #============================================================================
+    # COMBINERS------------
+    #============================================================================
+    def build_resdx(self, #just combing all the results
+        dkey='res_dx',
+        
+        phase_l=None,
+        phase_d = {
+            'depth':('rstats', 'wetStats', 'gwArea','noData_cnt', 'noData_pct'),
+            'diff':('rstatsD','rmseD'),
+            'expo':('rsampStats',)
+            
+            },
+
+        logger=None,write=None,
+         ):
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('build_resdx')
+        if write is None: write=self.write
+        assert dkey=='res_dx'
+        resCn = self.resCn 
+        saCn = self.saCn
+        agCn=self.agCn
+        if phase_l is None: phase_l=self.phase_l
+ 
+        #clean out
+        phase_d = {k:v for k,v in phase_d.items() if k in phase_l}
+        
+        #=======================================================================
+        # reindexing functions
+        #=======================================================================
+        from agg.hydE.hydE_scripts import cat_reindex as hydE_reindexer
+        
+        reindex_d = {'expo':lambda x:x.sort_index(sort_remaining=True),
+                     'depth':lambda x:x.sort_index(sort_remaining=True),
+                     'diff':lambda x:x.sort_index(sort_remaining=True)}
+        
+        #=======================================================================
+        # retrieve and check all
+        #=======================================================================
+        
+        res_d=dict()
+        for phase, dki_l in phase_d.items():
+            d = dict()
+            first = True
+            for dki in dki_l:
+                raw = self.retrieve(dki)
+                
+                #use reindexer func for this pahse
+                dx = reindex_d[phase](raw) 
+                
+                #assert np.array_equal(dx.index.names, np.array([resCn, saCn])), dki
+                 
+                #check consistency within phase
+                if first:
+                    dx_last = dx.copy()
+                    first = False
+                else:      
+                    assert_index_equal(dx.index, dx_last.index)
+                    
+    
+                d[dki] = dx.sort_index()
+            
+            res_d[phase] = pd.concat(d, axis=1, names=['dkey', 'stat'])
+ 
+ 
+        #=======================================================================
+        # assemble by type
+        #=======================================================================
+        first=True
+        for phase, dxi in res_d.items():
+            #get first
+            if first:
+                rdx=dxi.copy()
+                first=False
+                continue
+            
+            el_d = set_info(dxi.index.names, rdx.index.names)
+            #===================================================================
+            # simple joins
+            #===================================================================
+            if len(el_d['symmetric_difference'])==0: 
+                dxi = dxi.reorder_levels(rdx.index.names).sort_index()
+                assert_index_equal(dxi.index, rdx.index)
+ 
+                rdx = rdx.join(dxi)
+                
+            #===================================================================
+            # expanding join
+            #===================================================================
+            elif len(el_d['diff_left'])==1:
+ 
+                new_name=list(el_d['diff_left'])[0]
+                
+                #check the existing indexers match
+                skinny_mindex = dxi.index.droplevel(new_name).to_frame().drop_duplicates(
+                        ).sort_index().index.reorder_levels(rdx.index.names).sort_values()
+                        
+                assert_index_equal(skinny_mindex,rdx.index)
+                
+                #simple join seems to work
+                rdx = rdx.join(dxi).sort_index()
+                
+            elif len(el_d['diff_right'])==1:
+                """trying to join a smaller index onto the results which have already been expanded"""
+                raise IOError('not implmeented')
+ 
+            
+            else:
+                raise IOError(el_d)        
+        
+ 
+ 
+        """
+        view(rdx)
+        """
+        
+        rdx = rdx.reorder_levels(self.rcol_l, axis=0).sort_index()
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished on %s'%str(rdx.shape))
+        if write:
+            self.ofp_d[dkey] = self.write_pick(rdx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+            
+        return rdx
+    
+    def build_layxport(self, #export layers to library
+                      dkey='layxport',
+                    lib_dir = None, #library directory
+                      overwrite=None,
+                      compression='med', #keepin this separate from global compression (which applys to all ops)
+                      
+                      id_params = {}, #additional parameter values to use as indexers in teh library
+                      debug_max_len = None,
+                      phase_l=None,
+                      write=None, logger=None):
+        """no cleanup here
+        setup for one write per parameterization"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        assert dkey=='layxport'
+        if logger is None: logger=self.logger
+        log = logger.getChild(dkey)
+        if overwrite is None: overwrite=self.overwrite
+        if write is None: write=self.write
+        if lib_dir is None:
+            lib_dir = self.lib_dir
+        
+        if phase_l is None: phase_l=self.phase_l
+            
+        assert os.path.exists(lib_dir), lib_dir
+        resCn=self.resCn
+        saCn=self.saCn
+        agCn=self.agCn
+        
+ 
+        #=======================================================================
+        # setup filepaths4
+        #=======================================================================
+        
+        rlay_dir = os.path.join(lib_dir, 'data', *list(id_params.values()))
+ 
+ 
+        #=======================================================================
+        # re-write raster layers
+        #=======================================================================
+        """todo: add filesize"""
+        ofp_lib = dict()
+        cnt0=0
+        for phase, (dki, icoln) in  {
+            'depth':('drlay_lib', resCn),
+             'diff':('difrlay_lib', resCn),
+             'expo':('finv_agg_lib',agCn),
+            }.items():
+            
+            #phase selector
+            if not phase in phase_l:continue
+            
+            #===================================================================
+            # #add pages
+            #===================================================================
+            #===================================================================
+            # if not icoln in ofp_lib:
+            #     ofp_lib[icoln] = dict()
+            #===================================================================
+            
+ 
+            #===================================================================
+            # #retrieve
+            #===================================================================
+            lay_lib = self.retrieve(dki)
+            assert_lay_lib(lay_lib, msg=dki)
+            
+            #===================================================================
+            # #write each layer to file
+            #===================================================================
+            d=dict()
+            cnt=0
+            for indx, layer_d in lay_lib.items():
+    
+                d[indx] = self.store_layer_d(layer_d, dki, logger=log,
+                                   write_pick=False, #need to write your own
+                                   out_dir = os.path.join(rlay_dir,dki, '%s%04i'%(icoln[0], indx)),
+                                   compression=compression, add_subfolders=False,overwrite=overwrite,                               
+                                   )
+                
+                #debug handler
+                cnt+=1
+                if not debug_max_len is None:
+                    if cnt>=debug_max_len:
+                        log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
+                        break
+            cnt0+=cnt
+            #===================================================================
+            # compile
+            #===================================================================
+            #dk_clean = dki.replace('_lib','')
+            fp_serx = pd.DataFrame.from_dict(d).stack().swaplevel().rename('fp')
+            fp_serx.index.set_names([icoln, saCn], inplace=True)
+            
+            #===================================================================
+            # filesizes
+            #===================================================================
+            dx = fp_serx.to_frame()
+            dx['fp_sizeMB'] = np.nan
+            for gkeys, fp in fp_serx.items():
+                dx.loc[gkeys, 'fp_sizeMB'] = Path(fp).stat().st_size*1e-6
+            
+            dx.columns.name='stat'
+            assert len(dx)>0
+            ofp_lib[dki] = pd.concat({dki:dx}, axis=1, names=['dkey'])
+            
+        #=======================================================================
+        # #concat by indexer
+        #=======================================================================
+        """because phases have separate indexers but both use this function:
+            depths + diffs: indexed by resolution
+            expo: indexed by aggLevel
+            
+        """
+        rdx =None
+        for dki, dxi in ofp_lib.items():
+            if rdx is None: 
+                rdx = dxi.copy()
+            else:
+                rdx = rdx.merge(dxi, how='outer', left_index=True, right_index=True, sort=True)
+                
+                """
+                view(rdx.merge(dxi, how='outer', left_index=True, right_index=True))
+                """
+ 
+        rdx = rdx.reorder_levels(self.rcol_l, axis=0).sort_index()
+        #=======================================================================
+        # write
+        #=======================================================================
+        log.info('finished writing %i'%cnt0)
+        if write:
+            self.ofp_d[dkey] = self.write_pick(rdx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+            
+        return rdx
+        
+   
+
+    def write_lib(self,
+                  catalog_fp=None,
+                  lib_dir = None, #library directory
+                  res_dx = None, ldx=None,
+                  overwrite=None, logger=None,
+                  id_params={},
+                  ):
+        
+        #=======================================================================
+        # defautls
+        #=======================================================================
+        if overwrite is None: overwrite=self.overwrite
+        if logger is None: logger=self.logger
+        log=logger.getChild('write_lib')
+        
+        resCn=self.resCn
+        saCn=self.saCn
+        agCn=self.agCn
+        
+        
+        if lib_dir is None:
+            lib_dir = self.lib_dir
+            
+        if catalog_fp is None: 
+            catalog_fp = os.path.join(lib_dir, '%s_run_index.csv'%self.name)
+            
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        if res_dx is None:
+            res_dx=self.retrieve('res_dx')
+           
+        if ldx is None: 
+            ldx = self.retrieve('layxport', id_params=id_params, lib_dir=lib_dir)
+        
+        assert_index_equal(res_dx.index, ldx.index)    
+        #=======================================================================
+        # build catalog--------
+        #=======================================================================
+        cdx = res_dx.join(ldx)
+ 
+        
+        
+        #=======================================================================
+        # #add additional indexers
+        #=======================================================================
+        #add singgle value levels from a dictionary
+        mdex_df = cdx.index.to_frame().reset_index(drop=True)
+        for k,v in id_params.items():
+            mdex_df[k] = v
+            
+            #remove from cols
+            if k in cdx.columns.get_level_values(1):
+                """TODO: check the values are the same"""
+                cdx = cdx.drop(k, level=1, axis=1)
+            
+        cdx.index = pd.MultiIndex.from_frame(mdex_df)
+        
+        #=======================================================================
+        # add metadata
+        #=======================================================================
+        meta_d = {'tag':self.tag, 'date':datetime.datetime.now().strftime('%y-%m-%d.%H%M'),
+                  'runtime_mins':(datetime.datetime.now() - self.start).total_seconds()/60.0
+                  }
+        cdx = cdx.join(pd.concat({'_meta':pd.DataFrame(meta_d, index=cdx.index)}, axis=1))
+ 
+ 
+        
+        #=======================================================================
+        # write catalog-----
+        #=======================================================================
+        miss_l = set(cdx.index.names).difference(Catalog.keys)
+        assert len(miss_l)==0, 'key mistmatch with catalog worker: %s'%miss_l
+        
+        with Catalog(catalog_fp=catalog_fp, overwrite=overwrite, logger=log, 
+                     index_col=list(range(len(cdx.index.names)))
+                                    ) as cat:
+            for rkeys, row in cdx.iterrows():
+                keys_d = dict(zip(cdx.index.names, rkeys))
+                cat.add_entry(row, keys_d, logger=log.getChild(str(rkeys)))
+        
+        
+        """
+        rdx.index.names.to_list()
+        view(cdx)
+        """
+        log.info('finished')
+        return catalog_fp
 
 class Catalog(object): #handling the simulation index and library
     df=None

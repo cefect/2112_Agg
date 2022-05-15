@@ -136,21 +136,21 @@ def dev():
  
  
         compiled_fp_d={
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\drlay_lib_hydE_dev_dev_0514.pickle',
-        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\noData_cnt_hydE_dev_dev_0514.pickle',
-        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\rstats_hydE_dev_dev_0514.pickle',
-        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\wetStats_hydE_dev_dev_0514.pickle',
-        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydE_dev\dev\20220514\working\gwArea_hydE_dev_dev_0514.pickle',
-        
-        'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\finv_agg_lib_hydEdev_dev_0514.pickle',
-        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\finv_agg_mindex_hydEdev_dev_0514.pickle',
-        'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\finv_sg_lib_hydEdev_dev_0514.pickle',
-        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\rsamps_hydEdev_dev_0514.pickle',
-        'rsampStats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\rsampStats_hydEdev_dev_0514.pickle',
-        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220514\working\res_dx_hydEdev_dev_0514.pickle',
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\drlay_lib_hydEdev_dev_0515.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\noData_cnt_hydEdev_dev_0515.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\rstats_hydEdev_dev_0515.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\wetStats_hydEdev_dev_0515.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\gwArea_hydEdev_dev_0515.pickle',
+
+        'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_agg_lib_hydEdev_dev_0515.pickle',
+        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_agg_mindex_hydEdev_dev_0515.pickle',
+        'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_sg_lib_hydEdev_dev_0515.pickle',
+        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\rsamps_hydEdev_dev_0515.pickle',
+        'rsampStats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\rsampStats_hydEdev_dev_0515.pickle',
+ 
              },
-        #studyArea_l=['obwb'],
-        #phase_l=['depth']
+        studyArea_l=['obwb', 'LMFRA'],
+        #phase_l=['depth', 'expo']
         )
 
  

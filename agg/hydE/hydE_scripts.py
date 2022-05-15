@@ -34,6 +34,9 @@ from agg.hydR.hr_scripts import RastRun
 class ExpoRun(RastRun):
     phase_l=['depth', 'diff', 'expo']
     index_col = list(range(8))
+    
+    agCn='aggLevel'
+    ridn='rawid'
  
     def __init__(self,
                  name='expo',
@@ -65,6 +68,11 @@ class ExpoRun(RastRun):
                 'build':lambda **kwargs: self.build_rsampStats(**kwargs),
                 },
             
+            'rsampErr':{  # lib of aggrtevated finv vlays
+                'compiled':lambda **kwargs:self.load_pick(**kwargs),  # vlays need additional loading
+                'build':lambda **kwargs: self.build_rsampErr(**kwargs),
+                },
+            
             'assetCat':{  # lib of aggrtevated finv vlays
                 'compiled':lambda **kwargs:self.load_pick(**kwargs),  # vlays need additional loading
                 'build':lambda **kwargs: self.build_assetCat(**kwargs),
@@ -81,16 +89,19 @@ class ExpoRun(RastRun):
     def runExpo(self):
         
         #build the inventory (polygons)
-        self.retrieve('finv_agg_lib')
+        #self.retrieve('finv_agg_lib')
         
         #build the sampling geometry
-        self.retrieve('finv_sg_lib')
+        #self.retrieve('finv_sg_lib')
         
         #sample all the rasters
         self.retrieve('rsamps')
         
         #get per-run stats
         self.retrieve('rsampStats')
+        
+        
+        self.retrieve('rsampErr')
         
         #reshape for catalog
         #self.retrieve('assetCat')
@@ -207,9 +218,9 @@ class ExpoRun(RastRun):
         #=======================================================================
         
         dkey1 = 'finv_agg_mindex'
-        dx = pd.concat(finv_gkey_df_d, verify_integrity=True, names=[self.saCn, self.ridn]) 
+        df = pd.concat(finv_gkey_df_d, verify_integrity=True, names=[self.saCn, self.ridn]) 
         
- 
+        df.columns.name=self.agCn
         #=======================================================================
         # check
         #=======================================================================
@@ -234,7 +245,7 @@ class ExpoRun(RastRun):
  
         gb = mindex.to_frame().groupby(level=[saCn, 'aggLevel'])
         #check against previous
-        for aggLevel, col in dx.items():
+        for aggLevel, col in df.items():
             for studyArea, gcol in col.groupby(level=self.saCn):
                 layVals = gb.get_group((studyArea, aggLevel)).index.unique(gcn).values
                 d = set_info(gcol.values, layVals, result='counts')
@@ -249,11 +260,11 @@ class ExpoRun(RastRun):
         #=======================================================================
         # save the pickle
         if write:
-            self.ofp_d[dkey1] = self.write_pick(dx,
+            self.ofp_d[dkey1] = self.write_pick(df,
                            os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey1, self.longname)), logger=log)
         
         # save to data
-        self.data_d[dkey1] = copy.deepcopy(dx)
+        self.data_d[dkey1] = copy.deepcopy(df)
  
         #=======================================================================
         # return requested data
@@ -264,7 +275,7 @@ class ExpoRun(RastRun):
         if dkey == 'finv_agg_lib':
             result = finv_agg_d
         elif dkey == 'finv_agg_mindex':
-            result = dx
+            result = df
         
         return result
     
@@ -386,17 +397,22 @@ class ExpoRun(RastRun):
                             drlay_lib=drlay_lib,finv_agg_lib=finv_agg_lib,
                             **kwargs)
  
- 
+        #=======================================================================
+        # reshape results
+        #=======================================================================
         rdx = pd.concat(res_d, names=[self.saCn])
         rdx.columns.name='resolution'
+        rserx = rdx.stack().swaplevel().sort_index().rename(dkey)
+        
+        #join 
         #=======================================================================
         # write
         #=======================================================================
         if write:
-            self.ofp_d[dkey] = self.write_pick(rdx,
+            self.ofp_d[dkey] = self.write_pick(rserx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
-        return rdx
+        return rserx
         
 
     def build_rsampStats(self,  # sample all the rasters and all the finvs
@@ -421,8 +437,8 @@ class ExpoRun(RastRun):
         #=======================================================================
         # retrieve
         #=======================================================================
-        dx = self.retrieve('rsamps')
-        serx = dx.stack().swaplevel().sort_index()
+        serx = self.retrieve('rsamps')
+ 
  
         #=======================================================================
         # helpers
@@ -466,6 +482,93 @@ class ExpoRun(RastRun):
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
                                    logger=log)
         return rserx
+    
+    def build_rsampErr(self,  # sample all the rasters and all the finvs
+                       dkey='rsampErr',
+ 
+                       write=None, logger=None,**kwargs):
+        """
+        see self.build_rsamps()
+ 
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('build_rsampErr')
+        if write is None: write=self.write
+        gcn = self.gcn
+        agCn=self.agCn
+        saCn=self.saCn
+        reCn=self.resCn
+        #=======================================================================
+        # retrieve
+        #=======================================================================
+        dx_raw = self.retrieve('rsamps')
+        fa_mindex = self.get_faMindex()
+        
+            
+        #=======================================================================
+        # prep
+        #=======================================================================
+        #disaggregate
+        dx1 = self.get_aggregate(dx_raw, mindex=fa_mindex, aggMethod='join', logger=log)
+ 
+ 
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        """no... storing in the native format of this worker
+        #unstack to match hydR catalog indexing
+        resdx = self._cat_reindex(rserx)"""
+        
+        
+        if write:
+            self.ofp_d[dkey] = self.write_pick(rserx,
+                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   logger=log)
+        return rserx
+    
+    def get_faMindex(self, #get raw-agg keys mapped as a multiindex
+ 
+                     finv_agg_mindex=None,
+                     logger=None):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log = logger.getChild('append_rawid')
+        
+        
+        ridn=self.ridn
+        gcn = self.gcn
+        agCn=self.agCn
+ 
+        reCn=self.resCn
+        
+        if finv_agg_mindex is None:
+            finv_agg_mindex=self.retrieve('finv_agg_mindex')
+            
+        #=======================================================================
+        # precheck
+        #=======================================================================        
+        assert finv_agg_mindex.columns.name == agCn
+        assert ridn in finv_agg_mindex.index.names        
+        #=======================================================================
+        # join
+        #=======================================================================
+        fa_mindex = finv_agg_mindex.stack().rename(gcn).to_frame().set_index(gcn, append=True).sort_index().index
+        
+        col_l = self.rcol_l.copy() + [gcn, ridn]
+        col_l.remove(reCn) 
+        
+        return fa_mindex.reorder_levels(col_l).sort_values()
+        
+ 
+        
     
     def build_assetCat(self, #reshape asset data to match raster catalog
                        dkey='assetCat',
