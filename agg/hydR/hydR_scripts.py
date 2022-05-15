@@ -520,7 +520,7 @@ class RastRun(RRcoms):
                 if first:
                     """not sure why this is needed?"""
                     rlay = self.get_layer(self.warpreproject(rlay, 
-                                  output=os.path.join(temp_dir, os.path.basename(rlay.source())), 
+                                  output=os.path.join(temp_dir, rlay.name()+'.tif'), 
                                     resolution=resolution, compression='none', crsOut=self.qproj.crs(),   
                                     logger=log), mstore=mstore)
                     
@@ -789,7 +789,10 @@ class RastRun(RRcoms):
         
  
         mstore.removeAllMapLayers()
-        return self.rlay_load(diff_fp2, logger=log)
+        
+        rlay = self.rlay_load(diff_fp2, logger=log)
+        rlay.setName('%s_diff'%top_rlay.name())
+        return rlay
  
 
 

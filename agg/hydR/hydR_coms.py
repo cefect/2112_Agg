@@ -77,6 +77,7 @@ class RRcoms(Model):
                        logger=None,
                        pick_index_map=None,
                        studyArea_l=None, #for checks
+                       index_col=None,
                        ):
         """
         because we generally execute a group of parameterizations (id_params) as 1 run (w/ a batch script)
@@ -94,8 +95,11 @@ class RRcoms(Model):
         if pick_index_map is None: pick_index_map=self.pick_index_map
         log=logger.getChild('compileFromCat')
         saCn=self.saCn
+        if index_col is None: index_col=self.index_col
         if studyArea_l is None:
             studyArea_l=list(self.proj_lib.keys())
+            
+        id_params = id_params.copy()
         
         #=======================================================================
         # for dkey in dkey_l:
@@ -107,12 +111,17 @@ class RRcoms(Model):
         #=======================================================================
         
         with Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False,
-                       index_col=self.index_col ) as cat:
+                       index_col=index_col ) as cat:
             
             #===================================================================
             # data prep
             #===================================================================
             dx_raw=cat.get()
+            
+            for k in id_params.copy().keys():
+                if not k in dx_raw.index.names:
+                    log.warning('passed indexer \'%s\' not in cattalog... ignoring'%k)
+                    del id_params[k]
             
             bx = get_bx_multiVal(dx_raw, id_params, matchOn='index', log=log)
             
@@ -920,6 +929,9 @@ class Catalog(object): #handling the simulation index and library
         if not serx1.is_unique:
             """this happens during later analysis where we duplicate filepaths"""
             raise IOError('got duplicate values on %s'%dkey)
+        """
+        view(serx1)
+        """
         
         assert len(serx1)>0
         

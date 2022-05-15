@@ -115,11 +115,9 @@ def dev():
         #dsampStage='postFN',
         #downSampling='Nearest neighbour',
         compiled_fp_d={
-                    'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220515\working\difrlay_lib_hydRd_dev_0515.pickle',
-        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220515\working\rstatsD_hydRd_dev_0515.pickle',
-        'rmseD':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220515\working\rmseD_hydRd_dev_0515.pickle',
+ 
             },
-        catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydRd\hydRd_run_index.csv',
+        #catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydRd\hydRd_run_index.csv',
         #studyArea_l=['obwb'],
         phase_l=['depth', 'diff']
         )
@@ -217,12 +215,12 @@ def pre_nn():
     
 if __name__ == "__main__": 
     
-    #dev()
+    dev()
  
     #post()
     #===========================================================================
     # postFN()
-    pre()
+    #pre()
     #===========================================================================
     #preGW()
     #pre_nn()

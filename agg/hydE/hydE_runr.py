@@ -39,7 +39,10 @@ def run( #run a basic model configuration
         # #data
         #=======================================================================
         studyArea_l = None, #convenience filtering of proj_lib
-        proj_lib = None,catalog_fp=None,
+        proj_lib = None,
+        
+        #running from teh catalog
+        catalog_fp=None,index_col=None,
         
         #=======================================================================
         # session pars
@@ -110,7 +113,7 @@ def run( #run a basic model configuration
         # precompiole from catalog
         #=======================================================================
         if not catalog_fp is None:
-            ses.compileFromCat(catalog_fp=catalog_fp,id_params=id_params)
+            ses.compileFromCat(catalog_fp=catalog_fp,id_params=id_params, index_col=index_col)
         #=======================================================================
         # call each phase
         #=======================================================================
@@ -167,15 +170,26 @@ def r01(**kwargs):
         )    
     return run(name='hydE01', **{**rkwargs, **kwargs})
 
+def r02(**kwargs):
+    rkwargs = dict(
+        iters=8, downSampling='Average',dsampStage='pre',
+        aggIters=5,samp_method='zonal',
+        write_lib=True, 
+        catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR02\hydR02_run_index_copy.csv',
+        index_col=list(range(5)), #loading a RastRun catalog
+        #phase_l=['depth']
+        )    
+    return run(name='hydE02', **{**rkwargs, **kwargs})
+
 def cvh():
-    return r01(
+    return r02(
         tag='pre_cvh', aggType='convexHulls'
         )
     
 if __name__ == "__main__": 
     
-    dev()
-    #cvh()
+    #dev()
+    cvh()
  
 
     tdelta = datetime.datetime.now() - start
