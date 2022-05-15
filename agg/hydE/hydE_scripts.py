@@ -43,7 +43,7 @@ class ExpoRun(RastRun):
     def __init__(self,
                  name='expo',
                  data_retrieve_hndls={},
- 
+                 pick_index_map={},
                  **kwargs):
         
 
@@ -82,7 +82,14 @@ class ExpoRun(RastRun):
                         
             }}
         
-        super().__init__( 
+        pick_index_map.update({
+            'finv_agg_lib':(self.agCn, self.saCn),
+            })
+        pick_index_map['finv_sg_lib'] = copy.copy(pick_index_map['finv_agg_lib'])
+ 
+        
+        
+        super().__init__( pick_index_map=pick_index_map,
                          data_retrieve_hndls=data_retrieve_hndls, name=name,
                          **kwargs)
         
@@ -97,7 +104,7 @@ class ExpoRun(RastRun):
         #self.retrieve('finv_sg_lib')
         
         #sample all the rasters
-        self.retrieve('rsamps')
+        #self.retrieve('rsamps')
         
         #get per-run stats
         self.retrieve('rsampStats')

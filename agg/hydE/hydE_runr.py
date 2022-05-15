@@ -39,7 +39,7 @@ def run( #run a basic model configuration
         # #data
         #=======================================================================
         studyArea_l = None, #convenience filtering of proj_lib
-        proj_lib = None,
+        proj_lib = None,catalog_fp=None,
         
         #=======================================================================
         # session pars
@@ -107,6 +107,11 @@ def run( #run a basic model configuration
                  **kwargs) as ses:
         
         #=======================================================================
+        # precompiole from catalog
+        #=======================================================================
+        if not catalog_fp is None:
+            ses.compileFromCat(catalog_fp=catalog_fp,id_params=id_params)
+        #=======================================================================
         # call each phase
         #=======================================================================
         if 'depth' in phase_l:
@@ -136,27 +141,41 @@ def dev():
  
  
         compiled_fp_d={
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\drlay_lib_hydEdev_dev_0515.pickle',
-        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\noData_cnt_hydEdev_dev_0515.pickle',
-        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\rstats_hydEdev_dev_0515.pickle',
-        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\wetStats_hydEdev_dev_0515.pickle',
-        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\gwArea_hydEdev_dev_0515.pickle',
+        #=======================================================================
+        # 'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\drlay_lib_hydEdev_dev_0515.pickle',
+        # 'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\noData_cnt_hydEdev_dev_0515.pickle',
+        # 'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\rstats_hydEdev_dev_0515.pickle',
+        # 'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\wetStats_hydEdev_dev_0515.pickle',
+        # 'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\gwArea_hydEdev_dev_0515.pickle',
+        #=======================================================================
 
-        'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_agg_lib_hydEdev_dev_0515.pickle',
-        'finv_agg_mindex':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_agg_mindex_hydEdev_dev_0515.pickle',
-        'finv_sg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydEdev\dev\20220515\working\finv_sg_lib_hydEdev_dev_0515.pickle',
  
  
              },
         studyArea_l=['obwb', 'LMFRA'],
+        catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydEdev\hydEdev_run_index.csv',
         #phase_l=['depth', 'expo']
         )
 
- 
+def r01(**kwargs):
+    rkwargs = dict(
+        iters=8, downSampling='Average',dsampStage='pre',
+        aggIters=5,samp_method='zonal',
+        write_lib=True, 
+        catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydE01\hydE01_run_index.csv',
+        #phase_l=['depth']
+        )    
+    return run(name='hydE01', **{**rkwargs, **kwargs})
 
+def cvh():
+    return r01(
+        tag='pre_cvh', aggType='convexHulls'
+        )
+    
 if __name__ == "__main__": 
     
     dev()
+    #cvh()
  
 
     tdelta = datetime.datetime.now() - start

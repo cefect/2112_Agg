@@ -155,53 +155,7 @@ class RastRun(RRcoms):
 
         
         
-    def load_layer_lib(self,  # generic retrival for layer librarires
-                  fp=None, dkey=None,
-                  **kwargs):
-        """not the most memory efficient..."""
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log = self.logger.getChild('load.%s' % dkey)
-        assert dkey in ['drlay_lib', 'difrlay_lib', 'finv_agg_lib', 'finv_sg_lib'], dkey
-        
-        #=======================================================================
-        # load the filepaths
-        #=======================================================================
-        fp_lib = self.load_pick(fp=fp, dkey=dkey)   
-        
-        #=======================================================================
-        # # load layers
-        #=======================================================================
-        lay_lib = dict()
-        cnt = 0
-        for k0, d0 in fp_lib.items():
-            lay_lib[k0] = dict()
-            for k1, fp in d0.items(): #usualy StudyArea
-     
-                log.info('loading %s.%s from %s' % (k0, k1, fp))
-                
-                assert isinstance(fp, str), 'got bad type on %s.%s: %s'%(k0, k1, type(fp))
-                assert os.path.exists(fp), fp
-                ext = os.path.splitext(os.path.basename(fp))[1]
-                #===================================================================
-                # vectors
-                #===================================================================
-                if ext in ['.gpkg', '.geojson']:
-                
-                    lay_lib[k0][k1] = self.vlay_load(fp, logger=log, 
-                                                   #set_proj_crs=False, #these usually have different crs's
-                                                           **kwargs)
-                elif ext in ['.tif']:
-                    lay_lib[k0][k1] = self.rlay_load(fp, logger=log, 
-                                                   #set_proj_crs=False, #these usually have different crs's
-                                                           **kwargs)
-                else:
-                    raise IOError('unrecognized filetype: %s'%ext)
-                cnt+=1
-        
-        log.info('finished loading %i'%cnt)
-        return lay_lib
+
     
     def build_drlays2(self,
                      

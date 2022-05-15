@@ -8,7 +8,7 @@ Created on May 15, 2022
 #===============================================================================
 # imports-----------
 #===============================================================================
-import os, datetime, math, pickle, copy, sys
+import os, datetime, math, pickle, copy, sys, pprint
 from pathlib import Path
 
 import qgis.core
@@ -35,6 +35,8 @@ class RRcoms(Model):
  
     
     id_params=dict()
+    
+    dkey_from_cat=list() #built by compileFromCat to inform build_layxport not to write files to library again
     
     def __init__(self,
                   lib_dir=None,
@@ -100,9 +102,10 @@ class RRcoms(Model):
             #===================================================================
             # loop and build
             #===================================================================
+            meta_d = dict()
             cnt=0
             for dkey, gdx in dx_raw.loc[bx, :].droplevel(list(id_params.keys())).groupby(level='dkey', axis=1):
-                print(dkey)
+                if dkey.startswith('_'): continue #special meta
             
  
                 log.info('\n\n on %s\n\n'%dkey)
@@ -118,8 +121,11 @@ class RRcoms(Model):
                 if 'fp' in gdx.columns.unique(1):
                 
                     #pull the filepaths from the catalog
-                    assert dkey in pick_index_map
+                    assert dkey in pick_index_map, dkey
                     res = cat.get_dkey_fp(dkey=dkey, pick_indexers=pick_index_map[dkey], dx_raw=gdx)
+                    
+                    #mark this dkey so we dont write to library again
+                    self.dkey_from_cat.append(dkey)
                     
                 #===============================================================
                 # data frames
@@ -131,6 +137,7 @@ class RRcoms(Model):
                 #save as a pickel
                 """writing to temp as we never store these"""
                 cnt+=1
+                meta_d[dkey] = '%s (%i)'%(type(res).__name__, len(res))
                 self.compiled_fp_d[dkey] = self.write_pick(res, 
                                     os.path.join(self.temp_dir, '%s_%s.pickle' % (dkey, self.longname)), logger=log)
                 
@@ -139,9 +146,58 @@ class RRcoms(Model):
             #===================================================================
             cat.df=None #avoid writing
                 
-        log.info('finished on %i'%cnt)
+        log.info('finished on %i:\n    %s'%(len(meta_d), pprint.PrettyPrinter(indent=4).pformat(meta_d)))
         
         return
+    
+    
+    def load_layer_lib(self,  # generic retrival for layer librarires
+                  fp=None, dkey=None,
+                  **kwargs):
+        """not the most memory efficient..."""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = self.logger.getChild('load.%s' % dkey)
+        assert dkey in ['drlay_lib', 'difrlay_lib', 'finv_agg_lib', 'finv_sg_lib'], dkey
+        
+        #=======================================================================
+        # load the filepaths
+        #=======================================================================
+        fp_lib = self.load_pick(fp=fp, dkey=dkey)   
+        
+        #=======================================================================
+        # # load layers
+        #=======================================================================
+        lay_lib = dict()
+        cnt = 0
+        for k0, d0 in fp_lib.items():
+            lay_lib[k0] = dict()
+            for k1, fp in d0.items(): #usualy StudyArea
+     
+                log.info('loading %s.%s from %s' % (k0, k1, fp))
+                
+                assert isinstance(fp, str), 'got bad type on %s.%s: %s'%(k0, k1, type(fp))
+                assert os.path.exists(fp), fp
+                ext = os.path.splitext(os.path.basename(fp))[1]
+                #===================================================================
+                # vectors
+                #===================================================================
+                if ext in ['.gpkg', '.geojson']:
+                
+                    lay_lib[k0][k1] = self.vlay_load(fp, logger=log, 
+                                                   #set_proj_crs=False, #these usually have different crs's
+                                                           **kwargs)
+                elif ext in ['.tif']:
+                    lay_lib[k0][k1] = self.rlay_load(fp, logger=log, 
+                                                   #set_proj_crs=False, #these usually have different crs's
+                                                           **kwargs)
+                else:
+                    raise IOError('unrecognized filetype: %s'%ext)
+                cnt+=1
+        
+        log.info('finished loading %i'%cnt)
+        return lay_lib
         
     def store_lay_lib(self,  res_lib,dkey,
                       out_dir=None, 
@@ -355,13 +411,7 @@ class RRcoms(Model):
             #phase selector
             if not phase in phase_l:continue
             
-            #===================================================================
-            # #add pages
-            #===================================================================
-            #===================================================================
-            # if not icoln in ofp_lib:
-            #     ofp_lib[icoln] = dict()
-            #===================================================================
+
             
  
             #===================================================================
@@ -370,25 +420,36 @@ class RRcoms(Model):
             lay_lib = self.retrieve(dki)
             assert_lay_lib(lay_lib, msg=dki)
             
-            #===================================================================
-            # #write each layer to file
-            #===================================================================
-            d=dict()
-            cnt=0
-            for indx, layer_d in lay_lib.items():
-    
-                d[indx] = self.store_layer_d(layer_d, dki, logger=log,
-                                   write_pick=False, #need to write your own
-                                   out_dir = os.path.join(rlay_dir,dki, '%s%04i'%(icoln[0], indx)),
-                                   compression=compression, add_subfolders=False,overwrite=overwrite,                               
-                                   )
+            
+            #===============================================================
+            # handle catalog loaded layers
+            #===============================================================
+            if dki in self.dkey_from_cat:
+                log.warning('\'%s\' was loaded from the catalog... skipping'%dki)
                 
-                #debug handler
-                cnt+=1
-                if not debug_max_len is None:
-                    if cnt>=debug_max_len:
-                        log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
-                        break
+                d = self.load_pick(fp=self.compiled_fp_d[dki], dkey=dkey) 
+                cnt = len(d) 
+                
+            else:
+                #===================================================================
+                # #write each layer to file
+                #===================================================================
+                d=dict()
+                cnt=0
+                for indx, layer_d in lay_lib.items():
+ 
+                    d[indx] = self.store_layer_d(layer_d, dki, logger=log,
+                                       write_pick=False, #need to write your own
+                                       out_dir = os.path.join(rlay_dir,dki, '%s%04i'%(icoln[0], indx)),
+                                       compression=compression, add_subfolders=False,overwrite=overwrite,                               
+                                       )
+                    
+                    #debug handler
+                    cnt+=1
+                    if not debug_max_len is None:
+                        if cnt>=debug_max_len:
+                            log.warning('cnt>=debug_max_len (%i)... breaking'%debug_max_len)
+                            break
             cnt0+=cnt
             #===================================================================
             # compile
@@ -793,11 +854,19 @@ class Catalog(object): #handling the simulation index and library
         
         #slice to just this data
         serx1 = dx_raw.loc[:,idx[dkey, 'fp']]
+        """
+        view(serx1)
+        """
         
  
         #=======================================================================
         # prep index
         #=======================================================================
+        #remove any unecessary indexers
+        drop_l = list(set(serx1.index.names).difference(pick_indexers))
+        if len(drop_l)>0:
+            serx1 = serx1.droplevel(drop_l).drop_duplicates()
+        
         
         #=======================================================================
         # bx = get_bx_multiVal(serx0, id_params, matchOn='index', log=log)
@@ -805,7 +874,9 @@ class Catalog(object): #handling the simulation index and library
         # serx1 = serx0[bx].droplevel(list(id_params.keys()))
         #=======================================================================
         
-        assert serx1.is_unique, dkey
+        if not serx1.is_unique:
+            """this happens during later analysis where we duplicate filepaths"""
+            raise IOError('got duplicate values on %s'%dkey)
         
         assert len(serx1)>0
         
