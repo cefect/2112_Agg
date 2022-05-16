@@ -1031,6 +1031,8 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                          #data
                          dx_raw=None, #combined model results
                          coln_l = [], #list of dx_raw colums to plot
+                         ax_d=None,
+                         xvar=None,
                          
                          #plot control
                         plot_type='line', 
@@ -1041,7 +1043,8 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                         plot_bgrp='dsampStage', #sub-group onto an axis
                         
                         
-                           colorMap=None,
+                           colorMap=None,color_d=None,
+                           marker_d=None,
                          plot_kwargs = dict(alpha=0.8),
                          title=None,xlabel=None,
                          ylab_l=None,
@@ -1064,11 +1067,12 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         log = logger.getChild('plot_StatXVsResolution')
         resCn, saCn = self.resCn, self.saCn
         if write is None: write=self.write
+        if xvar is None: xvar=resCn
         
         if plot_colr is None: plot_colr=plot_bgrp
         if colorMap is None: colorMap=self.colorMap_d[plot_colr]
         
-        if xlabel is None: xlabel = resCn
+        if xlabel is None: xlabel = xvar
  
         if ylab_l is None:
             ylab_l = coln_l
@@ -1113,34 +1117,71 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         #=======================================================================
         #title
         if title is None:
-            title='%i vs. %s'%(len(coln_l), resCn)
+            title='%i vs. %s'%(len(coln_l), xvar)
+            
         #get colors
         ckeys = mdex.unique(plot_colr)
-        
-        """nasty workaround to get colors to match w/ hyd""" 
-        if plot_colr =='dsampStage':
-            ckeys = ['none'] + ckeys.values.tolist() #['none', 'post', 'postFN', 'pre', 'preGW']
-        elif plot_colr=='downSampling':
-            ckeys = ['nn', '0', 'Average', '1', '2']
-        
-        color_d = self.get_color_d(ckeys, colorMap=colorMap)
-        marker_d = {k:plt.Line2D.filled_markers[i] for i, k in enumerate(ckeys)}
+        if color_d is None:
+            
+            
+            """nasty workaround to get colors to match w/ hyd""" 
+            if plot_colr =='dsampStage':
+                ckeys = ['none'] + ckeys.values.tolist() #['none', 'post', 'postFN', 'pre', 'preGW']
+            elif plot_colr=='downSampling':
+                ckeys = ['nn', '0', 'Average', '1', '2']
+            
+            color_d = self.get_color_d(ckeys, colorMap=colorMap)
+            
+        #check the colors
+        miss_l = set(ckeys).symmetric_difference(color_d.keys())
+        assert len(miss_l)==0
+            
+        #markers
+        if marker_d is None:
+            marker_d = {k:plt.Line2D.filled_markers[i] for i, k in enumerate(ckeys)}
+            
+        miss_l = set(ckeys).symmetric_difference(marker_d.keys())
+        assert len(miss_l)==0
         
         #=======================================================================
         # setup the figure
         #=======================================================================
-        plt.close('all')
- 
+        
         col_keys =mdex.unique(plot_coln).tolist()
         row_keys = mdex.unique(plot_rown).tolist()
+
+        
+        if ax_d is None:
+            plt.close('all')
+
+        
+            fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
+                                        figsize_scaler=4,
+                                        constrained_layout=True,
+                                        sharey=sharey,sharex=sharex,  
+                                        fig_id=0,
+                                        set_ax_title=set_ax_title,figsize=figsize
+                                        )
+        
+        else:
+            
  
-        fig, ax_d = self.get_matrix_fig(row_keys, col_keys,
-                                    figsize_scaler=4,
-                                    constrained_layout=True,
-                                    sharey=sharey,sharex=sharex,  
-                                    fig_id=0,
-                                    set_ax_title=set_ax_title,figsize=figsize
-                                    )
+            #retrieve the figure and the old column keys
+            old_col_keys=list()
+            for i, (k,d) in enumerate(ax_d.items()):
+ 
+                for j, (k1, ax) in enumerate(d.items()):
+                    fig = ax.figure
+                    #dnew[row_keys[i]][col_keys[j]]=ax
+                    old_col_keys.append(k1)
+                break
+                    
+            #rekey the container
+            colMap_d=dict(zip(old_col_keys, col_keys))
+            rowMap_d=dict(zip(ax_d.keys(), row_keys))
+            
+            ax_d = {rowMap_d[k0]:{colMap_d[k1]:ax for k1,ax in d.items()} for k0,d in ax_d.items()}
+            
  
         fig.suptitle(title)
         """
@@ -1157,15 +1198,14 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
             #===================================================================
             # data prep
             #===================================================================
-            xar = gsx0.index.get_level_values(resCn).values #resolutions
+            xar = gsx0.index.get_level_values(xvar).values #resolutions
             yar = gsx0.values
             color=color_d[keys_d[plot_colr]]
             #===================================================================
             # plot
             #===================================================================
             if plot_type=='line':
-                
-                
+                 
                 ax.plot(xar, yar, color=color,label =keys_d[plot_colr],
                         marker=marker_d[keys_d[plot_colr]], **plot_kwargs)
             else:

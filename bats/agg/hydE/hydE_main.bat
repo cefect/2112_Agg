@@ -6,7 +6,7 @@ REM execute
  
 @echo on
  
-python -O C:\LS\09_REPOS\02_JOBS\2112_agg\cef\agg\hydE\main.py -t pre_cvh -n hydE02 -i 8 -dsampStage pre -downSampling Average -aggType convexHulls -aggIters 5 -catalog_fp %CAT_FP% -idcn 5
+python -O C:\LS\09_REPOS\02_JOBS\2112_agg\cef\agg\hydE\main.py -t pre_cvh -n hydE02 -i 8 -dsampStage pre -downSampling Average -aggType convexHulls -aggIters 8 -catalog_fp %CAT_FP% -idcn 5
  
 ECHO finished 
 

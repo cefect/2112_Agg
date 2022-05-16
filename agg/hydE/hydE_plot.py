@@ -73,12 +73,13 @@ class ExpoPlotr(RasterPlotr, ExpoRun): #analysis of model results
         
         
         colorMap_d.update({
-            'aggLevel':'copper'
+            'aggLevel':'cool'
                         })
  
         
         super().__init__(name=name,colorMap_d=colorMap_d, **kwargs)
         
+ 
  
     
     #===========================================================================
@@ -134,7 +135,8 @@ def run( #run a basic model configuration
         dx_raw = ses.retrieve('catalog').loc[idx[('obwb', 'LMFRA', 'Calgary', 'noise'), :], :]
         
         #just the expo stats
-        dx1 = dx_raw.loc[:, idx[('rsampStats'), :]].droplevel(0, axis=1)
+        dx1=dx_raw
+        #dx1 = dx_raw.loc[:, idx[('rsampStats'), :]].droplevel(0, axis=1)
         """
         view(dx_raw)
         """
@@ -158,15 +160,7 @@ def run( #run a basic model configuration
             # multi-metric vs Resolution---------
             #=======================================================================
             #nice plot showing the major raw statistics 
-            col_d={
-                'mean': 'sampled mean (m)',
-                #'max': 'sampled max (m)',
-                #'min': 'sampled min (m)',
-                'wet_mean': 'sampled wet mean (m)',
-                #'wet_max': 'sampled wet max (m)',
-                #'wet_min': 'sampled wet min (m)',
-                'wet_pct': 'wet assets (pct)'
-                }
+
 
      
             #===================================================================
@@ -201,13 +195,75 @@ def run( #run a basic model configuration
                 """
                 view(dxi)
                 """
-                ses.plot_StatXVsResolution(
-                    set_ax_title=False,
-                    dx_raw=dxi[bx], 
+                #===============================================================
+                # plot exposure
+                #===============================================================
+                col_d={#exposure values
+                        'mean': 'sampled mean (m)',
+                        #'max': 'sampled max (m)',
+                        #'min': 'sampled min (m)',
+                        'wet_mean': 'sampled wet mean (m)',
+                        #'wet_max': 'sampled wet max (m)',
+                        #'wet_min': 'sampled wet min (m)',
+                        'wet_pct': 'wet assets (pct)'
+                        }
+                
+                ax_d = ses.plot_StatXVsResolution(
+                    set_ax_title=False,xvar='aggLevel',
+                    dx_raw=dxi[bx].loc[:, idx[('rsampStats'), :]].droplevel(0, axis=1), 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=plotName + '_'+dsampStage, plot_bgrp='aggLevel')
-                                       
+                    title=plotName + '_'+dsampStage, plot_bgrp='resolution',
+                    write=True)
+                
+                break
+                                
+                            
+                ax_d = ses.plot_StatXVsResolution(
+                    set_ax_title=False,
+                    dx_raw=dxi[bx].loc[:, idx[('rsampStats'), :]].droplevel(0, axis=1), 
+                    coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
+                    title=plotName + '_'+dsampStage, plot_bgrp='aggLevel',
+                    write=False)
+                
+                #===============================================================
+                # add raster
+                #===============================================================
+                """order matters here
+                we plot teh new data on whatever axis order is specified above"""
+                col_d1={#raster values
+                        #===============================================================
+                        # 'MAX':'max depth (m)',
+                        # 'MIN':'min depth (m)',
+                         'MEAN':'global mean depth (m)',
  
+                        'wetMean':'wet mean depth (m)',
+                        #'wetVolume':'wet volume (m^3)', 
+                         #'wetArea': 'wet area (m^2)', 
+                         #'rmse':'RMSE (m)',
+                         #'gwArea':'gwArea',
+                         #'STD_DEV':'stdev (m)',
+                         #'noData_cnt':'noData_cnt',
+                         'noData_pct':'no data (%)'
+                    
+                          }
+                
+                bx1 = np.logical_and(bx,dxi.index.get_level_values('aggLevel')==1) #only 1 agg level
+                dxi1=dxi[bx1].loc[:, idx[('rstats', 'wetStats', 'noData_pct'), :]].droplevel(0, axis=1)
+                                       
+                plot_colr='dsampStage'
+                ses.plot_StatXVsResolution(ax_d=ax_d,
+ 
+                    plot_colr=plot_colr,
+                   color_d={k:'black' for k in dxi1.index.unique(plot_colr)},
+                   marker_d={k:'x' for k in dxi1.index.unique(plot_colr)},
+                   plot_kwargs = dict(alpha=0.8, linestyle='dashed'),
+                                           
+                    set_ax_title=False,
+                    dx_raw=dxi1, 
+                    coln_l=list(col_d1.keys()), 
+                    #xlims=xlims,
+                    ylab_l = list(col_d.values()),
+                    title=plotName + '_'+dsampStage )
  
             
 
