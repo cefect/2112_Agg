@@ -132,9 +132,8 @@ def run( #run a basic model configuration
         # data prep------
         #=======================================================================
         #change order
-        dx_raw = ses.retrieve('catalog').loc[idx[('obwb', 'LMFRA', 'Calgary', 'noise'), :], :]
-        
-        
+        ax_title_d = ses.ax_title_d
+        dx_raw = ses.retrieve('catalog').loc[idx[list(ax_title_d.keys()), :], :]
         
         dx1=dx_raw.copy()
         
@@ -211,7 +210,7 @@ def run( #run a basic model configuration
                     set_ax_title=False,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=title + ' vs. Resolution', 
+                    title=title + ' vs. Resolution', ax_title_d=ax_title_d,
                     write=True)
                 
  
@@ -225,7 +224,7 @@ def run( #run a basic model configuration
                     set_ax_title=False,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=title, 
+                    title=title, ax_title_d=ax_title_d,
                     write=False)
                 
                 #===============================================================
@@ -265,7 +264,7 @@ def run( #run a basic model configuration
                     dx_raw=dx_haz, 
                     coln_l=list(col_d1.keys()), 
                     #xlims=xlims,
-                    ylab_l = list(col_d.values()),
+                    ylab_l = list(col_d.values()),ax_title_d=ax_title_d,
                     title=title + ' vs. aggLevel')
  
             

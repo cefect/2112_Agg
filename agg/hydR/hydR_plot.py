@@ -61,6 +61,13 @@ from hp.pd import get_bx_multiVal
 
 class RasterPlotr(RastRun, Plotr): #analysis of model results
     
+    ax_title_d = {
+            'obwb':'Lake Coastal',
+              'LMFRA':'Lower R. (protected)',
+               'Calgary':'Middle R. (confined)', 
+               'noise':'Uniform Noise'
+            }
+    
     
     def __init__(self,
  
@@ -1050,6 +1057,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                          ylab_l=None,
                          xscale='log',
                          xlims=None,
+                         ax_title_d=None, #optional axis titles (columns)
                          
                          
                          #plot control [matrix]
@@ -1152,6 +1160,10 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         
         col_keys =mdex.unique(plot_coln).tolist()
         row_keys = mdex.unique(plot_rown).tolist()
+        
+        #axis titles
+        if ax_title_d is None: ax_title_d={k:k for k in col_keys}
+        for k in ax_title_d.keys(): assert k in col_keys, 'bad ax_title_d key:%s'%k
 
         
         if ax_d is None:
@@ -1234,7 +1246,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                 # first row
                 if row_key == row_keys[0]:
                     if not set_ax_title:
-                        ax.set_title(col_key)
+                        ax.set_title(ax_title_d[col_key])
                      
                     #last col
                     if col_key == col_keys[-1]:
@@ -1401,7 +1413,8 @@ def run( #run a basic model configuration
         # PLOTS------
         #=======================================================================
         #change order
-        dx_raw = ses.retrieve('catalog').loc[idx[('obwb', 'LMFRA', 'Calgary', 'noise'), :], :]
+        ax_title_d = ses.ax_title_d
+        dx_raw = ses.retrieve('catalog').loc[idx[list(ax_title_d.keys()), :], :]
         """
         view(dx_raw)
         """
@@ -1413,69 +1426,65 @@ def run( #run a basic model configuration
  
         
         figsize=(8,12)
-        for plotName, dx, xlims,  ylims,xscale, yscale, drop_zeros in [
+        for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
             ('',dx_raw, None,None, 'log', 'linear', True),
  
             #('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
             #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
             ]:
-            print('\n\n%s\n\n'%plotName)
- 
- 
-            #=======================================================================
-            # multi-metric vs Resolution---------
-            #=======================================================================
-            #nice plot showing the major raw statistics 
-            col_d={
-                #===============================================================
-                # 'MAX':'max depth (m)',
-                # 'MIN':'min depth (m)',
-                # 'MEAN':'global mean depth (m)',
-                #===============================================================
-                'wetMean':'wet mean depth (m)',
-                'wetVolume':'wet volume (m^3)', 
-                 'wetArea': 'wet area (m^2)', 
-                 'rmse':'RMSE (m)',
-                 #'gwArea':'gwArea',
-                 #'STD_DEV':'stdev (m)',
-                 #'noData_cnt':'noData_cnt',
-                 #'noData_pct':'no data (%)'
-            
-                  }
-     
-            #===================================================================
-            # compare dsampStage
-            #===================================================================
-            print('\n\n %s: dsampStage comparison\n\n'%plotName)
-            downSampling='Average'
-            bx = dx.index.get_level_values('downSampling')==downSampling
-
-            """
-            view(dx)
-            """
-            ses.plot_statVsIter(
-                set_ax_title=False,
-                dx_raw=dx[bx].droplevel(0, axis=1), 
-                coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                title=plotName + '_'+downSampling)
+            #paramteer combinations to plot over
+            """these are more like 'scenarios'... variables of secondary interest"""
             
             #===================================================================
-            # compare downSampling
+            # schemes and methods
             #===================================================================
-            print('\n\n %s: downSampling comparison\n\n'%plotName)
-             
-            for dsampStage in ['pre', 'post']:
-                bx = dx.index.get_level_values('dsampStage')==dsampStage
-                assert bx.any()
+            gcols_l=['downSampling', 'dsampStage']
+            for gcol in gcols_l:
+        
+                for gkey, gdx in dxi.droplevel(0, axis=1).groupby(level=gcol):
+                    #===============================================================
+                    # prep
+                    #===============================================================
+                    keys_d = {gcol:gkey}
+                    title = '_'.join([plotName]+[gkey])
+                    
+                    
+                    plot_bgrp=list(set(gcols_l).difference([gcol]))[0]
+                    
+                    #check if theres multiple dimensions
+                    if len(gdx.index.unique(plot_bgrp))==1:
+                        continue #not worth plotting
+                    print('\n\n %s \n\n'%(title))
+                    #continue
+ 
+                    #nice plot showing the major raw statistics 
+                    col_d={
+                        #===============================================================
+                        # 'MAX':'max depth (m)',
+                        # 'MIN':'min depth (m)',
+                        # 'MEAN':'global mean depth (m)',
+                        #===============================================================
+                        'wetMean':'wet mean depth (m)',
+                        'wetVolume':'wet volume (m^3)', 
+                         'wetArea': 'wet area (m^2)', 
+                         'rmse':'RMSE (m)',
+                         #'gwArea':'gwArea',
+                         #'STD_DEV':'stdev (m)',
+                         #'noData_cnt':'noData_cnt',
+                         #'noData_pct':'no data (%)'
+                    
+                          }
      
-                """
-                view(dx)
-                """
-                ses.plot_statVsIter(
-                    set_ax_title=False,
-                    dx_raw=dx[bx].droplevel(0, axis=1), 
-                    coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=plotName + '_'+dsampStage, plot_bgrp='downSampling')
+ 
+                    ses.plot_statVsIter(
+                        plot_bgrp=plot_bgrp,
+                        set_ax_title=False,
+                        dx_raw=gdx, 
+                        coln_l=list(col_d.keys()), xlims=xlims,
+                        ylab_l = list(col_d.values()), ax_title_d=ax_title_d,
+                        title=title)
+            
+ 
  
         #===================================================================
         # value distributions----
