@@ -489,7 +489,7 @@ class RastRun(RRcoms):
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
-        log = logger.getChild('gen_rdelta')
+        log = logger.getChild('build_difrlays')
         assert dkey=='difrlay_lib'
         saCn=self.saCn
         if write is None: write=self.write
@@ -602,11 +602,12 @@ class RastRun(RRcoms):
         #=======================================================================
         def func(rlay, logger=None, meta_d={}):
             logger.info('on %s'%rlay.name())
+            #self.mstore.addMapLayer(rlay)
             #square the differences
-            res_fp = self.rastercalculator(rlay, '{}@1^2'.format(rlay.name()), logger=log)
+            res_fp = self.rastercalculator(rlay, '{}@1^2'.format(rlay.name()), logger=logger)
             
             #get the stats
-            sum_sq = self.rasterlayerstatistics(res_fp, logger=log)['SUM']
+            sum_sq = self.rasterlayerstatistics(res_fp, logger=logger)['SUM']
             
             
             cnt = float(self.rlay_get_cellCnt(res_fp, exclude_nulls=False)) #shouldnt be any nulls

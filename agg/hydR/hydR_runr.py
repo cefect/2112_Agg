@@ -225,7 +225,11 @@ def post_nn():
         'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\gwArea_hydR02_post_nn_0516.pickle',
         'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\difrlay_lib_hydR02_post_nn_0516.pickle',
         'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\rstatsD_hydR02_post_nn_0516.pickle',
- 
+        'rmseD':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\rmseD_hydR02_post_nn_0516.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\res_dx_hydR02_post_nn_0516.pickle',
+        'dataExport':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\dataExport_hydR02_post_nn_0516.pickle',
+
+
             }
         )
 
@@ -241,7 +245,7 @@ if __name__ == "__main__":
     #===========================================================================
     #preGW()
     #pre_nn()
-    post_nn()
+    #post_nn()
     
 
     tdelta = datetime.datetime.now() - start
