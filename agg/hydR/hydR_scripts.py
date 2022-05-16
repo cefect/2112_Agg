@@ -607,13 +607,41 @@ class RastRun(RRcoms):
             res_fp = self.rastercalculator(rlay, '{}@1^2'.format(rlay.name()), logger=logger)
             
             #get the stats
+
+            
             sum_sq = self.rasterlayerstatistics(res_fp, logger=logger)['SUM']
+            
+ 
+            
             
             
             cnt = float(self.rlay_get_cellCnt(res_fp, exclude_nulls=False)) #shouldnt be any nulls
             
+            rmse =  math.sqrt(sum_sq/cnt)
+            
+ #==============================================================================
+ #            stats_d = self.rasterlayerstatistics(rlay, logger=logger) 
+ #            
+ #            
+ # 
+ #            
+ #            dp = rlay.dataProvider()
+ #            
+ #            bstats = dp.bandStatistics(1,
+ #                                   qgis.core.QgsRasterBandStats.All,
+ #                                   qgis.core.QgsRectangle(), 0)
+ #            
+ #            bstats.sum
+ #            assert stats_d['SUM_OF_SQUARES'] == bstats.sumOfSquares
+ #==============================================================================
+            
  
-            return {'rmse':math.sqrt(sum_sq/cnt)}
+            
+            #rmse =  math.sqrt(stats_d['SUM_OF_SQUARES']/cnt)
+                        
+                        
+ 
+            return {'rmse':rmse}
         
         #=======================================================================
         # execut ethe function on the stack

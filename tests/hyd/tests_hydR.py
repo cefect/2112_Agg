@@ -15,7 +15,7 @@ from pandas.testing import assert_frame_equal, assert_series_equal, assert_index
 idx = pd.IndexSlice
 
 from hp.gdal import array_to_rlay
-from agg.hydR.hr_scripts import RastRun
+from agg.hydR.hydR_scripts import RastRun
 
 prec=3
 
@@ -175,14 +175,20 @@ def ses_diff(tmp_path,write,logger, feedback, #session for difference rastser ru
 @pytest.mark.parametrize('resolution', [10.0])
 @pytest.mark.parametrize('array',[
      np.random.random((5,5))-0.5,
+     np.random.random((1,2))*10,
      np.random.random((5,5)),
      #np.array([(1,np.nan),(1,2)]),  #depth raster... no nulls
      ], indirect=True)  
 def test_rmseD(ses_diff, array, resolution):
+    """
+    RastRun.build_rmseD()
+    """
     dkey='rmseD'
     rserx=ses_diff.retrieve(dkey).iloc[0,:]
  
-    rmse = np.sqrt(np.mean(array**2))
+    rmse = np.sqrt(np.mean(np.square(array)))
+    
+ 
  
     
     #wetArea
