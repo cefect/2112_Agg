@@ -156,7 +156,7 @@ def dev():
  
              },
         studyArea_l=['obwb'],
-        catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydEdev\hydEdev_run_index.csv',
+        #catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydEdev\hydEdev_run_index.csv',
         #phase_l=['depth', 'expo']
         )
 
@@ -173,7 +173,7 @@ def r01(**kwargs):
 def r02(**kwargs):
     rkwargs = dict(
         iters=8, downSampling='Average',dsampStage='pre',
-        aggIters=5,samp_method='zonal',
+        aggIters=8,samp_method='zonal',
         write_lib=True, 
         catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR02\hydR02_run_index_copy.csv',
         index_col=list(range(5)), #loading a RastRun catalog
@@ -181,15 +181,22 @@ def r02(**kwargs):
         )    
     return run(name='hydE02', **{**rkwargs, **kwargs})
 
-def cvh():
+def pre_cvh():
     return r02(
-        tag='pre_cvh', aggType='convexHulls'
+        tag='pre_cvh', aggType='convexHulls',
+        compiled_fp_d={
+                    'finv_agg_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydE02\pre_cvh\20220516\working\finv_agg_lib_hydE02_pre_cvh_0516.pickle',
+        'faggMap':r'C:\LS\10_OUT\2112_Agg\outs\hydE02\pre_cvh\20220516\working\faggMap_hydE02_pre_cvh_0516.pickle',
+        'rsamps':r'C:\LS\10_OUT\2112_Agg\outs\hydE02\pre_cvh\20220516\working\rsamps_hydE02_pre_cvh_0516.pickle',
+        'rsampStats':r'C:\LS\10_OUT\2112_Agg\outs\hydE02\pre_cvh\20220516\working\rsampStats_hydE02_pre_cvh_0516.pickle',
+        'rsampErr':r'C:\LS\10_OUT\2112_Agg\outs\hydE02\pre_cvh\20220516\working\rsampErr_hydE02_pre_cvh_0516.pickle',
+            }
         )
     
 if __name__ == "__main__": 
     
-    dev()
-    #cvh()
+    #dev()
+    pre_cvh()
  
 
     tdelta = datetime.datetime.now() - start

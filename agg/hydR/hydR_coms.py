@@ -23,7 +23,7 @@ from hp.exceptions import Error
 from hp.pd import get_bx_multiVal, view, assert_index_equal
  
 from hp.Q import assert_rlay_equal, QgsMapLayer
-from hp.basic import set_info
+from hp.basic import set_info, get_dict_str
 from agg.hyd.hscripts import Model
 
 class RRcoms(Model):
@@ -131,7 +131,7 @@ class RRcoms(Model):
         # load the catalog
         #=======================================================================
         
-        with Catalog(catalog_fp=catalog_fp, logger=logger, overwrite=False,
+        with Catalog(catalog_fp=catalog_fp, logger=log, overwrite=False,
                        index_col=index_col ) as cat:
             
             #===================================================================
@@ -312,7 +312,9 @@ class RRcoms(Model):
         if phase_d is None: phase_d=self.phase_d.copy()
  
         #clean out
-        phase_d = {k:v for k,v in phase_d.items() if k in phase_l}
+        #phase_d = {k:v for k,v in phase_d.items() if k in phase_l}
+        
+        phase_d = {p:phase_d[p] for p in phase_l} 
         
         #=======================================================================
         # reindexing functions
@@ -389,9 +391,13 @@ class RRcoms(Model):
                 #simple join seems to work
                 rdx = rdx.join(dxi).sort_index()
                 
+            #===================================================================
+            # contraction join
+            #===================================================================
             elif len(el_d['diff_right'])==1:
                 """trying to join a smaller index onto the results which have already been expanded"""
-                raise IOError('not implmeented')
+                #raise IOError('not implmeented')
+                rdx = rdx.join(dxi)
  
             
             else:
@@ -692,6 +698,9 @@ class Catalog(object): #handling the simulation index and library
         """not using this anymore"""
         self.cat_colns = []
         
+        """
+        self.logger.info('test')
+        """
         #=======================================================================
         # load existing
         #=======================================================================
@@ -762,7 +771,7 @@ class Catalog(object): #handling the simulation index and library
                     errs_d['%s_%s'%(coln, id)] = path
                     
         if len(errs_d)>0:
-            log.error(errs_d)
+            log.error(get_dict_str(errs_d))
             raise Error('got %i/%i bad filepaths'%(len(errs_d), len(df)))
  
  
