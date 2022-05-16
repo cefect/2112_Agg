@@ -1027,12 +1027,12 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
  
         return ax_d
     
-    def plot_StatXVsResolution(self, #multi-stat against resolution plots
+    def plot_statVsIter(self, #multi-stat against resolution (or agglevel) plots
                          #data
                          dx_raw=None, #combined model results
                          coln_l = [], #list of dx_raw colums to plot
                          ax_d=None,
-                         xvar=None,
+                         xvar=None, #iterating variable for x-axis
                          
                          #plot control
                         plot_type='line', 
@@ -1064,7 +1064,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         #=======================================================================
         plot_rown='columns'
         if logger is  None: logger=self.logger
-        log = logger.getChild('plot_StatXVsResolution')
+        log = logger.getChild('plot_statVsIter')
         resCn, saCn = self.resCn, self.saCn
         if write is None: write=self.write
         if xvar is None: xvar=resCn
@@ -1085,7 +1085,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         view(serx)
         dx_raw.index.names
         """
-        
+        log.info("%s w/ %s"%(title, str(dx_raw.shape)))
         #=======================================================================
         # precheck
         #=======================================================================
@@ -1099,8 +1099,11 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         log.info('on %i'%len(dx_raw))
         dx = dx_raw.loc[:, coln_l]
         
+        if dx.isna().any().any():
+            log.warning("got %i/%i null values"%(dx.isna().sum().sum(), dx.size))
+        
         #promote for consistent indexing
-        serx = dx.stack()
+        serx = dx.stack(dropna=False) #usually no nulls... but sometimes for dummy data
         serx.index.set_names(list(dx.index.names)+['columns'], inplace=True)
         mdex = serx.index
         
@@ -1165,10 +1168,11 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         
         else:
             
- 
+            assert len(row_keys)==len(ax_d), row_keys
             #retrieve the figure and the old column keys
             old_col_keys=list()
             for i, (k,d) in enumerate(ax_d.items()):
+                assert len(d)==len(col_keys)
  
                 for j, (k1, ax) in enumerate(d.items()):
                     fig = ax.figure
@@ -1251,7 +1255,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         # wrap
         #=======================================================================
         
-        fname = 'StatXVsReso_%s_%s' % (title,  self.longname)
+        fname = 'statVsIter_%s_%s' % (title,  self.longname)
         
         if write: 
             self.output_fig(fig, fname=fname)
@@ -1449,7 +1453,7 @@ def run( #run a basic model configuration
             """
             view(dx)
             """
-            ses.plot_StatXVsResolution(
+            ses.plot_statVsIter(
                 set_ax_title=False,
                 dx_raw=dx[bx].droplevel(0, axis=1), 
                 coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
@@ -1467,7 +1471,7 @@ def run( #run a basic model configuration
                 """
                 view(dx)
                 """
-                ses.plot_StatXVsResolution(
+                ses.plot_statVsIter(
                     set_ax_title=False,
                     dx_raw=dx[bx].droplevel(0, axis=1), 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
