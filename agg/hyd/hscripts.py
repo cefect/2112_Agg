@@ -1819,6 +1819,7 @@ class Model(HydSession, QSession):  # single model run
                        dkey=None,
                        write=True,
                        logger=None,
+                       fkwargs=None, #kwargs to split by studyarea and put in function
                        **kwargs):
         #=======================================================================
         # defaults
@@ -1835,6 +1836,8 @@ class Model(HydSession, QSession):  # single model run
         
         # assert dkey in ['rsamps', 'finv_agg_d'], 'bad dkey %s'%dkey
         
+        if fkwargs is None:
+            fkwargs = {sa:dict() for sa in proj_lib.items()}
         #=======================================================================
         # loop and load
         #=======================================================================
@@ -1856,7 +1859,7 @@ class Model(HydSession, QSession):  # single model run
                 """
                 # raw raster samples
                 f = getattr(wrkr, meth)
-                res_d[name] = f(**kwargs)
+                res_d[name] = f(**{**fkwargs[name], **kwargs})
                 
         #=======================================================================
         # write
@@ -2912,6 +2915,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
     def get_drlay(self, #build a depth layer intelligently
 
                    #raster selection
+                   wse_rlay=None, dem_rlay=None,
                    wse_fp_d=None,dem_fp_d=None,
                    severity='hi',  #which wse rastser to select
                    #dem_res=5,
@@ -2976,26 +2980,31 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # #select raster filepaths
         #=======================================================================
+        def glay(fp):
+            return self.get_layer(fp, mstore=mstore, logger=log)
         #WSE
-        assert severity in wse_fp_d
-        wse_raw_fp = wse_fp_d[severity]
-        assert os.path.exists(wse_raw_fp)
+        if wse_rlay is None:
+            assert severity in wse_fp_d
+            wse_raw_fp = wse_fp_d[severity]
+            assert os.path.exists(wse_raw_fp)
+            wse_rlay=glay(wse_raw_fp)
         
         #DEM
         """ starting from the same base for consistency
         if resolution in dem_fp_d:
             dem_raw_fp = dem_fp_d[resolution]
         else:"""
-        dem_raw_fp = dem_fp_d[base_resolution] #just take the highest resolution
-            
-        assert os.path.exists(dem_raw_fp), dem_raw_fp
+        if dem_rlay is None:
+            dem_raw_fp = dem_fp_d[base_resolution] #just take the highest resolution
+            assert os.path.exists(dem_raw_fp), dem_raw_fp
+            dem_rlay=glay(dem_raw_fp)
  
         #get names
-        baseName = self.get_clean_rasterName(os.path.basename(wse_raw_fp))
+        baseName = wse_rlay.name()
         if layerName is None: 
             layerName = baseName + '_%03i_%s_dep' %(resolution, dsampStage)
  
-        log.info('on %s w/ %s'%(os.path.basename(wse_raw_fp) ,meta_d))
+        log.info('on %s w/ %s'%(baseName ,meta_d))
         #=======================================================================
         # trim
         #=======================================================================
@@ -3003,7 +3012,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             extents_layer = self.aoi_vlay
  
         else:
-            extents_layer = self.get_layer(wse_raw_fp, mstore=mstore)
+            extents_layer = wse_rlay
             
         extents = self.layerextent(extents_layer, 
                                    precision=0.0, #adding this buffer causes some problems with the tests
@@ -3013,9 +3022,11 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # check raw resolutions
         #=======================================================================
         """pretty slow"""
-        assert self.rlay_get_resolution(wse_raw_fp)==float(base_resolution)
-        assert self.rlay_get_resolution(dem_raw_fp)==float(base_resolution)
- 
+        assert self.rlay_get_resolution(dem_rlay)==float(base_resolution)
+        #assert self.rlay_get_resolution(dem_raw_fp)==float(base_resolution)
+        """I guess this is not true?
+        doesnt really matter as we are warping
+        assert_rlay_equal(dem_rlay, wse_rlay, msg='get_drlay')"""
         #=======================================================================
         # helper funcs
         #=======================================================================
@@ -3023,12 +3034,15 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             return self.get_resamp(fp, resolution, downSampling,  extents=extents, logger=log)
         
         def get_warp(fp):
+            if isinstance(fp, QgsRasterLayer):
+                fname='%s_preWarp.tif'%fp.name()
+            elif isinstance(fp, str):
+                fname='%s_preWarp.tif'%os.path.basename(fp).replace('.tif', '')
             return self.warpreproject(fp, compression='none', extents=extents, logger=log,
                                         resolution=base_resolution,
-                                        output=os.path.join(temp_dir, 'preCalc_%s'%os.path.basename(fp)))
+                                        output=os.path.join(temp_dir, fname))
             
-        def glay(fp):
-            return self.get_layer(fp, mstore=mstore)
+
         
         #=======================================================================
         # preCalc -----------
@@ -3036,18 +3050,18 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if dsampStage in ['none', 'post', 'postFN']:
             """easier and cleaner to always start with the same warp"""
             log.info('warpreproject w/ resolution=%i to %s'%(base_resolution, extents))
-            wse_fp = get_warp(wse_raw_fp)
-            dem_fp = get_warp(dem_raw_fp)
+            wse_fp = get_warp(wse_rlay)
+            dem_fp = get_warp(dem_rlay)
  
         elif dsampStage == 'pre':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
-            wse_fp = get_resamp(wse_raw_fp)
-            dem_fp = get_resamp(dem_raw_fp)
+            wse_fp = get_resamp(wse_rlay)
+            dem_fp = get_resamp(dem_rlay)
             
         elif dsampStage == 'preGW':
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
-            wse1_fp = get_resamp(wse_raw_fp)
-            dem_fp = get_resamp(dem_raw_fp)
+            wse1_fp = get_resamp(wse_rlay)
+            dem_fp = get_resamp(dem_rlay)
             
             #===================================================================
             # remove groundwater from wse
@@ -3060,21 +3074,23 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         else:
             raise Error('badd dsampStage: %s'%dsampStage)
         
-        assert_rlay_equal(glay(wse_fp), glay(dem_fp), msg='dem and wse dont match')
+        wse1_rlay = glay(wse_fp)
+        dem1_rlay = glay(dem_fp)
+        assert_rlay_equal(wse1_rlay,dem1_rlay , msg='dem and wse dont match')
  
         #=======================================================================
         # subtraction--------
         #=======================================================================
         log.debug('building RasterCalc')
-        with RasterCalc(wse_fp, name='dep', session=self, logger=log,out_dir=self.temp_dir,) as wrkr:
+        with RasterCalc(wse1_rlay, name='dep', session=self, logger=log,out_dir=self.temp_dir,) as wrkr:
             
-            wse_rlay = wrkr.ref_lay #loaded during init
-            dtm_rlay = wrkr.load(dem_fp)
+            #wse_rlay = wrkr.ref_lay #loaded during init
+            #dtm_rlay = wrkr.load(dem_fp)
             
             #===================================================================
             # setup
             #===================================================================
-            entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'top':wse_rlay, 'bottom':dtm_rlay}.items()}
+            entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'top':wse1_rlay, 'bottom':dem1_rlay}.items()}
             formula = '%s - %s'%(entries_d['top'].ref, entries_d['bottom'].ref)
             
             #===================================================================
@@ -3173,7 +3189,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log.info('finished in %s on \'%s\' (%i x %i = %i)'%(tdelta,
             rlay.name(), rlay.width(), rlay.height(), rlay.width()*rlay.height()))
 
-        return {'rlay':rlay, 'noData_cnt':null_cnt}
+        return {'rlay':rlay, 'noData_cnt':null_cnt, 'wse_fp':wse_fp, 'dem_fp':dem_fp}
     
     def get_resamp(self, #wrapper for  warpreproject
                    fp_raw, resolution, downSampling,  
@@ -3184,7 +3200,14 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
     
         
         assert not resolution == 0
- 
+        
+        if isinstance(fp_raw, str):
+            basename = os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif' % resolution
+        elif isinstance(fp_raw, QgsRasterLayer):
+            basename = fp_raw.name() + '_warp%03i.tif' % resolution
+        else:
+            raise IOError(fp_raw)
+        
         #===================================================================
         # defaults
         #===================================================================
@@ -3192,14 +3215,14 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log = logger.getChild('get_resamp')
         
         log.info('downsampling \'%s\' w/ resolution=%i and downSampling=%s' % (
-            os.path.basename(fp_raw).replace('.tif', ''), resolution, downSampling))
+            basename, resolution, downSampling))
 
         #===================================================================
         # execute
         #===================================================================
-        ofp = os.path.join(self.temp_dir, os.path.basename(fp_raw).replace('.tif', '') + '_warp%i.tif' % resolution)
+ 
         wd_fp = self.warpreproject(
-            fp_raw, output=ofp, 
+            fp_raw, output=os.path.join(self.temp_dir, basename), 
             resolution=resolution, resampling=downSampling, 
             compression='none', crsOut=self.qproj.crs(), extents=extents, 
             logger=log)

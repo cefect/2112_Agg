@@ -1022,17 +1022,21 @@ def assert_lay_lib(lib_d, msg=''):
     if __debug__:
         assert isinstance(lib_d, dict)
         for k0,d0 in lib_d.items():
-            if not isinstance(d0, dict):
-                raise AssertionError('bad subtype on %s: %s\n'%(
-                    k0, type(d0))+msg)
-            
-            for k1, lay in d0.items():
-                if k1 is None:
-                    raise AssertionError('bad key on %s.%s: \n'%(
-                        k0,k1 )+msg)
-                if not isinstance(lay, QgsMapLayer):
-                    raise AssertionError('bad type on %s.%s: %s\n'%(
-                        k0,k1, type(lay))+msg)
+            assert_lay_d(d0, msg=msg+' '+str(k0))
+
+def assert_lay_d(d0, msg=''):
+    if __debug__:
+        if not isinstance(d0, dict):
+            raise AssertionError('bad type on  : %s\n'%(
+                type(d0))+msg)
+        
+        for k1, lay in d0.items():
+            if k1 is None:
+                raise AssertionError('bad key on  %s: \n'%(
+                     k1 )+msg)
+            if not isinstance(lay, QgsMapLayer):
+                raise AssertionError('bad type on  %s: %s\n'%(
+                     k1, type(lay))+msg)
                     
                     
                     

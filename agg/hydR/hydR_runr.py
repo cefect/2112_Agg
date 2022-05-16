@@ -50,6 +50,7 @@ def run( #run a basic model configuration
         #raster downSampling and selection  (StudyArea.get_raster())
         dsampStage='pre', downSampling='Average', severity = 'hi', 
         #resolution=5, this is what we iterate on
+        sequenceType='none', #how construct layers consequtively
 
         #=======================================================================
         # debug
@@ -78,7 +79,7 @@ def run( #run a basic model configuration
     with RastRun(tag=tag,proj_lib=proj_lib,overwrite=overwrite, trim=trim, name=name,
                      write=write,exit_summary=exit_summary,prec=prec, 
                  bk_lib = {
-                     'drlay_lib':dict( severity=severity, downSampling=downSampling, dsampStage=dsampStage, iters=iters),
+                     'drlay_lib':dict( severity=severity, downSampling=downSampling, dsampStage=dsampStage, iters=iters, sequenceType=sequenceType),
                      'res_dx':dict(phase_l=phase_l), 
                      'dataExport':dict(compression=compression, debug_max_len=debug_max_len, phase_l=phase_l, id_params=id_params), 
           
@@ -112,6 +113,7 @@ def dev():
         trim=True, compression='none',name='hydRd',write_lib=True,
         tag='dev',
         iters=2,
+        sequenceType='inputs',
         #dsampStage='postFN',
         #downSampling='Nearest neighbour',
         compiled_fp_d={
@@ -273,7 +275,7 @@ def preGW_nn():
     
 if __name__ == "__main__": 
     
-    #dev()
+    dev()
  
     #post()
     #===========================================================================
@@ -284,7 +286,7 @@ if __name__ == "__main__":
     #pre_nn()
     #post_nn()
     #postFN_nn()
-    preGW_nn()
+    #preGW_nn()
     
 
     tdelta = datetime.datetime.now() - start

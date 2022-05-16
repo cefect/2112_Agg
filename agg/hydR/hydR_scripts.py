@@ -26,7 +26,7 @@ from hp.Q import assert_rlay_equal, QgsMapLayer, view
 from hp.basic import set_info
 from agg.hyd.hscripts import  RasterCalc
 
-from agg.hydR.hydR_coms import RRcoms, Catalog, assert_lay_lib
+from agg.hydR.hydR_coms import RRcoms, Catalog, assert_lay_lib, assert_lay_d
     
 
 
@@ -154,11 +154,7 @@ class RastRun(RRcoms):
         self.retrieve('noData_pct')
         
         
-        
-
-        
-        
-
+ 
     
     def build_drlays2(self,
                      
@@ -169,7 +165,12 @@ class RastRun(RRcoms):
                      proj_lib=None,
                      
                      #parameters [get_drlay]. for non base_resolution
-                     dsampStage='pre',downSampling='Average',
+                     dsampStage='pre',downSampling='Average',severity='hi',
+                     
+                     sequenceType='none', #how to construct from previous iteration... or from raw
+                        #none: always start from base/raw data
+                        #inputs: use inputs (dem, wse) from previous iter (only for dsampStage=pre)
+                        #outputs: use outputs (depths) from previous iter. negates dsampStage for most iters
                      
                      #outputs
                      out_dir=None,
@@ -191,6 +192,10 @@ class RastRun(RRcoms):
         assert not downSampling=='none'
         
         temp_dir = self.temp_dir #collect
+        mstore = QgsMapLayerStore()
+        
+        def glay(fp):
+            return self.get_layer(fp, mstore=mstore, logger=log)
         #=======================================================================
         # clean proj_lib
         #=======================================================================
@@ -206,6 +211,22 @@ class RastRun(RRcoms):
         resolution_iters = [base_resolution*(resolution_scale)**i for i in range(iters)]
         
         assert max(resolution_iters)<1e5
+        
+        #=======================================================================
+        # setup sequential
+        #=======================================================================
+        """this is only needed by sequenceType=inputs... 
+        but cleaner to just use this for all (and not reset)"""
+        ins_lay_lib={k:dict() for k in proj_lib.keys()}
+        #if sequenceType=='inputs':
+        #setup inputs for first iter
+        
+        for sa, d in proj_lib.items():
+            ins_lay_lib[sa]['wse_rlay'] = glay(d['wse_fp_d'][severity])
+            ins_lay_lib[sa]['dem_rlay'] =glay(d['dem_fp_d'][base_resolution])
+        
+        
+                
         #=======================================================================
         # retrive rasters per StudyArea
         #=======================================================================
@@ -214,11 +235,11 @@ class RastRun(RRcoms):
         #execute
         log.info('constructing %i: %s'%(len(resolution_iters), resolution_iters))
         res_lib = dict()
-        nd_res_lib=dict()
+        meta_lib=dict()
         cnt=0
         for i, resolution in enumerate(resolution_iters):
             log.info('\n\n%i/%i at %i\n'%(i+1, len(resolution_iters), resolution))
-            
+            assert_lay_lib(ins_lay_lib, msg='sequence setup')
             #===================================================================
             # #handle parameters
             #===================================================================
@@ -238,24 +259,56 @@ class RastRun(RRcoms):
             # #build the depth layer
             #===================================================================
             try:
-                d = self.sa_get(meth='get_drlay', logger=log.getChild(str(i)), 
-                                                  dkey=dkey, write=False,
+                """
+                StudyArea.get_drlay()
+                """
+                d = self.sa_get(meth='get_drlay', 
+                                    logger=log.getChild(str(i)), 
+                                  dkey=dkey, write=False,
                                     resolution=resolution, base_resolution=base_resolution,
                                     dsampStage=dStage, downSampling=dSamp,proj_lib=proj_lib,
+                                    severity=severity,
+                                    fkwargs=ins_lay_lib,
                                      **kwargs)
                 
-                #extract
-                res_lib[resolution] = {k:d0.pop('rlay') for k, d0 in d.items()}
-                for sa, rlay in res_lib[resolution].items():
-                    assert isinstance(rlay, QgsRasterLayer), sa
-                
-                cnt+=len(res_lib[resolution])
-                
-                #nodata counts
-                nd_res_lib[resolution] = pd.DataFrame.from_dict(d)
+
                 
             except Exception as e:
                 raise IOError('failed get_drlay on reso=%i w/ \n    %s'%(resolution, e))
+            
+            #===================================================================
+            # handle results
+            #===================================================================
+            #rekey results
+            d1 = {k:dict() for k in ['rlay','noData_cnt', 'wse_fp', 'dem_fp']}
+            for k in d1.keys():
+                d1[k] = {sa:d0.pop(k) for sa, d0 in d.items()}
+            
+            #handle just the layers
+            lay_d = d1.pop('rlay')
+            assert_lay_d(lay_d, msg='res=%i'%resolution)
+            cnt+=len(lay_d)
+            res_lib[resolution]=lay_d
+            
+            #add back names
+            d1['rlay'] = {k:r.name() for k,r in lay_d.items()}
+            
+            #nodata counts
+            meta_lib[resolution] = pd.DataFrame.from_dict(d1)
+            
+            #===================================================================
+            # wrap
+            #===================================================================
+            if sequenceType=='inputs':
+                mstore.removeAllMapLayers() #kill previous iter
+                
+                for sa in proj_lib.keys():
+                    ins_lay_lib[sa]['wse_rlay'] = glay(d1['wse_fp'][sa])
+                    ins_lay_lib[sa]['dem_rlay'] =glay(d1['dem_fp'][sa])
+                    
+            log.debug('finished %i'%i)
+                     
+ 
  
         self.temp_dir = temp_dir #revert
         log.info('finished building %i'%cnt)
@@ -271,29 +324,29 @@ class RastRun(RRcoms):
         # handle meta
         #=======================================================================
         if write:
-            rdx = pd.concat(nd_res_lib).T.stack(level=0).swaplevel().sort_index(sort_remaining=True)
+            rdx = pd.concat(meta_lib, names=[self.resCn, self.saCn]) #.T.stack(level=0).swaplevel().sort_index(sort_remaining=True)
             rdx.index.set_names([self.resCn, self.saCn], inplace=True)
             
             #rename to not conflict
-            assert len(rdx.columns)==1
-            rdx.columns = ['noData_cnt2']
+            #rdx = rdx.rename(columns={'noData_cnt':'noData_cnt2'})
             
-            assert np.array_equal(rdx.index.names, np.array([self.resCn, self.saCn]))
+            rserx = rdx['noData_cnt'].rename('noData_cnt2')
+            
+            assert np.array_equal(rserx.index.names, np.array([self.resCn, self.saCn]))
             
             dkey1 = 'noData_cnt'
-            self.data_d[dkey1] = rdx.copy()
-            self.ofp_d[dkey1] = self.write_pick(rdx,
+            self.data_d[dkey1] = rserx.copy()
+            self.ofp_d[dkey1] = self.write_pick(rserx,
                                    os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey1, self.longname)),
                                    logger=log)
-            
-            
+ 
         #=======================================================================
         # wrap-----
         #=======================================================================
  
         assert_lay_lib(res_lib, msg='%s post'%dkey)
- 
-            
+        mstore.removeAllMapLayers()
+   
         return res_lib
     
  
