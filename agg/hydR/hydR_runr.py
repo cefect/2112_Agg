@@ -125,7 +125,7 @@ def dev():
  
 
  
-def r01(**kwargs):
+def r02(**kwargs):
     rkwargs = dict(
         iters=8, downSampling='Average',write_lib=True, 
         #catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv',
@@ -197,7 +197,7 @@ def preGW():
     
 def pre_nn():
     return r01(
-        dsampStage='pre',tag='pre', 
+        dsampStage='pre',tag='pre_nn', 
         downSampling='nn',
         compiled_fp_d={
             'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\pre_nn\20220515\working\drlay_lib_hydR02_pre_nn_0515.pickle',
@@ -213,6 +213,23 @@ def pre_nn():
             }
         )
     
+def post_nn():
+    return r02(
+        dsampStage='post',tag='post_nn', 
+        downSampling='nn',
+        compiled_fp_d={
+            'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\drlay_lib_hydR02_post_nn_0516.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\noData_cnt_hydR02_post_nn_0516.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\rstats_hydR02_post_nn_0516.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\wetStats_hydR02_post_nn_0516.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\gwArea_hydR02_post_nn_0516.pickle',
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\difrlay_lib_hydR02_post_nn_0516.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\post_nn\20220516\working\rstatsD_hydR02_post_nn_0516.pickle',
+ 
+            }
+        )
+
+    
 if __name__ == "__main__": 
     
     dev()
@@ -224,6 +241,7 @@ if __name__ == "__main__":
     #===========================================================================
     #preGW()
     #pre_nn()
+    post_nn()
     
 
     tdelta = datetime.datetime.now() - start
