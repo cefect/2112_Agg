@@ -233,10 +233,47 @@ def post_nn():
             }
         )
 
+def postFN_nn():
+    return r02(
+        dsampStage='postFN',tag='postFN_nn', 
+        downSampling='nn',
+        compiled_fp_d={
+            'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\postFN_nn\20220516\working\drlay_lib_hydR02_postFN_nn_0516.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\postFN_nn\20220516\working\noData_cnt_hydR02_postFN_nn_0516.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\postFN_nn\20220516\working\rstats_hydR02_postFN_nn_0516.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\postFN_nn\20220516\working\wetStats_hydR02_postFN_nn_0516.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\postFN_nn\20220516\working\gwArea_hydR02_postFN_nn_0516.pickle',
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\postFN_nn\20220516\working\difrlay_lib_hydR02_postFN_nn_0516.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\postFN_nn\20220516\working\rstatsD_hydR02_postFN_nn_0516.pickle',
+
+
+            }
+        )
+    
+def preGW_nn():
+    return r02(
+        dsampStage='preGW',tag='preGW_nn', 
+        downSampling='nn',
+        compiled_fp_d={
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\drlay_lib_hydR02_preGW_nn_0516.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\noData_cnt_hydR02_preGW_nn_0516.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\rstats_hydR02_preGW_nn_0516.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\wetStats_hydR02_preGW_nn_0516.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\gwArea_hydR02_preGW_nn_0516.pickle',
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\difrlay_lib_hydR02_preGW_nn_0516.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\rstatsD_hydR02_preGW_nn_0516.pickle',
+                'rmseD':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\rmseD_hydR02_preGW_nn_0516.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\res_dx_hydR02_preGW_nn_0516.pickle',
+        'dataExport':r'C:\LS\10_OUT\2112_Agg\outs\hydR02\preGW_nn\20220516\working\dataExport_hydR02_preGW_nn_0516.pickle',
+
+ 
+            }
+        )
+
     
 if __name__ == "__main__": 
     
-    dev()
+    #dev()
  
     #post()
     #===========================================================================
@@ -246,6 +283,8 @@ if __name__ == "__main__":
     #preGW()
     #pre_nn()
     #post_nn()
+    #postFN_nn()
+    preGW_nn()
     
 
     tdelta = datetime.datetime.now() - start
