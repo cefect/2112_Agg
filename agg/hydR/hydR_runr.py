@@ -264,17 +264,11 @@ def dev():
         trim=True, compression='none',name='hydRd',write_lib=True,
         tag='dev',
         iters=2,
-        sequenceType='inputs',
+        sequenceType='outputs',
         #dsampStage='postFN',
         #downSampling='Nearest neighbour',
         compiled_fp_d={
-        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220517\working\drlay_lib_hydRd_dev_0517.pickle',
-        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220517\working\noData_cnt_hydRd_dev_0517.pickle',
-        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220517\working\rstats_hydRd_dev_0517.pickle',
-        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220517\working\wetStats_hydRd_dev_0517.pickle',
-        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220517\working\gwArea_hydRd_dev_0517.pickle',
-        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220517\working\difrlay_lib_hydRd_dev_0517.pickle',
-        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hydRd\dev\20220517\working\rstatsD_hydRd_dev_0517.pickle',
+ 
 
             },
         #catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydRd\hydRd_run_index.csv',

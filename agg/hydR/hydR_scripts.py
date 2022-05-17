@@ -237,6 +237,8 @@ class RastRun(RRcoms):
         res_lib = dict()
         meta_lib=dict()
         cnt=0
+        first = True
+        lay_d=None
         for i, resolution in enumerate(resolution_iters):
             log.info('\n\n%i/%i at %i\n'%(i+1, len(resolution_iters), resolution))
             assert_lay_lib(ins_lay_lib, msg='sequence setup')
@@ -258,42 +260,80 @@ class RastRun(RRcoms):
             #===================================================================
             # #build the depth layer
             #===================================================================
-            try:
-                """
-                StudyArea.get_drlay()
-                """
-                d = self.sa_get(meth='get_drlay', 
-                                    logger=log.getChild(str(i)), 
-                                  dkey=dkey, write=False,
-                                    resolution=resolution, base_resolution=base_resolution,
-                                    dsampStage=dStage, downSampling=dSamp,proj_lib=proj_lib,
-                                    severity=severity,
-                                    fkwargs=ins_lay_lib,
-                                     **kwargs)
+            d1 = {k:dict() for k in ['rlay','noData_cnt', 'wse_fp', 'dem_fp']}
+            
+            #common kwargs
+            saKwargs = dict(logger=log.getChild(str(i)), write=False,proj_lib=proj_lib)
+            
+            #normal calcs
+            if (first) or (not sequenceType=='outputs'):
+                try:
+                    """
+                    StudyArea.get_drlay()
+                    """
+                    d = self.sa_get(meth='get_drlay', fkwargs=ins_lay_lib, dkey=dkey,
+                              base_resolution=base_resolution,dsampStage=dStage, 
+                               resolution=resolution, downSampling=dSamp,
+                                severity=severity,**{**kwargs, **saKwargs})
+                    
+    
+                    
+                except Exception as e:
+                    raise IOError('failed get_drlay on reso=%i w/ \n    %s'%(resolution, e))
                 
-
+ 
+                #rekey results
+                for k in d1.keys():
+                    d1[k] = {sa:d0.pop(k) for sa, d0 in d.items()}
                 
-            except Exception as e:
-                raise IOError('failed get_drlay on reso=%i w/ \n    %s'%(resolution, e))
+                #handle just the layers
+                lay_d = d1.pop('rlay')
+                
+ 
+            #===================================================================
+            # just downsample
+            #===================================================================
+            elif sequenceType=='outputs':
+                #buidl args for StudyArea.get_resamp()
+                fargs_d = {sa:[rlay, resolution, downSampling] for sa,rlay in lay_d.items()} 
+                
+                fkwargs = {sa:{'extents':rlay.extent()} for sa,rlay in lay_d.items()} 
+ 
+                #downsample
+                fp_d = self.sa_get(meth='get_resamp',fargs_d=fargs_d,fkwargs=fkwargs,
+                                   fval=0.0, #seems to be happening on the noise
+                                   **{**kwargs, **saKwargs})
+                
+                #add noData
+                d1['noData_cnt'] = {sa:hp.gdal.getNoDataCount(r) for sa,r in fp_d.items()}
+                
+                
+                
+                #load layers (not adding to mstore)
+                lay_d = {sa:self.get_layer(fp,logger=log) for sa,fp in fp_d.items()}
+                
+ 
+            
+            else:
+                raise IOError(sequenceType)
             
             #===================================================================
             # handle results
             #===================================================================
-            #rekey results
-            d1 = {k:dict() for k in ['rlay','noData_cnt', 'wse_fp', 'dem_fp']}
-            for k in d1.keys():
-                d1[k] = {sa:d0.pop(k) for sa, d0 in d.items()}
-            
-            #handle just the layers
-            lay_d = d1.pop('rlay')
             assert_lay_d(lay_d, msg='res=%i'%resolution)
-            cnt+=len(lay_d)
-            res_lib[resolution]=lay_d
+            
+            for sa, drlay in lay_d.items():
+                assert hp.gdal.getNoDataCount(drlay.source())==0, 'got nulls on %s'%sa
             
             #add back names
             d1['rlay'] = {k:r.name() for k,r in lay_d.items()}
             
-            #nodata counts
+            #add temp filepaths (we re-write below)
+            d1['drlay_fp'] = {k:r.source() for k,r in lay_d.items()}
+
+            cnt+=len(lay_d)
+            res_lib[resolution]=lay_d
+ 
             meta_lib[resolution] = pd.DataFrame.from_dict(d1)
             
             #===================================================================
@@ -307,6 +347,7 @@ class RastRun(RRcoms):
                     ins_lay_lib[sa]['dem_rlay'] =glay(d1['dem_fp'][sa])
                     
             log.debug('finished %i'%i)
+            first=False
                      
  
  
@@ -325,7 +366,10 @@ class RastRun(RRcoms):
         #=======================================================================
         if write:
             rdx = pd.concat(meta_lib, names=[self.resCn, self.saCn]) #.T.stack(level=0).swaplevel().sort_index(sort_remaining=True)
-            rdx.index.set_names([self.resCn, self.saCn], inplace=True)
+            #rdx.index.set_names([self.resCn, self.saCn], inplace=True)
+            """
+            view(rdx)
+            """
             
             #rename to not conflict
             #rdx = rdx.rename(columns={'noData_cnt':'noData_cnt2'})

@@ -1819,6 +1819,7 @@ class Model(HydSession, QSession):  # single model run
                        dkey=None,
                        write=True,
                        logger=None,
+                       fargs_d=None, #args by studyArea
                        fkwargs=None, #kwargs to split by studyarea and put in function
                        **kwargs):
         #=======================================================================
@@ -1837,7 +1838,10 @@ class Model(HydSession, QSession):  # single model run
         # assert dkey in ['rsamps', 'finv_agg_d'], 'bad dkey %s'%dkey
         
         if fkwargs is None:
-            fkwargs = {sa:dict() for sa in proj_lib.items()}
+            fkwargs = {sa:dict() for sa in proj_lib.keys()}
+        
+        if fargs_d is None:
+            fargs_d = {sa:None for sa in proj_lib.keys()}
         #=======================================================================
         # loop and load
         #=======================================================================
@@ -1859,7 +1863,11 @@ class Model(HydSession, QSession):  # single model run
                 """
                 # raw raster samples
                 f = getattr(wrkr, meth)
-                res_d[name] = f(**{**fkwargs[name], **kwargs})
+                
+                if fargs_d[name] is None:
+                    res_d[name] = f(**{**fkwargs[name], **kwargs})
+                else:
+                    res_d[name] = f(*fargs_d[name], **{**fkwargs[name], **kwargs})
                 
         #=======================================================================
         # write
@@ -2013,6 +2021,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         self.wse_fp_d=wse_fp_d
         self.dem_fp_d=dem_fp_d
         #self.drlay_d=drlay_d
+        self.logger=self.session.logger.getChild(self.name)
 
 
         self.logger.info('StudyArea \'%s\' init' % (self.name))
@@ -3195,8 +3204,12 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
     def get_resamp(self, #wrapper for  warpreproject
                    fp_raw, resolution, downSampling,  
                 extents=None,
-                logger=None,
-                ):
+                
+                #nodata filling
+                fval=None,
+                
+                #output defaults
+                out_dir=None,output=None,logger=None,):
         
     
         
@@ -3209,6 +3222,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         else:
             raise IOError(fp_raw)
         
+        if out_dir is None: out_dir=self.temp_dir
+        if output is None:
+            output=os.path.join(out_dir, basename)
         #===================================================================
         # defaults
         #===================================================================
@@ -3222,13 +3238,29 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # execute
         #===================================================================
  
-        wd_fp = self.warpreproject(
-            fp_raw, output=os.path.join(self.temp_dir, basename), 
+        wd_fp1 = self.warpreproject(
+            fp_raw, output=output, 
             resolution=resolution, resampling=downSampling, 
             compression='none', crsOut=self.qproj.crs(), extents=extents, 
             logger=log)
+        
+        #=======================================================================
+        # fill no data
+        #=======================================================================
+        if not fval is None:
+            ndcnt = hp.gdal.getNoDataCount(wd_fp1) 
+            if ndcnt>0:
+                log.warning("got %i noData cells.. filling w/ %.2f"%(ndcnt, fval))
+                            
+                wd_fp2 = self.fillnodata(wd_fp1, fval=fval, logger=log,
+                                          output=os.path.join(out_dir, os.path.basename(wd_fp1).replace('.tif', '') + '_fnd.tif'))
+            else:
+                wd_fp2=wd_fp1
+        else:
+            wd_fp2=wd_fp1
             
-        return wd_fp 
+            
+        return wd_fp2 
     
     
     def get_rsamps_d(self, #wrapper for executing multiple rsamps

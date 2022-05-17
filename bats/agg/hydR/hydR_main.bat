@@ -7,7 +7,7 @@ REM execute
  
 @echo on
  
-python -O C:\LS\09_REPOS\02_JOBS\2112_agg\cef\agg\hydR\main.py -t preGW_nn -n hydR02 -i 8 -dsampStage preGW -downSampling nn 
+python -O C:\LS\09_REPOS\02_JOBS\2112_agg\cef\agg\hydR\main.py -t post_Sins -n hydR03 -i 8 -dsampStage post -downSampling Average -sequenceType inputs 
  
 ECHO finished 
 
