@@ -3082,7 +3082,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # subtraction--------
         #=======================================================================
         log.debug('building RasterCalc')
-        with RasterCalc(wse1_rlay, name='dep', session=self, logger=log,out_dir=self.temp_dir,) as wrkr:
+        with RasterCalc(wse1_rlay, name='dep', session=self, 
+                        logger=log,out_dir=self.temp_dir,) as wrkr:
             
             #wse_rlay = wrkr.ref_lay #loaded during init
             #dtm_rlay = wrkr.load(dem_fp)

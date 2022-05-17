@@ -654,43 +654,45 @@ class RastRun(RRcoms):
         # calculator
         #=======================================================================
         def func(rlay, logger=None, meta_d={}):
+            
+            #setup
             logger.info('on %s'%rlay.name())
-            #self.mstore.addMapLayer(rlay)
+            out_dir = os.path.join(self.temp_dir, meta_d[self.saCn], dkey)
+            if not os.path.exists(out_dir):os.makedirs(out_dir)
+ 
             #square the differences
-            res_fp = self.rastercalculator(rlay, '{}@1^2'.format(rlay.name()), logger=logger)
+            #res_fp = self.rcalc2(rlay, '{}@1^2'.format(rlay.name()), layname=rlay.name()+'_sq', logger=log)
+            #res_fp = self.rastercalculator(rlay, '{}@1^2'.format(rlay.name()), logger=logger)
+            
+            with RasterCalc(rlay,  session=self,logger=log, name='rmse',
+                            out_dir=out_dir, temp_dir=self.temp_dir) as wrkr:
+                
+                rce = wrkr._rCalcEntry(wrkr.ref_lay)
+                formula = '{}^2'.format(rce.ref)
+                res_fp = wrkr.rcalc(formula, layname=rlay.name()+'_sq')
             
             #get the stats
 
             
             sum_sq = self.rasterlayerstatistics(res_fp, logger=logger)['SUM']
-            
- 
-            
-            
-            
+
             cnt = float(self.rlay_get_cellCnt(res_fp, exclude_nulls=False)) #shouldnt be any nulls
             
             rmse =  math.sqrt(sum_sq/cnt)
             
- #==============================================================================
- #            stats_d = self.rasterlayerstatistics(rlay, logger=logger) 
- #            
- #            
- # 
- #            
- #            dp = rlay.dataProvider()
- #            
- #            bstats = dp.bandStatistics(1,
- #                                   qgis.core.QgsRasterBandStats.All,
- #                                   qgis.core.QgsRectangle(), 0)
- #            
- #            bstats.sum
- #            assert stats_d['SUM_OF_SQUARES'] == bstats.sumOfSquares
- #==============================================================================
-            
+            """this would be faster... but not sure what 'sumOfSquares' is supposed to be
+            stats_d = self.rasterlayerstatistics(rlay, logger=logger) 
  
+            dp = rlay.dataProvider()
             
-            #rmse =  math.sqrt(stats_d['SUM_OF_SQUARES']/cnt)
+            bstats = dp.bandStatistics(1,
+                               qgis.core.QgsRasterBandStats.All,
+                               qgis.core.QgsRectangle(), 0)
+            
+            bstats.sum
+            assert stats_d['SUM_OF_SQUARES'] == bstats.sumOfSquares
+ 
+            rmse =  math.sqrt(stats_d['SUM_OF_SQUARES']/cnt)"""
                         
                         
  
