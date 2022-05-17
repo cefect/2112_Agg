@@ -7,7 +7,7 @@ REM execute
  
 @echo on
  
-python -O C:\LS\09_REPOS\02_JOBS\2112_agg\cef\agg\hydR\main.py -t post_Sins -n hydR03 -i 8 -dsampStage post -downSampling Average -sequenceType inputs 
+python -O C:\LS\09_REPOS\02_JOBS\2112_agg\cef\agg\hydR\main.py -t post_Sins_nn -n hydR03 -i 8 -dsampStage post -downSampling nn -sequenceType inputs 
  
 ECHO finished 
 

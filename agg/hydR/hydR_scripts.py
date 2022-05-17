@@ -33,7 +33,7 @@ from agg.hydR.hydR_coms import RRcoms, Catalog, assert_lay_lib, assert_lay_d
 class RastRun(RRcoms):
     
     phase_l=['depth', 'diff']
-    index_col = list(range(5))
+    index_col = list(range(6))
     
     def __init__(self,
                  name='rast',

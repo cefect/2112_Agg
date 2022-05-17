@@ -90,7 +90,8 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
             'resolution':'copper',
             'dkey':'Pastel2',
             'dsampStage':'Set1',
-            'downSampling':'Set1', 
+            'downSampling':'Set1',
+            'sequenceType':'Set2',
                         })
         
         self.colorMap_d=colorMap_d
@@ -1438,24 +1439,33 @@ def run( #run a basic model configuration
             #===================================================================
             # schemes and methods
             #===================================================================
-            gcols_l=['downSampling', 'dsampStage']
-            for gcol in gcols_l:
-        
-                for gkey, gdx in dxi.droplevel(0, axis=1).groupby(level=gcol):
-                    #===============================================================
-                    # prep
-                    #===============================================================
-                    keys_d = {gcol:gkey}
-                    title = '_'.join([plotName]+[gkey])
-                    
-                    
-                    plot_bgrp=list(set(gcols_l).difference([gcol]))[0]
+            plot_coln=ses.saCn
+            xvar = ses.resCn
+ 
+            for plot_bgrp in [ #variable to compare on one plot
+                #'downSampling', 
+                'dsampStage',
+                'sequenceType',
+                ]:
+                
+                #variables to slice for each plot
+                gcols_l=list(set(dxi.index.names).difference([plot_bgrp, plot_coln, xvar]))
+                
+                for gkeys, gdx in dxi.droplevel(0, axis=1).groupby(level=gcols_l):
                     
                     #check if theres multiple dimensions
                     if len(gdx.index.unique(plot_bgrp))==1:
                         continue #not worth plotting
+
+                    #===============================================================
+                    # prep
+                    #===============================================================
+                    keys_d = dict(zip(gcols_l,gkeys))
+                    title = '_'.join([plotName]+list(gkeys))
+                    
+ 
                     print('\n\n %s \n\n'%(title))
-                    #continue
+ 
  
                     #nice plot showing the major raw statistics 
                     col_d={
@@ -1575,7 +1585,7 @@ def r03():
 if __name__ == "__main__": 
     #wet mean
 
-    r02()
+    r03()
  
 
     tdelta = datetime.datetime.now() - start
