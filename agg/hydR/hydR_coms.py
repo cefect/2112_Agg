@@ -669,7 +669,7 @@ class RRcoms(Model):
 
 class Catalog(object): #handling the simulation index and library
     df=None
-    keys = ['resolution', 'studyArea', 'downSampling', 'dsampStage', 'severity',
+    keys = ['resolution', 'studyArea', 'downSampling', 'dsampStage', 'severity','sequenceType',
             'aggType', 'samp_method', 'aggLevel']
     cols = ['dkey', 'stat']
  

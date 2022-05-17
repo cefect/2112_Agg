@@ -1569,6 +1569,9 @@ def r01():
 def r02():
     return run(tag='r02',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR02\hydR02_run_index.csv',)
 
+def r03():
+    return run(tag='r03',catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR03\hydR03_run_index.csv',)
+
 if __name__ == "__main__": 
     #wet mean
 

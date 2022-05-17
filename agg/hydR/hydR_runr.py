@@ -72,7 +72,7 @@ def run( #run a basic model configuration
         assert len(miss_l)==0, 'passed %i studyAreas not in proj_lib: %s'%(len(miss_l), miss_l)
         proj_lib = {k:v for k,v in proj_lib.items() if k in studyArea_l}
         
-    id_params=dict(downSampling=downSampling, dsampStage=dsampStage, severity=severity)
+    id_params=dict(downSampling=downSampling, dsampStage=dsampStage, severity=severity, sequenceType=sequenceType)
     #===========================================================================
     # execute
     #===========================================================================
@@ -120,6 +120,14 @@ def r02(**kwargs):
         phase_l=['depth', 'diff']
         )    
     return run(name='hydR02', **{**rkwargs, **kwargs})
+
+def r03(**kwargs):
+    rkwargs = dict(
+        iters=8, downSampling='Average',write_lib=True, 
+        #catalog_fp=r'C:\LS\10_OUT\2112_Agg\lib\hydR01\hydR01_run_index.csv',
+        phase_l=['depth', 'diff']
+        )    
+    return run(name='hydR03', **{**rkwargs, **kwargs})
 
 def postFN():
     return r01(
@@ -258,7 +266,24 @@ def preGW_nn():
             }
         )
 
+def post_Sins():
+    return r03(tag='post_Sins', 
+        dsampStage='post',downSampling='Average',sequenceType='inputs',
+        compiled_fp_d={
+        'drlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\drlay_lib_hydR03_post_Sins_0517.pickle',
+        'noData_cnt':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\noData_cnt_hydR03_post_Sins_0517.pickle',
+        'rstats':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\rstats_hydR03_post_Sins_0517.pickle',
+        'wetStats':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\wetStats_hydR03_post_Sins_0517.pickle',
+        'gwArea':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\gwArea_hydR03_post_Sins_0517.pickle',
+        'difrlay_lib':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\difrlay_lib_hydR03_post_Sins_0517.pickle',
+        'rstatsD':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\rstatsD_hydR03_post_Sins_0517.pickle',
+        'rmseD':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\rmseD_hydR03_post_Sins_0517.pickle',
+        'res_dx':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\res_dx_hydR03_post_Sins_0517.pickle',
+        'dataExport':r'C:\LS\10_OUT\2112_Agg\outs\hydR03\post_Sins\20220517\working\dataExport_hydR03_post_Sins_0517.pickle',
 
+ 
+            }
+        )
 def dev():
     return run(
         trim=True, compression='none',name='hydRd',write_lib=True,
@@ -278,7 +303,7 @@ def dev():
     
 if __name__ == "__main__": 
     
-    dev()
+    #dev()
  
     #post()
     #===========================================================================
@@ -290,6 +315,7 @@ if __name__ == "__main__":
     #post_nn()
     #postFN_nn()
     #preGW_nn()
+    post_Sins()
     
 
     tdelta = datetime.datetime.now() - start
