@@ -89,7 +89,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
             'studyArea':'Dark2',
             'resolution':'copper',
             'dkey':'Pastel2',
-            'dsampStage':'Set1',
+            'dsampStage':'PiYG',
             'downSampling':'Set1',
             'sequenceType':'Set2',
                         })
@@ -1059,10 +1059,10 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                          xscale='log',
                          xlims=None,
                          ax_title_d=None, #optional axis titles (columns)
-                         ascending=False,
+                         #ascending=False,
                          
                          #plot control [matrix]
-                         figsize=None,
+                         figsize=None,grid=True,
                          sharey='none',sharex='col',
                          set_ax_title=True,
                          
@@ -1149,11 +1149,13 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         if color_d is None:
             
             
-            """nasty workaround to get colors to match w/ hyd""" 
-            if plot_colr =='dsampStage':
-                ckeys = ['none'] + ckeys.values.tolist() #['none', 'post', 'postFN', 'pre', 'preGW']
-            elif plot_colr=='downSampling':
-                ckeys = ['nn', '0', 'Average', '1', '2']
+            #===================================================================
+            # """nasty workaround to get colors to match w/ hyd""" 
+            # if plot_colr =='dsampStage':
+            #     ckeys = ['none'] + ckeys.values.tolist() #['none', 'post', 'postFN', 'pre', 'preGW']
+            # elif plot_colr=='downSampling':
+            #     ckeys = ['nn', '0', 'Average', '1', '2']
+            #===================================================================
             
             color_d = self.get_color_d(ckeys, colorMap=colorMap)
             
@@ -1275,7 +1277,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                 if row_key == row_keys[-1]:
                     ax.set_xlabel(xlabel)
  
-                ax.grid()
+                if grid: ax.grid()
         
  
         #=======================================================================
@@ -1430,6 +1432,7 @@ def run( #run a basic model configuration
         #change order
         ax_title_d = ses.ax_title_d
         del ax_title_d['LMFRA']
+        del ax_title_d['noise']
         dx_raw = ses.retrieve('catalog').loc[idx[list(ax_title_d.keys()), :], :]
         """
         view(dx_raw)
@@ -1441,7 +1444,7 @@ def run( #run a basic model configuration
         
  
         
-        figsize=(8,12)
+        figsize=(8,8)
         for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
             ('',dx_raw, None,None, 'log', 'linear', True),
  
@@ -1490,9 +1493,9 @@ def run( #run a basic model configuration
                         # 'MEAN':'global mean depth (m)',
                         #===============================================================
                         'wetMean':'wet mean depth (m)',
-                        'wetVolume':'wet volume (m^3)', 
+                        #'wetVolume':'wet volume (m^3)', 
                          'wetArea': 'wet area (m^2)', 
-                         'rmse':'RMSE (m)',
+                         #'rmse':'RMSE (m)',
                          #'gwArea':'gwArea',
                          #'STD_DEV':'stdev (m)',
                          #'noData_cnt':'noData_cnt',
@@ -1502,7 +1505,7 @@ def run( #run a basic model configuration
      
  
                     ses.plot_statVsIter(
-                        plot_bgrp=plot_bgrp,
+                        plot_bgrp=plot_bgrp,figsize=figsize,
                         set_ax_title=False,
                         dx_raw=gdx, 
                         coln_l=list(col_d.keys()), xlims=xlims,

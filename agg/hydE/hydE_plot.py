@@ -32,7 +32,7 @@ plt.style.use('default')
 
 #font
 matplotlib_font = {
-        'family' : 'serif',
+        'family' : 'Arial',
         'weight' : 'normal',
         'size'   : 12}
 
@@ -73,7 +73,7 @@ class ExpoPlotr(RasterPlotr, ExpoRun): #analysis of model results
         
         
         colorMap_d.update({
-            'aggLevel':'cool'
+            'aggLevel':'viridis'
                         })
  
         
@@ -133,8 +133,10 @@ def run( #run a basic model configuration
         #=======================================================================
         #change order
         ax_title_d = ses.ax_title_d
-        del ax_title_d['LMFRA']
-        del ax_title_d['noise']
+        
+        #drop some
+        for sa in ['LMFRA', 'noise']: del ax_title_d[sa]
+ 
         dx_raw = ses.retrieve('catalog').loc[idx[list(ax_title_d.keys()), :], :]
         
         dx1=dx_raw.copy()
@@ -158,14 +160,15 @@ def run( #run a basic model configuration
         #=======================================================================
         # parameters
         #=======================================================================
-        figsize=(16,16)
+        #figsize=(16,16)
+        figsize=(8,8) #to get square matrix
         #=======================================================================
         # plot loop-------
         #=======================================================================
         #looping different types of plots
         for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
-            ('full',dx1, None,None, 'log', 'linear', True),
-            #('hi',dx1.loc[hi_bx, :], (10, 1001),None, 'log', 'linear', True),
+            #('full',dx1, None,None, 'log', 'linear', True),
+            ('hi',dx1.loc[hi_bx, :], (10, 1001),None, 'log', 'linear', True),
  
             #('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
             #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
@@ -190,26 +193,24 @@ def run( #run a basic model configuration
                 #prep slices
                 dx_expo = gdx.loc[:, idx[('rsampStats', 'rsampErr'), :]].droplevel(0, axis=1)
                 
-                bx1 =  gdx.index.get_level_values('aggLevel')==1 #only 1 agg level
-                dx_haz=gdx[bx1].loc[:, idx[('rstats', 'wetStats', 'noData_pct', 'rmseD'), :]].droplevel(0, axis=1)
- 
+
                 #===============================================================
                 # vs. aggLevel
                 #===============================================================
                 col_d={#exposure values
                         #'mean': 'sampled mean (m)',
-                        'max': 'sampled max (m)',
+                        #'max': 'sampled max (m)',
                         #'min': 'sampled min (m)',
                         'wet_mean': 'sampled wet mean (m)',
                         #'wet_max': 'sampled wet max (m)',
                         #'wet_min': 'sampled wet min (m)',
                         'wet_pct': 'wet assets (pct)',
-                        'RMSE':'RMSE (m)'
+                        #'RMSE':'RMSE (m)'
                         }
                 
                 ax_d = ses.plot_statVsIter(
                     xvar='aggLevel',plot_bgrp='resolution',
-                    set_ax_title=False,figsize=figsize,ascending=True,
+                    set_ax_title=False,figsize=figsize,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
                     title=title + ' vs. Aggregation', ax_title_d=ax_title_d,
@@ -224,7 +225,7 @@ def run( #run a basic model configuration
                 ax_d = ses.plot_statVsIter(
                     xvar='resolution', plot_bgrp='aggLevel',
                     set_ax_title=False,figsize=figsize,
-                    dx_raw=dx_expo, 
+                    dx_raw=dx_expo, grid=False,
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
                     title=title+'vs. Resolution', ax_title_d=ax_title_d,
                     write=False)
@@ -238,7 +239,7 @@ def run( #run a basic model configuration
                         #===============================================================
                         # 'MAX':'max depth (m)',
                         # 'MIN':'min depth (m)',
-                         'MEAN':'global mean depth (m)',
+                         #'MEAN':'global mean depth (m)',
  
                         'wetMean':'wet mean depth (m)',
                         #'wetVolume':'wet volume (m^3)', 
@@ -248,10 +249,14 @@ def run( #run a basic model configuration
                          #'STD_DEV':'stdev (m)',
                          #'noData_cnt':'noData_cnt',
                          'noData_pct':'no data (%)',
-                         'rmse':'RMSE (m)', #didnt run diffs
+                         #'rmse':'RMSE (m)', #didnt run diffs
                     
                           }
+                assert len(col_d1)==len(col_d)
                 
+                #prep slice
+                bx1 =  gdx.index.get_level_values('aggLevel')==1 #only 1 agg level
+                dx_haz=gdx[bx1].loc[:, idx[('rstats', 'wetStats', 'noData_pct', 'rmseD'), :]].droplevel(0, axis=1)
  
                                        
                 plot_colr='dsampStage'
