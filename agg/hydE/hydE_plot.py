@@ -37,11 +37,11 @@ matplotlib_font = {
         'size'   : 12}
 
 matplotlib.rc('font', **matplotlib_font)
-matplotlib.rcParams['axes.titlesize'] = 14 
-matplotlib.rcParams['axes.labelsize'] = 14
+matplotlib.rcParams['axes.titlesize'] = 16 
+matplotlib.rcParams['axes.labelsize'] = 16
 
-matplotlib.rcParams['figure.titlesize'] = 16
-matplotlib.rcParams['figure.titleweight']='bold'
+matplotlib.rcParams['figure.titlesize'] = 6
+#matplotlib.rcParams['figure.titleweight']='bold'
 
 #spacing parameters
 matplotlib.rcParams['figure.autolayout'] = False #use tight layout
@@ -133,6 +133,8 @@ def run( #run a basic model configuration
         #=======================================================================
         #change order
         ax_title_d = ses.ax_title_d
+        del ax_title_d['LMFRA']
+        del ax_title_d['noise']
         dx_raw = ses.retrieve('catalog').loc[idx[list(ax_title_d.keys()), :], :]
         
         dx1=dx_raw.copy()
@@ -147,23 +149,23 @@ def run( #run a basic model configuration
         view(dx_raw)
         """
  
-        #resolution filtering
-        hi_res=10**3 #max we're using for hyd is 300
-        hr_dx = dx1.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
+        #sub-set filters
+        hi_bx = np.logical_and(
+            dx1.index.get_level_values('aggLevel')<=100,
+            dx1.index.get_level_values('resolution')<=1000)
         
  
         #=======================================================================
         # parameters
         #=======================================================================
-
-        figsize=(8,12)
-        
+ 
         #=======================================================================
         # plot loop-------
         #=======================================================================
         #looping different types of plots
         for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
-            ('',dx1, None,None, 'log', 'linear', True),
+            ('full',dx1, None,None, 'log', 'linear', True),
+            #('hi',dx1.loc[hi_bx, :], (10, 1001),None, 'log', 'linear', True),
  
             #('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
             #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
@@ -210,7 +212,7 @@ def run( #run a basic model configuration
                     set_ax_title=False,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=title + ' vs. Resolution', ax_title_d=ax_title_d,
+                    title=title + ' vs. Aggregation', ax_title_d=ax_title_d,
                     write=True)
                 
  
@@ -220,11 +222,11 @@ def run( #run a basic model configuration
                 print('\n\n%s %s vs. Resolution\n\n'%(plotName, keys_d))
                                          
                 ax_d = ses.plot_statVsIter(
-                    plot_bgrp='aggLevel',
+                    xvar='resolution', plot_bgrp='aggLevel',
                     set_ax_title=False,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=title, ax_title_d=ax_title_d,
+                    title=title+'vs. Resolution', ax_title_d=ax_title_d,
                     write=False)
                 
                 #===============================================================
@@ -254,18 +256,18 @@ def run( #run a basic model configuration
                                        
                 plot_colr='dsampStage'
                 ses.plot_statVsIter(ax_d=ax_d,
- 
-                    plot_colr=plot_colr,
-                   color_d={k:'black' for k in dx_haz.index.unique(plot_colr)},
-                   marker_d={k:'x' for k in dx_haz.index.unique(plot_colr)},
-                   plot_kwargs = dict(alpha=0.8, linestyle='dashed'),
-                                           
-                    set_ax_title=False,
-                    dx_raw=dx_haz, 
-                    coln_l=list(col_d1.keys()), 
-                    #xlims=xlims,
-                    ylab_l = list(col_d.values()),ax_title_d=ax_title_d,
-                    title=title + ' vs. aggLevel')
+                                    #xvar='resolution', plot_bgrp='aggLevel', 
+                                    plot_colr=plot_colr,
+                                   color_d={k:'black' for k in dx_haz.index.unique(plot_colr)},
+                                   marker_d={k:'x' for k in dx_haz.index.unique(plot_colr)},
+                                   plot_kwargs = dict(alpha=0.8, linestyle='dashed'),
+                                                           
+                                    set_ax_title=False,
+                                    dx_raw=dx_haz, 
+                                    coln_l=list(col_d1.keys()), 
+                                    #xlims=xlims,
+                                    ylab_l = list(col_d.values()),ax_title_d=ax_title_d,
+                                    title=title + ' vs. Resolution')
  
             
 

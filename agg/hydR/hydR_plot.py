@@ -37,11 +37,11 @@ matplotlib_font = {
         'size'   : 12}
 
 matplotlib.rc('font', **matplotlib_font)
-matplotlib.rcParams['axes.titlesize'] = 14 
-matplotlib.rcParams['axes.labelsize'] = 14
+matplotlib.rcParams['axes.titlesize'] = 16 
+matplotlib.rcParams['axes.labelsize'] = 16
 
-matplotlib.rcParams['figure.titlesize'] = 16
-matplotlib.rcParams['figure.titleweight']='bold'
+matplotlib.rcParams['figure.titlesize'] = 8
+#matplotlib.rcParams['figure.titleweight']='bold'
 
 #spacing parameters
 matplotlib.rcParams['figure.autolayout'] = False #use tight layout
@@ -1094,6 +1094,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         view(serx)
         dx_raw.index.names
         """
+ 
         log.info("%s w/ %s"%(title, str(dx_raw.shape)))
         #=======================================================================
         # precheck
@@ -1106,6 +1107,13 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         # data prep----
         #=======================================================================
         log.info('on %i'%len(dx_raw))
+        
+        #reorder indexes for nice sequencing
+        head_l = [xvar, plot_bgrp]
+        l = head_l + list(set(serx.index.names).difference(head_l))
+        serx = serx.reorder_levels(l).sort_index(ascending=False)
+        
+        
         dx = dx_raw.loc[:, coln_l]
         
         if dx.isna().any().any():
@@ -1114,6 +1122,9 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         #promote for consistent indexing
         serx = dx.stack(dropna=False) #usually no nulls... but sometimes for dummy data
         serx.index.set_names(list(dx.index.names)+['columns'], inplace=True)
+        
+
+        
         mdex = serx.index
         
         #construct grouping columns
@@ -1415,6 +1426,7 @@ def run( #run a basic model configuration
         #=======================================================================
         #change order
         ax_title_d = ses.ax_title_d
+        del ax_title_d['LMFRA']
         dx_raw = ses.retrieve('catalog').loc[idx[list(ax_title_d.keys()), :], :]
         """
         view(dx_raw)
