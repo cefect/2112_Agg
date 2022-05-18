@@ -1059,7 +1059,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                          xscale='log',
                          xlims=None,
                          ax_title_d=None, #optional axis titles (columns)
-                         
+                         ascending=False,
                          
                          #plot control [matrix]
                          figsize=None,
@@ -1109,12 +1109,14 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         log.info('on %i'%len(dx_raw))
         
         #reorder indexes for nice sequencing
-        head_l = [xvar, plot_bgrp]
-        l = head_l + list(set(serx.index.names).difference(head_l))
-        serx = serx.reorder_levels(l).sort_index(ascending=False)
-        
-        
+        #=======================================================================
+        # head_l = [xvar, plot_bgrp]
+        # l = head_l + list(set(dx_raw.index.names).difference(head_l))
+        # dx = dx_raw.reorder_levels(l).sort_index(ascending=ascending).loc[:, coln_l]
+        #=======================================================================
         dx = dx_raw.loc[:, coln_l]
+        
+ 
         
         if dx.isna().any().any():
             log.warning("got %i/%i null values"%(dx.isna().sum().sum(), dx.size))
@@ -1219,7 +1221,8 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
         # loop and plot------
         #=======================================================================
         
-        for gkeys, gsx0 in serx.groupby(level=gcols):
+        for gkeys, gsx0 in serx.sort_index(level=plot_bgrp, sort_remaining=False, ascending=False
+                                           ).groupby(level=gcols):
             keys_d = dict(zip(gcols, gkeys))
             log.debug('on %s w/ %i'%(keys_d, len(gsx0)))
             ax = ax_d[keys_d[plot_rown]][keys_d[plot_coln]]

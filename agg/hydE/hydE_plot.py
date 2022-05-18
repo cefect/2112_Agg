@@ -158,7 +158,7 @@ def run( #run a basic model configuration
         #=======================================================================
         # parameters
         #=======================================================================
- 
+        figsize=(16,16)
         #=======================================================================
         # plot loop-------
         #=======================================================================
@@ -197,8 +197,8 @@ def run( #run a basic model configuration
                 # vs. aggLevel
                 #===============================================================
                 col_d={#exposure values
-                        'mean': 'sampled mean (m)',
-                        #'max': 'sampled max (m)',
+                        #'mean': 'sampled mean (m)',
+                        'max': 'sampled max (m)',
                         #'min': 'sampled min (m)',
                         'wet_mean': 'sampled wet mean (m)',
                         #'wet_max': 'sampled wet max (m)',
@@ -209,7 +209,7 @@ def run( #run a basic model configuration
                 
                 ax_d = ses.plot_statVsIter(
                     xvar='aggLevel',plot_bgrp='resolution',
-                    set_ax_title=False,
+                    set_ax_title=False,figsize=figsize,ascending=True,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
                     title=title + ' vs. Aggregation', ax_title_d=ax_title_d,
@@ -223,7 +223,7 @@ def run( #run a basic model configuration
                                          
                 ax_d = ses.plot_statVsIter(
                     xvar='resolution', plot_bgrp='aggLevel',
-                    set_ax_title=False,
+                    set_ax_title=False,figsize=figsize,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
                     title=title+'vs. Resolution', ax_title_d=ax_title_d,
@@ -257,7 +257,7 @@ def run( #run a basic model configuration
                 plot_colr='dsampStage'
                 ses.plot_statVsIter(ax_d=ax_d,
                                     #xvar='resolution', plot_bgrp='aggLevel', 
-                                    plot_colr=plot_colr,
+                                    plot_colr=plot_colr,figsize=figsize,
                                    color_d={k:'black' for k in dx_haz.index.unique(plot_colr)},
                                    marker_d={k:'x' for k in dx_haz.index.unique(plot_colr)},
                                    plot_kwargs = dict(alpha=0.8, linestyle='dashed'),
