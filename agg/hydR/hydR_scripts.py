@@ -157,12 +157,16 @@ class RastRun(RRcoms):
  
     
     def build_drlays2(self,
+                      
+                      #data
+                      proj_lib=None,
                      
                      #parameters [calc loop]
                      iters=3, #number of downsamples to perform
                      resolution_scale = 2, 
                      base_resolution=None, #resolution of raw data
-                     proj_lib=None,
+                     resolution_iters=None,
+                     
                      
                      #parameters [get_drlay]. for non base_resolution
                      dsampStage='pre',downSampling='Average',severity='hi',
@@ -208,7 +212,8 @@ class RastRun(RRcoms):
         # build iter loop
         #=======================================================================
         #[10, 30, 90]
-        resolution_iters = [base_resolution*(resolution_scale)**i for i in range(iters)]
+        if resolution_iters is None:
+            resolution_iters = [base_resolution*(resolution_scale)**i for i in range(iters)]
         
         assert max(resolution_iters)<1e5
         
