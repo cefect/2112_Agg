@@ -50,7 +50,7 @@ def run( #run a basic model configuration
         #raster downSampling and selection  (StudyArea.get_raster())
         dsampStage='pre', downSampling='Average', severity = 'hi', 
         #resolution=5, this is what we iterate on
-        sequenceType='none', #how construct layers consequtively
+        sequenceType='none', #how to construct layers consecutively
 
         #=======================================================================
         # debug

@@ -2933,8 +2933,9 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
                    dsampStage='none', #which stage of the depth raster calculation to apply the downsampling
                         #none: no downSampling happening
                         #pre: resample both rasters before subtraction  
-                        #preGW:same as wse, but with a groundwater filter
+                        #preGW:same as 'pre', but with a groundwater filter
                         #post: subtract rasters first, then resample the result
+                        #postFN: same as post, but null values are filled with zeros
                    downSampling='none',
 
                   resolution=None, #0=raw (nicer for variable consistency)

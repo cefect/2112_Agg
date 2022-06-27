@@ -680,7 +680,7 @@ class RastRun(RRcoms):
         return res_lib
     
     
-    def build_rmseD(self,#negative cell count
+    def build_rmseD(self, 
                     dkey='rmseD',
                     lay_lib=None,
                     logger=None, **kwargs):
@@ -720,9 +720,7 @@ class RastRun(RRcoms):
                 formula = '{}^2'.format(rce.ref)
                 res_fp = wrkr.rcalc(formula, layname=rlay.name()+'_sq')
             
-            #get the stats
-
-            
+            #get the stats 
             sum_sq = self.rasterlayerstatistics(res_fp, logger=logger)['SUM']
 
             cnt = float(self.rlay_get_cellCnt(res_fp, exclude_nulls=False)) #shouldnt be any nulls
