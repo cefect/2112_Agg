@@ -34,13 +34,13 @@ plt.style.use('default')
 matplotlib_font = {
         'family' : 'serif',
         'weight' : 'normal',
-        'size'   : 12}
+        'size'   : 6}
 
 matplotlib.rc('font', **matplotlib_font)
-matplotlib.rcParams['axes.titlesize'] = 16 
-matplotlib.rcParams['axes.labelsize'] = 16
+matplotlib.rcParams['axes.titlesize'] = 8 
+matplotlib.rcParams['axes.labelsize'] = 8
 
-matplotlib.rcParams['figure.titlesize'] = 8
+matplotlib.rcParams['figure.titlesize'] = 4
 #matplotlib.rcParams['figure.titleweight']='bold'
 
 #spacing parameters
@@ -48,6 +48,8 @@ matplotlib.rcParams['figure.autolayout'] = False #use tight layout
 
 #legends
 matplotlib.rcParams['legend.title_fontsize'] = 'large'
+
+matplotlib.rcParams['lines.markersize'] = 3.0
 
 print('loaded matplotlib %s'%matplotlib.__version__)
 
@@ -67,6 +69,8 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                'Calgary':'Middle R. (confined)', 
                'noise':'Uniform Noise'
             }
+    
+    color_lib = {'dsampStage': {'post': '#8e0152', 'postFN': '#f5c4e1', 'pre': '#c7e89f', 'preGW': '#276419'}}
     
     
     def __init__(self,
@@ -1157,7 +1161,7 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
             #     ckeys = ['nn', '0', 'Average', '1', '2']
             #===================================================================
             
-            color_d = self.get_color_d(ckeys, colorMap=colorMap)
+            color_d = self.get_color_d(ckeys, colorMap=colorMap, plot_colr=plot_colr)
             
         #check the colors
         miss_l = set(ckeys).symmetric_difference(color_d.keys())
@@ -1431,22 +1435,43 @@ def run( #run a basic model configuration
         #=======================================================================
         #change order
         ax_title_d = ses.ax_title_d
-        del ax_title_d['LMFRA']
-        del ax_title_d['noise']
+        #del ax_title_d['LMFRA']
+        #del ax_title_d['noise']
         dx_raw = ses.retrieve('catalog').loc[idx[list(ax_title_d.keys()), :], :]
         """
         view(dx_raw)
+        dx_raw.columns
         """
+        #drop the difference stats (so we get unique selections)
+        dx_raw = dx_raw.drop('rstatsD', axis=1, level=0)
  
         #resolution filtering
+
+        
+        #=======================================================================
+        # #manuscript filter 1
+        #=======================================================================
+        
         hi_res=10**3 #max we're using for hyd is 300
-        hr_dx = dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
+        #dx1 = dx_raw.loc[dx_raw.index.get_level_values('resolution')<=hi_res, :]
+        dx1=dx_raw
         
- 
+        #dx2=dx1
+        dx2 = dx1.loc[dx1.index.get_level_values('dsampStage')!='pre', :]
         
-        figsize=(8,8)
+        dx3 = dx2.loc[dx2.index.get_level_values('studyArea')!='noise', :]
+        
+        #=======================================================================
+        # manu filter 2
+        #=======================================================================
+        
+        
+        
+        figsize=(7,7)
+        #figsize=(12,12)
         for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
-            ('',dx_raw, None,None, 'log', 'linear', True),
+            #('',dx_raw, None,None, 'log', 'linear', True),
+            ('filter1',dx3, None,None, 'log', 'linear', True),
  
             #('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
             #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
@@ -1461,9 +1486,9 @@ def run( #run a basic model configuration
             xvar = ses.resCn
  
             for plot_bgrp in [ #variable to compare on one plot
-                #'downSampling', 
-                'dsampStage',
-                'sequenceType',
+                'downSampling', 
+                #'dsampStage',
+                #'sequenceType',
                 ]:
                 
                 #variables to slice for each plot
@@ -1490,27 +1515,32 @@ def run( #run a basic model configuration
                         #===============================================================
                         # 'MAX':'max depth (m)',
                         # 'MIN':'min depth (m)',
-                        # 'MEAN':'global mean depth (m)',
+                         'MEAN':'global mean depth (m)',
                         #===============================================================
                         'wetMean':'wet mean depth (m)',
                         #'wetVolume':'wet volume (m^3)', 
                          'wetArea': 'wet area (m^2)', 
-                         #'rmse':'RMSE (m)',
+                         'rmse':'RMSE (m)', #total.. no wet
                          #'gwArea':'gwArea',
                          #'STD_DEV':'stdev (m)',
                          #'noData_cnt':'noData_cnt',
                          #'noData_pct':'no data (%)'
                     
                           }
+                    
+                    #filter titles
+                    at_d = {k:v for k,v in ax_title_d.items() if k in gdx.index.get_level_values('studyArea')}
      
- 
+                    #plot caller
                     ses.plot_statVsIter(
                         plot_bgrp=plot_bgrp,figsize=figsize,
                         set_ax_title=False,
                         dx_raw=gdx, 
                         coln_l=list(col_d.keys()), xlims=xlims,
-                        ylab_l = list(col_d.values()), ax_title_d=ax_title_d,
+                        ylab_l = list(col_d.values()), ax_title_d=at_d,
                         title=title)
+                    
+ 
             
  
  
