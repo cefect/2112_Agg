@@ -34,13 +34,13 @@ plt.style.use('default')
 matplotlib_font = {
         'family' : 'Arial',
         'weight' : 'normal',
-        'size'   : 12}
+        'size'   : 8}
 
 matplotlib.rc('font', **matplotlib_font)
-matplotlib.rcParams['axes.titlesize'] = 16 
-matplotlib.rcParams['axes.labelsize'] = 16
+matplotlib.rcParams['axes.titlesize'] = 10 
+matplotlib.rcParams['axes.labelsize'] = 10
 
-matplotlib.rcParams['figure.titlesize'] = 6
+matplotlib.rcParams['figure.titlesize'] = 4
 #matplotlib.rcParams['figure.titleweight']='bold'
 
 #spacing parameters
@@ -48,6 +48,7 @@ matplotlib.rcParams['figure.autolayout'] = False #use tight layout
 
 #legends
 matplotlib.rcParams['legend.title_fontsize'] = 'large'
+matplotlib.rcParams['lines.markersize'] = 3.0
 
 print('loaded matplotlib %s'%matplotlib.__version__)
 
@@ -135,7 +136,7 @@ def run( #run a basic model configuration
         ax_title_d = ses.ax_title_d
         
         #drop some
-        for sa in ['LMFRA', 'noise']: del ax_title_d[sa]
+        #for sa in ['LMFRA', 'noise']: del ax_title_d[sa]
  
         dx_raw = ses.retrieve('catalog').loc[idx[list(ax_title_d.keys()), :], :]
         
@@ -148,30 +149,46 @@ def run( #run a basic model configuration
  
         #dx1 = dx_raw.loc[:, idx[('rsampStats'), :]].droplevel(0, axis=1)
         """
-        view(dx_raw)
+        view(dx1)
         """
- 
-        #sub-set filters
+        
+        #=======================================================================
+        # #sub-set filters
+        #=======================================================================
+        #hi resolution
         hi_bx = np.logical_and(
             dx1.index.get_level_values('aggLevel')<=100,
             dx1.index.get_level_values('resolution')<=1000)
+        
+        #filter 1
+        bx1 = np.logical_and(dx1.index.get_level_values('downSampling')=='Average',
+                np.logical_and(dx1.index.get_level_values('dsampStage')=='post',
+                np.logical_and(dx1.index.get_level_values('aggLevel')<=1024,
+                             dx1.index.get_level_values('studyArea')!='noise')))
+        
+        bx2 = np.logical_and(dx1.index.get_level_values('downSampling')=='Average',
+                np.logical_and(dx1.index.get_level_values('dsampStage')=='post',
+                             dx1.index.get_level_values('studyArea')!='noise'))
+                            
+ 
         
  
         #=======================================================================
         # parameters
         #=======================================================================
         #figsize=(16,16)
-        figsize=(8,8) #to get square matrix
+        figsize=(7,7)
         #=======================================================================
         # plot loop-------
         #=======================================================================
         #looping different types of plots
         for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
             #('full',dx1, None,None, 'log', 'linear', True),
-            ('hi',dx1.loc[hi_bx, :], (10, 1001),None, 'log', 'linear', True),
+            #('hi',dx1.loc[hi_bx, :], (10, 1001),None, 'log', 'linear', True),
+            #('filter1',dx1.loc[bx1, :], (10, 10**3),None, 'log', 'linear', True),
+            ('filter2',dx1.loc[bx2, :], (1, 10**4),None, 'log', 'linear', True),
  
-            #('hi_res',hr_dx, (10, hi_res),None, 'linear', 'linear', True),
-            #('hi_res_2',hr_dx, (10, hi_res),(-0.1,1), 'linear', 'linear', False),
+ 
             ]:
             
             
@@ -180,7 +197,10 @@ def run( #run a basic model configuration
             #===================================================================
             #paramteer combinations to plot over
             """these are more like 'scenarios'... variables of secondary interest"""
-            gcols = ['downSampling', 'dsampStage', 'aggType']
+            gcols = [
+                'downSampling', 
+                #'dsampStage', 
+                'aggType']
         
             for gkeys, gdx in dxi.groupby(level=gcols):
                 #===============================================================
@@ -193,7 +213,8 @@ def run( #run a basic model configuration
                 #prep slices
                 dx_expo = gdx.loc[:, idx[('rsampStats', 'rsampErr'), :]].droplevel(0, axis=1)
                 
-
+                #filter titles
+                at_d = {k:v for k,v in ax_title_d.items() if k in gdx.index.get_level_values('studyArea')}
                 #===============================================================
                 # vs. aggLevel
                 #===============================================================
@@ -205,7 +226,7 @@ def run( #run a basic model configuration
                         #'wet_max': 'sampled wet max (m)',
                         #'wet_min': 'sampled wet min (m)',
                         'wet_pct': 'wet assets (pct)',
-                        #'RMSE':'RMSE (m)'
+                        'RMSE':'RMSE (m)'
                         }
                 
                 ax_d = ses.plot_statVsIter(
@@ -213,8 +234,8 @@ def run( #run a basic model configuration
                     set_ax_title=False,figsize=figsize,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=title + ' vs. Aggregation', ax_title_d=ax_title_d,
-                    write=True)
+                    title=title + ' vs. Aggregation', ax_title_d=at_d,
+                    write=True, legend_kwargs=dict(title='resolution'))
                 
  
                 #===============================================================
@@ -227,8 +248,8 @@ def run( #run a basic model configuration
                     set_ax_title=False,figsize=figsize,
                     dx_raw=dx_expo, grid=False,
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
-                    title=title+'vs. Resolution', ax_title_d=ax_title_d,
-                    write=False)
+                    title=title+'vs. Resolution', ax_title_d=at_d,
+                    write=False, )
                 
                 #===============================================================
                 # add raster
@@ -249,7 +270,7 @@ def run( #run a basic model configuration
                          #'STD_DEV':'stdev (m)',
                          #'noData_cnt':'noData_cnt',
                          'noData_pct':'no data (%)',
-                         #'rmse':'RMSE (m)', #didnt run diffs
+                         'rmse':'RMSE (m)', #didnt run diffs
                     
                           }
                 assert len(col_d1)==len(col_d)
@@ -257,6 +278,8 @@ def run( #run a basic model configuration
                 #prep slice
                 bx1 =  gdx.index.get_level_values('aggLevel')==1 #only 1 agg level
                 dx_haz=gdx[bx1].loc[:, idx[('rstats', 'wetStats', 'noData_pct', 'rmseD'), :]].droplevel(0, axis=1)
+                
+
  
                                        
                 plot_colr='dsampStage'
@@ -271,8 +294,9 @@ def run( #run a basic model configuration
                                     dx_raw=dx_haz, 
                                     coln_l=list(col_d1.keys()), 
                                     #xlims=xlims,
-                                    ylab_l = list(col_d.values()),ax_title_d=ax_title_d,
-                                    title=title + ' vs. Resolution')
+                                    ylab_l = list(col_d.values()),ax_title_d=at_d,
+                                    title=title + ' vs. Resolution',
+                                    legend_kwargs=dict(title='aggLevel'))
  
             
 
