@@ -1063,6 +1063,10 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                          xscale='log',
                          xlims=None,
                          ax_title_d=None, #optional axis titles (columns)
+                         
+                         #legend customization
+                         legLab_func=None, #optional legeend label customizer
+                         legend_kwargs={},
                          #ascending=False,
                          
                          #plot control [matrix]
@@ -1271,7 +1275,15 @@ class RasterPlotr(RastRun, Plotr): #analysis of model results
                      
                     #last col
                     if col_key == col_keys[-1]:
-                        ax.legend()
+                        ax.legend(**legend_kwargs)
+                        
+                        #customize legend
+                        if not legLab_func is None:
+                            handles, labels = ax.get_legend_handles_labels()
+ 
+                            l2 = [legLab_func(e) for e in labels]
+                        
+                            ax.legend(handles, l2)
                     
                 # first col
                 if col_key == col_keys[0]:
