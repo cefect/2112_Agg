@@ -194,7 +194,9 @@ class ExpoRun(RastRun):
         #=======================================================================
         # build aggregated finvs------
         #=======================================================================
-        """these should always be polygons"""
+        """these should always be polygons
+        StudyArea.get_finv_agg_d()
+        """
  
         res_d = self.sa_get(meth='get_finv_agg_d', write=False, dkey=dkey, get_lookup=True,
                              aggLevel_l=aggLevel_l,aggType=aggType, **kwargs)

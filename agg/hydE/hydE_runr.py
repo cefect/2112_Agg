@@ -2,13 +2,15 @@
 Created on May 12, 2022
 
 @author: cefect
+
+TODO: 
+    fix aggLevel=1 constructor
+    compute some radius or longest dimension of aggregated assets
+        sqrt(area)?
+    compute actual child count
 '''
 
-'''
-Created on May 8, 2022
-
-@author: cefect
-'''
+ 
 import os, datetime, math, pickle, copy, sys
 import numpy as np
 np.random.seed(100)

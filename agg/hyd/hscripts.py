@@ -2417,6 +2417,8 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
  
 
         need a meta table
+        
+        called by StudyArea.get_finv_agg_d()
         """
         #=======================================================================
         # defaults
@@ -2432,15 +2434,16 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         if finv_vlay is None: finv_vlay = self.get_finv_clean(idfn=idfn, **kwargs)
         
         fcnt = finv_vlay.dataProvider().featureCount() 
-        
-
-        
+ 
         assert fcnt >aggLevel*2
         
         mstore = QgsMapLayerStore()
+        
         #=======================================================================
         # raw aggregated geo-----------
         #=======================================================================
+        if aggLevel==1:
+            raise Error('dome')
         #=======================================================================
         # calc clusters
         #=======================================================================
