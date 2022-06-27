@@ -144,7 +144,7 @@ def run( #run a basic model configuration
         
         #add dummy missing values
         assert not 'rmseD' in dx1.columns.get_level_values('dkey')
-        dx1.loc[:, idx['rmseD', 'rmse']]=np.nan #so the plot loop works below
+        dx1.loc[:, idx['rmseD', 'crs']]=np.nan #so the plot loop works below
         
  
         #dx1 = dx_raw.loc[:, idx[('rsampStats'), :]].droplevel(0, axis=1)
@@ -185,8 +185,8 @@ def run( #run a basic model configuration
         for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
             #('full',dx1, None,None, 'log', 'linear', True),
             #('hi',dx1.loc[hi_bx, :], (10, 1001),None, 'log', 'linear', True),
-            #('filter1',dx1.loc[bx1, :], (10, 10**3),None, 'log', 'linear', True),
-            ('filter2',dx1.loc[bx2, :], (1, 10**4),None, 'log', 'linear', True),
+            ('filter1',dx1.loc[bx1, :], (10, 10**3),None, 'log', 'linear', True),
+            #('filter2',dx1.loc[bx2, :], (1, 10**4),None, 'log', 'linear', True),
  
  
             ]:
@@ -211,7 +211,7 @@ def run( #run a basic model configuration
                 print('\n\n%s %s vs. AggLevel\n\n'%(plotName, keys_d))
                 
                 #prep slices
-                dx_expo = gdx.loc[:, idx[('rsampStats', 'rsampErr'), :]].droplevel(0, axis=1)
+                dx_expo = gdx.loc[:, idx[('rsampStats', 'rsampErr', 'rstats'), :]].droplevel(0, axis=1)
                 
                 #filter titles
                 at_d = {k:v for k,v in ax_title_d.items() if k in gdx.index.get_level_values('studyArea')}
@@ -226,8 +226,11 @@ def run( #run a basic model configuration
                         #'wet_max': 'sampled wet max (m)',
                         #'wet_min': 'sampled wet min (m)',
                         'wet_pct': 'wet assets (pct)',
-                        'RMSE':'RMSE (m)'
+                        'RMSE':'RMSE (m)',
+                        
                         }
+                
+ 
                 
                 ax_d = ses.plot_statVsIter(
                     xvar='aggLevel',plot_bgrp='resolution',
@@ -257,29 +260,41 @@ def run( #run a basic model configuration
                 """order matters here
                 we plot teh new data on whatever axis order is specified above"""
                 col_d1={#raster values
-                        #===============================================================
-                        # 'MAX':'max depth (m)',
+                         # 'MAX':'max depth (m)',
                         # 'MIN':'min depth (m)',
                          #'MEAN':'global mean depth (m)',
  
                         'wetMean':'wet mean depth (m)',
                         #'wetVolume':'wet volume (m^3)', 
-                         #'wetArea': 'wet area (m^2)', 
+                        #'wetArea': 'wet area (m^2)', 
                          
                          #'gwArea':'gwArea',
                          #'STD_DEV':'stdev (m)',
                          #'noData_cnt':'noData_cnt',
-                         'noData_pct':'no data (%)',
-                         'rmse':'RMSE (m)', #didnt run diffs
+                         #'noData_pct':'no data (%)',
+                         #'rmse':'RMSE (m)', #didnt run diffs
+                         'wetPct':'wet cells (pct)',
+                         #'rmseD':'blank',
+                         'blank':'blank'
                     
                           }
                 assert len(col_d1)==len(col_d)
                 
                 #prep slice
-                bx1 =  gdx.index.get_level_values('aggLevel')==1 #only 1 agg level
-                dx_haz=gdx[bx1].loc[:, idx[('rstats', 'wetStats', 'noData_pct', 'rmseD'), :]].droplevel(0, axis=1)
+                bx =  gdx.index.get_level_values('aggLevel')==1 #only 1 agg level
+                dx_haz=gdx[bx].loc[:, idx[('rstats', 'wetStats', 'noData_pct'), :]].droplevel(0, axis=1)
                 
-
+                dx_haz['blank'] = np.nan
+                
+                dx_haz['wetPct'] = dx_haz['wetCnt']/dx_haz['cell_cnt']
+                
+                assert dx_haz.columns.is_unique
+                """
+                gdx.columns
+                
+                dx_haz.columns
+                view(dx_haz)
+                """
  
                                        
                 plot_colr='dsampStage'
