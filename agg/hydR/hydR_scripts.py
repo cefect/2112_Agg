@@ -680,10 +680,15 @@ class RastRun(RRcoms):
         return res_lib
     
     
-    def build_rmseD(self, 
+    def build_rmseD(self, #dry RMSE
                     dkey='rmseD',
                     lay_lib=None,
                     logger=None, **kwargs):
+        """
+        computes starting from the difference layers
+            these have no nulls (as parent depth layers were zero-filled)
+            
+        """
  
         #=======================================================================
         # defaults

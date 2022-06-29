@@ -452,14 +452,11 @@ class ExpoRun(RastRun):
         return rserx
         
 
-    def build_rsampStats(self,  # sample all the rasters and all the finvs
+    def build_rsampStats(self, #compute the statistics on raster samples  
                        dkey='rsampStats',
                        npstats = ['mean', 'min', 'max', 'count'],
                        write=None, logger=None,**kwargs):
-        """
-        see self.build_rsamps()
  
-        """
         
         #=======================================================================
         # defaults
@@ -509,12 +506,7 @@ class ExpoRun(RastRun):
         #=======================================================================
         # write
         #=======================================================================
-        """no... storing in the native format of this worker
-        #unstack to match hydR catalog indexing
-        resdx = self._cat_reindex(rserx)"""
-        
-        
-        
+ 
         
         if write:
             self.ofp_d[dkey] = self.write_pick(rserx,
@@ -522,19 +514,21 @@ class ExpoRun(RastRun):
                                    logger=log)
         return rserx
     
-    def build_rsampErr(self,  # sample all the rasters and all the finvs
+    def build_rsampErr(self,#compute the error statistics of raster samples
                        dkey='rsampErr',
                        
                        #paramters
                        confusion=False,
                        
                        #defaults
-                       write=None, logger=None,**kwargs):
-        """
-        see self.build_rsamps()
- 
-        """
+                       write=None, logger=None,
+                       #**kwargs,
+                       ):
         
+        """
+        these are 'dry' errors as we include all zero samples
+        """
+ 
         #=======================================================================
         # defaults
         #=======================================================================
@@ -586,9 +580,9 @@ class ExpoRun(RastRun):
                 """because we neeed to group by SA which has unique indexers
                 alternatively, could just do a lookup"""
                 base_d[keys_d[saCn]] = gserx
-                
+            
+            #retrieve baseline/true
             bserx = base_d[keys_d[saCn]].copy()
- 
                 
             #===================================================================
             # compute errorsr
@@ -599,11 +593,7 @@ class ExpoRun(RastRun):
             
  
             with ErrorCalcs(pred_ser=gserx.droplevel(drop_cols), true_ser=bserx.droplevel(drop_cols), logger=log) as eW:
-                """
-                
-                eW.data_retrieve_hndls.keys()
-                
-                """
+  
                 err_d = eW.get_all(dkeys_l=['bias', 'bias_shift', 'meanError', 'meanErrorAbs', 'RMSE', 'pearson'])
  
                 rser = pd.Series(err_d, name=gkeys) #convert remainers to a series
