@@ -260,8 +260,7 @@ class RastRun(RRcoms):
             #reset temp_dir
             self.temp_dir = os.path.join(temp_dir, 'r%i'%resolution)
             if not os.path.exists(self.temp_dir):os.makedirs(self.temp_dir)
-            
-            
+
             #===================================================================
             # #build the depth layer
             #===================================================================

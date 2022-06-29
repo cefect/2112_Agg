@@ -3054,9 +3054,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             return self.warpreproject(fp, compression='none', extents=extents, logger=log,
                                         resolution=base_resolution,
                                         output=os.path.join(temp_dir, fname))
-            
-
-        
+ 
         #=======================================================================
         # preCalc -----------
         #=======================================================================
@@ -3097,10 +3095,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         log.debug('building RasterCalc')
         with RasterCalc(wse1_rlay, name='dep', session=self, 
                         logger=log,out_dir=self.temp_dir,) as wrkr:
-            
-            #wse_rlay = wrkr.ref_lay #loaded during init
-            #dtm_rlay = wrkr.load(dem_fp)
-            
+ 
             #===================================================================
             # setup
             #===================================================================
@@ -3113,20 +3108,7 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
             log.debug('executing %s'%formula)
             dep_fp1 = wrkr.rcalc(formula, layname=layerName)
 
-            #===================================================================
-            # #treat negatives (floor)
-            #===================================================================
-            #===================================================================
-            # stats_d = self.rasterlayerstatistics(dep_fp1)
-            # if stats_d['MIN']<0:
-            #     assert dsampStage == 'pre'
-            #     entries_d = {k:wrkr._rCalcEntry(v) for k,v in {'dep':dep_fp1}.items()}
-            #     formula = '{dep} * ({dep} >= 0)'.format(**{k:v.ref for k,v in entries_d.items()})
-            #     log.info('executing for negatives %s'%formula)
-            #     dep_fp1 = wrkr.rcalc(formula, layname=baseName, 
-            #                      ofp=os.path.join(os.path.dirname(dep_fp1),os.path.basename(dep_fp1).replace('.tif', '_posi.tif'))
-            #                      )
-            #===================================================================
+ 
 
 
         #=======================================================================
@@ -3155,20 +3137,22 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         # post-downsample---------
         #=======================================================================
         if dsampStage =='post':
+            """these have nulls  which affect the resampling (see postFN)
+            note the resultant (low-res) depth raster will be zero-filled"""
             log.info('downSampling w/ dsampStage=%s'%dsampStage)
- 
             dep_fp3 = get_resamp(dep_fp2)
         
         elif dsampStage =='postFN':
-            #fill nulls 
-
+            #fill nulls
+            """here we are filling the intermittent (hi-res) depth layer prior to subtraction
+            this makes the subsequent post zero-filling (done for all methods) somewhat redundant
+            but substantially affects the resampling
+            """ 
             dep_fp3a = self.fillnodata(dep_fp2, fval=0, logger=log, 
                             output = os.path.join(self.temp_dir, os.path.basename(dep_fp2).replace('.tif', '_fillna.tif')))
             
             dep_fp3 = get_resamp(dep_fp3a)
-            
 
-            
         else:
             dep_fp3 = dep_fp2
             
@@ -3184,8 +3168,6 @@ class StudyArea(Model, Qproj):  # spatial work on study areas
         #=======================================================================
         # check
         #=======================================================================
- 
-        
         rlay = self.rlay_load(dep_fp4,logger=log)
  
         #stats_d = self.get_rasterstats(rlay)
