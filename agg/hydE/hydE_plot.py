@@ -166,9 +166,14 @@ def run( #run a basic model configuration
                 np.logical_and(dx1.index.get_level_values('aggLevel')<=1024,
                              dx1.index.get_level_values('studyArea')!='noise')))
         
+        #filter 2
         bx2 = np.logical_and(dx1.index.get_level_values('downSampling')=='Average',
                 np.logical_and(dx1.index.get_level_values('dsampStage')=='post',
                              dx1.index.get_level_values('studyArea')!='noise'))
+        
+        #filter 3
+        bx3 = np.logical_and(bx2,dx1.index.get_level_values('resolution')<=1000)
+                             
                             
  
         
@@ -185,8 +190,9 @@ def run( #run a basic model configuration
         for plotName, dxi, xlims,  ylims,xscale, yscale, drop_zeros in [
             #('full',dx1, None,None, 'log', 'linear', True),
             #('hi',dx1.loc[hi_bx, :], (10, 1001),None, 'log', 'linear', True),
-            ('filter1',dx1.loc[bx1, :], (10, 10**3),None, 'log', 'linear', True),
+            #('filter1',dx1.loc[bx1, :], (10, 10**3),None, 'log', 'linear', True),
             #('filter2',dx1.loc[bx2, :], (1, 10**4),None, 'log', 'linear', True),
+            ('filter3',dx1.loc[bx3, :], (1, 10**4),None, 'log', 'linear', True),
  
  
             ]:
@@ -233,7 +239,8 @@ def run( #run a basic model configuration
  
                 
                 ax_d = ses.plot_statVsIter(
-                    xvar='aggLevel',plot_bgrp='resolution',
+                    xvar='aggLevel',xlabel='Aggregation Level',
+                    plot_bgrp='resolution',
                     set_ax_title=False,figsize=figsize,
                     dx_raw=dx_expo, 
                     coln_l=list(col_d.keys()), xlims=xlims,ylab_l = list(col_d.values()),
