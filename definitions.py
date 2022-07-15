@@ -12,9 +12,11 @@ model_pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0419.xl
 cf_vfuncLib_fp = r'C:\LS\10_OUT\2112_Agg\ins\vfunc\CanFlood_curves_0414.xls'
 
 proj_lib =     { #studyArea data for hyd.runr
-            'obwb':{
+            'Ok':{
                   'EPSG': 2955, 
-                 'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\obwb\inventory\obwb_2sheds_r1_0106_notShed_aoi06_0410.gpkg', 
+                 'finv_fp': r'C:\LS\10_IO\2112_Agg\ins\hyd\obwb\inventory\microsoft_CanBldgFt_obwb_0715.gpkg', 
+                 
+                 #just for testing?
                  'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\OBWB\aoi\obwb_aoiT01.gpkg',
                  
                'wse_fp_d':{ #10x10
@@ -43,9 +45,9 @@ proj_lib =     { #studyArea data for hyd.runr
                        },
                     }, 
             
-            'LMFRA': {
+            'LM': {
                 'EPSG': 3005, 
-                'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\LMFRA\finv\IBI_BldgFt_V3_20191213_aoi08_0408.gpkg', 
+                'finv_fp': r'C:\LS\10_IO\2112_Agg\ins\hyd\LMFRA\finv\microsoft_CanBldgFt_LM_0715.gpkg', 
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\LMFRA\aoi\LMFRA_aoiT01_0119.gpkg',
                 
                 'wse_fp_d':{ #10x10
@@ -62,7 +64,7 @@ proj_lib =     { #studyArea data for hyd.runr
               
             'Calgary': {
                 'EPSG': 3776, 
-                'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\finv\ISS_bldgs_das2017_20180501_aoi02_0514.gpkg', 
+                'finv_fp': r'C:\LS\10_IO\2112_Agg\ins\hyd\Calgary\finv\microsoft_CanBldgFt_calgary_0715.gpkg', 
     
                 'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\Calgary\aoi\calgary_aoiT01_0119.gpkg',
    
