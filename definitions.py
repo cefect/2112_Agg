@@ -74,22 +74,27 @@ proj_lib =     { #studyArea data for hyd.runr
                     'low':r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\wse\sc0\noGW_0514\IBI_2017CoC_s0_0100_170729_aoi01_0304_noGW.tif',
                       },
                 'dem_fp_d':{
-                      #1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_01_aoi01_0304.tif',
-                      #5:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_05_aoi01_0304.tif',
-                      10:r'C:\LS\10_OUT\2112_Agg\ins\hyd\Calgary\dem\CoC_WR_DEM_170815_10_aoi01_0304.tif',
+                    2:r'C:\LS\10_IO\2207_fpolish\ins\calgary\dem\CoC_CS_DEM_2019_r02_aoi04_0819.tif'
+ 
     
                       },
                         }, 
                         
-            #===================================================================
-            # 'SaintJohn': {
-            #     'EPSG': 3979, 
-            #     'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\finv\microsoft_0218_aoi13.gpkg',
-            #      'dem': 'C:\\LS\\10_OUT\\2112_Agg\\ins\\hyd\\SaintJohn\\dem\\HRDEM_0513_r5_filnd_aoi12b.tif',
-
-            #       'aoi':r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\SJ_aoiT01_0119.gpkg',
-            #                 }, 
-            #===================================================================
+            'SJ': {
+                'EPSG': 2953, 
+                'finv_fp': r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\finv\microsoft_aoi17_0819.geojson',
+                'wse_fp_d':{ #1x1
+                    'hi':r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\wse\0819\GeoNB_LSJ_FloodExtent2018_aoi17_fnd_noGW_0819.tif', 
+ 
+                      },
+                'dem_fp_d':{
+                    1:r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\dem\NBDNR2015_r01_aoi17_fnd_e2953_0819.tif',
+                    2:r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\dem\NBDNR2015_r02_aoi17_fnd_e2953_0819.tif',
+                    16:r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\dem\NBDNR2015_r16_aoi17_fnd_e2953_0819.tif'
+ 
+    
+                      },
+                            }, 
 
             #===================================================================
             # 'dP': {
