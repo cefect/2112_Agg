@@ -5,6 +5,8 @@ Created on Mar. 25, 2022
 '''
 import os
 proj_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef'
+src_dir = proj_dir
+src_name='agg'
 
 model_pars_fp = r'C:\LS\10_OUT\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0419.xls'
 

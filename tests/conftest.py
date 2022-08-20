@@ -3,15 +3,19 @@ Created on Feb. 21, 2022
 
 @author: cefect
 '''
-import os, shutil
+import os, shutil, pickle
 import pytest
 import numpy as np
+import pandas as pd
 from agg.hyd.hscripts import Model as CalcSession
 
-from qgis.core import QgsVectorLayer
+from qgis.core import QgsVectorLayer, QgsRasterLayer
 from hp.Q import vlay_get_fdf
+from hp.logr import get_new_file_logger, get_new_console_logger, logging
+
 from pandas.testing import assert_frame_equal
 
+from definitions import src_dir
 
 proj_lib =     {
                     #===========================================================
@@ -42,40 +46,9 @@ def write():
         print('WARNING!!! runnig in write mode')
     return write
 
-@pytest.fixture(scope='session')
-def logger():
-    out_dir = r'C:\LS\10_OUT\2112_Agg\outs\tests'
-    if not os.path.exists(out_dir): os.makedirs(out_dir)
-    os.chdir(out_dir) #set this to the working directory
-    print('working directory set to \"%s\''%os.getcwd())
 
-    from hp.logr import BuildLogr
-    lwrkr = BuildLogr()
-    return lwrkr.logger
-
-@pytest.fixture(scope='session')
-def feedback(logger):
-    from hp.Q import MyFeedBackQ
-    return MyFeedBackQ(logger=logger)
     
  
-    
-
-
-
-
-
-
-
-@pytest.fixture
-def true_dir(write, tmp_path, base_dir):
-    true_dir = os.path.join(base_dir, os.path.basename(tmp_path))
-    if write:
-        if os.path.exists(true_dir): 
-            shutil.rmtree(true_dir)
-            os.makedirs(true_dir) #add back an empty folder
-            
-    return true_dir
     
 @pytest.fixture(scope='function')
 def session(tmp_path,
@@ -98,6 +71,51 @@ def session(tmp_path,
         
         assert len(ses.data_d)==0
         yield ses
+
+
+
+#===============================================================================
+# DIRECTOREIES--------
+#===============================================================================
+
+@pytest.fixture
+def true_dir(write, tmp_path, base_dir):
+    true_dir = os.path.join(base_dir, os.path.basename(tmp_path))
+    if write:
+        if os.path.exists(true_dir): 
+            shutil.rmtree(true_dir)
+            os.makedirs(true_dir) #add back an empty folder
+            
+    return true_dir
+
+@pytest.fixture(scope='function')
+def out_dir(write, tmp_path, tgen_dir):
+    if write:
+        return tgen_dir
+    else:
+        return tmp_path
+    
+ 
+
+def get_abs(relative_fp):
+    return os.path.join(src_dir, relative_fp)
+
+#===============================================================================
+# MISC-------
+#===============================================================================
+@pytest.fixture(scope='function')
+def test_name(request):
+    return request.node.name.replace('[','_').replace(']', '_')
+
+@pytest.fixture(scope='session')
+def logger():
+    return get_new_console_logger(level=logging.DEBUG)
+
+@pytest.fixture(scope='session')
+def feedback(logger):
+    from hp.Q import MyFeedBackQ
+    return MyFeedBackQ(logger=logger)
+
 #===============================================================================
 # helpers-------
 #===============================================================================
@@ -142,6 +160,9 @@ def search_fp(dirpath, ext, pattern): #get a matching file with extension and be
         
     return result
 
+#===============================================================================
+# VALIDATIOn-------
+#===============================================================================
 def check_layer_d(d1, d2, #two containers of layers
                    test_data=True, #check vlay attributes
                    ignore_fid=True,  #whether to ignore the native ordering of the vlay
@@ -175,3 +196,60 @@ def check_layer_d(d1, d2, #two containers of layers
                 
                 
                 assert_frame_equal(true_df, test_df,check_names=False)
+                
+def compare_dicts(dtest, dtrue, index_l = None,
+                 ):
+        df1 = pd.DataFrame.from_dict({'true':dtrue, 'test':dtest})
+        
+        if index_l is None:
+            index_l = df1.index.tolist()
+        
+        df2 = df1.loc[index_l,: ].round(3)
+        
+        bx = ~df2['test'].eq(other=df2['true'], axis=0)
+        if bx.any():
+            raise AssertionError('%i/%i raster stats failed to match\n%s'%(bx.sum(), len(bx), df2.loc[bx,:]))
+                
+def validate_dict(session, valid_dir, test_stats_d, baseName='base'):
+    
+    true_fp = os.path.join(valid_dir, '%s_true.pkl' % (baseName))
+    
+    #===========================================================================
+    # write trues
+    #===========================================================================
+    
+    if session.write:
+        if not os.path.exists(valid_dir):
+            os.makedirs(valid_dir)
+        with open(true_fp, 'wb') as f:
+            pickle.dump(test_stats_d, f, pickle.HIGHEST_PROTOCOL)
+    else:
+        assert os.path.exists(true_fp)
+        
+    #===========================================================================
+    # retrieve trues
+    #===========================================================================
+    with open(true_fp, 'rb') as f:
+        true_stats_d = pickle.load(f)
+        
+    #===========================================================================
+    # compare
+    #===========================================================================
+    compare_dicts(test_stats_d, true_stats_d)
+
+def validate_raster(
+        rlay_test,
+        session,
+        valid_dir):
+    
+    #valid_dir = session.valid_dir
+    assert isinstance(rlay_test, QgsRasterLayer)
+    #===========================================================================
+    # get stats on new test raster
+    #===========================================================================
+    test_stats_d = session.rlay_get_stats(rlay_test)
+    
+    #===========================================================================
+    # update results
+    #===========================================================================
+    validate_dict(session, valid_dir, test_stats_d, baseName=rlay_test.name())
