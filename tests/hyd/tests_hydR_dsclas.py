@@ -7,6 +7,10 @@ unit tests for downsample classification
 '''
 from qgis.core import QgsCoordinateReferenceSystem
 import pytest, copy, os, random
+
+xfail = pytest.mark.xfail
+
+
 import numpy as np
 from numpy import array, dtype
 import pandas as pd
@@ -38,8 +42,18 @@ toy_dem_ar = np.array((
 
 toy_wse_ar = get_wse_filtered(np.full((4,4), 5, dtype=np.float64), toy_dem_ar)
 
-rand_dem_ar = np.random.random((4,6))*10
-rand_wse_ar =  get_wse_filtered(np.random.random(rand_dem_ar.shape)*10, rand_dem_ar)
+def get_rand_ar(shape, scale=10):
+    dem_ar =  np.random.random(shape)*scale
+    wse_ar = get_wse_filtered(np.random.random(shape)*scale, dem_ar)
+    
+    return dem_ar, wse_ar
+
+#===============================================================================
+# rand_dem_ar = np.random.random((4,6))*10
+# rand_wse_ar =  get_wse_filtered(np.random.random(rand_dem_ar.shape)*10, rand_dem_ar)
+#===============================================================================
+
+
 #===============================================================================
 # helpers and globals------
 #===============================================================================
@@ -48,7 +62,7 @@ prec=5
 
 #for test data
 output_kwargs = dict(crs=rio.crs.CRS.from_epsg(crsid),
-                     transform=rio.transform.from_origin(2476176,7447040,1,1)) 
+                     transform=rio.transform.from_origin(1,100,1,1)) 
 
  
     
@@ -68,8 +82,8 @@ def wse_fp(wse_ar, tmp_path):
 
 
 @pytest.fixture(scope='function')
-def dscWrkr(tmp_path,write,logger, feedback,  test_name,             
-            qgis_app, qgis_processing, #pytest-qgis fixtures 
+def dscWrkr(tmp_path,write,logger, test_name,             
+            #qgis_app, qgis_processing, feedback, #pytest-qgis fixtures 
                     ):
     
     """Mock session for tests"""
@@ -81,10 +95,12 @@ def dscWrkr(tmp_path,write,logger, feedback,  test_name,
     
     with DsampClassifier( 
                 #Qcoms
-                 compression='none',  
-                 crs=QgsCoordinateReferenceSystem('EPSG:%i'%crsid),
-                 feedback=feedback,
-                 qgis_app=qgis_app,qgis_processing=True, #pytest-qgis
+                 #==============================================================
+                 # compression='none',  
+                 # crs=QgsCoordinateReferenceSystem('EPSG:%i'%crsid),
+                 # feedback=feedback,
+                 # qgis_app=qgis_app,qgis_processing=True, #pytest-qgis
+                 #==============================================================
                  
                  #oop.Basic
                  out_dir=tmp_path, 
@@ -114,8 +130,36 @@ def dscWrkr(tmp_path,write,logger, feedback,  test_name,
 #===============================================================================
 # UNIT TESTS--------
 #===============================================================================
-@pytest.mark.parametrize('dem_ar', [toy_dem_ar, np.random.random((10,20))*10])
-@pytest.mark.parametrize('downscale',[2]) 
+
+@pytest.mark.parametrize('dem_ar, downscale', [
+    (np.random.random((3, 4))*10, 2)
+ 
+    ])
+ 
+def test_00_crop(dem_fp,   dscWrkr, downscale, dem_ar):
+    
+    #build with function
+    test_fp = dscWrkr.build_crop(dem_fp, divisor=downscale)
+    
+    #===========================================================================
+    # #validate
+    #===========================================================================
+    test_ar = load_array(test_fp)
+    
+    for dim in test_ar.shape:
+        assert dim%downscale==0
+ 
+    assert np.all(np.isin(test_ar, dem_ar))
+    
+    
+    
+
+@pytest.mark.parametrize('dem_ar, downscale', [
+    (toy_dem_ar, 2),  
+    (np.random.random((4*3,4*10))*10, 4),
+    pytest.param(np.random.random((3, 4))*10, 2, marks=xfail(strict=True, reason='bad shape')),
+    ])
+ 
 def test_01_demCoarse(dem_fp,   dscWrkr, downscale, dem_ar):
     
     #build with function
@@ -134,10 +178,10 @@ def test_01_demCoarse(dem_fp,   dscWrkr, downscale, dem_ar):
     assert np.array_equal(test_ar.round(2), vali_ar.round(2))
     
 
- 
+
 @pytest.mark.parametrize('dem_ar, wse_ar', [
-    (toy_dem_ar, toy_wse_ar),
-    (rand_dem_ar, rand_wse_ar),
+    (toy_dem_ar, toy_wse_ar), 
+    get_rand_ar((4,6))
     ])
 def test_02_fineDelta(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr):
     
@@ -188,7 +232,7 @@ catMask_d = {
 
 @pytest.mark.parametrize('dem_ar, wse_ar, vali_d', [
     (toy_dem_ar, toy_wse_ar, catMask_d['toy']),
-    (rand_dem_ar, rand_wse_ar, catMask_d['rand']),
+    list(get_rand_ar((4,6)))+ [None]
     ])
 @pytest.mark.parametrize('downscale',[2]) 
 def test_03_catMask(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr, downscale, vali_d):
@@ -242,18 +286,21 @@ def test_04_cmMosaic(cm_d, vali_ar, dscWrkr):
 # INTEGRATION TEST----
 #===============================================================================
 @pytest.mark.dev
-@pytest.mark.parametrize('dem_ar, wse_ar, vali_ar', [
-    (toy_dem_ar, toy_wse_ar, cmMosaic_ar),
-    (rand_dem_ar, rand_wse_ar, None),
+@pytest.mark.parametrize('dem_ar, wse_ar, downscale, vali_ar', [
+    (toy_dem_ar, toy_wse_ar, 2, cmMosaic_ar),
+    #list(get_rand_ar((4,6)))+ [2, None], 
+    list(get_rand_ar((2*100,2*200)))+ [2, None], 
+    #list(get_rand_ar((3,4)))+ [2, None], 
     ])
-def test_05_all(dem_ar, dem_fp,wse_ar, wse_fp,  vali_ar, dscWrkr):
+def test_05_all(dem_ar, dem_fp,wse_ar, wse_fp,  vali_ar, downscale, dscWrkr):
     
     #base the worker on the dem
     dscWrkr._base_set(dem_fp)
     dscWrkr._base_inherit()
+ 
     
     #run the chain to build the mosaic
-    test_fp = dscWrkr.run_all(dem_fp, wse_fp, write=True)
+    test_fp = dscWrkr.run_all(dem_fp, wse_fp, downscale=downscale, write=True)
     
     #===========================================================================
     # validate

@@ -8,20 +8,23 @@ classifying downsample type
 let's try w/ mostly rasterio?
 simple session (no retrieve)
 '''
-import os
-from qgis.core import QgsMapLayerStore
+import os, copy
+#from qgis.core import QgsMapLayerStore
 import rasterio as rio
+#from rasterio.features import geometry_window
+from affine import Affine
 import numpy as np
+#from shapely.geometry import box
 
 
-
-from hp.Q import assert_rlay_equal, assert_extent_equal, RasterCalc, view, vlay_get_fdata, Qproj, assert_rlay_simple
+#from hp.Q import RasterCalc, view, vlay_get_fdata, Qproj, assert_rlay_simple
 from hp.oop import Session
-from hp.basic import get_dict_str
-from hp.rio import RioWrkr
+#from hp.basic import get_dict_str
+from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple
+ 
 from hp.np import apply_blockwise, upsample
 
-class DsampClassifier(RioWrkr, Qproj, Session):
+class DsampClassifier(RioWrkr, Session):
     """tools for build downsample classification masks"""
     
     #integer maps for buildilng the mosaic
@@ -53,7 +56,7 @@ class DsampClassifier(RioWrkr, Qproj, Session):
     #===========================================================================
     # MAIN RUNNERS-----
     #===========================================================================
-    def run_all(self,dem_fp, wse_fp,
+    def run_all(self,demR_fp, wseR_fp,
                 demC_fp=None,
                  downscale=None, **kwargs):
         """prep all layers from fine/raw DEM and WSE
@@ -71,6 +74,25 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('run',  **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=out_dir, write=write)
         if downscale is None: downscale=self.downscale
+        
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        assert_extent_equal(demR_fp, wseR_fp)
+        #=======================================================================
+        # check divisibility
+        #=======================================================================
+        if not is_divisible(demR_fp, downscale):
+            log.warning('uneven division w/ %i... clipping'%downscale)
+            
+            dem_fp = self.build_crop(demR_fp, divisor=downscale, **skwargs)
+            wse_fp = self.build_crop(wseR_fp, divisor=downscale, **skwargs)
+            
+        else:
+            dem_fp, wse_fp = demR_fp, wseR_fp
+ 
+        
+        
         #=======================================================================
         # algo
         #=======================================================================
@@ -94,6 +116,55 @@ class DsampClassifier(RioWrkr, Qproj, Session):
     #===========================================================================
     # UNIT BUILDRES-------
     #===========================================================================
+    def build_crop(self, raw_fp, new_shape=None, divisor=None, **kwargs):
+        """build a cropped raster which achieves even division
+        
+        Parameters
+        ----------
+        bounds : optional
+        
+        divisor: int, optional
+            for computing the nearest whole division
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        rawName = os.path.basename(raw_fp).replace('.tif', '')
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('crops%s'%rawName,  **kwargs)
+        
+        assert isinstance(divisor, int)
+        
+        with RioWrkr(rlay_ref_fp=raw_fp, session=self) as wrkr:
+            
+            raw_ds = wrkr._base()
+            
+ 
+            #=======================================================================
+            # precheck
+            #=======================================================================
+            assert not is_divisible(raw_ds, divisor), 'no need to crop'            
+ 
+            #===================================================================
+            # compute new_shape
+            #===================================================================
+            if new_shape is None: 
+                new_shape = tuple([(d//divisor)*divisor for d in raw_ds.shape])
+                
+            log.info('cropping %s to %s for even divison by %i'%(
+                raw_ds.shape, new_shape, divisor))
+                
+ 
+            
+            self.crop(rio.windows.Window(0,0, new_shape[1], new_shape[0]), dataset=raw_ds,
+                      ofp=ofp, logger=log)
+            
+        return ofp
+            
+ 
+                
+
+ 
+    
     def build_coarse(self,
                         raw_fp,
                         downscale=None,
@@ -123,33 +194,31 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         assert isinstance(downscale, int)
         assert downscale>1
         
-        #=======================================================================
-        # if __debug__:
-        #     rlay_raw = self.rlay_load(raw_fp, mstore=logger=log)
-        #     stats_d = self.rlay_get_stats(rlay_raw, logger=log)
-        #     assert stats_d['MIN']>0
-        #     if stats_d['noData_cnt']>0:
-        #         log.warning('got %i/%i nodata cells on %s'%(
-        #             stats_d['noData_cnt'], stats_d['cell_cnt'], rawName))
-        #         
-        #     #check we have a clean division
-        #     for dim in ['height', 'width']:
-        #         
-        #         #check we have enough fine cells to make at least 1 new aggregated cell
-        #         assert stats_d[dim]>=downscale, 'insufficient cells for specified aggregation'
-        #         
-        #         if not stats_d[dim]%downscale==0:
-        #             log.warning('uneven division for \'%s\' of %i/%i (%.2f)'%(
-        #                 dim, stats_d[dim], downscale, stats_d[dim]%downscale))
-        #     
-        #     assert_rlay_simple(rlay_raw)
-        #=======================================================================
+        if __debug__:
+            #===================================================================
+            # check we have a divisible shape
+            #===================================================================
+            with rio.open(raw_fp, mode='r') as dem_ds:
+ 
+                dem_shape = dem_ds.shape
+                
+                assert_rlay_simple(dem_ds, msg='DEM')
+ 
+                
+            #check shape divisibility
+            for dim in dem_shape:
+                assert dim%downscale==0, 'unequal dimension (%i/%i -> %.2f)'%(dim, downscale, dim%downscale)
+                
+ 
             
         #=======================================================================
         # downsample
         #=======================================================================
         resampling = getattr(rio.enums.Resampling, resampleAlg)
         with RioWrkr(rlay_ref_fp=raw_fp, session=self) as wrkr:
+            
+            self._check_dem_ar(wrkr._base().read(1))
+            
             wrkr.resample(resampling=resampling, scale=1/downscale, ofp=ofp)
             
         #=======================================================================
@@ -239,7 +308,8 @@ class DsampClassifier(RioWrkr, Qproj, Session):
             # load layers----
             #===================================================================
             #fine dem
-            dem_ar = wrkr._base().read(1)
+            dem_ds = wrkr._base()
+            dem_ar = dem_ds.read(1)
             
             assert not np.isnan(dem_ar).any(), 'dem should have no nulls'
             
@@ -247,8 +317,12 @@ class DsampClassifier(RioWrkr, Qproj, Session):
             wse_ds = wrkr.open_dataset(wse_fp)
             wse_ar = wse_ds.read(1)
             
+            #check
+            assert_extent_equal(dem_ds, wse_ds)
             assert dem_ar.shape==wse_ar.shape
             assert np.isnan(wse_ar).any(), 'wse should have null where dry'
+            assert np.all(dem_ar>0)
+            assert np.all(wse_ar[~np.isnan(wse_ar)]>0)
             
             #===================================================================
             # compute delta
@@ -380,6 +454,15 @@ class DsampClassifier(RioWrkr, Qproj, Session):
     #===========================================================================
     # PRIVATE HELPERS---------
     #===========================================================================
+    def _check_dem_ar(self, ar):
+        """check dem array satisfies assumptions"""
+        assert np.all(ar>0)
+        assert np.all(~np.isnan(ar))
+        assert 'float' in ar.dtype.name
+        
+        
+        
+        
     def _func_setup(self, dkey, 
                     logger=None, out_dir=None, tmp_dir=None,ofp=None,
                     #mstore=None,
