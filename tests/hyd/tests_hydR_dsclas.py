@@ -24,7 +24,7 @@ from hp.np import apply_blockwise_ufunc, apply_blockwise, dropna
  
 
 #scripts to test
-from agg.hydR.dsclas import DsampClassifier, get_wse_filtered
+from agg.hydR.dsc.scripts import DsampClassifier, get_wse_filtered
 
 #===============================================================================
 # test data
