@@ -20,7 +20,7 @@ import numpy as np
 #from hp.Q import RasterCalc, view, vlay_get_fdata, Qproj, assert_rlay_simple
 from hp.oop import Session
 #from hp.basic import get_dict_str
-from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple
+from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
  
 from hp.np import apply_blockwise, upsample
 
@@ -129,7 +129,7 @@ class DsampClassifier(RioWrkr, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        rawName = os.path.basename(raw_fp).replace('.tif', '')
+        rawName = os.path.basename(raw_fp).replace('.tif', '')[:6]
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('crops%s'%rawName,  **kwargs)
         
         assert isinstance(divisor, int)
@@ -138,7 +138,9 @@ class DsampClassifier(RioWrkr, Session):
             
             raw_ds = wrkr._base()
             
- 
+            """
+            raw_ds.read(1)
+            """
             #=======================================================================
             # precheck
             #=======================================================================
@@ -183,7 +185,7 @@ class DsampClassifier(RioWrkr, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        rawName = os.path.basename(raw_fp).replace('.tif', '')
+        rawName = os.path.basename(raw_fp).replace('.tif', '')[:6]
         
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('coarse%s'%rawName,  **kwargs)
         
@@ -219,6 +221,8 @@ class DsampClassifier(RioWrkr, Session):
             
             self._check_dem_ar(wrkr._base().read(1))
             
+ 
+            
             wrkr.resample(resampling=resampling, scale=1/downscale, ofp=ofp)
             
         #=======================================================================
@@ -249,8 +253,11 @@ class DsampClassifier(RioWrkr, Session):
             dem_ar = wrkr._base().read(1)
             
             #load the wse
-            wse_ds = wrkr.open_dataset(wse_fp)
-            wse_ar = wse_ds.read(1)
+            #===================================================================
+            # wse_ds = wrkr.open_dataset(wse_fp)
+            # wse_ar = wse_ds.read(1)
+            #===================================================================
+            wse_ar = load_array(wse_fp)
             
             assert dem_ar.shape==wse_ar.shape
  
@@ -314,11 +321,16 @@ class DsampClassifier(RioWrkr, Session):
             assert not np.isnan(dem_ar).any(), 'dem should have no nulls'
             
             #load the wse
-            wse_ds = wrkr.open_dataset(wse_fp)
-            wse_ar = wse_ds.read(1)
+            with rio.open(wse_fp, mode='r') as wse_ds:
+                raw_ar = wse_ds.read(1)
+                
+                #switch to np.nan
+                mask = wse_ds.read_masks(1)                
+                wse_ar = np.where(mask==0, np.nan, raw_ar)
             
-            #check
-            assert_extent_equal(dem_ds, wse_ds)
+                #check
+                assert_extent_equal(dem_ds, wse_ds)
+                
             assert dem_ar.shape==wse_ar.shape
             assert np.isnan(wse_ar).any(), 'wse should have null where dry'
             assert np.all(dem_ar>0)
@@ -442,6 +454,7 @@ class DsampClassifier(RioWrkr, Session):
         #=======================================================================
         assert np.all(res_ar%2==1), 'failed to get all odd values'
         
+ 
         #=======================================================================
         # write
         #=======================================================================
@@ -456,7 +469,7 @@ class DsampClassifier(RioWrkr, Session):
     #===========================================================================
     def _check_dem_ar(self, ar):
         """check dem array satisfies assumptions"""
-        assert np.all(ar>0)
+        #assert np.all(ar>0) #relaxing this
         assert np.all(~np.isnan(ar))
         assert 'float' in ar.dtype.name
         
@@ -515,50 +528,29 @@ def get_wse_filtered(wse_raw_ar, dem_ar):
     
     return wse_ar
     
-
-def run():
-    with DsampClassifier() as ses:
-        pass
-    
-        #=======================================================================
-        # prep layers
-        #=======================================================================
-        #load fine DEM
+from definitions import proj_lib
+def runr(
+        dem_fp=None, wse_fp=None,
+        **kwargs):
+    with DsampClassifier(**kwargs) as ses:
+        ofp = ses.run_all(dem_fp, wse_fp)
         
-        #build coarse DEM
-        
-        #load fine WSE
-        
-
-        
-        #build coarse WSE (no! dont need this)
-        
-        #=======================================================================
-        # compute classes
-        #=======================================================================
-        #build fine delta. (useful for later)
-            #check all above zero. 
-            #fillna=0 
+    return ofp
+ 
             
-        #build a mask for each class
-            
-            #dry-dry: max(delta) <=0
-            
-            #wet-wet: min(delta) >0
-            
-            #partials: max(delta)>0 AND min(delta)==0
-                #check this is all remainers
-                
-                #wet-partials: mean(DEM)<mean(WSE)
-                
-                #dry-partials: mean(DEM)>mean(WSE)
-            
-        #combine masks
-            
-            
+def SJ_0821():
+    proj_name = 'SJ'
+    proj_d = proj_lib[proj_name]
+    return runr(
+        proj_name=proj_name, run_name='r1',
+        downscale=4,
+        wse_fp=proj_d['wse_fp_d']['hi'],        
+        dem_fp=proj_d['dem_fp_d'][1]
+        )
+              
     
         
 
 if __name__ == "__main__": 
-    run()
+    SJ_0821()
     

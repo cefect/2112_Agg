@@ -5,7 +5,7 @@ Created on Aug. 20, 2022
 
 unit tests for downsample classification
 '''
-from qgis.core import QgsCoordinateReferenceSystem
+#from qgis.core import QgsCoordinateReferenceSystem
 import pytest, copy, os, random
 
 xfail = pytest.mark.xfail
@@ -13,14 +13,14 @@ xfail = pytest.mark.xfail
 
 import numpy as np
 from numpy import array, dtype
-import pandas as pd
+ 
 
  
 import rasterio as rio
 
 from tests.conftest import validate_raster, validate_dict, src_dir, get_abs
 from hp.rio import RioWrkr, write_array, load_array
-from hp.np import apply_blockwise_ufunc, apply_blockwise
+from hp.np import apply_blockwise_ufunc, apply_blockwise, dropna
  
 
 #scripts to test
@@ -132,10 +132,10 @@ def dscWrkr(tmp_path,write,logger, test_name,
 #===============================================================================
 
 @pytest.mark.parametrize('dem_ar, downscale', [
-    (np.random.random((3, 4))*10, 2)
+    #(np.random.random((3, 4))*10, 2),
+    (get_wse_filtered(np.random.random((7, 8))*10, np.random.random((7, 8))*10), 2), #wse
  
     ])
- 
 def test_00_crop(dem_fp,   dscWrkr, downscale, dem_ar):
     
     #build with function
@@ -149,7 +149,7 @@ def test_00_crop(dem_fp,   dscWrkr, downscale, dem_ar):
     for dim in test_ar.shape:
         assert dim%downscale==0
  
-    assert np.all(np.isin(test_ar, dem_ar))
+    assert np.all(np.isin(dropna(test_ar), dropna(dem_ar)))
     
     
     
