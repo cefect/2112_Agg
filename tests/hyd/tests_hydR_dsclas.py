@@ -137,7 +137,7 @@ def test_01_demCoarse(dem_fp,   dscWrkr, downscale, dem_ar):
  
 @pytest.mark.parametrize('dem_ar, wse_ar', [
     (toy_dem_ar, toy_wse_ar),
-    #(np.random.random((10,20))*10
+    (rand_dem_ar, rand_wse_ar),
     ])
 def test_02_fineDelta(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr):
     
@@ -222,7 +222,7 @@ cmMosaic_ar = array([
        [31, 31, 41, 41],
        [31, 31, 41, 41]])
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('cm_d, vali_ar',[[catMask_d['toy'], cmMosaic_ar]]) 
 def test_04_cmMosaic(cm_d, vali_ar, dscWrkr):
     """build_cat_mosaic"""
@@ -241,11 +241,27 @@ def test_04_cmMosaic(cm_d, vali_ar, dscWrkr):
 #===============================================================================
 # INTEGRATION TEST----
 #===============================================================================
-@pytest.mark.parametrize('dem_ar, wse_ar', [
-    (toy_dem_ar, toy_wse_ar),
-    #(np.random.random((10,20))*10
+@pytest.mark.dev
+@pytest.mark.parametrize('dem_ar, wse_ar, vali_ar', [
+    (toy_dem_ar, toy_wse_ar, cmMosaic_ar),
+    (rand_dem_ar, rand_wse_ar, None),
     ])
-def test_05_full(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr):
-    pass
- 
+def test_05_all(dem_ar, dem_fp,wse_ar, wse_fp,  vali_ar, dscWrkr):
+    
+    #base the worker on the dem
+    dscWrkr._base_set(dem_fp)
+    dscWrkr._base_inherit()
+    
+    #run the chain to build the mosaic
+    test_fp = dscWrkr.run_all(dem_fp, wse_fp, write=True)
+    
+    #===========================================================================
+    # validate
+    #===========================================================================
+    cm_ar = load_array(test_fp)
+    assert isinstance(cm_ar, np.ndarray)
+    assert cm_ar.dtype==dtype('int32')
+    
+    if not vali_ar is None:
+        assert np.array_equal(cm_ar, vali_ar)
     

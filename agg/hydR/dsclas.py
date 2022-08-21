@@ -28,25 +28,67 @@ class DsampClassifier(RioWrkr, Qproj, Session):
     cm_int_d = {'DD':11, 'WW':21, 'WP':31, 'DP':41}
     
     def __init__(self, 
+                 downscale=2,
                  **kwargs):
         """
         
         Parameters
         ----------
+        downscale: int, default 2
+            multipler for new pixel resolution
+            oldDimension*(1/downscale) = newDimension
  
         """
  
         
         super().__init__(**kwargs)
+        
+        #=======================================================================
+        # attach
+        #=======================================================================
+        self.downscale=downscale
  
         
  
     #===========================================================================
     # MAIN RUNNERS-----
     #===========================================================================
-    def run_prep(self,
-                 dem_fp, wse_fp):
-        pass
+    def run_all(self,dem_fp, wse_fp,
+                demC_fp=None,
+                 downscale=None, **kwargs):
+        """prep all layers from fine/raw DEM and WSE
+        
+        
+        Parameters
+        ----------
+        demC_fp: str optional
+            filepath to the coarse DEM. Otherwise, this is built from teh raw/fine DEM
+ 
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('run',  **kwargs)
+        skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=out_dir, write=write)
+        if downscale is None: downscale=self.downscale
+        #=======================================================================
+        # algo
+        #=======================================================================
+        #build coarse dem
+        if demC_fp is None:
+            demC_fp = self.build_coarse(dem_fp, downscale=downscale, **skwargs)
+            
+        #each mask
+        cm_d, _ = self.build_cat_masks(dem_fp, demC_fp, wse_fp, **skwargs)
+        
+        #moasic together
+        cm_ar, _ = self.build_cat_mosaic(cm_d,ofp=ofp, **skwargs)
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished')
+        return ofp
         
     
     #===========================================================================
@@ -54,7 +96,7 @@ class DsampClassifier(RioWrkr, Qproj, Session):
     #===========================================================================
     def build_coarse(self,
                         raw_fp,
-                        downscale=2,
+                        downscale=None,
                         resampleAlg='average',
                         **kwargs):
         
@@ -65,40 +107,43 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         ----------
         raw_fp: str
             filepath to fine raster
-        
-        downscale: int, default 2
-            multipler for new pixel resolution
-            oldDimension*(1/downscale) = newDimension
+ 
         """
+        #=======================================================================
+        # defaults
+        #=======================================================================
         rawName = os.path.basename(raw_fp).replace('.tif', '')
         
-        log, mstore, tmp_dir, out_dir, ofp, layname, write = self._func_setup('coarse%s'%rawName,  **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('coarse%s'%rawName,  **kwargs)
         
+        if downscale is None: downscale=self.downscale
         #=======================================================================
         # precheck
         #=======================================================================
         assert isinstance(downscale, int)
         assert downscale>1
         
-        if __debug__:
-            rlay_raw = self.rlay_load(raw_fp, mstore=mstore, logger=log)
-            stats_d = self.rlay_get_stats(rlay_raw, logger=log)
-            assert stats_d['MIN']>0
-            if stats_d['noData_cnt']>0:
-                log.warning('got %i/%i nodata cells on %s'%(
-                    stats_d['noData_cnt'], stats_d['cell_cnt'], rawName))
-                
-            #check we have a clean division
-            for dim in ['height', 'width']:
-                
-                #check we have enough fine cells to make at least 1 new aggregated cell
-                assert stats_d[dim]>=downscale, 'insufficient cells for specified aggregation'
-                
-                if not stats_d[dim]%downscale==0:
-                    log.warning('uneven division for \'%s\' of %i/%i (%.2f)'%(
-                        dim, stats_d[dim], downscale, stats_d[dim]%downscale))
-            
-            assert_rlay_simple(rlay_raw)
+        #=======================================================================
+        # if __debug__:
+        #     rlay_raw = self.rlay_load(raw_fp, mstore=logger=log)
+        #     stats_d = self.rlay_get_stats(rlay_raw, logger=log)
+        #     assert stats_d['MIN']>0
+        #     if stats_d['noData_cnt']>0:
+        #         log.warning('got %i/%i nodata cells on %s'%(
+        #             stats_d['noData_cnt'], stats_d['cell_cnt'], rawName))
+        #         
+        #     #check we have a clean division
+        #     for dim in ['height', 'width']:
+        #         
+        #         #check we have enough fine cells to make at least 1 new aggregated cell
+        #         assert stats_d[dim]>=downscale, 'insufficient cells for specified aggregation'
+        #         
+        #         if not stats_d[dim]%downscale==0:
+        #             log.warning('uneven division for \'%s\' of %i/%i (%.2f)'%(
+        #                 dim, stats_d[dim], downscale, stats_d[dim]%downscale))
+        #     
+        #     assert_rlay_simple(rlay_raw)
+        #=======================================================================
             
         #=======================================================================
         # downsample
@@ -110,7 +155,7 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         #=======================================================================
         # wrap
         #=======================================================================
-        mstore.removeAllMapLayers()
+        #mstore.removeAllMapLayers()
         
         return ofp
     
@@ -123,7 +168,7 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         this is a bit too simple...
         """
         
-        log, mstore, tmp_dir, out_dir, ofp, layname, write = self._func_setup('delta',  **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('delta',  **kwargs)
         
         
         with RioWrkr(rlay_ref_fp=dem_fp, session=self) as wrkr:
@@ -154,7 +199,7 @@ class DsampClassifier(RioWrkr, Qproj, Session):
     
     def build_cat_masks(self,
                         dem_fp, demC_fp, wse_fp, 
-                        downscale=2,
+                        downscale=None,
  
                         **kwargs):
         
@@ -172,15 +217,22 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, mstore, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmask',  **kwargs)
- 
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmask',  **kwargs)
+        
+        if downscale is None: downscale=self.downscale
         
         res_d = dict()
         
+        #=======================================================================
+        # globals
+        #=======================================================================
         def apply_upsample(ar, func):
             arC = apply_blockwise(ar, func, n=downscale) #max of each coarse block
             return upsample(arC,n=downscale) #scale back up
         
+        #=======================================================================
+        # exec
+        #=======================================================================
         with RioWrkr(rlay_ref_fp=dem_fp, session=self) as wrkr:
             
             #===================================================================
@@ -274,7 +326,6 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         log.info('finished writing %i'%len(ofp_d))
         return res_d, ofp_d
     
-    
     def build_cat_mosaic(self, cm_d,
                          cm_int_d=None,
                          output_kwargs={},
@@ -293,7 +344,7 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, mstore, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmMosaic',  **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmMosaic',  **kwargs)
         if cm_int_d is None: cm_int_d=self.cm_int_d.copy()
         
         #=======================================================================
@@ -330,8 +381,8 @@ class DsampClassifier(RioWrkr, Qproj, Session):
     # PRIVATE HELPERS---------
     #===========================================================================
     def _func_setup(self, dkey, 
-                    logger=None, out_dir=None, 
-                    mstore=None,
+                    logger=None, out_dir=None, tmp_dir=None,ofp=None,
+                    #mstore=None,
                     write=None,layname=None,ext='.tif',
                     ):
         """common function default setup"""
@@ -341,11 +392,14 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         log = logger.getChild('build_%s'%dkey)
  
         #QGIS
-        if mstore is None:
-            mstore = QgsMapLayerStore()
+        #=======================================================================
+        # if mstore is None:
+        #     mstore = QgsMapLayerStore()
+        #=======================================================================
         
         #temporary directory
-        tmp_dir = os.path.join(self.tmp_dir, dkey)
+        if tmp_dir is None:
+            tmp_dir = os.path.join(self.tmp_dir, dkey)
         if not os.path.exists(tmp_dir):
             os.makedirs(tmp_dir)
             
@@ -357,17 +411,18 @@ class DsampClassifier(RioWrkr, Qproj, Session):
         
         if layname is None:layname = '%s_%s'%(self.fancy_name, dkey)
          
-        if write:            
-            ofp = os.path.join(out_dir, layname+ext)            
-        else:
-            ofp=os.path.join(tmp_dir, layname+ext)
+        if ofp is None:
+            if write:            
+                ofp = os.path.join(out_dir, layname+ext)            
+            else:
+                ofp=os.path.join(tmp_dir, layname+ext)
             
         if os.path.exists(ofp):
             assert self.overwrite
             os.remove(ofp)
  
             
-        return log, mstore, tmp_dir, out_dir, ofp, layname, write
+        return log, tmp_dir, out_dir, ofp, layname, write
     
     
 def get_wse_filtered(wse_raw_ar, dem_ar):
