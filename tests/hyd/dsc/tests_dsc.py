@@ -229,10 +229,10 @@ catMask_d = {
     'rand':None, #too messy to have consistent outputs here
     }
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('dem_ar, wse_ar, vali_d', [
     (toy_dem_ar, toy_wse_ar, catMask_d['toy']),
-    list(get_rand_ar((4,6)))+ [None]
+    list(get_rand_ar((8,6)))+ [None]
     ])
 @pytest.mark.parametrize('downscale',[2]) 
 def test_03_catMask(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr, downscale, vali_d):
@@ -285,7 +285,7 @@ def test_04_cmMosaic(cm_d, vali_ar, dscWrkr):
 #===============================================================================
 # INTEGRATION TEST----
 #===============================================================================
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dem_ar, wse_ar, downscale, vali_ar', [
     (toy_dem_ar, toy_wse_ar, 2, cmMosaic_ar),
     #list(get_rand_ar((4,6)))+ [2, None], 

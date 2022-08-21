@@ -22,7 +22,7 @@ from hp.oop import Session
 #from hp.basic import get_dict_str
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
  
-from hp.np import apply_blockwise, upsample
+from hp.np import apply_blockwise, upsample, upsample2
 
 class DsampClassifier(RioWrkr, Session):
     """tools for build downsample classification masks"""
@@ -71,9 +71,10 @@ class DsampClassifier(RioWrkr, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('run',  **kwargs)
-        skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         if downscale is None: downscale=self.downscale
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dsc_%03i'%downscale,  **kwargs)
+        skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
+        
         
         #=======================================================================
         # precheck
@@ -276,6 +277,7 @@ class DsampClassifier(RioWrkr, Session):
     def build_cat_masks(self,
                         dem_fp, demC_fp, wse_fp, 
                         downscale=None,
+ 
  
                         **kwargs):
         
@@ -536,7 +538,7 @@ def get_wse_filtered(wse_raw_ar, dem_ar):
     
     return wse_ar
     
-from definitions import proj_lib
+
 def runr(
         dem_fp=None, wse_fp=None,
         **kwargs):
@@ -545,20 +547,5 @@ def runr(
         
     return ofp
  
-            
-def SJ_0821():
-    proj_name = 'SJ'
-    proj_d = proj_lib[proj_name]
-    return runr(
-        proj_name=proj_name, run_name='r1',
-        downscale=4,
-        wse_fp=proj_d['wse_fp_d']['hi'],        
-        dem_fp=proj_d['dem_fp_d'][1]
-        )
-              
-    
-        
-
-if __name__ == "__main__": 
-    SJ_0821()
+ 
     

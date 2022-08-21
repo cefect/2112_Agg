@@ -112,5 +112,6 @@ proj_lib =     { #studyArea data for hyd.runr
 logcfg_file=r'C:\LS\09_REPOS\01_COMMON\coms\logger.conf'
 
 root_dir=r'C:\LS\10_OUT\2112_Agg'
+wrk_dir=root_dir
 
 base_resolution=10
