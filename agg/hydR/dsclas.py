@@ -72,7 +72,7 @@ class DsampClassifier(RioWrkr, Session):
         # defaults
         #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('run',  **kwargs)
-        skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=out_dir, write=write)
+        skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         if downscale is None: downscale=self.downscale
         
         #=======================================================================
@@ -306,6 +306,9 @@ class DsampClassifier(RioWrkr, Session):
             arC = apply_blockwise(ar, func, n=downscale) #max of each coarse block
             return upsample(arC,n=downscale) #scale back up
         
+        
+            
+        
         #=======================================================================
         # exec
         #=======================================================================
@@ -333,12 +336,15 @@ class DsampClassifier(RioWrkr, Session):
                 
             assert dem_ar.shape==wse_ar.shape
             assert np.isnan(wse_ar).any(), 'wse should have null where dry'
-            assert np.all(dem_ar>0)
+            if not np.all(dem_ar>0): log.warning('got some negative terrain values!')
             assert np.all(wse_ar[~np.isnan(wse_ar)]>0)
             
+            def log_status(k):
+                log.info('    calcd %i/%i \'%s\''%(res_d[k].sum(), dem_ar.size, k))
             #===================================================================
             # compute delta
             #===================================================================
+            log.info('computing deltas')
             delta_ar = np.nan_to_num(wse_ar-dem_ar, nan=0.0)
             assert np.all(delta_ar>=0)
             
@@ -348,14 +354,14 @@ class DsampClassifier(RioWrkr, Session):
             delta_max_ar = apply_upsample(delta_ar, np.max)
             
             res_d['DD'] = delta_max_ar<=0
-            
+            log_status('DD')
             #===================================================================
             # #wet-wet: min(delta) >0
             #===================================================================
             delta_min_ar = apply_upsample(delta_ar, np.min)
             
             res_d['WW'] = delta_min_ar>0
-            
+            log_status('WW')
             #===================================================================
             # #partials: max(delta)>0 AND min(delta)==0
             #===================================================================
@@ -368,7 +374,7 @@ class DsampClassifier(RioWrkr, Session):
             if not np.any(partial_bool_ar):
                 log.warning('no partials!')
             else:
-                log.info('flagged %i/%i partials'%(partial_bool_ar.sum(), partial_bool_ar.size))
+                log.info('    flagged %i/%i partials'%(partial_bool_ar.sum(), partial_bool_ar.size))
         
 
             #===============================================================
@@ -381,11 +387,13 @@ class DsampClassifier(RioWrkr, Session):
             #===============================================================
             res_d['WP'] = np.logical_and(partial_bool_ar,
                                          dem_mean_ar<wse_mean_ar)
+            log_status('WP')
             
             #dry-partials: mean(DEM)>mean(WSE)
             res_d['DP'] = np.logical_and(partial_bool_ar,
                                          dem_mean_ar>=wse_mean_ar)
             
+            log_status('DP')
             #===================================================================
             # compute stats
             #===================================================================
@@ -532,7 +540,7 @@ from definitions import proj_lib
 def runr(
         dem_fp=None, wse_fp=None,
         **kwargs):
-    with DsampClassifier(**kwargs) as ses:
+    with DsampClassifier(rlay_ref_fp=dem_fp, **kwargs) as ses:
         ofp = ses.run_all(dem_fp, wse_fp)
         
     return ofp
