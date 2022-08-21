@@ -8,6 +8,7 @@ unit tests for downsample classification
 from qgis.core import QgsCoordinateReferenceSystem
 import pytest, copy, os, random
 import numpy as np
+from numpy import array, dtype
 import pandas as pd
 
  
@@ -42,22 +43,14 @@ rand_wse_ar =  get_wse_filtered(np.random.random(rand_dem_ar.shape)*10, rand_dem
 #===============================================================================
 # helpers and globals------
 #===============================================================================
-crs = QgsCoordinateReferenceSystem('EPSG:2953')
+crsid = 2953
 prec=5
 
-def get_rand_wse_ar(dem_ar):
-    """build a noise wse layer from a dem_ar"""
-    dem_ar
-    
+#for test data
+output_kwargs = dict(crs=rio.crs.CRS.from_epsg(crsid),
+                     transform=rio.transform.from_origin(2476176,7447040,1,1)) 
 
  
-
-def rlay_to_file(ar, ofp):
-    
-    return write_array(ar, ofp,
-                crs=rio.crs.CRS.from_epsg(2953),
-                transform=rio.transform.from_origin(2476176,7447040,1,1), 
-                )
     
 
 #===============================================================================
@@ -66,12 +59,12 @@ def rlay_to_file(ar, ofp):
 
 @pytest.fixture(scope='function')
 def dem_fp(dem_ar, tmp_path): 
-    return rlay_to_file(dem_ar, os.path.join(tmp_path, 'dem.tif'))
+    return write_array(dem_ar, os.path.join(tmp_path, 'dem.tif'), **output_kwargs)
  
 
 @pytest.fixture(scope='function')
 def wse_fp(wse_ar, tmp_path): 
-    return rlay_to_file(wse_ar, os.path.join(tmp_path, 'wse.tif'))
+    return write_array(wse_ar, os.path.join(tmp_path, 'wse.tif'), **output_kwargs)
 
 
 @pytest.fixture(scope='function')
@@ -89,7 +82,7 @@ def dscWrkr(tmp_path,write,logger, feedback,  test_name,
     with DsampClassifier( 
                 #Qcoms
                  compression='none',  
-                 crs=crs,
+                 crs=QgsCoordinateReferenceSystem('EPSG:%i'%crsid),
                  feedback=feedback,
                  qgis_app=qgis_app,qgis_processing=True, #pytest-qgis
                  
@@ -119,7 +112,7 @@ def dscWrkr(tmp_path,write,logger, feedback,  test_name,
         
  
 #===============================================================================
-# TESTS--------
+# UNIT TESTS--------
 #===============================================================================
 @pytest.mark.parametrize('dem_ar', [toy_dem_ar, np.random.random((10,20))*10])
 @pytest.mark.parametrize('downscale',[2]) 
@@ -163,34 +156,96 @@ def test_02_fineDelta(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr):
     """having some issues with precision on the rasterio load"""
     assert np.array_equal(test_ar.round(2), vali_ar.round(2))
     
-    
-@pytest.mark.dev
-@pytest.mark.parametrize('dem_ar, wse_ar', [
-    (toy_dem_ar, toy_wse_ar),
-    #(rand_dem_ar, rand_wse_ar),
+#===============================================================================
+# category masks
+#===============================================================================
+catMask_d = {
+    'toy':{
+        'DD': array([
+            [ True,  True, False, False],
+           [ True,  True, False, False],
+           [False, False, False, False],
+           [False, False, False, False]]), 
+        'WW': array([
+            [False, False,  True,  True],
+           [False, False,  True,  True],
+           [False, False, False, False],
+           [False, False, False, False]]), 
+        'WP': array([
+            [False, False, False, False],
+           [False, False, False, False],
+           [ True,  True, False, False],
+           [ True,  True, False, False]]), 
+        'DP': array([
+            [False, False, False, False],
+            [False, False, False, False],
+            [False, False,  True,  True],
+            [False, False,  True,  True]
+           ])},
+    'rand':None, #too messy to have consistent outputs here
+    }
+
+
+@pytest.mark.parametrize('dem_ar, wse_ar, vali_d', [
+    (toy_dem_ar, toy_wse_ar, catMask_d['toy']),
+    (rand_dem_ar, rand_wse_ar, catMask_d['rand']),
     ])
 @pytest.mark.parametrize('downscale',[2]) 
-def test_03_catMask(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr, downscale):
+def test_03_catMask(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr, downscale, vali_d):
     
     #get coarse DEM
     """not ideal as a unit test... but easier than handling something premade"""
     demC_fp = dscWrkr.build_coarse(dem_fp, downscale=downscale)
     
     #build with function
-    test_fp = dscWrkr.build_cat_masks(dem_fp, demC_fp, wse_fp)
+    test_d, _ = dscWrkr.build_cat_masks(dem_fp, demC_fp, wse_fp, write=False)
     
     #===========================================================================
     # #validate
     #===========================================================================
-    test_ar = load_array(test_fp)
+    miss_l = set(['DD', 'WW', 'WP', 'DP']).symmetric_difference(test_d.keys())
+    assert len(miss_l)==0
     
+    for k,v in test_d.items():
+        assert isinstance(v, np.ndarray), k
+        assert v.dtype==np.dtype('bool'), k
+        if not vali_d is None:
+            assert np.array_equal(v, vali_d[k]), k
+            
+    
+            
+    return
+
+cmMosaic_ar = array([
+        [11, 11, 21, 21],
+       [11, 11, 21, 21],
+       [31, 31, 41, 41],
+       [31, 31, 41, 41]])
+
+@pytest.mark.dev
+@pytest.mark.parametrize('cm_d, vali_ar',[[catMask_d['toy'], cmMosaic_ar]]) 
+def test_04_cmMosaic(cm_d, vali_ar, dscWrkr):
+    """build_cat_mosaic"""
+    #build the array
+    cm_ar, test_fp = dscWrkr.build_cat_mosaic(cm_d,write=True,output_kwargs=output_kwargs)
+    
+    #===========================================================================
+    # validate
+    #===========================================================================
+    assert isinstance(cm_ar, np.ndarray)
+    assert cm_ar.dtype==dtype('int32')
+    assert np.array_equal(cm_ar, vali_ar)
+    assert os.path.exists(test_fp)
+    
+
+#===============================================================================
+# INTEGRATION TEST----
+#===============================================================================
+@pytest.mark.parametrize('dem_ar, wse_ar', [
+    (toy_dem_ar, toy_wse_ar),
+    #(np.random.random((10,20))*10
+    ])
+def test_05_full(dem_ar, dem_fp,wse_ar, wse_fp,  dscWrkr):
+    pass
  
-    #compute w/ numpy
-    vali_ar = np.nan_to_num(wse_ar-dem_ar, nan=0.0)
- 
-    """having some issues with precision on the rasterio load"""
-    assert np.array_equal(test_ar.round(2), vali_ar.round(2))
-    
-    
-    
     

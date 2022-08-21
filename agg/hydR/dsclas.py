@@ -21,40 +21,37 @@ from hp.basic import get_dict_str
 from hp.rio import RioWrkr
 from hp.np import apply_blockwise, upsample
 
-class DsampClassifier(Qproj, Session):
+class DsampClassifier(RioWrkr, Qproj, Session):
     """tools for build downsample classification masks"""
-    def __init__(self,
- 
-                 #requireed input files
- 
-                 
-                 zthresh=0.001,
-                 
- 
+    
+    #integer maps for buildilng the mosaic
+    cm_int_d = {'DD':11, 'WW':21, 'WP':31, 'DP':41}
+    
+    def __init__(self, 
                  **kwargs):
         """
         
         Parameters
         ----------
  
-            filepath to digital elevation model raster
-            
-        zthresh: float, default 0.001
-            zero threshold
         """
  
         
         super().__init__(**kwargs)
  
         
-        #=======================================================================
-        # attach
-        #=======================================================================
-        self.zthresh=zthresh
+ 
+    #===========================================================================
+    # MAIN RUNNERS-----
+    #===========================================================================
+    def run_prep(self,
+                 dem_fp, wse_fp):
+        pass
         
- 
- 
-
+    
+    #===========================================================================
+    # UNIT BUILDRES-------
+    #===========================================================================
     def build_coarse(self,
                         raw_fp,
                         downscale=2,
@@ -75,7 +72,7 @@ class DsampClassifier(Qproj, Session):
         """
         rawName = os.path.basename(raw_fp).replace('.tif', '')
         
-        log, mstore, tmp_dir, out_dir, ofp, layname = self._func_setup('coarse%s'%rawName,  **kwargs)
+        log, mstore, tmp_dir, out_dir, ofp, layname, write = self._func_setup('coarse%s'%rawName,  **kwargs)
         
         #=======================================================================
         # precheck
@@ -126,7 +123,7 @@ class DsampClassifier(Qproj, Session):
         this is a bit too simple...
         """
         
-        log, mstore, tmp_dir, out_dir, ofp, layname = self._func_setup('delta',  **kwargs)
+        log, mstore, tmp_dir, out_dir, ofp, layname, write = self._func_setup('delta',  **kwargs)
         
         
         with RioWrkr(rlay_ref_fp=dem_fp, session=self) as wrkr:
@@ -158,7 +155,7 @@ class DsampClassifier(Qproj, Session):
     def build_cat_masks(self,
                         dem_fp, demC_fp, wse_fp, 
                         downscale=2,
-                        write=None,
+ 
                         **kwargs):
         
         """build masks for each category
@@ -175,8 +172,8 @@ class DsampClassifier(Qproj, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, mstore, tmp_dir, out_dir, ofp, layname = self._func_setup('cmask',  **kwargs)
-        if write is None: write=self.write
+        log, mstore, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmask',  **kwargs)
+ 
         
         res_d = dict()
         
@@ -249,7 +246,7 @@ class DsampClassifier(Qproj, Session):
             
             #dry-partials: mean(DEM)>mean(WSE)
             res_d['DP'] = np.logical_and(partial_bool_ar,
-                                         dem_mean_ar<=wse_mean_ar)
+                                         dem_mean_ar>=wse_mean_ar)
             
             #===================================================================
             # compute stats
@@ -258,6 +255,12 @@ class DsampClassifier(Qproj, Session):
             
             
             log.info('computed w/ \n    %s'%stats_d)
+            
+            #===================================================================
+            # check
+            #===================================================================
+            chk_ar = np.add.reduce(list(res_d.values()))==1
+            assert np.all(chk_ar), '%i/%i failed logic'%((~chk_ar).sum(), chk_ar.size)
             
             #===================================================================
             # output rasteres
@@ -272,8 +275,55 @@ class DsampClassifier(Qproj, Session):
         return res_d, ofp_d
     
     
-    def build_cat_mosaic(self):
-        raise IOError('stopped here')
+    def build_cat_mosaic(self, cm_d,
+                         cm_int_d=None,
+                         output_kwargs={},
+                         **kwargs):
+        """
+        construct a mosaic from the 4 category masks
+        
+        Parameters
+        ------------
+        cm_d: dict
+            four masks from build_cat_masks {category label: np.ndarray}
+        
+        cm_int_d: dict
+            integer mappings for each category
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, mstore, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmMosaic',  **kwargs)
+        if cm_int_d is None: cm_int_d=self.cm_int_d.copy()
+        
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        miss_l = set(cm_int_d.keys()).symmetric_difference(cm_d.keys())
+        assert len(miss_l)==0, miss_l
+        
+        assert np.all(np.add.reduce(list(cm_d.values()))==1), 'discontinuous masks'
+        #=======================================================================
+        # loop and build
+        #=======================================================================
+        res_ar = np.full(cm_d['DD'].shape, np.nan, dtype=np.int32) #build an empty dumm
+        
+        for k, mar in cm_d.items():
+            log.info('for %s setting %i'%(k, mar.sum())) 
+            np.place(res_ar, mar, cm_int_d[k])
+            
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert np.all(res_ar%2==1), 'failed to get all odd values'
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        if write:
+            self.write_dataset(res_ar, ofp=ofp, logger=log, **output_kwargs)
+        
+        return res_ar, ofp
             
 
     #===========================================================================
@@ -317,7 +367,7 @@ class DsampClassifier(Qproj, Session):
             os.remove(ofp)
  
             
-        return log, mstore, tmp_dir, out_dir, ofp, layname
+        return log, mstore, tmp_dir, out_dir, ofp, layname, write
     
     
 def get_wse_filtered(wse_raw_ar, dem_ar):
