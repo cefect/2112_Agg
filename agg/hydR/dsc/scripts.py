@@ -11,7 +11,7 @@ simple session (no retrieve)
  
 
 import numpy as np
-import os, copy
+import os, copy, datetime
 import rasterio as rio
 from definitions import wrk_dir
 from hp.np import apply_blockwise, upsample 
@@ -66,6 +66,7 @@ class DsampClassifier(RioWrkr, Session):
         # defaults
         #=======================================================================
         if downscale is None: downscale=self.downscale
+        start = datetime.datetime.now()
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dsc_%03i'%downscale,  **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
@@ -104,7 +105,7 @@ class DsampClassifier(RioWrkr, Session):
         #=======================================================================
         # wrap
         #=======================================================================
-        log.info('finished')
+        log.info('finished in %s'%(datetime.datetime.now()-start))
         return ofp
         
     
