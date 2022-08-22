@@ -8,21 +8,15 @@ classifying downsample type
 let's try w/ mostly rasterio?
 simple session (no retrieve)
 '''
-import os, copy
-#from qgis.core import QgsMapLayerStore
-import rasterio as rio
-#from rasterio.features import geometry_window
-from affine import Affine
-import numpy as np
-#from shapely.geometry import box
-
-
-#from hp.Q import RasterCalc, view, vlay_get_fdata, Qproj, assert_rlay_simple
-from hp.oop import Session
-#from hp.basic import get_dict_str
-from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
  
-from hp.np import apply_blockwise, upsample, upsample2
+
+import numpy as np
+import os, copy
+import rasterio as rio
+from definitions import wrk_dir
+from hp.np import apply_blockwise, upsample 
+from hp.oop import Session
+from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
 
 class DsampClassifier(RioWrkr, Session):
     """tools for build downsample classification masks"""
@@ -44,7 +38,7 @@ class DsampClassifier(RioWrkr, Session):
         """
  
         
-        super().__init__(**kwargs)
+        super().__init__(obj_name='dsc', wrk_dir=wrk_dir, **kwargs)
         
         #=======================================================================
         # attach
