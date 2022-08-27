@@ -6,7 +6,7 @@ Created on Feb. 21, 2022
 import os, shutil, pickle
 import pytest
 import numpy as np
-import pandas as pd
+
 from agg.hyd.hscripts import Model as CalcSession
 
 from qgis.core import QgsVectorLayer, QgsRasterLayer
@@ -197,59 +197,3 @@ def check_layer_d(d1, d2, #two containers of layers
                 
                 assert_frame_equal(true_df, test_df,check_names=False)
                 
-def compare_dicts(dtest, dtrue, index_l = None,
-                 ):
-        df1 = pd.DataFrame.from_dict({'true':dtrue, 'test':dtest})
-        
-        if index_l is None:
-            index_l = df1.index.tolist()
-        
-        df2 = df1.loc[index_l,: ].round(3)
-        
-        bx = ~df2['test'].eq(other=df2['true'], axis=0)
-        if bx.any():
-            raise AssertionError('%i/%i raster stats failed to match\n%s'%(bx.sum(), len(bx), df2.loc[bx,:]))
-                
-def validate_dict(session, valid_dir, test_stats_d, baseName='base'):
-    
-    true_fp = os.path.join(valid_dir, '%s_true.pkl' % (baseName))
-    
-    #===========================================================================
-    # write trues
-    #===========================================================================
-    
-    if session.write:
-        if not os.path.exists(valid_dir):
-            os.makedirs(valid_dir)
-        with open(true_fp, 'wb') as f:
-            pickle.dump(test_stats_d, f, pickle.HIGHEST_PROTOCOL)
-    else:
-        assert os.path.exists(true_fp)
-        
-    #===========================================================================
-    # retrieve trues
-    #===========================================================================
-    with open(true_fp, 'rb') as f:
-        true_stats_d = pickle.load(f)
-        
-    #===========================================================================
-    # compare
-    #===========================================================================
-    compare_dicts(test_stats_d, true_stats_d)
-
-def validate_raster(
-        rlay_test,
-        session,
-        valid_dir):
-    
-    #valid_dir = session.valid_dir
-    assert isinstance(rlay_test, QgsRasterLayer)
-    #===========================================================================
-    # get stats on new test raster
-    #===========================================================================
-    test_stats_d = session.rlay_get_stats(rlay_test)
-    
-    #===========================================================================
-    # update results
-    #===========================================================================
-    validate_dict(session, valid_dir, test_stats_d, baseName=rlay_test.name())

@@ -18,13 +18,13 @@ from numpy import array, dtype
  
 import rasterio as rio
 
-from tests.conftest import validate_raster, validate_dict, src_dir, get_abs
+from tests2.conftest import validate_dict, src_dir, get_abs
 from hp.rio import RioWrkr, write_array, load_array
 from hp.np import apply_blockwise_ufunc, apply_blockwise, dropna
  
 
 #scripts to test
-from agg.hydR.dsc.scripts import DsampClassifier, get_wse_filtered
+from agg2.haz.dsc.scripts import DsampClassifier, get_wse_filtered
 
 #===============================================================================
 # test data
