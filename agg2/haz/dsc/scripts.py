@@ -53,7 +53,7 @@ class DsampClassifier(RioWrkr, Session):
     def run_all(self,demR_fp, wseR_fp,
                 demC_fp=None,
                  downscale=None, **kwargs):
-        """prep all layers from fine/raw DEM and WSE
+        """prep layers and build downsample classification 
         
         
         Parameters
@@ -215,9 +215,7 @@ class DsampClassifier(RioWrkr, Session):
         resampling = getattr(rio.enums.Resampling, resampleAlg)
         with RioWrkr(rlay_ref_fp=raw_fp, session=self) as wrkr:
             
-            self._check_dem_ar(wrkr._base().read(1))
-            
- 
+            self._check_dem_ar(wrkr._base().read(1)) 
             
             wrkr.resample(resampling=resampling, scale=1/downscale, ofp=ofp)
             
@@ -492,11 +490,6 @@ class DsampClassifier(RioWrkr, Session):
             logger = self.logger
         log = logger.getChild('build_%s'%dkey)
  
-        #QGIS
-        #=======================================================================
-        # if mstore is None:
-        #     mstore = QgsMapLayerStore()
-        #=======================================================================
         
         #temporary directory
         if tmp_dir is None:

@@ -67,10 +67,6 @@ def wse_fp(wse_ar, tmp_path):
 #===============================================================================
 # FIXTURES-----
 #===============================================================================
-
-
-
-
 @pytest.fixture(scope='function')
 def dscWrkr(tmp_path,write,logger, test_name,             
             #qgis_app, qgis_processing, feedback, #pytest-qgis fixtures 
