@@ -6,25 +6,19 @@ Created on Aug. 20, 2022
 unit tests for downsample classification
 '''
 #from qgis.core import QgsCoordinateReferenceSystem
-import pytest, copy, os, random
 
-xfail = pytest.mark.xfail
-
+ 
+#scripts to test
+from agg2.haz.dsc.scripts import DsampClassifier
+from agg2.haz.misc import get_rand_ar, get_wse_filtered
+from hp.np import apply_blockwise_ufunc, apply_blockwise, dropna
+from hp.rio import RioWrkr, write_array, load_array
+from numpy import array, dtype
 
 import numpy as np
-from numpy import array, dtype
- 
-
- 
+import pytest, copy, os, random
 import rasterio as rio
-
-from tests2.conftest import validate_dict, src_dir, get_abs
-from hp.rio import RioWrkr, write_array, load_array
-from hp.np import apply_blockwise_ufunc, apply_blockwise, dropna
- 
-
-#scripts to test
-from agg2.haz.dsc.scripts import DsampClassifier, get_wse_filtered
+xfail = pytest.mark.xfail
 
 #===============================================================================
 # test data
@@ -42,11 +36,7 @@ toy_dem_ar = np.array((
 
 toy_wse_ar = get_wse_filtered(np.full((4,4), 5, dtype=np.float64), toy_dem_ar)
 
-def get_rand_ar(shape, scale=10):
-    dem_ar =  np.random.random(shape)*scale
-    wse_ar = get_wse_filtered(np.random.random(shape)*scale, dem_ar)
-    
-    return dem_ar, wse_ar
+
 
 #===============================================================================
 # rand_dem_ar = np.random.random((4,6))*10

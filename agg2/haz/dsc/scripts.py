@@ -526,12 +526,7 @@ class DsampClassifier(RioWrkr, Session):
         return log, tmp_dir, out_dir, ofp, layname, write
     
     
-def get_wse_filtered(wse_raw_ar, dem_ar):
-    """mask out negative WSE values"""
-    wse_ar = wse_raw_ar.copy()
-    np.place(wse_ar, wse_raw_ar<=dem_ar, np.nan)
-    
-    return wse_ar
+
     
 
 def runr(

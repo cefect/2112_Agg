@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from definitions import src_dir
 from hp.logr import get_new_file_logger, get_new_console_logger, logging
-
+ 
 #===============================================================================
 # MISC----
 #===============================================================================
@@ -27,6 +27,8 @@ def test_name(request):
 @pytest.fixture(scope='session')
 def logger():
     return get_new_console_logger(level=logging.DEBUG)
+
+
 #===============================================================================
 # DIRECTOREIES--------
 #===============================================================================
@@ -52,6 +54,11 @@ def out_dir(write, tmp_path, tgen_dir):
 
 def get_abs(relative_fp):
     return os.path.join(src_dir, relative_fp)
+
+#===============================================================================
+# test data------
+#===============================================================================
+
 
 #===============================================================================
 # VALIDATIOn-------
