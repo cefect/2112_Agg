@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from definitions import src_dir
 from hp.logr import get_new_file_logger, get_new_console_logger, logging
- 
+from hp.rio import write_array
 #===============================================================================
 # MISC----
 #===============================================================================
