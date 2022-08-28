@@ -79,13 +79,15 @@ def wrkr(tmp_path,write,logger, test_name,
 #===============================================================================
 # UNIT TESTS--------
 #===============================================================================
-
+@pytest.mark.dev 
 @pytest.mark.parametrize('dem_ar, wse_ar', [
-    get_rand_ar((8,8))
-    ])
- 
+    get_rand_ar((16,16))
+    ]) 
 @pytest.mark.parametrize('dsc_l', [([1,2,4])])
-def test_00_runDsmp(wrkr, dsc_l,
+@pytest.mark.parametrize('method', [
+    'direct', 
+    'filter'])
+def test_00_runDsmp(wrkr, dsc_l,method,
                     dem_fp,dem_ar,wse_fp, wse_ar,
                     ):
     
@@ -106,7 +108,7 @@ def test_00_dscList(wrkr, reso_iters):
     assert res_l[0]==1
 
  
-@pytest.mark.dev 
+
 @pytest.mark.parametrize('dem_ar, wse_ar', [
     get_rand_ar((8,8))
     ])
@@ -116,4 +118,7 @@ def test_00_dscList(wrkr, reso_iters):
 @pytest.mark.parametrize('dsc_l', [([1,2])])
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
+    
+    
+ 
  

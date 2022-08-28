@@ -215,6 +215,7 @@ class DownsampleChild(RioWrkr):
         # #main outputs
         #=======================================================================
         if out_dir is None: out_dir = self.out_dir
+        if not os.path.exists(out_dir):os.makedirs(out_dir)
         if write is None: write=self.write
         
         if layname is None:layname = '%s_%s'%(self.fancy_name, dkey)
@@ -258,18 +259,16 @@ class Haz(DownsampleChild, Session):
  
         
     #===========================================================================
-    # MAIN RUNNERS-----
+    # DOWNSAMPLING-----
     #===========================================================================
     def run_dsmp(self,demR_fp, wseR_fp,
  
                  dsc_l=None,
-                 dscList_kwargs = dict(
- 
-                     reso_iters=5
-                     ),
+                 dscList_kwargs = dict(reso_iters=5),
                  
                  
                  method='direct',
+                 out_dir=None,
                  **kwargs):
         """build downsample set
         
@@ -290,8 +289,9 @@ class Haz(DownsampleChild, Session):
         # defaults
         #=======================================================================
  
-        start = datetime.datetime.now()
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dsmp',  **kwargs)
+        start = now()
+        if out_dir is None: out_dir=os.path.join(self.out_dir, method)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dsmp',  ext='.pkl', out_dir=out_dir, **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
         #=======================================================================
@@ -317,20 +317,41 @@ class Haz(DownsampleChild, Session):
         #=======================================================================
         # build the set from this
         #=======================================================================
-        res_lib = self.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
+        res_lib = self.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method, out_dir=out_dir)
         
+        """not working
+        self.build_vrts(res_lib, out_dir=os.path.join(out_dir, 'vrt'))"""
         #=======================================================================
         # build upscaled twins
         #=======================================================================
-        res_libU = dict()
-        for downscale, fp_d in res_lib.items():
-            res_libU[downscale] = self.build_upscales(fp_d, upscale=downscale)
-            
         #=======================================================================
-        # build vrts
+        # res_libU = dict()
+        # for downscale, fp_d in res_lib.items():
+        #     res_libU[downscale] = self.build_upscales(fp_d, upscale=downscale)
+        # log.info('upscaled %i'%len(res_libU))
+        # #=======================================================================
+        # # build vrts
+        # #=======================================================================
+        # self.build_vrts(res_libU)
         #=======================================================================
-        self.build_vrts(res_libU)
-        log.info('upscaled %i'%len(res_libU))
+        
+        log.info('finished in %.2f secs'%((now()-start).total_seconds()))
+        
+        #=======================================================================
+        # assemble meta
+        #=======================================================================
+        #=======================================================================
+        # meta_df = pd.DataFrame.from_dict(res_lib).T.join(
+        #     pd.DataFrame.from_dict(res_libU).T, rsuffix='_ups'
+        #     ).reset_index(drop=False).rename(columns={'index':'downscale'})
+        #=======================================================================
+        meta_df = pd.DataFrame.from_dict(res_lib).T.reset_index(drop=False).rename(columns={'index':'downscale'})
+        #write the meta
+        meta_df.to_pickle(ofp)
+        log.info('wrote %s meta to \n    %s'%(str(meta_df.shape), ofp))
+ 
+        return ofp
+        
         
             
     def get_dscList(self,
@@ -418,7 +439,7 @@ class Haz(DownsampleChild, Session):
             dem_fp, wse_fp,
             dsc_l=None,
             method='direct', resampleAlg='average',
-            compress='LZW',
+            compress=None,
   
             out_dir=None,  
             **kwargs):
@@ -499,7 +520,7 @@ class Haz(DownsampleChild, Session):
             
             with DownsampleChild(session=self,downscale=downscale, 
                                  crs=self.crs, nodata=self.nodata,transform=self.transform,
-                                 compress=compress) as wrkr:
+                                 compress=compress, out_dir=out_dir) as wrkr:
                 
  
                 #===================================================================
@@ -535,6 +556,56 @@ class Haz(DownsampleChild, Session):
         
         return res_lib
     
+
+    
+    #===========================================================================
+    # COMPILING---------
+    #===========================================================================
+    def run_vrts(self, pick_fp, 
+                 out_dir=None,
+                 **kwargs):
+        #log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt',  **kwargs)
+        
+        """
+        self.out_dir
+        """
+        meta_df = pd.read_pickle(pick_fp)
+        
+        #get ouptut directory in the same location as the data files
+        if out_dir is None:
+            out_dir = os.path.join(os.path.dirname(os.path.dirname(meta_df.iloc[0, :]['dem'])), 'vrt')
+        
+        return self.build_vrts(meta_df.set_index('downscale').to_dict(orient='index'), out_dir=out_dir, **kwargs)
+        
+    
+    def build_vrts(self,res_lib,
+                   out_dir=None,
+                   **kwargs):
+        """build vrts of the results for nice animations"""
+ 
+        log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt',  **kwargs)
+        if out_dir is None: out_dir=os.path.join(self.out_dir, 'vrt')
+        if not os.path.exists(out_dir): os.makedirs(out_dir)
+        
+        from osgeo import gdal
+        vrt_d = dict()
+        
+        """
+        help(gdal.BuildVRT)
+        gdal.BuildVRTOptions()
+        help(gdal.BuildVRTOptions)
+        """
+        
+        for sub_dkey, d in pd.DataFrame.from_dict(res_lib).to_dict(orient='index').items():
+            log.debug(sub_dkey)
+            ofp = os.path.join(out_dir, '%s_%i.vrt'%(sub_dkey, len(d)))
+            gdal.BuildVRT(ofp, list(d.values()), separate=True, resolution='highest', resampleAlg='nearest')
+            vrt_d[sub_dkey] = ofp
+            
+        log.info('wrote %i vrts\n%s'%(len(vrt_d),vrt_d))
+        
+        return vrt_d
+ 
     def build_upscales(self,
                        fp_d = dict(),
                        upscale=1,out_dir=None,
@@ -543,7 +614,7 @@ class Haz(DownsampleChild, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        start = now()
+ 
         log, tmp_dir, _, ofp, layname, write = self._func_setup('upsacle',  **kwargs)
         if out_dir is None: out_dir=os.path.join(self.out_dir, 'upscale', '%03i'%upscale)
         os.makedirs(out_dir)
@@ -556,37 +627,6 @@ class Haz(DownsampleChild, Session):
         
         log.info('wrote %i to %s'%(len(res_d), out_dir))
         return res_d
-        
-    
-    def build_vrts(self,res_lib,
-                   out_dir=None,
-                   **kwargs):
-        """build vrts of the results for nice animations"""
- 
-        log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt',  **kwargs)
-        if out_dir is None: out_dir=os.path.join(self.out_dir, 'vrt')
-        os.makedirs(out_dir)
-        
-        from osgeo import gdal
-        vrt_d = dict()
-        
-        """
-        help(gdal.BuildVRT)
-        gdal.BuildVRTOptions()
-        help(gdal.BuildVRTOptions)
-        """
-        
-        for sub_dkey, d in pd.DataFrame.from_dict(res_lib).to_dict(orient='index').items():
-            log.info(sub_dkey)
-            ofp = os.path.join(out_dir, '%s_%i.vrt'%(sub_dkey, len(d)))
-            gdal.BuildVRT(ofp, list(d.values()), separate=True)
-            vrt_d[sub_dkey] = ofp
-            
-        log.info('wrote %i vrts\n%s'%(len(vrt_d),vrt_d))
-        
-        return vrt_d
- 
-    
  
     
     
