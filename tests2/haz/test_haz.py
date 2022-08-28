@@ -12,7 +12,7 @@ import rasterio as rio
 from agg2.haz.misc import get_rand_ar, get_wse_filtered
 from agg2.haz.scripts import Haz as Session
 xfail = pytest.mark.xfail
-
+ 
 
 #===============================================================================
 # helpers and globals------
@@ -24,7 +24,7 @@ prec=5
 output_kwargs = dict(crs=rio.crs.CRS.from_epsg(crsid),
                      transform=rio.transform.from_origin(1,100,1,1)) 
 
- 
+test_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data'
 
 
 #===============================================================================
@@ -79,7 +79,7 @@ def wrkr(tmp_path,write,logger, test_name,
 #===============================================================================
 # UNIT TESTS--------
 #===============================================================================
-@pytest.mark.dev 
+
 @pytest.mark.parametrize('dem_ar, wse_ar', [
     get_rand_ar((16,16))
     ]) 
@@ -91,7 +91,9 @@ def test_00_runDsmp(wrkr, dsc_l,method,
                     dem_fp,dem_ar,wse_fp, wse_ar,
                     ):
     
-    wrkr.run_dsmp(dem_fp, wse_fp,  dsc_l=dsc_l)
+    wrkr.run_dsmp(dem_fp, wse_fp,  dsc_l=dsc_l,
+                  write=True,
+                  out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data', method))
 
 
 @pytest.mark.parametrize('reso_iters', [3, 10])
@@ -118,6 +120,14 @@ def test_00_dscList(wrkr, reso_iters):
 @pytest.mark.parametrize('dsc_l', [([1,2])])
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
+
+@pytest.mark.dev 
+@pytest.mark.parametrize('pick_fp', [
+    os.path.join(src_dir, r'tests2\haz\data\direct\dsTest_test00_0828_haz_dsmp.pkl'),
+     os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
+     ])
+def test_02_dsc(wrkr, pick_fp):
+    wrkr.run_catMask(pick_fp)
     
     
  
