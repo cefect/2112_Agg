@@ -13,19 +13,22 @@ simple session (no retrieve)
 import numpy as np
 import os, copy, datetime
 import rasterio as rio
-from definitions import wrk_dir
+from definitions import wrk_dir 
 from hp.np import apply_blockwise, upsample 
 from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
 
-class DsampClassifier(RioWrkr, Session):
+
+ 
+class DsampClassifier(RioWrkr): 
     """tools for build downsample classification masks"""
-    
     #integer maps for buildilng the mosaic
     cm_int_d = {'DD':11, 'WW':21, 'WP':31, 'DP':41}
     
     def __init__(self, 
                  downscale=2,
+ 
+ 
                  **kwargs):
         """
         
@@ -38,14 +41,12 @@ class DsampClassifier(RioWrkr, Session):
         """
  
         
-        super().__init__(obj_name='dsc', wrk_dir=wrk_dir, **kwargs)
+        super().__init__( **kwargs)
         
         #=======================================================================
         # attach
         #=======================================================================
         self.downscale=downscale
- 
-        
  
     #===========================================================================
     # MAIN RUNNERS-----
@@ -519,7 +520,18 @@ class DsampClassifier(RioWrkr, Session):
         return log, tmp_dir, out_dir, ofp, layname, write
     
     
-
+class DsampClassifierSession(DsampClassifier, Session):
+ 
+    
+    def __init__(self, 
+ 
+                 obj_name='dsc',
+ 
+                 **kwargs):
+ 
+ 
+        
+        super().__init__(obj_name=obj_name, wrk_dir=wrk_dir,  **kwargs)
     
 
 def runr(
