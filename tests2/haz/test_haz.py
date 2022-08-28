@@ -81,15 +81,15 @@ def wrkr(tmp_path,write,logger, test_name,
 #===============================================================================
 
 @pytest.mark.parametrize('dem_ar, wse_ar', [
-    get_rand_ar((4,6))
+    get_rand_ar((8,8))
     ])
-@pytest.mark.parametrize('base_resolution', [None, 1, 3])
-@pytest.mark.parametrize('reso_iters', [3, 10])
-def test_00_runDsmp(wrkr, base_resolution, reso_iters,
+ 
+@pytest.mark.parametrize('dsc_l', [([1,2,4])])
+def test_00_runDsmp(wrkr, dsc_l,
                     dem_fp,dem_ar,wse_fp, wse_ar,
                     ):
     
-    wrkr.run_dsmp(dem_fp, wse_fp, base_resolution=base_resolution, reso_iters=reso_iters)
+    wrkr.run_dsmp(dem_fp, wse_fp,  dsc_l=dsc_l)
 
 
 @pytest.mark.parametrize('reso_iters', [3, 10])
@@ -110,8 +110,10 @@ def test_00_dscList(wrkr, reso_iters):
 @pytest.mark.parametrize('dem_ar, wse_ar', [
     get_rand_ar((8,8))
     ])
-@pytest.mark.parametrize('method', ['direct', 'filter'])
-@pytest.mark.parametrize('dsc_l', [([1,2,4])])
+@pytest.mark.parametrize('method', [
+    #'direct', 
+    'filter'])
+@pytest.mark.parametrize('dsc_l', [([1,2])])
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
  

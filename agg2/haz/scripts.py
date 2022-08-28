@@ -4,6 +4,7 @@ Created on Aug. 27, 2022
 @author: cefect
 '''
 import numpy as np
+import pandas as pd
 import os, copy, datetime
 import rasterio as rio
 
@@ -11,7 +12,7 @@ from skimage.transform import downscale_local_mean
 from definitions import wrk_dir
 from hp.np import apply_blockwise, upsample 
 from hp.oop import Session
-from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
+from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, resample
 
 def now():
     return datetime.datetime.now()
@@ -73,7 +74,7 @@ class DownsampleChild(RioWrkr):
             ds1 = self.resample(dataset=raw_ds, resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/downscale)
             
             #write it
-            res_d[k] = self.write_memDataset(ds1, 
+            res_d[k] = self.write_memDataset(ds1, dtype=np.float32,
                        ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),
                        logger=log)
             
@@ -84,7 +85,67 @@ class DownsampleChild(RioWrkr):
         
         return res_d
             
+    def downscale_filter(self,
+                         ds_d,
+                         resampleAlg='average',
+                         downscale=None,
+                         **kwargs):
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, _, layname, write = self._func_setup('filter',  **kwargs)
+        if downscale is None: downscale=self.downscale
+        start = now()
+        """
+        
+        load_array(ds_d['wse'])
+        """
+ 
+        #=======================================================================
+        # downscale dem and wse
+        #=======================================================================
+        log.info('downscale=%i on %s'%(downscale, list(ds_d.keys())))
+ 
+        wse_ds1 = self.resample(dataset=ds_d['wse'], resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/downscale)
+
+        wse_ar1 = load_array(wse_ds1).astype(np.float32)
+        
+        wse_ds1.close() #dont need this anymore
             
+        dem_ds1 = self.resample(dataset=ds_d['dem'], resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/downscale)
+        dem_ar1 = load_array(dem_ds1).astype(np.float32)
+        
+        self._base_inherit(ds=dem_ds1) #set class defaults from this
+        #=======================================================================
+        # filter wse
+        #=======================================================================
+        wse_ar2 = wse_ar1.copy()
+        np.place(wse_ar2, wse_ar1<=dem_ar1, np.nan)
+        wd_ds1 = self.load_memDataset(wse_ar2, name='wd')
+        
+        #=======================================================================
+        # subtract to get depths
+        #=======================================================================
+        wd_ar = np.nan_to_num(wse_ar2-dem_ar1, nan=0.0).astype(np.float32)
+        wd_ds = self.load_memDataset(wd_ar, name='wd')
+        
+        #=======================================================================
+        # write all
+        #=======================================================================
+        res_d=dict()
+        for k, ds in {'dem':dem_ds1, 'wse':wd_ds1, 'wd':wd_ds}.items():
+            res_d[k] = self.write_memDataset(ds, dtype=np.float32,
+                       ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),
+                       logger=log)
+            
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info('finished downscaling and writing %i in %.2f secs'%(len(ds_d), (now()-start).total_seconds()))
+        
+        return res_d
         
         
     def write_dataset_d(self,
@@ -256,7 +317,21 @@ class Haz(DownsampleChild, Session):
         #=======================================================================
         # build the set from this
         #=======================================================================
-        self.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
+        res_lib = self.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
+        
+        #=======================================================================
+        # build upscaled twins
+        #=======================================================================
+        res_libU = dict()
+        for downscale, fp_d in res_lib.items():
+            res_libU[downscale] = self.build_upscales(fp_d, upscale=downscale)
+            
+        #=======================================================================
+        # build vrts
+        #=======================================================================
+        self.build_vrts(res_libU)
+        log.info('upscaled %i'%len(res_libU))
+        
             
     def get_dscList(self,
  
@@ -344,7 +419,8 @@ class Haz(DownsampleChild, Session):
             dsc_l=None,
             method='direct', resampleAlg='average',
             compress='LZW',
-            out_dir=None,
+  
+            out_dir=None,  
             **kwargs):
         """build a set of downsampled rasters
         
@@ -358,6 +434,9 @@ class Haz(DownsampleChild, Session):
             
         resampleAlg: str, default 'average'
             rasterio resampling method
+            
+        buildvrt: bool, default True
+            construct a vrt of each intermittent raster (for animations)
             
         """
         #=======================================================================
@@ -439,9 +518,12 @@ class Haz(DownsampleChild, Session):
                 #===============================================================
                 if method=='direct':
                     res_lib[downscale] = wrkr.downscale_direct(base_ds_d,resampleAlg=resampleAlg, **skwargs)
+                elif method=='filter':
+                    res_lib[downscale] = wrkr.downscale_filter(base_ds_d,resampleAlg=resampleAlg, **skwargs)
                 else:
                     raise IOError('not implemented')
-                #downscale_local_mean(dem_ar, (downscale, downscale), cval=np.nan)
+ 
+ 
  
         #=======================================================================
         # wrap
@@ -452,8 +534,58 @@ class Haz(DownsampleChild, Session):
             
         
         return res_lib
+    
+    def build_upscales(self,
+                       fp_d = dict(),
+                       upscale=1,out_dir=None,
+                       **kwargs):
+        """construct a set of upscaled rasters"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        start = now()
+        log, tmp_dir, _, ofp, layname, write = self._func_setup('upsacle',  **kwargs)
+        if out_dir is None: out_dir=os.path.join(self.out_dir, 'upscale', '%03i'%upscale)
+        os.makedirs(out_dir)
         
+        log.info('upscale=%i on %i'%(upscale, len(fp_d)))
         
+        res_d = dict()
+        for k, fp in fp_d.items():
+            res_d[k] = resample(fp, os.path.join(out_dir, '%s_x%03i.tif'%(k, upscale)), scale=upscale)
+        
+        log.info('wrote %i to %s'%(len(res_d), out_dir))
+        return res_d
+        
+    
+    def build_vrts(self,res_lib,
+                   out_dir=None,
+                   **kwargs):
+        """build vrts of the results for nice animations"""
+ 
+        log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt',  **kwargs)
+        if out_dir is None: out_dir=os.path.join(self.out_dir, 'vrt')
+        os.makedirs(out_dir)
+        
+        from osgeo import gdal
+        vrt_d = dict()
+        
+        """
+        help(gdal.BuildVRT)
+        gdal.BuildVRTOptions()
+        help(gdal.BuildVRTOptions)
+        """
+        
+        for sub_dkey, d in pd.DataFrame.from_dict(res_lib).to_dict(orient='index').items():
+            log.info(sub_dkey)
+            ofp = os.path.join(out_dir, '%s_%i.vrt'%(sub_dkey, len(d)))
+            gdal.BuildVRT(ofp, list(d.values()), separate=True)
+            vrt_d[sub_dkey] = ofp
+            
+        log.info('wrote %i vrts\n%s'%(len(vrt_d),vrt_d))
+        
+        return vrt_d
+ 
     
  
     
