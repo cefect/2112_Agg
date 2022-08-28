@@ -92,8 +92,9 @@ def test_00_runDsmp(wrkr, dsc_l,method,
                     ):
     
     wrkr.run_dsmp(dem_fp, wse_fp,  dsc_l=dsc_l,
-                  write=True,
-                  out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data', method))
+                  #write=True,
+                  #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data', method).
+                  )
 
 
 @pytest.mark.parametrize('reso_iters', [3, 10])

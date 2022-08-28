@@ -13,6 +13,8 @@ from definitions import wrk_dir
 from hp.np import apply_blockwise, upsample 
 from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, resample
+from agg2.haz.dsc.scripts import DsampClassifier
+
 
 def now():
     return datetime.datetime.now()
@@ -435,6 +437,22 @@ class Haz(DownsampleChild, Session):
             
         return ofp
             
+
+    def _load_layers(self, dem_fp, wse_fp, reso_max=None, **kwargs):
+        dem_ds = self._base_set(dem_fp, **kwargs)
+        _ = self._base_inherit()
+        dem_ar = load_array(dem_ds).astype(np.float32)
+        self._check_dem_ar(dem_ar)
+        wse_ds = self.open_dataset(wse_fp, **kwargs)
+        wse_ar = load_array(wse_ds).astype(np.float32)
+        
+    #precheck
+        assert_rlay_simple(dem_ds, msg='dem')
+        assert_extent_equal(dem_ds, wse_ds, msg='dem vs wse')
+        assert is_divisible(dem_ds, reso_max), 'passed DEM shape must be divisible by the max resolution (%i)' % dsc_l[-1]
+        
+        return wse_ar, dem_ar, dem_ds, wse_ds
+
     def build_dset(self,
             dem_fp, wse_fp,
             dsc_l=None,
@@ -481,23 +499,10 @@ class Haz(DownsampleChild, Session):
         #=======================================================================
         # open base layers
         #=======================================================================
-        dem_ds = self._base_set(dem_fp,**skwargs)
-        _ = self._base_inherit()
-        dem_ar = load_array(dem_ds).astype(np.float32)
-        self._check_dem_ar(dem_ar)
- 
-        wse_ds = self.open_dataset(wse_fp,**skwargs)
-        wse_ar = load_array(wse_ds).astype(np.float32)
+        wse_ar, dem_ar, dem_ds, wse_ds = self._load_layers(dem_fp, wse_fp, reso_max=dsc_l[-1],**skwargs)
         
-        base_resolution = int(dem_ds.res[0]) 
-        
-        #precheck
-        assert_rlay_simple(dem_ds, msg='dem')
-        assert_extent_equal(dem_ds, wse_ds, msg='dem vs wse')
-        
-        assert is_divisible(dem_ds, dsc_l[-1]), 'passed DEM shape must be divisible by the max resolution (%i)'%dsc_l[-1]
-        
-        log.info('base_resolution=%i, shape=%s'%(base_resolution, dem_ds.shape))
+        base_resolution = int(dem_ds.res[0])
+        log.info('base_resolution=%i, shape=%s' % (base_resolution, dem_ds.shape))
         
         #=======================================================================
         # build base depth
@@ -627,6 +632,57 @@ class Haz(DownsampleChild, Session):
         
         log.info('wrote %i to %s'%(len(res_d), out_dir))
         return res_d
+    
+    #===========================================================================
+    # CASE MASKS---------
+    #===========================================================================
+    def run_catMask(self, pick_fp,
+                    **kwargs):
+        """build the dsmp cat mask for each reso iter"""
+        
+        log, tmp_dir, _, ofp, layname, write = self._func_setup('cMask',  **kwargs)
+        skwargs = dict(out_dir=tmp_dir, logger=log)
+        
+        meta_df = pd.read_pickle(pick_fp)
+        
+        for i, row in meta_df.iterrows():
+            dem_fp, wse_fp, downscale = row['dem'], row['wse'], row['downscale']
+            #===================================================================
+            # base/first
+            #===================================================================
+            if i==0:
+                assert downscale==1
+                demF_fp, wseF_fp = dem_fp, wse_fp
+                #===============================================================
+                # wse_ar, dem_ar, dem_ds, wse_ds = self._load_layers(dem_fp, wse_fp, 
+                #                                            reso_max=meta_df.iloc[-1, 0],**skwargs)
+                #===============================================================
+                
+                continue
+ 
+            
+            #===================================================================
+            # classify
+            #===================================================================
+            raise IOError('stopped here')
+            with DsampClassifier(session=self) as wrkr:
+                wrkr.build_cat_masks(demF_fp,dem_fp, wseF_fp, downscale=downscale, **skwargs)
+    
+    #===========================================================================
+    # STATS-------
+    #===========================================================================
+    def run_stats(self, pick_fp, 
+                 out_dir=None,
+                 **kwargs):
+        """
+        compute stats for each raster using each mask
+        """
+        log, tmp_dir, _, ofp, layname, write = self._func_setup('stats',  **kwargs)
+        
+        """
+        self.out_dir
+        """
+        meta_df = pd.read_pickle(pick_fp)
  
     
     
