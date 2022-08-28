@@ -10,7 +10,7 @@ import numpy as np
 import pytest, copy, os, random
 import rasterio as rio
 from agg2.haz.misc import get_rand_ar, get_wse_filtered
-from agg2.haz.scripts import Dsamp
+from agg2.haz.scripts import Haz as Session
 xfail = pytest.mark.xfail
 
 
@@ -31,7 +31,9 @@ output_kwargs = dict(crs=rio.crs.CRS.from_epsg(crsid),
 # FIXTURES-----
 #===============================================================================
 @pytest.fixture(scope='function')
-def dem_fp(dem_ar, tmp_path): 
+def dem_fp(dem_ar, tmp_path):
+    if dem_ar is None:
+        return None
     return write_array(dem_ar, os.path.join(tmp_path, 'dem.tif'), **output_kwargs)
  
 
@@ -49,7 +51,7 @@ def wrkr(tmp_path,write,logger, test_name,
     random.seed(100)
  
     
-    with Dsamp(  
+    with Session(  
                  
                  #oop.Basic
                  out_dir=tmp_path, 
@@ -78,26 +80,38 @@ def wrkr(tmp_path,write,logger, test_name,
 # UNIT TESTS--------
 #===============================================================================
 
-
-@pytest.mark.parametrize('base_resolution', [1, 3])
+@pytest.mark.parametrize('dem_ar, wse_ar', [
+    get_rand_ar((4,6))
+    ])
+@pytest.mark.parametrize('base_resolution', [None, 1, 3])
 @pytest.mark.parametrize('reso_iters', [3, 10])
-def test_00_downSampleIter(wrkr, base_resolution, reso_iters):
+def test_00_runDsmp(wrkr, base_resolution, reso_iters,
+                    dem_fp,dem_ar,wse_fp, wse_ar,
+                    ):
+    
+    wrkr.run_dsmp(dem_fp, wse_fp, base_resolution=base_resolution, reso_iters=reso_iters)
+
+
+@pytest.mark.parametrize('reso_iters', [3, 10])
+def test_00_dscList(wrkr, reso_iters):
     
     #build with function
-    res_l = wrkr.get_downSampleIter(base_resolution=base_resolution, reso_iters=reso_iters)
+    res_l = wrkr.get_dscList(reso_iters=reso_iters)
     
     #===========================================================================
     # #validate
     #===========================================================================
     assert isinstance(res_l, list)
     assert len(res_l)==reso_iters
-    assert res_l[0]==base_resolution
+    assert res_l[0]==1
+
  
 @pytest.mark.dev 
 @pytest.mark.parametrize('dem_ar, wse_ar', [
-    get_rand_ar((4,6))
+    get_rand_ar((8,8))
     ])
 @pytest.mark.parametrize('method', ['direct', 'filter'])
 @pytest.mark.parametrize('dsc_l', [([1,2,4])])
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
+ 
