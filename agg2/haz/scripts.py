@@ -4,19 +4,22 @@ Created on Aug. 27, 2022
 @author: cefect
 '''
 import numpy as np
+import numpy.ma as ma
 import pandas as pd
 import os, copy, datetime
 import rasterio as rio
 
-from skimage.transform import downscale_local_mean
+ 
 from definitions import wrk_dir
-from hp.np import apply_blockwise, upsample 
+from hp.np import apply_blockwise
 from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, resample
+from hp.basic import get_dict_str
+from hp.pd import view
 from agg2.haz.dsc.scripts import DsampClassifier
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 idx= pd.IndexSlice
-
+from skimage.transform import downscale_local_mean
 #debugging rasters
 from hp.plot import plot_rast
 import matplotlib.pyplot as plt
@@ -24,7 +27,7 @@ import matplotlib.pyplot as plt
 def now():
     return datetime.datetime.now()
 
-class DownsampleChild(RioWrkr):
+class DownsampleChild(DsampClassifier):
     """child for performing a single downsample set
     
     NOTES
@@ -34,31 +37,20 @@ class DownsampleChild(RioWrkr):
  
     
     def __init__(self, 
-                 downscale=1,
-                 obj_name=None,
+ 
+                 
                  subdir=True,
                  **kwargs):
-        """
-        
-        Parameters
-        ---------
-         downscale: int, default 1
-            multipler for new pixel resolution
-            oldDimension*(1/downscale) = newDimension
  
-        """
         #=======================================================================
         # build defaults
         #=======================================================================
-        if obj_name is None: obj_name='dsc%03i'%downscale
+        
  
-        super().__init__(subdir=subdir,obj_name=obj_name,
+        super().__init__(subdir=subdir,
                           **kwargs)
         
-        #=======================================================================
-        # attachments
-        #=======================================================================
-        self.downscale=downscale
+ 
         
     def downscale_direct(self,
                          ds_d,
@@ -250,8 +242,8 @@ class DownsampleSession(DownsampleChild, Session):
         #=======================================================================
  
         start = now()
-        if out_dir is None: out_dir=os.path.join(self.out_dir, method)
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dsmp',  ext='.pkl', out_dir=out_dir, **kwargs)
+        #if out_dir is None: out_dir=os.path.join(self.out_dir, method)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dsmp',  ext='.pkl', subdir=True, **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
         #=======================================================================
@@ -538,19 +530,26 @@ class DownsampleSession(DownsampleChild, Session):
     #===========================================================================
     def run_vrts(self, pick_fp, 
                  out_dir=None,
+                 cols = ['dem', 'wse', 'wd', 'catMosaic_fp'],
                  **kwargs):
         #log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt',  **kwargs)
-        
+        icoln='downscale'
         """
         self.out_dir
+        meta_df.columns
         """
-        meta_df = pd.read_pickle(pick_fp)
+        df_raw = pd.read_pickle(pick_fp) 
         
-        #get ouptut directory in the same location as the data files
-        if out_dir is None:
-            out_dir = os.path.join(os.path.dirname(os.path.dirname(meta_df.iloc[0, :]['dem'])), 'vrt')
+        #slice to specfied columns
+        df = df_raw.loc[:, df_raw.columns.isin(cols+[icoln])]
         
-        return self.build_vrts(meta_df.set_index('downscale').to_dict(orient='index'), out_dir=out_dir, **kwargs)
+        #=======================================================================
+        # #get ouptut directory in the same location as the data files
+        # if out_dir is None:
+        #     out_dir = os.path.join(os.path.dirname(os.path.dirname(df.iloc[0, :]['dem'])), 'vrt')
+        #=======================================================================
+        
+        return self.build_vrts(df.set_index(icoln).to_dict(orient='index'), out_dir=out_dir, **kwargs)
         
     
     def build_vrts(self,res_lib,
@@ -573,11 +572,19 @@ class DownsampleSession(DownsampleChild, Session):
         
         for sub_dkey, d in pd.DataFrame.from_dict(res_lib).to_dict(orient='index').items():
             log.debug(sub_dkey)
-            ofp = os.path.join(out_dir, '%s_%i.vrt'%(sub_dkey, len(d)))
-            gdal.BuildVRT(ofp, list(d.values()), separate=True, resolution='highest', resampleAlg='nearest')
-            vrt_d[sub_dkey] = ofp
+            ofp = os.path.join(out_dir, '%s_%i.vrt'%(sub_dkey.replace('_fp', ''), len(d)))
             
-        log.info('wrote %i vrts\n%s'%(len(vrt_d),vrt_d))
+            #pull reals
+            fp_l = [k for k in d.values() if isinstance(k, str)]
+            for k in fp_l: assert os.path.exists(k)
+            
+            gdal.BuildVRT(ofp, fp_l, separate=True, resolution='highest', resampleAlg='nearest')
+            if os.path.exists(ofp):
+                vrt_d[sub_dkey] = ofp
+            else:
+                raise IOError('failed to build vrt')
+            
+        log.info('wrote %i vrts\n%s'%(len(vrt_d),get_dict_str(vrt_d)))
         
         return vrt_d
  
@@ -613,7 +620,8 @@ class DownsampleSession(DownsampleChild, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cMasks',subdir=True,  **kwargs)
+        start = now()
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cMasks',subdir=True, ext='.pkl', **kwargs)
         
         dsmp_df = pd.read_pickle(pick_fp) #resuls from downsample
         
@@ -622,6 +630,7 @@ class DownsampleSession(DownsampleChild, Session):
         #=======================================================================
         res_d=dict()
         meta_lib = dict()
+        ofp_d = dict()
         for i, row in dsmp_df.iterrows():
             #===================================================================
             # extract
@@ -632,7 +641,7 @@ class DownsampleSession(DownsampleChild, Session):
             # defaults
             #===================================================================
             iname = '%03d'%downscale
-            skwargs = dict(out_dir=os.path.join(out_dir, iname), logger=log.getChild(iname), tmp_dir=tmp_dir)
+            skwargs = dict(out_dir=tmp_dir, logger=log.getChild(iname), tmp_dir=tmp_dir)
             #===================================================================
             # base/first
             #===================================================================
@@ -646,6 +655,16 @@ class DownsampleSession(DownsampleChild, Session):
                 dem_fp, wse_fp = row['dem'], row['wse']
  
                 dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp, reso_max=int(dsmp_df.iloc[-1, 0]),**skwargs)
+                
+                
+                dem_ar = load_array(dem_ds)
+        
+                assert_dem_ar(dem_ar)
+         
+                assert_extent_equal(dem_ds, wse_ds)        
+                
+                wse_ar = load_array(wse_ds)
+                assert_wse_ar(wse_ar)
                 
                 continue
  
@@ -661,10 +680,11 @@ class DownsampleSession(DownsampleChild, Session):
             """
             #===================================================================
             # classify
-            #=================================================================== 
+            #===================================================================
+            log.info('(%i/%i) downscale=%i building downsamp cat masks'%(i+1, len(dsmp_df), downscale)) 
             with DsampClassifier(session=self, downscale = downscale,  **skwargs) as wrkr:
                 #build each mask
-                cm_d = wrkr.get_catMasks(dem_ds=dem_ds, wse_ds=wse_ds)
+                cm_d = wrkr.get_catMasks(dem_ds=dem_ds, wse_ds=wse_ds, wse_ar=wse_ar, dem_ar=dem_ar)
                 
                 #build the mosaic
                 cm_ar = wrkr.get_catMosaic(cm_d)
@@ -675,6 +695,14 @@ class DownsampleSession(DownsampleChild, Session):
                 #update
                 res_d[downscale], meta_lib[downscale] = cm_ar, stats_d
                 
+            #===================================================================
+            # write
+            #===================================================================
+            ofp_d[downscale] = self.write_array(cm_ar, logger=log,ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%downscale))
+            
+ 
+            
+                
         log.info('finished building %i dsc mask mosaics'%len(res_d))
         #=======================================================================
         # #assemble meta
@@ -684,42 +712,134 @@ class DownsampleSession(DownsampleChild, Session):
         #just the sum
         meta_df = dx.loc[idx[:, 'sum'], :].droplevel(1).astype(int)
         
-        meta_df = dsmp_df.join(meta_df, on='downscale')
-        #=======================================================================
-        # save as rasters
-        #=======================================================================
-        if write:
-            ofp_d = dict()
-            log.info('writing %i mask mosaics to disk'%len(res_d))
-            for i, cm_ar in res_d.items():
-                ofp_d[i] = self.write_array(cm_ar, logger=log,  
-                                                    ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%i))
-                
-            #add these filepaths
-            meta_df = meta_df.join(pd.Series(ofp_d).rename('catMosaic_fp'), on='downscale')
+        meta_df = dsmp_df.join(meta_df, on='downscale') 
+ 
+        meta_df = meta_df.join(pd.Series(ofp_d).rename('catMosaic_fp'), on='downscale')
             
         #=======================================================================
         # write meta
         #=======================================================================
         meta_df.to_pickle(ofp)
-        log.info('wrote %s to \n    %s'%(str(meta_df.shape), ofp))
+        log.info('finished in %.2f secs and wrote %s to \n    %s'%((now()-start).total_seconds(), str(meta_df.shape), ofp))
         
         return ofp
     #===========================================================================
     # STATS-------
     #===========================================================================
     def run_stats(self, pick_fp, 
-                 out_dir=None,
+ 
+                 cols = ['dem', 'wse', 'wd', 'catMosaic_fp'],
                  **kwargs):
         """
-        compute stats for each raster using each mask
+        compute global stats for each raster using each mask.
+        mean(depth), sum(area), sum(volume)
         """
-        log, tmp_dir, _, ofp, layname, write = self._func_setup('stats',  **kwargs)
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('stats',  subdir=True,ext='.pkl', **kwargs)
+ 
+        start=now()
+        icoln='downscale'
         
+        #=======================================================================
+        # load data
+        #=======================================================================
+        df_raw = pd.read_pickle(pick_fp) 
+        
+        #slice to specfied columns
+        df = df_raw.loc[:, df_raw.columns.isin(cols+[icoln])].set_index(icoln)
+        
+        log.info('computing stats on %s'%str(df.shape))
+        #=======================================================================
+        # compute for each downscale
+        #=======================================================================
+        res_lib=dict()
+        for i, row in df.iterrows():
+            log.info('computing for downscale=%i'%i)
+            #===================================================================
+            # setup masks
+            #===================================================================
+            #the complete mask
+            with rio.open(row['dem'], mode='r') as ds:
+                shape = ds.shape                    
+                mask_d = {'all':np.full(shape, True)}
+ 
+                pixelArea = ds.res[0]*ds.res[1]
+            
+            #build other masks
+            if i>1:
+                cm_ar = load_array(row['catMosaic_fp'])
+                
+                """mosaics are stored at the native resolution
+                here we decimate down to the downscaled resolution
+                ... could consider storing these at the low resolution to speed things up"""
+                cm_ar1 = cm_ar[::i, ::i] #decimate
+ 
+                assert cm_ar1.shape==shape
+                
+                mask_d.update(self.mosaic_to_masks(cm_ar1))
+                
+            #===================================================================
+            # compute stats for each mask
+            #===================================================================
+            res_d1 = dict()
+            for maskName, mask_ar in mask_d.items():
+                log.info('    %s (%i/%i)'%(maskName, mask_ar.sum(), mask_ar.size))
+                res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea}
+                def get_arx(tag):
+                    ar = load_array(row[tag])
+ 
+                    
+                    return ma.array(ar, mask=~mask_ar) #valids=True
+                #===============================================================
+                # some valid cells
+                #===============================================================
+                if np.any(mask_ar):
+                    #===================================================================
+                    # depths
+                    #===================================================================
+                    wd_ar = get_arx('wd')                
+                    res_d['wd_mean'] = wd_ar.mean()
+                    
+                    #===================================================================
+                    # inundation area
+                    #===================================================================
+                    wse_ar = get_arx('wse')
+                    res_d['wse_area'] = np.sum(~np.isnan(wse_ar))*(pixelArea) #non-nulls times pixel area
+                        
+                    #===================================================================
+                    # volume
+                    #===================================================================
+                    res_d['vol'] = res_d['wd_mean']*res_d['wse_area']
+                else:
+                    log.warning('%i.%s got no valids'%(i, maskName))
+                    res_d.update({'wd_mean':0.0, 'wse_area':0.0, 'vol':0.0})
+                
+                res_d1[maskName] = res_d #store
+            res_lib[i] = pd.DataFrame.from_dict(res_d1)
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        res_dx = pd.concat(res_lib).unstack()
         """
-        self.out_dir
+                view(res_dx)
         """
-        meta_df = pd.read_pickle(pick_fp)
+        
+        res_dx.to_pickle(ofp)
+        log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
+        
+        return ofp
+        
+
+                
+ 
+        
+        
+        
+        
+        
  
     
     

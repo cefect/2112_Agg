@@ -139,10 +139,10 @@ def test_00_crop(dem_fp,   Session, downscale, dem_ar):
     
     
     
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dem_ar, downscale', [
     (toy_dem_ar, 2),  
-    (np.random.random((4*3,4*10))*10, 4),
+    #(np.random.random((4*3,4*10))*10, 4),
     pytest.param(np.random.random((3, 4))*10, 2, marks=xfail(strict=True, reason='bad shape')),
     ])
 def test_01_demCoarse(dem_fp, Session, downscale, dem_ar):
@@ -216,13 +216,17 @@ catMask_d = {
 
 @pytest.mark.dev
 @pytest.mark.parametrize('dem_ar, wse_ar, vali_d', [
-    (toy_dem_ar, toy_wse_ar, catMask_d['toy']),
-    list(get_rand_ar((8,6)))+ [None]
+    #(toy_dem_ar, toy_wse_ar, catMask_d['toy']),
+    list(get_rand_ar((10*3, 10*5)))+ [None]
     ])
-@pytest.mark.parametrize('downscale',[2]) 
+@pytest.mark.parametrize('downscale',[
+    #2, 
+    5, 10]) 
 def test_03_catMask(dem_ar, dem_fp,wse_ar, wse_fp,  Session, downscale, vali_d):
     
- 
+    #overwrite for test data
+    if not vali_d is None:
+        downscale=2
     
     #build with function
     test_d, _ = Session.build_cat_masks(dem_fp, wse_fp, downscale=downscale, write=True)

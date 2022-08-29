@@ -122,13 +122,46 @@ def test_00_dscList(wrkr, reso_iters):
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
 
-@pytest.mark.dev 
+ 
 @pytest.mark.parametrize('pick_fp', [
     os.path.join(src_dir, r'tests2\haz\data\direct\dsTest_test00_0828_haz_dsmp.pkl'),
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
      ])
 def test_02_dsc(wrkr, pick_fp):
-    res_fp = wrkr.run_catMasks(pick_fp, write=True)
+    res_fp = wrkr.run_catMasks(pick_fp, write=True,
+                               #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                               )
+    
+
+@pytest.mark.parametrize('pick_fp', [
+    os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'),
+     #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
+     ]) 
+def test_03_stats(wrkr, pick_fp):
+    res_fp = wrkr.run_stats(pick_fp, write=True)
+    
+
+test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'
+@pytest.mark.dev 
+@pytest.mark.parametrize('dem_fp, wse_fp', [
+    (os.path.join(test_dir,'NBDNR2015_r01_aoiT01_0829.tif'), os.path.join(test_dir,  'GeoNB_LSJ_aoiT01_0829.tif'))
+    ])
+@pytest.mark.parametrize('dsc_l', [([1,2,4])])
+@pytest.mark.parametrize('method', [
+    'direct', 
+    #'filter',
+    ])
+def test_runAll(wrkr, dem_fp, wse_fp, dsc_l, method):
+    """run the full sequence on some test data"""
+    fp1 = wrkr.run_dsmp(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True)
+ 
+    fp2= wrkr.run_catMasks(fp1)
+    
+    wrkr.run_vrts(fp2)
+    
+    wrkr.run_stats(fp2)
+    
+    
     
     
  

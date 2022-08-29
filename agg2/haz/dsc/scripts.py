@@ -20,6 +20,11 @@ from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simpl
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 
 
+from hp.plot import plot_rast
+import matplotlib.pyplot as plt
+
+def now():
+    return datetime.datetime.now()
  
 class DsampClassifier(RioWrkr): 
     """shareable tools for build downsample classification masks"""
@@ -28,7 +33,7 @@ class DsampClassifier(RioWrkr):
     
     def __init__(self, 
                  downscale=2,
- 
+                 obj_name=None,
  
                  **kwargs):
         """
@@ -40,9 +45,9 @@ class DsampClassifier(RioWrkr):
             oldDimension*(1/downscale) = newDimension
  
         """
- 
+        if obj_name is None: obj_name='dsc%03i'%downscale
         
-        super().__init__( **kwargs)
+        super().__init__(obj_name=obj_name, **kwargs)
         
         #=======================================================================
         # attach
@@ -224,6 +229,7 @@ class DsampClassifier(RioWrkr):
 
                      dem_ds=None,
                      wse_ds=None,
+                     dem_ar=None, wse_ar=None,
                      downscale=None,
                      **kwargs):
         """compute the a mask for each downsample category
@@ -242,31 +248,40 @@ class DsampClassifier(RioWrkr):
         if downscale is None: downscale=self.downscale
         
         assert isinstance(downscale, int)
-        
+        start = now()
         #===================================================================
         # load layers----
         #===================================================================
         #fine dem
- 
-        dem_ar = load_array(dem_ds)
-        
-        assert_dem_ar(dem_ar)
- 
-        assert_extent_equal(dem_ds, wse_ds)        
-        
-        wse_ar = load_array(wse_ds)
+        if dem_ar is None:
+            dem_ar = load_array(dem_ds)
             
-        assert dem_ar.shape==wse_ar.shape
-        assert np.isnan(wse_ar).any(), 'wse should have null where dry'
-        if not np.all(dem_ar>0): log.warning('got some negative terrain values!')
-        assert np.all(wse_ar[~np.isnan(wse_ar)]>0)
+            assert_dem_ar(dem_ar)
+ 
+        #assert_extent_equal(dem_ds, wse_ds)        
+        
+        if wse_ar is None:
+            wse_ar = load_array(wse_ds)
+            
+            assert_wse_ar(wse_ar)
+ 
         
         #=======================================================================
         # globals
         #=======================================================================
         def apply_upsample(ar, func):
-            arC = apply_blockwise(ar, func, n=downscale) #max of each coarse block
-            return upsample(arC,n=downscale) #scale back up
+            arC = apply_blockwise(ar, func, downscale=downscale) #max of each coarse block
+            """
+            ar.shape
+            arC.shape
+            ar_upsampled.shape
+            plot_rast(arC)
+            """
+            #return np.kron(arC, np.ones((downscale,downscale))) #rescale back to original res
+            ar_upsampled = upsample(arC, n=downscale) 
+            assert ar_upsampled.shape==ar.shape
+            return ar_upsampled
+ 
         
         def log_status(k):
             log.info('    calcd %i/%i \'%s\''%(cm_d[k].sum(), dem_ar.size, k))
@@ -275,13 +290,14 @@ class DsampClassifier(RioWrkr):
         #===================================================================
         # compute delta
         #===================================================================
-        log.info('computing deltas')
+        log.info('    computing deltas')
         delta_ar = np.nan_to_num(wse_ar-dem_ar, nan=0.0)
         assert np.all(delta_ar>=0)
         
         #=======================================================================
         # #dry-dry: max(delta) <=0
         #=======================================================================
+        log.info('    computing DD')
         delta_max_ar = apply_upsample(delta_ar, np.max)
         
         cm_d['DD'] = delta_max_ar<=0
@@ -331,7 +347,7 @@ class DsampClassifier(RioWrkr):
         stats_d = {k:ar.sum()/ar.size for k, ar in cm_d.items()}
         
         
-        log.info('computed w/ \n    %s'%stats_d)
+        log.info('computed in %.2f secs w/ \n    %s'%((now()-start).total_seconds(), stats_d))
         
         #===================================================================
         # check
@@ -339,6 +355,9 @@ class DsampClassifier(RioWrkr):
         chk_ar = np.add.reduce(list(cm_d.values()))==1
         assert np.all(chk_ar), '%i/%i failed logic'%((~chk_ar).sum(), chk_ar.size)
         
+        for k, ar in cm_d.items():
+            #print(ar.shape)
+            assert dem_ar.shape==ar.shape, k
         #===================================================================
         # output rasteres
         #===================================================================
@@ -370,6 +389,7 @@ class DsampClassifier(RioWrkr):
         
         if cm_int_d is None:
             cm_int_d = self.cm_int_d.copy()
+        start = now()
         #=======================================================================
         # precheck
         #=======================================================================
@@ -379,9 +399,10 @@ class DsampClassifier(RioWrkr):
         #=======================================================================
         # loop and build
         #=======================================================================
+        log.info('building dsc cat Mosaic on %s'%str(cm_d['DD'].shape))
         res_ar = np.full(cm_d['DD'].shape, np.nan, dtype=np.int32) #build an empty dumm
         for k, mar in cm_d.items():
-            log.info('for %s setting %i' % (k, mar.sum()))
+            log.info('    for %s setting %i/%i' % (k, mar.sum(), mar.size))
             np.place(res_ar, mar, cm_int_d[k])
         
         #=======================================================================
@@ -389,28 +410,10 @@ class DsampClassifier(RioWrkr):
         #=======================================================================
         assert_cm_ar(res_ar)
         
+        log.info('finished building mosaic in %.2f secs'%((now()-start).total_seconds()))
         return res_ar
     
-    #===========================================================================
-    # def get_cMosaicStats(self, cm_ar):
-    #     """computes category stats from a mosaic array
-    #     
-    #     Parametrs
-    #     ----------
-    #     cm_ar: np.ndarray
-    #         unique int values for each dsc category
-    #     """
-    #     #log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmStats',  **kwargs)
-    #         
-    #     assert_cm_ar(cm_ar)
-    #     
-    #     #=======================================================================
-    #     # get stats for each category
-    #     #=======================================================================
-    #     cm_d = self.mosaic_to_masks(cm_ar)
-    #     
-    #     return self.get_catMasksStats(cm_d)
-    #===========================================================================
+ 
         
     def get_catMasksStats(self, cm_d):
         """get stats from container of category masks"""
@@ -427,7 +430,7 @@ class DsampClassifier(RioWrkr):
         return d
  
             
-    def mosaic_to_masks(self,cm_ar, **kwargs):
+    def mosaic_to_masks(self,cm_ar):
         """convert mosaic back boolean masks"""
         assert_cm_ar(cm_ar)
         
@@ -537,8 +540,7 @@ class DsampClassifierSession(DsampClassifier, Session):
         -----------
         dem_fp: str
             filepath to fine/raw DEM
-        demC_fp: str
-            filepath to coarse/downsampled DEM
+ 
         wse_fp: str
             filepath  to fine WSE dem
         """
