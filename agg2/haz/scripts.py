@@ -14,7 +14,12 @@ from hp.np import apply_blockwise, upsample
 from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, resample
 from agg2.haz.dsc.scripts import DsampClassifier
+from agg2.haz.misc import assert_dem_ar, assert_wse_ar
+idx= pd.IndexSlice
 
+#debugging rasters
+from hp.plot import plot_rast
+import matplotlib.pyplot as plt
 
 def now():
     return datetime.datetime.now()
@@ -189,54 +194,7 @@ class DownsampleChild(RioWrkr):
         return res_d
         
  
-    def _check_dem_ar(self, ar):
-        """check dem array satisfies assumptions"""
-        #assert np.all(ar>0) #relaxing this
-        assert np.all(~np.isnan(ar))
-        assert 'float' in ar.dtype.name
- 
-    def _func_setup(self, dkey, 
-                    logger=None, out_dir=None, tmp_dir=None,ofp=None,
- 
-                    write=None,layname=None,ext='.tif',
-                    ):
-        """common function default setup"""
-        #logger
-        if logger is None:
-            logger = self.logger
-        log = logger.getChild(dkey)
- 
-        
-        #temporary directory
-        if tmp_dir is None:
-            tmp_dir = os.path.join(self.tmp_dir, dkey)
-        if not os.path.exists(tmp_dir):
-            os.makedirs(tmp_dir)
-            
-        #=======================================================================
-        # #main outputs
-        #=======================================================================
-        if out_dir is None: out_dir = self.out_dir
-        if not os.path.exists(out_dir):os.makedirs(out_dir)
-        if write is None: write=self.write
-        
-        if layname is None:layname = '%s_%s'%(self.fancy_name, dkey)
-         
-        if ofp is None:
-            if write:            
-                ofp = os.path.join(out_dir, layname+ext)            
-            else:
-                ofp=os.path.join(tmp_dir, layname+ext)
-            
-        if os.path.exists(ofp):
-            assert self.overwrite
-            os.remove(ofp)
- 
-            
-        return log, tmp_dir, out_dir, ofp, layname, write
-        
-        
-class Haz(DownsampleChild, Session):
+class DownsampleSession(DownsampleChild, Session):
     """tools for experimenting with downsample sets"""
     
  
@@ -348,6 +306,7 @@ class Haz(DownsampleChild, Session):
         #     ).reset_index(drop=False).rename(columns={'index':'downscale'})
         #=======================================================================
         meta_df = pd.DataFrame.from_dict(res_lib).T.reset_index(drop=False).rename(columns={'index':'downscale'})
+        meta_df['downscale'] =meta_df['downscale'].astype(int)  #already int
         #write the meta
         meta_df.to_pickle(ofp)
         log.info('wrote %s meta to \n    %s'%(str(meta_df.shape), ofp))
@@ -438,20 +397,24 @@ class Haz(DownsampleChild, Session):
         return ofp
             
 
-    def _load_layers(self, dem_fp, wse_fp, reso_max=None, **kwargs):
+    def _load_datasets(self, dem_fp, wse_fp, divisor=None, **kwargs):
+        """helper to load WSe and DEM datasets with some checks and base setting"""
         dem_ds = self._base_set(dem_fp, **kwargs)
         _ = self._base_inherit()
-        dem_ar = load_array(dem_ds).astype(np.float32)
-        self._check_dem_ar(dem_ar)
+
         wse_ds = self.open_dataset(wse_fp, **kwargs)
-        wse_ar = load_array(wse_ds).astype(np.float32)
         
-    #precheck
+        
+        #precheck
         assert_rlay_simple(dem_ds, msg='dem')
         assert_extent_equal(dem_ds, wse_ds, msg='dem vs wse')
-        assert is_divisible(dem_ds, reso_max), 'passed DEM shape must be divisible by the max resolution (%i)' % dsc_l[-1]
+        if not divisor is None:
+            assert is_divisible(dem_ds, divisor), 'passed DEM shape not evenly divisible (%i)' % divisor
         
-        return wse_ar, dem_ar, dem_ds, wse_ds
+        return dem_ds, wse_ds
+    
+ 
+        
 
     def build_dset(self,
             dem_fp, wse_fp,
@@ -499,7 +462,14 @@ class Haz(DownsampleChild, Session):
         #=======================================================================
         # open base layers
         #=======================================================================
-        wse_ar, dem_ar, dem_ds, wse_ds = self._load_layers(dem_fp, wse_fp, reso_max=dsc_l[-1],**skwargs)
+        dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp, divisor=dsc_l[-1],**skwargs)
+        
+        dem_ar = load_array(dem_ds)
+        assert_dem_ar(dem_ar)
+        
+        wse_ar = load_array(wse_ds)
+        assert_wse_ar(wse_ar)
+        
         
         base_resolution = int(dem_ds.res[0])
         log.info('base_resolution=%i, shape=%s' % (base_resolution, dem_ds.shape))
@@ -636,38 +606,105 @@ class Haz(DownsampleChild, Session):
     #===========================================================================
     # CASE MASKS---------
     #===========================================================================
-    def run_catMask(self, pick_fp,
+    def run_catMasks(self, pick_fp,
                     **kwargs):
         """build the dsmp cat mask for each reso iter"""
         
-        log, tmp_dir, _, ofp, layname, write = self._func_setup('cMask',  **kwargs)
-        skwargs = dict(out_dir=tmp_dir, logger=log)
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cMasks',subdir=True,  **kwargs)
         
-        meta_df = pd.read_pickle(pick_fp)
+        dsmp_df = pd.read_pickle(pick_fp) #resuls from downsample
         
-        for i, row in meta_df.iterrows():
-            dem_fp, wse_fp, downscale = row['dem'], row['wse'], row['downscale']
+        #=======================================================================
+        # build for each
+        #=======================================================================
+        res_d=dict()
+        meta_lib = dict()
+        for i, row in dsmp_df.iterrows():
+            #===================================================================
+            # extract
+            #===================================================================
+            downscale = row['downscale']
+            
+            #===================================================================
+            # defaults
+            #===================================================================
+            iname = '%03d'%downscale
+            skwargs = dict(out_dir=os.path.join(out_dir, iname), logger=log.getChild(iname), tmp_dir=tmp_dir)
             #===================================================================
             # base/first
             #===================================================================
+            """categorization is always applied on the fine scale"""
             if i==0:
                 assert downscale==1
-                demF_fp, wseF_fp = dem_fp, wse_fp
+                
                 #===============================================================
-                # wse_ar, dem_ar, dem_ds, wse_ds = self._load_layers(dem_fp, wse_fp, 
-                #                                            reso_max=meta_df.iloc[-1, 0],**skwargs)
+                # load the base layers
                 #===============================================================
+                dem_fp, wse_fp = row['dem'], row['wse']
+ 
+                dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp, reso_max=int(dsmp_df.iloc[-1, 0]),**skwargs)
                 
                 continue
  
+            """
+            dem_ar = load_array(dem_ds)
+            assert_dem_ar(dem_ar)
             
+            wse_ar = load_array(wse_ds)
+            assert_wse_ar(wse_ar)
+                
+            plot_rast(dem_ar)
+            plot_rast(wse_ar, cmap='Blues')
+            """
             #===================================================================
             # classify
-            #===================================================================
-            raise IOError('stopped here')
-            with DsampClassifier(session=self) as wrkr:
-                wrkr.build_cat_masks(demF_fp,dem_fp, wseF_fp, downscale=downscale, **skwargs)
-    
+            #=================================================================== 
+            with DsampClassifier(session=self, downscale = downscale,  **skwargs) as wrkr:
+                #build each mask
+                cm_d = wrkr.get_catMasks(dem_ds=dem_ds, wse_ds=wse_ds)
+                
+                #build the mosaic
+                cm_ar = wrkr.get_catMosaic(cm_d)
+                
+                #compute some stats
+                stats_d = wrkr.get_catMasksStats(cm_d)
+                
+                #update
+                res_d[downscale], meta_lib[downscale] = cm_ar, stats_d
+                
+        log.info('finished building %i dsc mask mosaics'%len(res_d))
+        #=======================================================================
+        # #assemble meta
+        #=======================================================================
+        dx = pd.concat({k:pd.DataFrame.from_dict(v) for k,v in meta_lib.items()})
+ 
+        #just the sum
+        meta_df = dx.loc[idx[:, 'sum'], :].droplevel(1).astype(int)
+        
+        meta_df = dsmp_df.join(meta_df, on='downscale')
+        #=======================================================================
+        # save as rasters
+        #=======================================================================
+        if write:
+            ofp_d = dict()
+            log.info('writing %i mask mosaics to disk'%len(res_d))
+            for i, cm_ar in res_d.items():
+                ofp_d[i] = self.write_array(cm_ar, logger=log,  
+                                                    ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%i))
+                
+            #add these filepaths
+            meta_df = meta_df.join(pd.Series(ofp_d).rename('catMosaic_fp'), on='downscale')
+            
+        #=======================================================================
+        # write meta
+        #=======================================================================
+        meta_df.to_pickle(ofp)
+        log.info('wrote %s to \n    %s'%(str(meta_df.shape), ofp))
+        
+        return ofp
     #===========================================================================
     # STATS-------
     #===========================================================================

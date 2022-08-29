@@ -10,7 +10,7 @@ import numpy as np
 import pytest, copy, os, random
 import rasterio as rio
 from agg2.haz.misc import get_rand_ar, get_wse_filtered
-from agg2.haz.scripts import Haz as Session
+from agg2.haz.scripts import DownsampleSession as Session
 xfail = pytest.mark.xfail
  
 
@@ -125,10 +125,10 @@ def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
 @pytest.mark.dev 
 @pytest.mark.parametrize('pick_fp', [
     os.path.join(src_dir, r'tests2\haz\data\direct\dsTest_test00_0828_haz_dsmp.pkl'),
-     os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
+     #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
      ])
 def test_02_dsc(wrkr, pick_fp):
-    wrkr.run_catMask(pick_fp)
+    res_fp = wrkr.run_catMasks(pick_fp, write=True)
     
     
  

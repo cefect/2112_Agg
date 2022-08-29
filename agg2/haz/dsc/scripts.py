@@ -17,6 +17,7 @@ from definitions import wrk_dir
 from hp.np import apply_blockwise, upsample 
 from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
+from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 
 
  
@@ -157,7 +158,7 @@ class DsampClassifier(RioWrkr):
         resampling = getattr(rio.enums.Resampling, resampleAlg)
         with RioWrkr(rlay_ref_fp=raw_fp, session=self) as wrkr:
             
-            self._check_dem_ar(wrkr._base().read(1)) 
+            assert_dem_ar(wrkr._base().read(1)) 
             
             res_ds = wrkr.resample(resampling=resampling, scale=1/downscale)
             wrkr.write_memDataset(res_ds, ofp=ofp)
@@ -220,13 +221,17 @@ class DsampClassifier(RioWrkr):
     
     
     def get_catMasks(self,
-                     downscale=None,
+
                      dem_ds=None,
                      wse_ds=None,
- 
+                     downscale=None,
                      **kwargs):
         """compute the a mask for each downsample category
         
+        Returns
+        -------
+        cm_d, dict
+            four masks from build_cat_masks {category label: np.ndarray}
         
         """
         
@@ -245,7 +250,7 @@ class DsampClassifier(RioWrkr):
  
         dem_ar = load_array(dem_ds)
         
-        self._check_dem_ar(dem_ar)
+        assert_dem_ar(dem_ar)
  
         assert_extent_equal(dem_ds, wse_ds)        
         
@@ -264,9 +269,9 @@ class DsampClassifier(RioWrkr):
             return upsample(arC,n=downscale) #scale back up
         
         def log_status(k):
-            log.info('    calcd %i/%i \'%s\''%(res_d[k].sum(), dem_ar.size, k))
+            log.info('    calcd %i/%i \'%s\''%(cm_d[k].sum(), dem_ar.size, k))
             
-        res_d = dict()
+        cm_d = dict()
         #===================================================================
         # compute delta
         #===================================================================
@@ -279,14 +284,14 @@ class DsampClassifier(RioWrkr):
         #=======================================================================
         delta_max_ar = apply_upsample(delta_ar, np.max)
         
-        res_d['DD'] = delta_max_ar<=0
+        cm_d['DD'] = delta_max_ar<=0
         log_status('DD')
         #===================================================================
         # #wet-wet: min(delta) >0
         #===================================================================
         delta_min_ar = apply_upsample(delta_ar, np.min)
         
-        res_d['WW'] = delta_min_ar>0
+        cm_d['WW'] = delta_min_ar>0
         log_status('WW')
         #===================================================================
         # #partials: max(delta)>0 AND min(delta)==0
@@ -295,7 +300,7 @@ class DsampClassifier(RioWrkr):
             delta_max_ar>0,delta_min_ar==0)
         
         #check this is all remainers
-        assert partial_bool_ar.sum() + res_d['WW'].sum() + res_d['DD'].sum() == partial_bool_ar.size
+        assert partial_bool_ar.sum() + cm_d['WW'].sum() + cm_d['DD'].sum() == partial_bool_ar.size
         
         if not np.any(partial_bool_ar):
             log.warning('no partials!')
@@ -311,19 +316,19 @@ class DsampClassifier(RioWrkr):
         #===============================================================
         # #wet-partials: mean(DEM)<mean(WSE)
         #===============================================================
-        res_d['WP'] = np.logical_and(partial_bool_ar,
+        cm_d['WP'] = np.logical_and(partial_bool_ar,
                                      dem_mean_ar<wse_mean_ar)
         log_status('WP')
         
         #dry-partials: mean(DEM)>mean(WSE)
-        res_d['DP'] = np.logical_and(partial_bool_ar,
+        cm_d['DP'] = np.logical_and(partial_bool_ar,
                                      dem_mean_ar>=wse_mean_ar)
         
         log_status('DP')
         #===================================================================
         # compute stats
         #===================================================================
-        stats_d = {k:ar.sum()/ar.size for k, ar in res_d.items()}
+        stats_d = {k:ar.sum()/ar.size for k, ar in cm_d.items()}
         
         
         log.info('computed w/ \n    %s'%stats_d)
@@ -331,14 +336,14 @@ class DsampClassifier(RioWrkr):
         #===================================================================
         # check
         #===================================================================
-        chk_ar = np.add.reduce(list(res_d.values()))==1
+        chk_ar = np.add.reduce(list(cm_d.values()))==1
         assert np.all(chk_ar), '%i/%i failed logic'%((~chk_ar).sum(), chk_ar.size)
         
         #===================================================================
         # output rasteres
         #===================================================================
         
-        return res_d
+        return cm_d
         
 
     def get_catMosaic(self, cm_d, cm_int_d=None, logger=None):
@@ -351,6 +356,11 @@ class DsampClassifier(RioWrkr):
         
         cm_int_d: dict
             integer mappings for each category
+            
+        Returns
+        ---------
+        cm_ar: np.ndarray
+            unique int values for each dsc category
         """
         #=======================================================================
         # defaults
@@ -377,19 +387,62 @@ class DsampClassifier(RioWrkr):
         #=======================================================================
         # check
         #=======================================================================
-        assert np.all(res_ar % 2 == 1), 'failed to get all odd values'
+        assert_cm_ar(res_ar)
+        
         return res_ar
+    
+    #===========================================================================
+    # def get_cMosaicStats(self, cm_ar):
+    #     """computes category stats from a mosaic array
+    #     
+    #     Parametrs
+    #     ----------
+    #     cm_ar: np.ndarray
+    #         unique int values for each dsc category
+    #     """
+    #     #log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmStats',  **kwargs)
+    #         
+    #     assert_cm_ar(cm_ar)
+    #     
+    #     #=======================================================================
+    #     # get stats for each category
+    #     #=======================================================================
+    #     cm_d = self.mosaic_to_masks(cm_ar)
+    #     
+    #     return self.get_catMasksStats(cm_d)
+    #===========================================================================
+        
+    def get_catMasksStats(self, cm_d):
+        """get stats from container of category masks"""
+        
+        d = dict()
+        for name, mask_ar in cm_d.items():
+            assert isinstance(mask_ar, np.ndarray)
+            d[name] = {
+                'key':self.cm_int_d[name],
+                'sum':mask_ar.sum(),
+                'frac':mask_ar.sum()/mask_ar.size
+                }
             
-
+        return d
+ 
+            
+    def mosaic_to_masks(self,cm_ar, **kwargs):
+        """convert mosaic back boolean masks"""
+        assert_cm_ar(cm_ar)
+        
+        res_d = dict()
+        for name, val in self.cm_int_d.items():
+            res_d[name]=cm_ar==val
+            
+        return res_d
+            
     #===========================================================================
     # PRIVATE HELPERS---------
     #===========================================================================
-    def _check_dem_ar(self, ar):
-        """check dem array satisfies assumptions"""
-        #assert np.all(ar>0) #relaxing this
-        assert np.all(~np.isnan(ar))
-        assert 'float' in ar.dtype.name
+ 
         
+
         
  
     
@@ -541,6 +594,29 @@ class DsampClassifierSession(DsampClassifier, Session):
             self.write_array(res_ar, ofp=ofp, logger=log, **output_kwargs)
         
         return ofp
+    
+    
+#===============================================================================
+# HELPER FUNCS-------
+#===============================================================================
+def assert_cm_ar(ar, msg=''):
+    """check dsc mosaic array satisfies assumptions"""
+    if not __debug__: # true if Python was not started with an -O option
+        return
+    
+    __tracebackhide__ = True
+    
+    assert isinstance(ar, np.ndarray) 
+    assert 'int' in ar.dtype.name
+    
+    if not np.all(ar % 2 == 1):
+        raise AssertionError('failed to get all odd values\n'+msg)
+    
+    #check we only have valid values
+    vali_ar = np.array(list(DsampClassifier.cm_int_d.values()))
+    
+    if not np.all(np.isin(np.unique(ar), vali_ar)):
+        raise AssertionError('got some unexpected category values\n'+msg)
     
 
 def runr(
