@@ -693,6 +693,7 @@ class DownsampleSession(DownsampleChild, Session):
     def run_stats(self, pick_fp, 
  
                  cols = ['dem', 'wse', 'wd', 'catMosaic_fp'],
+                 calc_trues=True,
                  **kwargs):
         """
         compute global stats for each raster using each mask.
@@ -745,6 +746,9 @@ class DownsampleSession(DownsampleChild, Session):
                 
                 mask_d.update(self.mosaic_to_masks(cm_ar1))
                 
+ 
+                
+                
             #===================================================================
             # compute stats for each mask
             #===================================================================
@@ -754,8 +758,7 @@ class DownsampleSession(DownsampleChild, Session):
                 res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea, 'pixelLength':pixelLength}
 
                 def get_arx(tag):
-                    ar = load_array(row[tag])
-                    
+                    ar = load_array(row[tag])                    
                     return ma.array(ar, mask=~mask_ar) #valids=True
 
                 #===============================================================
@@ -789,7 +792,10 @@ class DownsampleSession(DownsampleChild, Session):
         #=======================================================================
         # wrap
         #=======================================================================
-        res_dx = pd.concat(res_lib).unstack()
+        res_dx = pd.concat(res_lib, names=['downscale', 'metric'])
+        res_dx.columns.name='dsc'        
+        
+        res_dx = res_dx.unstack()
         """
                 view(res_dx)
         """
@@ -800,7 +806,129 @@ class DownsampleSession(DownsampleChild, Session):
         return ofp
     
  
+    def run_stats_fine(self, pick_fp, 
+ 
+                 cols = ['wse', 'wd', 'catMosaic_fp'],
+ 
+                 **kwargs):
+        """
+        compute global stats on fine rasters using cat masks
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('statsF',  subdir=True,ext='.pkl', **kwargs)
+ 
+        start=now()
+        icoln='downscale'
         
+        #=======================================================================
+        # load data
+        #=======================================================================
+        df_raw = pd.read_pickle(pick_fp) 
+        
+        #slice to specfied columns
+        df = df_raw.loc[:, df_raw.columns.isin(cols+[icoln])].set_index(icoln)
+        
+        log.info('computing stats on %s'%str(df.shape))
+        #=======================================================================
+        # compute for each downscale
+        #=======================================================================
+        res_lib=dict()
+        for i, row in df.iterrows():
+            log.info('computing for downscale=%i'%i)
+            #===================================================================
+            # setup masks
+            #===================================================================
+            #the complete mask
+            with rio.open(row['wse'], mode='r') as ds:
+                #get baseline data
+                if i==1:
+                    wse_ar = load_array(ds)                    
+                    shape = ds.shape       
+                
+                #build for this loop
+                mask_d = {'all':np.full(shape, True)}
+ 
+                pixelArea = ds.res[0]*ds.res[1]
+                pixelLength=ds.res[0]
+                
+
+                    
+            #===================================================================
+            # load fines
+            #===================================================================
+            if i==1:
+                wd_ar = load_array(row['wd'])
+                assert wd_ar.shape==wse_ar.shape
+            
+            #===================================================================
+            # #build other masks
+            #===================================================================
+            if i>1:
+                cm_ar = load_array(row['catMosaic_fp'])
+                
+                """here wee keep the fine resolution"""
+                assert cm_ar.shape==wd_ar.shape
+                
+                mask_d.update(self.mosaic_to_masks(cm_ar))
+   
+            #===================================================================
+            # compute stats for each mask
+            #===================================================================
+            res_d1 = dict()
+            for maskName, mask_ar in mask_d.items():
+                log.info('    %s (%i/%i)'%(maskName, mask_ar.sum(), mask_ar.size))
+                res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea, 'pixelLength':pixelLength}
+
+                def get_arx(tag):
+                    ar = {'wse':wse_ar, 'wd':wd_ar}[tag]                   
+                    return ma.array(ar, mask=~mask_ar) #valids=True
+
+                #===============================================================
+                # some valid cells
+                #===============================================================
+                if np.any(mask_ar):
+                    #===================================================================
+                    # depths
+                    #===================================================================
+                    wd_ar = get_arx('wd')                
+                    res_d['wd_mean'] = wd_ar.mean()
+                    
+                    #===================================================================
+                    # inundation area
+                    #===================================================================
+                    wse_ar = get_arx('wse')
+                    res_d['wse_area'] = np.sum(~np.isnan(wse_ar))*(pixelArea) #non-nulls times pixel area
+                        
+                    #===================================================================
+                    # volume
+                    #===================================================================
+                    
+                    res_d['vol'] = wd_ar.sum()*pixelArea
+                else:
+                    log.warning('%i.%s got no valids'%(i, maskName))
+                    res_d.update({'wd_mean':0.0, 'wse_area':0.0, 'vol':0.0})
+                
+                res_d1[maskName] = res_d #store
+            res_lib[i] = pd.DataFrame.from_dict(res_d1)
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        res_dx = pd.concat(res_lib, names=['downscale', 'metric'])
+        res_dx.columns.name='dsc'        
+        
+        res_dx = res_dx.unstack()
+ 
+        """
+                view(res_dx)
+        """
+        
+        res_dx.to_pickle(ofp)
+        log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
+        
+        return ofp
         
         
         
