@@ -8,7 +8,6 @@ import numpy.ma as ma
 import pandas as pd
 import os, copy, datetime
 import rasterio as rio
-
  
 from definitions import wrk_dir
 from hp.np import apply_blockwise
@@ -24,8 +23,10 @@ from skimage.transform import downscale_local_mean
 from hp.plot import plot_rast
 import matplotlib.pyplot as plt
 
+
 def now():
     return datetime.datetime.now()
+
 
 class DownsampleChild(DsampClassifier):
     """child for performing a single downsample set
@@ -34,10 +35,7 @@ class DownsampleChild(DsampClassifier):
     -------
     I thought it cleaner, and more generalizeable, to keep this on a separate worker"""
     
- 
-    
     def __init__(self, 
- 
                  
                  subdir=True,
                  **kwargs):
@@ -45,12 +43,9 @@ class DownsampleChild(DsampClassifier):
         #=======================================================================
         # build defaults
         #=======================================================================
-        
  
         super().__init__(subdir=subdir,
                           **kwargs)
-        
- 
         
     def downscale_direct(self,
                          ds_d,
@@ -138,14 +133,12 @@ class DownsampleChild(DsampClassifier):
                        ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),
                        logger=log)
             
-            
         #=======================================================================
         # wrap
         #=======================================================================
         log.info('finished downscaling and writing %i in %.2f secs'%(len(ds_d), (now()-start).total_seconds()))
         
         return res_d
-        
         
     def write_dataset_d(self,
                         ar_d,
@@ -189,8 +182,6 @@ class DownsampleChild(DsampClassifier):
 class DownsampleSession(DownsampleChild, Session):
     """tools for experimenting with downsample sets"""
     
- 
-    
     def __init__(self, 
 
                  **kwargs):
@@ -201,14 +192,12 @@ class DownsampleSession(DownsampleChild, Session):
  
  
         """
- 
         
         super().__init__(obj_name='haz', wrk_dir=wrk_dir, **kwargs)
         
         #=======================================================================
         # attach
         #=======================================================================
- 
         
     #===========================================================================
     # DOWNSAMPLING-----
@@ -217,7 +206,6 @@ class DownsampleSession(DownsampleChild, Session):
  
                  dsc_l=None,
                  dscList_kwargs = dict(reso_iters=5),
-                 
                  
                  method='direct',
                  out_dir=None,
@@ -264,7 +252,6 @@ class DownsampleSession(DownsampleChild, Session):
             
         else:
             dem_fp, wse_fp = demR_fp, wseR_fp
- 
             
         #=======================================================================
         # build the set from this
@@ -304,8 +291,6 @@ class DownsampleSession(DownsampleChild, Session):
         log.info('wrote %s meta to \n    %s'%(str(meta_df.shape), ofp))
  
         return ofp
-        
-        
             
     def get_dscList(self,
  
@@ -334,7 +319,6 @@ class DownsampleSession(DownsampleChild, Session):
         # defaults
         #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscList',  **kwargs)
- 
         
         l = [1]
         for i in range(reso_iters-1):
@@ -380,14 +364,11 @@ class DownsampleSession(DownsampleChild, Session):
                 
             log.info('cropping %s to %s for even divison by %i'%(
                 raw_ds.shape, new_shape, divisor))
-                
- 
             
             self.crop(rio.windows.Window(0,0, new_shape[1], new_shape[0]), dataset=raw_ds,
                       ofp=ofp, logger=log)
             
         return ofp
-            
 
     def _load_datasets(self, dem_fp, wse_fp, divisor=None, **kwargs):
         """helper to load WSe and DEM datasets with some checks and base setting"""
@@ -396,7 +377,6 @@ class DownsampleSession(DownsampleChild, Session):
 
         wse_ds = self.open_dataset(wse_fp, **kwargs)
         
-        
         #precheck
         assert_rlay_simple(dem_ds, msg='dem')
         assert_extent_equal(dem_ds, wse_ds, msg='dem vs wse')
@@ -404,9 +384,6 @@ class DownsampleSession(DownsampleChild, Session):
             assert is_divisible(dem_ds, divisor), 'passed DEM shape not evenly divisible (%i)' % divisor
         
         return dem_ds, wse_ds
-    
- 
-        
 
     def build_dset(self,
             dem_fp, wse_fp,
@@ -445,11 +422,8 @@ class DownsampleSession(DownsampleChild, Session):
         if out_dir is None: out_dir = os.path.join(self.out_dir, 'dset')
         if not os.path.exists(out_dir):os.makedirs(out_dir)
         
-        
         log.info('building %i downsamples from \n    %s\n    %s'%(
             len(dsc_l)-1, os.path.basename(dem_fp), os.path.basename(wse_fp)))
-        
- 
         
         #=======================================================================
         # open base layers
@@ -462,7 +436,6 @@ class DownsampleSession(DownsampleChild, Session):
         wse_ar = load_array(wse_ds)
         assert_wse_ar(wse_ar)
         
-        
         base_resolution = int(dem_ds.res[0])
         log.info('base_resolution=%i, shape=%s' % (base_resolution, dem_ds.shape))
         
@@ -473,7 +446,6 @@ class DownsampleSession(DownsampleChild, Session):
         
         #create a datasource in memory        
         wd_ds = self.load_memDataset(wd_ar, **skwargs)
- 
         
         base_ar_d = {'dem':dem_ar, 'wse':wse_ar, 'wd':wd_ar}
         base_ds_d = {'dem':dem_ds, 'wse':wse_ds, 'wd':wd_ds}
@@ -488,7 +460,6 @@ class DownsampleSession(DownsampleChild, Session):
             with DownsampleChild(session=self,downscale=downscale, 
                                  crs=self.crs, nodata=self.nodata,transform=self.transform,
                                  compress=compress, out_dir=out_dir) as wrkr:
-                
  
                 #===================================================================
                 # base/first
@@ -511,19 +482,13 @@ class DownsampleSession(DownsampleChild, Session):
                 else:
                     raise IOError('not implemented')
  
- 
- 
         #=======================================================================
         # wrap
         #=======================================================================
         log.info('finished on %i w/ method=%s in %.2f secs'%(
             len(res_lib), method, (now()-start).total_seconds()))
-                 
-            
         
         return res_lib
-    
-
     
     #===========================================================================
     # COMPILING---------
@@ -550,7 +515,6 @@ class DownsampleSession(DownsampleChild, Session):
         #=======================================================================
         
         return self.build_vrts(df.set_index(icoln).to_dict(orient='index'), out_dir=out_dir, **kwargs)
-        
     
     def build_vrts(self,res_lib,
                    out_dir=None,
@@ -656,7 +620,6 @@ class DownsampleSession(DownsampleChild, Session):
  
                 dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp, reso_max=int(dsmp_df.iloc[-1, 0]),**skwargs)
                 
-                
                 dem_ar = load_array(dem_ds)
         
                 assert_dem_ar(dem_ar)
@@ -699,9 +662,6 @@ class DownsampleSession(DownsampleChild, Session):
             # write
             #===================================================================
             ofp_d[downscale] = self.write_array(cm_ar, logger=log,ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%downscale))
-            
- 
-            
                 
         log.info('finished building %i dsc mask mosaics'%len(res_d))
         #=======================================================================
@@ -723,6 +683,7 @@ class DownsampleSession(DownsampleChild, Session):
         log.info('finished in %.2f secs and wrote %s to \n    %s'%((now()-start).total_seconds(), str(meta_df.shape), ofp))
         
         return ofp
+
     #===========================================================================
     # STATS-------
     #===========================================================================
@@ -787,11 +748,12 @@ class DownsampleSession(DownsampleChild, Session):
             for maskName, mask_ar in mask_d.items():
                 log.info('    %s (%i/%i)'%(maskName, mask_ar.sum(), mask_ar.size))
                 res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea}
+
                 def get_arx(tag):
                     ar = load_array(row[tag])
- 
                     
                     return ma.array(ar, mask=~mask_ar) #valids=True
+
                 #===============================================================
                 # some valid cells
                 #===============================================================
@@ -831,15 +793,4 @@ class DownsampleSession(DownsampleChild, Session):
         log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
         
         return ofp
-        
-
-                
- 
-        
-        
-        
-        
-        
- 
-    
     
