@@ -20,8 +20,10 @@ from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 idx= pd.IndexSlice
 from skimage.transform import downscale_local_mean
 #debugging rasters
-from hp.plot import plot_rast
-import matplotlib.pyplot as plt
+#===============================================================================
+# from hp.plot import plot_rast
+# import matplotlib.pyplot as plt
+#===============================================================================
 
 
 def now():
@@ -193,11 +195,13 @@ class DownsampleSession(DownsampleChild, Session):
  
         """
         
-        super().__init__(obj_name='haz', wrk_dir=wrk_dir, **kwargs)
+        super().__init__(obj_name='dsmp', wrk_dir=wrk_dir,subdir=False, **kwargs)
         
         #=======================================================================
         # attach
         #=======================================================================
+ 
+        print('finished __init__')
         
     #===========================================================================
     # DOWNSAMPLING-----
@@ -521,9 +525,8 @@ class DownsampleSession(DownsampleChild, Session):
                    **kwargs):
         """build vrts of the results for nice animations"""
  
-        log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt',  **kwargs)
-        if out_dir is None: out_dir=os.path.join(self.out_dir, 'vrt')
-        if not os.path.exists(out_dir): os.makedirs(out_dir)
+        log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt', subdir=True, **kwargs)
+ 
         
         from osgeo import gdal
         vrt_d = dict()
@@ -727,6 +730,7 @@ class DownsampleSession(DownsampleChild, Session):
                 mask_d = {'all':np.full(shape, True)}
  
                 pixelArea = ds.res[0]*ds.res[1]
+                pixelLength=ds.res[0]
             
             #build other masks
             if i>1:
@@ -747,7 +751,7 @@ class DownsampleSession(DownsampleChild, Session):
             res_d1 = dict()
             for maskName, mask_ar in mask_d.items():
                 log.info('    %s (%i/%i)'%(maskName, mask_ar.sum(), mask_ar.size))
-                res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea}
+                res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea, 'pixelLength':pixelLength}
 
                 def get_arx(tag):
                     ar = load_array(row[tag])
@@ -773,7 +777,8 @@ class DownsampleSession(DownsampleChild, Session):
                     #===================================================================
                     # volume
                     #===================================================================
-                    res_d['vol'] = res_d['wd_mean']*res_d['wse_area']
+                    
+                    res_d['vol'] = wd_ar.sum()*pixelArea
                 else:
                     log.warning('%i.%s got no valids'%(i, maskName))
                     res_d.update({'wd_mean':0.0, 'wse_area':0.0, 'vol':0.0})
@@ -793,4 +798,17 @@ class DownsampleSession(DownsampleChild, Session):
         log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
         
         return ofp
+    
+ 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
     
