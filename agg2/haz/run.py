@@ -40,7 +40,7 @@ def build_vrt(
         ses.run_vrts(pick_fp)
         
 
-def SJ_0829():
+def SJ_0829_base(method='direct'):
     #project data
     proj_name = 'SJ'
     proj_d = proj_lib['SJ']
@@ -50,20 +50,25 @@ def SJ_0829():
     dem_fp=proj_d['dem_fp_d'][1]
     
     #execute
-    with Session(proj_name=proj_name, run_name='r3_direct') as ses:
-        #fp1 = ses.run_dsmp(dem_fp, wse_fp, dscList_kwargs=dict(reso_iters=3),method='direct', dsc_l=[1, 2**3, 2**6, 2**7, 2**8, 2**9])
+    with Session(proj_name=proj_name, run_name='r3_%s'%method) as ses:
+        fp1 = ses.run_dsmp(dem_fp, wse_fp, method=method, dsc_l=[1, 2**3, 2**6, 2**7, 2**8, 2**9])
         
  
         #fp1 = r'C:\LS\10_OUT\2112_Agg\outs\SJ\r2\20220829\haz\dsmp\SJ_r2_0829_haz_dsmp.pkl'
  
          
-        #fp2 = ses.run_catMasks(fp1)
+        fp2 = ses.run_catMasks(fp1)
         
-        fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl'
+        #fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl'
         
         #vrt_d = ses.run_vrts(fp2)
         
         ses.run_stats(fp2)
+        
+    return fp2
+
+def SJ_0830_filter():
+    return SJ_0829_base(method='filter')
         
 def open_pick(
         fp =r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\stats\SJ_r3_direct_0829_haz_stats.pkl'
@@ -80,8 +85,8 @@ def open_pick(
 if __name__ == "__main__":
     #pick_fp = SJ_0821()
     
-    #SJ_0829()
-    open_pick()
+    SJ_0830_filter()
+    #open_pick()
     
     print('finished')
  
