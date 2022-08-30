@@ -95,7 +95,7 @@ def SJ_plot_matrix_3metric_2methods(
         
         #=======================================================================
         # lines: row:metric, col:method, color:dsc
-        #=======================================================================
+        #=============================================R==========================
         coln_l = ['wd_mean', 'wse_area', 'vol']
         
  
@@ -106,15 +106,19 @@ def SJ_plot_matrix_3metric_2methods(
         """
  
  
-        ofp = ses.plot_matrix_metric_method_var(serx)
+        ses.plot_matrix_metric_method_var(serx)
         
         #=======================================================================
-        # ratios
+        # stackced areas ratios
         #=======================================================================
         
         #slice to just the data we want
         """this is the same for both methods"""
         dxcol = ses.add_frac(dxcol_raw)
+        
+        dfi = dxcol.loc[:, idx['direct', :, 'frac']].droplevel([0,2], axis=1).droplevel(0, axis=0).drop('all', axis=1)
+        
+        #ses.plot_dsc_ratios(dfi.dropna())
         
  
  
@@ -122,11 +126,11 @@ def SJ_plot_matrix_3metric_2methods(
 if __name__ == "__main__":
     #pick_fp = SJ_0821()
     
-    #SJ_0830_filter(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl')
+    SJ_0830_filter(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl')
     #SJ_0830_direct(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl')
     #open_pick()
     
-    SJ_plot_matrix_3metric_2methods()
+    #SJ_plot_matrix_3metric_2methods()
     
     print('finished')
  

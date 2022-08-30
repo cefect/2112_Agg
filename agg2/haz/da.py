@@ -214,7 +214,7 @@ class DownsampleDASession(DownsampleSession, Plotr):
  
         fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'],
                                     #figsize_scaler=4,
-                                    figsize=(6.5,6.5),
+                                    figsize=(6.5,6),
                                     constrained_layout=True,
                                     sharey='row',sharex='all',  
                                     fig_id=0,
@@ -279,9 +279,49 @@ class DownsampleDASession(DownsampleSession, Plotr):
         # output
         #=======================================================================
         return self.output_fig(fig, ofp=ofp, logger=log)
-
+    
+    def plot_dsc_ratios(self, df,
+                        colorMap=None,color_d=None,
+                        **kwargs):
+        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('dsc_rats',  subdir=False,ext='.svg', **kwargs)
+        
+        #=======================================================================
+        # setup
+        #=======================================================================
+ 
+        coln = df.columns.name
+        keys_all_d={'color':df.columns.tolist()}
+        
+        if color_d is None:
+            color_d = self._get_color_d(coln, keys_all_d['color'], colorMap=colorMap, color_d=color_d)
+        
+        color_l = [color_d[k] for k in df.columns]
+            
+        #=======================================================================
+        # setup plot
+        #=======================================================================
+        plt.close('all')
+        fig, ax = plt.subplots(figsize=(4,3), constrained_layout=True)
+            
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        ax.stackplot(df.index, df.T.values, labels=df.columns, colors=color_l,
+                     alpha=0.8)
  
         
+        #=======================================================================
+        # format
+        #=======================================================================
+        ax.legend(loc=3)
+        ax.set_xlabel('pixel size (m)')
+        ax.set_ylabel('domain fraction')
+        ax.set_ylim((0.6,1.0))
+        
+        #=======================================================================
+        # output
+        #=======================================================================
+        return self.output_fig(fig, ofp=ofp, logger=log)
  
 
         
