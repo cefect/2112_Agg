@@ -94,6 +94,27 @@ class DownsampleDASession(DownsampleSession, Plotr):
         rdxcol = pd.concat(d, names=['method']).unstack(level=0).swaplevel(axis=1, i=0).swaplevel(axis=1).sort_index(axis=1)
         
         #=======================================================================
+        # fix method indexers
+        #=======================================================================
+        mdf = rdxcol.columns.to_frame()
+        
+        mdf = mdf.reset_index(drop=True).join(pd.DataFrame({
+            'direct':{'method1':'direct', 'base':'s2'},
+            'filter':{'method1':'filter', 'base':'s2'},
+            'directF':{'method1':'direct', 'base':'s1'},
+            'filterF':{'method1':'filter', 'base':'s1'},
+            }).T, on='method').drop('method', axis=1).rename(columns={'method1':'method'})
+            
+        rdxcol.columns = pd.MultiIndex.from_frame(mdf)
+        
+        rdxcol = rdxcol.reorder_levels([ 'base','method', 'dsc', 'metric'], axis=1).sort_index(axis=1)
+                               
+        
+        """
+        view(rdxcol)
+        """
+        
+        #=======================================================================
         # wrap
         #=======================================================================
         metric_l = rdxcol.columns.get_level_values('metric').unique().to_list()
@@ -101,47 +122,16 @@ class DownsampleDASession(DownsampleSession, Plotr):
         
         return rdxcol
     
-    def add_frac(self, dxcol):
-        """convert metrics to relative"""
-        #=======================================================================
-        # #compute fraction
-        #=======================================================================
-        coln = 'frac'
-        #view(dxcol.loc[:, idx[:, :, 'count']])
-        #get just the vount values
-        cnt_dx = dxcol.loc[:, idx[:, :, 'count']]
-        
-        #divide by the total        
-        cnt_dx = cnt_dx.divide(cnt_dx.loc[:, idx[:, 'all', :]].droplevel([1,2], axis=1), axis=0, level=0).droplevel(-1, axis=1)
-        
-        #add the new label
-        cnt_dx = pd.concat([cnt_dx], keys=[coln], names=['metric'], axis=1).reorder_levels(dxcol.columns.names, axis=1)
-        
-        dxcol = dxcol.join(cnt_dx).sort_index(axis=1)
-        
  
-        #=======================================================================
-        # unstack
-        #=======================================================================
-        
-        
-        #=======================================================================
-        # #remove dry dry
-        # """always zeros... and we dont show it on the map"""
-        # serx = serx.drop('DD', level='dsc')
-        #=======================================================================
  
-        return dxcol
+        
     
     def plot_matrix_metric_method_var(self,
                                       serx,
-                                      map_d = {
-                                          'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'
-                                          },
+                                      map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
                                       title=None, colorMap=None,color_d=None,
-                                      ylab_d={
-                                          'vol':'$V_{s2}$ (m3)', 'wd_mean':r'$WD_{s2}$ (m)', 'wse_area':'$A_{s2}$ (m2)'
-                                          },
+                                      ylab_d={'vol':'$V_{s2}$ (m3)', 'wd_mean':r'$WD_{s2}$ (m)', 'wse_area':'$A_{s2}$ (m2)'},
+                                      ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
                                       xscale='linear',
                                       plot_kwargs_lib={
                                           'all':{'marker':'x'},
@@ -218,7 +208,7 @@ class DownsampleDASession(DownsampleSession, Plotr):
                                     constrained_layout=True,
                                     sharey='row',sharex='all',  
                                     fig_id=0,
-                                    set_ax_title=False,
+                                    set_ax_title=False, add_subfigLabel=True,
                                     )
      
  
@@ -257,7 +247,7 @@ class DownsampleDASession(DownsampleSession, Plotr):
                 
                 #first row
                 if row_key==keys_all_d['row'][0]:
-                    ax.set_title(col_key)
+                    ax.set_title(ax_title_d[col_key])
                     
                     
                 #first col
@@ -301,7 +291,7 @@ class DownsampleDASession(DownsampleSession, Plotr):
         # setup plot
         #=======================================================================
         plt.close('all')
-        fig, ax = plt.subplots(figsize=(4,3), constrained_layout=True)
+        fig, ax = plt.subplots(figsize=(6.5,2), constrained_layout=True)
             
         #=======================================================================
         # loop and plot

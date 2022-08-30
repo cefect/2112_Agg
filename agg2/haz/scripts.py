@@ -521,11 +521,11 @@ class DownsampleSession(DownsampleChild, Session):
         return self.build_vrts(df.set_index(icoln).to_dict(orient='index'), out_dir=out_dir, **kwargs)
     
     def build_vrts(self,res_lib,
-                   out_dir=None,
+ 
                    **kwargs):
         """build vrts of the results for nice animations"""
  
-        log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt', subdir=True, **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('vrt', subdir=True, **kwargs)
  
         
         from osgeo import gdal
@@ -838,29 +838,26 @@ class DownsampleSession(DownsampleChild, Session):
         for i, row in df.iterrows():
             log.info('computing for downscale=%i'%i)
             #===================================================================
-            # setup masks
-            #===================================================================
-            #the complete mask
-            with rio.open(row['wse'], mode='r') as ds:
-                #get baseline data
-                if i==1:
-                    wse_ar = load_array(ds)                    
-                    shape = ds.shape       
-                
-                #build for this loop
-                mask_d = {'all':np.full(shape, True)}
- 
-                pixelArea = ds.res[0]*ds.res[1]
-                pixelLength=ds.res[0]
-                
-
-                    
-            #===================================================================
-            # load fines
+            # load baseline
             #===================================================================
             if i==1:
-                wd_ar = load_array(row['wd'])
-                assert wd_ar.shape==wse_ar.shape
+                #the complete mask
+                with rio.open(row['wse'], mode='r') as ds:
+                    #get baseline data
+                    
+                    wseF_ar = load_array(ds)                    
+                    shape = ds.shape       
+                    
+                    #build for this loop
+                    mask_d = {'all':np.full(shape, True)}
+     
+                    pixelArea = ds.res[0]*ds.res[1]
+                    pixelLength=ds.res[0]
+                
+
+                #water depth
+                wdF_ar = load_array(row['wd'])
+                assert wdF_ar.shape==wseF_ar.shape
             
             #===================================================================
             # #build other masks
@@ -869,7 +866,7 @@ class DownsampleSession(DownsampleChild, Session):
                 cm_ar = load_array(row['catMosaic_fp'])
                 
                 """here wee keep the fine resolution"""
-                assert cm_ar.shape==wd_ar.shape
+                assert cm_ar.shape==wdF_ar.shape
                 
                 mask_d.update(self.mosaic_to_masks(cm_ar))
    
@@ -882,12 +879,13 @@ class DownsampleSession(DownsampleChild, Session):
                 res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea, 'pixelLength':pixelLength}
 
                 def get_arx(tag):
-                    ar = {'wse':wse_ar, 'wd':wd_ar}[tag]                   
+                    ar = {'wse':wseF_ar, 'wd':wdF_ar}[tag]                   
                     return ma.array(ar, mask=~mask_ar) #valids=True
 
                 #===============================================================
                 # some valid cells
                 #===============================================================
+ 
                 if np.any(mask_ar):
                     #===================================================================
                     # depths

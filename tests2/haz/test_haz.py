@@ -7,6 +7,7 @@ from hp.rio import RioWrkr, write_array, load_array
 from numpy import array, dtype
 from tests2.conftest import validate_dict, src_dir, get_abs
 import numpy as np
+import pandas as pd
 import pytest, copy, os, random
 import rasterio as rio
 from agg2.haz.misc import get_rand_ar, get_wse_filtered
@@ -147,6 +148,8 @@ def test_03_stats(wrkr, pick_fp):
      ]) 
 def test_04_statsFine(wrkr, pick_fp):
     res_fp = wrkr.run_stats_fine(pick_fp, write=True)
+    
+    pd.read_pickle(res_fp)
     
 
 test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'
