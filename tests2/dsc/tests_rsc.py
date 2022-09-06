@@ -3,13 +3,13 @@ Created on Aug. 20, 2022
 
 @author: cefect
 
-unit tests for downsample classification
+unit tests for resample classification
 '''
 #from qgis.core import QgsCoordinateReferenceSystem
 
  
 #scripts to test
-from agg2.haz.dsc.scripts import ResampClassifierSession as Session
+from agg2.haz.rsc.scripts import ResampClassifierSession as Session
 from agg2.haz.misc import get_rand_ar, get_wse_filtered
 from hp.np import dropna, apply_block_reduce
 from hp.rio import write_array, load_array
