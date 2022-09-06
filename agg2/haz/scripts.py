@@ -2,6 +2,8 @@
 Created on Aug. 27, 2022
 
 @author: cefect
+
+aggregation hazard 
 '''
 import numpy as np
 import numpy.ma as ma
@@ -18,7 +20,7 @@ from hp.pd import view
 from agg2.haz.dsc.scripts import DsampClassifier
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 idx= pd.IndexSlice
-from skimage.transform import downscale_local_mean
+#from skimage.transform import downscale_local_mean
 #debugging rasters
 #===============================================================================
 # from hp.plot import plot_rast
