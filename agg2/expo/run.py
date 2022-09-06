@@ -19,7 +19,6 @@ def open_pick(
 
 
 
-
 def run(
         pick_fp,
         proj_name='SJ',
@@ -45,6 +44,6 @@ if __name__ == "__main__":
     #     )
     #===========================================================================
     run(fp,
-        aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT0_0906.geojson')
+        aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT03_0906.geojson')
     
     print('finished')
