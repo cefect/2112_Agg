@@ -2,7 +2,7 @@
 unit tests for downsample v2
 '''
  
-from hp.np import apply_blockwise_ufunc, apply_blockwise, dropna
+from hp.np import dropna
 from hp.rio import RioWrkr, write_array, load_array
 from numpy import array, dtype
 from tests2.conftest import validate_dict, src_dir, get_abs
@@ -11,7 +11,7 @@ import pandas as pd
 import pytest, copy, os, random
 import rasterio as rio
 from agg2.haz.misc import get_rand_ar, get_wse_filtered
-from agg2.haz.scripts import DownsampleSession as Session
+from agg2.haz.scripts import UpsampleSession as Session
 xfail = pytest.mark.xfail
  
 
@@ -92,7 +92,7 @@ def test_00_runDsmp(wrkr, dsc_l,method,
                     dem_fp,dem_ar,wse_fp, wse_ar,
                     ):
     
-    wrkr.run_dsmp(dem_fp, wse_fp,  dsc_l=dsc_l,
+    wrkr.run_agg(dem_fp, wse_fp,  dsc_l=dsc_l,
                   #write=True,
                   #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data', method).
                   )
@@ -164,7 +164,7 @@ test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'
     ])
 def test_runAll(wrkr, dem_fp, wse_fp, dsc_l, method):
     """run the full sequence on some test data"""
-    fp1 = wrkr.run_dsmp(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True)
+    fp1 = wrkr.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True)
  
     fp2= wrkr.run_catMasks(fp1)
     

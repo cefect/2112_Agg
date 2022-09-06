@@ -12,12 +12,12 @@ import os, copy, datetime
 import rasterio as rio
  
 from definitions import wrk_dir
-from hp.np import apply_blockwise
+ 
 from hp.oop import Session
-from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, resample
+from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
 from hp.basic import get_dict_str
 from hp.pd import view
-from agg2.haz.dsc.scripts import DsampClassifier
+from agg2.haz.rsc.scripts import ResampClassifier
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 idx= pd.IndexSlice
 #from skimage.transform import downscale_local_mean
@@ -32,7 +32,7 @@ def now():
     return datetime.datetime.now()
 
 
-class DownsampleChild(DsampClassifier):
+class UpsampleChild(ResampClassifier):
     """child for performing a single downsample set
     
     NOTES
@@ -51,7 +51,7 @@ class DownsampleChild(DsampClassifier):
         super().__init__(subdir=subdir,
                           **kwargs)
         
-    def downscale_direct(self,
+    def agg_direct(self,
                          ds_d,
                          resampleAlg='average',
                          downscale=None,
@@ -83,7 +83,7 @@ class DownsampleChild(DsampClassifier):
         
         return res_d
             
-    def downscale_filter(self,
+    def agg_filter(self,
                          ds_d,
                          resampleAlg='average',
                          downscale=None,
@@ -183,7 +183,7 @@ class DownsampleChild(DsampClassifier):
         return res_d
         
  
-class DownsampleSession(DownsampleChild, Session):
+class UpsampleSession(UpsampleChild, Session):
     """tools for experimenting with downsample sets"""
     
     def __init__(self, 
@@ -206,9 +206,9 @@ class DownsampleSession(DownsampleChild, Session):
         print('finished __init__')
         
     #===========================================================================
-    # DOWNSAMPLING-----
+    # UPSAMPLING (aggregating)-----
     #===========================================================================
-    def run_dsmp(self,demR_fp, wseR_fp,
+    def run_agg(self,demR_fp, wseR_fp,
  
                  dsc_l=None,
                  dscList_kwargs = dict(reso_iters=5),
@@ -237,7 +237,7 @@ class DownsampleSession(DownsampleChild, Session):
  
         start = now()
         #if out_dir is None: out_dir=os.path.join(self.out_dir, method)
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dsmp',  ext='.pkl', subdir=True, **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg',  ext='.pkl', subdir=True, **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
         #=======================================================================
@@ -463,7 +463,7 @@ class DownsampleSession(DownsampleChild, Session):
         for i, downscale in enumerate(dsc_l):
             log.info('    (%i/%i) reso=%i'%(i, len(dsc_l), downscale))
             
-            with DownsampleChild(session=self,downscale=downscale, 
+            with UpsampleChild(session=self,downscale=downscale, 
                                  crs=self.crs, nodata=self.nodata,transform=self.transform,
                                  compress=compress, out_dir=out_dir) as wrkr:
  
@@ -482,9 +482,9 @@ class DownsampleSession(DownsampleChild, Session):
                 # downscale
                 #===============================================================
                 if method=='direct':
-                    res_lib[downscale] = wrkr.downscale_direct(base_ds_d,resampleAlg=resampleAlg, **skwargs)
+                    res_lib[downscale] = wrkr.agg_direct(base_ds_d,resampleAlg=resampleAlg, **skwargs)
                 elif method=='filter':
-                    res_lib[downscale] = wrkr.downscale_filter(base_ds_d,resampleAlg=resampleAlg, **skwargs)
+                    res_lib[downscale] = wrkr.agg_filter(base_ds_d,resampleAlg=resampleAlg, **skwargs)
                 else:
                     raise IOError('not implemented')
  
@@ -557,27 +557,29 @@ class DownsampleSession(DownsampleChild, Session):
         
         return vrt_d
  
-    def build_upscales(self,
-                       fp_d = dict(),
-                       upscale=1,out_dir=None,
-                       **kwargs):
-        """construct a set of upscaled rasters"""
-        #=======================================================================
-        # defaults
-        #=======================================================================
- 
-        log, tmp_dir, _, ofp, layname, write = self._func_setup('upsacle',  **kwargs)
-        if out_dir is None: out_dir=os.path.join(self.out_dir, 'upscale', '%03i'%upscale)
-        os.makedirs(out_dir)
-        
-        log.info('upscale=%i on %i'%(upscale, len(fp_d)))
-        
-        res_d = dict()
-        for k, fp in fp_d.items():
-            res_d[k] = resample(fp, os.path.join(out_dir, '%s_x%03i.tif'%(k, upscale)), scale=upscale)
-        
-        log.info('wrote %i to %s'%(len(res_d), out_dir))
-        return res_d
+ #==============================================================================
+ #    def build_upscales(self,
+ #                       fp_d = dict(),
+ #                       upscale=1,out_dir=None,
+ #                       **kwargs):
+ #        """construct a set of upscaled rasters"""
+ #        #=======================================================================
+ #        # defaults
+ #        #=======================================================================
+ # 
+ #        log, tmp_dir, _, ofp, layname, write = self._func_setup('upsacle',  **kwargs)
+ #        if out_dir is None: out_dir=os.path.join(self.out_dir, 'upscale', '%03i'%upscale)
+ #        os.makedirs(out_dir)
+ #        
+ #        log.info('upscale=%i on %i'%(upscale, len(fp_d)))
+ #        
+ #        res_d = dict()
+ #        for k, fp in fp_d.items():
+ #            res_d[k] = resample(fp, os.path.join(out_dir, '%s_x%03i.tif'%(k, upscale)), scale=upscale)
+ #        
+ #        log.info('wrote %i to %s'%(len(res_d), out_dir))
+ #        return res_d
+ #==============================================================================
     
     #===========================================================================
     # CASE MASKS---------
@@ -650,7 +652,7 @@ class DownsampleSession(DownsampleChild, Session):
             # classify
             #===================================================================
             log.info('(%i/%i) downscale=%i building downsamp cat masks'%(i+1, len(dsmp_df), downscale)) 
-            with DsampClassifier(session=self, downscale = downscale,  **skwargs) as wrkr:
+            with ResampClassifier(session=self, downscale = downscale,  **skwargs) as wrkr:
                 #build each mask
                 cm_d = wrkr.get_catMasks(dem_ds=dem_ds, wse_ds=wse_ds, wse_ar=wse_ar, dem_ar=dem_ar)
                 
