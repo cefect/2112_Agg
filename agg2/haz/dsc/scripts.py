@@ -14,9 +14,10 @@ import numpy as np
 import os, copy, datetime
 import rasterio as rio
 from definitions import wrk_dir 
-from hp.np import apply_blockwise, downsample 
+from hp.np import apply_block_reduce, downsample 
 from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
+import scipy.ndimage
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 
 
@@ -26,7 +27,7 @@ import matplotlib.pyplot as plt
 def now():
     return datetime.datetime.now()
  
-class DsampClassifier(RioWrkr): 
+class ResampClassifier(RioWrkr): 
     """shareable tools for build downsample classification masks"""
     #integer maps for buildilng the mosaic
     cm_int_d = {'DD':11, 'WW':21, 'WP':31, 'DP':41}
@@ -232,7 +233,7 @@ class DsampClassifier(RioWrkr):
                      dem_ar=None, wse_ar=None,
                      downscale=None,
                      **kwargs):
-        """compute the a mask for each downsample category
+        """compute the a mask for each resample category
         
         Returns
         -------
@@ -269,13 +270,15 @@ class DsampClassifier(RioWrkr):
         #=======================================================================
         # globals
         #=======================================================================
-        def apply_downsample(ar, func):
-            arC = apply_blockwise(ar, func, downscale=downscale) #max of each coarse block
-            """
- 
-            """
+        def apply_reducer(ar, func):
+            #apply aggregation
+            arC = apply_block_reduce(ar, func, downscale=downscale) #max of each coarse block
+            
+            #rescale back to original
+            """would have been nicer to just keep the reduce dscale"""
+            fine_ar = scipy.ndimage.zoom(arC, downscale, order=0, mode='reflect',   grid_mode=True)
             #return np.kron(arC, np.ones((downscale,downscale))) #rescale back to original res
-            fine_ar = downsample(arC, n=downscale) 
+ 
             assert fine_ar.shape==ar.shape
             return fine_ar
  
@@ -295,14 +298,14 @@ class DsampClassifier(RioWrkr):
         # #dry-dry: max(delta) <=0
         #=======================================================================
         log.info('    computing DD')
-        delta_max_ar = apply_downsample(delta_ar, np.max)
+        delta_max_ar = apply_reducer(delta_ar, np.max)
         
         cm_d['DD'] = delta_max_ar<=0
         log_status('DD')
         #===================================================================
         # #wet-wet: min(delta) >0
         #===================================================================
-        delta_min_ar = apply_downsample(delta_ar, np.min)
+        delta_min_ar = apply_reducer(delta_ar, np.min)
         
         cm_d['WW'] = delta_min_ar>0
         log_status('WW')
@@ -324,8 +327,8 @@ class DsampClassifier(RioWrkr):
         #===============================================================
         # compute means
         #===============================================================
-        dem_mean_ar = apply_downsample(dem_ar, np.mean)
-        wse_mean_ar = apply_downsample(wse_ar, np.nanmean) #ignore nulls in denomenator
+        dem_mean_ar = apply_reducer(dem_ar, np.mean)
+        wse_mean_ar = apply_reducer(wse_ar, np.nanmean) #ignore nulls in denomenator
         #===============================================================
         # #wet-partials: mean(DEM)<mean(WSE)
         #===============================================================
@@ -447,7 +450,7 @@ class DsampClassifier(RioWrkr):
  
     
     
-class DsampClassifierSession(DsampClassifier, Session):
+class ResampClassifierSession(ResampClassifier, Session):
     """standalone session for downsample classification"""
  
     
@@ -551,7 +554,7 @@ class DsampClassifierSession(DsampClassifier, Session):
         # exec
         #=======================================================================
         ofp_d=dict()
-        with DsampClassifier(rlay_ref_fp=dem_fp, session=self, downscale=downscale) as wrkr:
+        with ResampClassifier(rlay_ref_fp=dem_fp, session=self, downscale=downscale) as wrkr:
             #load the layers
             wse_ds = wrkr.open_dataset(wse_fp)
             dem_ds = wrkr._base()
@@ -612,7 +615,7 @@ def assert_cm_ar(ar, msg=''):
         raise AssertionError('failed to get all odd values\n'+msg)
     
     #check we only have valid values
-    vali_ar = np.array(list(DsampClassifier.cm_int_d.values()))
+    vali_ar = np.array(list(ResampClassifier.cm_int_d.values()))
     
     if not np.all(np.isin(np.unique(ar), vali_ar)):
         raise AssertionError('got some unexpected category values\n'+msg)
@@ -621,7 +624,7 @@ def assert_cm_ar(ar, msg=''):
 def runr(
         dem_fp=None, wse_fp=None,
         **kwargs):
-    with DsampClassifier(rlay_ref_fp=dem_fp, **kwargs) as ses:
+    with ResampClassifier(rlay_ref_fp=dem_fp, **kwargs) as ses:
         ofp = ses.run_all(dem_fp, wse_fp)
         
     return ofp

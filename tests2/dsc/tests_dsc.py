@@ -9,9 +9,9 @@ unit tests for downsample classification
 
  
 #scripts to test
-from agg2.haz.dsc.scripts import DsampClassifierSession
+from agg2.haz.dsc.scripts import ResampClassifierSession as Session
 from agg2.haz.misc import get_rand_ar, get_wse_filtered
-from hp.np import apply_blockwise_ufunc, apply_blockwise, dropna
+from hp.np import dropna, apply_block_reduce
 from hp.rio import write_array, load_array
 from numpy import array, dtype
 
@@ -68,7 +68,7 @@ def wse_fp(wse_ar, tmp_path):
 # FIXTURES-----
 #===============================================================================
 @pytest.fixture(scope='function')
-def Session(tmp_path,write,logger, test_name,             
+def wrkr(tmp_path,write,logger, test_name,             
             #qgis_app, qgis_processing, feedback, #pytest-qgis fixtures 
                     ):
     
@@ -79,13 +79,8 @@ def Session(tmp_path,write,logger, test_name,
     
  
     
-    with DsampClassifierSession( 
-                #Qcoms
-                 #==============================================================
-                 # compression='none',  
-                 # crs=QgsCoordinateReferenceSystem('EPSG:%i'%crsid),
-                 # feedback=feedback,
-                 # qgis_app=qgis_app,qgis_processing=True, #pytest-qgis
+    with Session( 
+ 
                  #==============================================================
                  
                  #oop.Basic
@@ -122,10 +117,10 @@ def Session(tmp_path,write,logger, test_name,
     (get_wse_filtered(np.random.random((7, 8))*10, np.random.random((7, 8))*10), 2), #wse
  
     ])
-def test_00_crop(dem_fp,   Session, downscale, dem_ar):
+def test_00_crop(dem_fp,   wrkr, downscale, dem_ar):
     
     #build with function
-    test_fp = Session.build_crop(dem_fp, divisor=downscale)
+    test_fp = wrkr.build_crop(dem_fp, divisor=downscale)
     
     #===========================================================================
     # #validate
@@ -145,10 +140,10 @@ def test_00_crop(dem_fp,   Session, downscale, dem_ar):
     #(np.random.random((4*3,4*10))*10, 4),
     pytest.param(np.random.random((3, 4))*10, 2, marks=xfail(strict=True, reason='bad shape')),
     ])
-def test_01_demCoarse(dem_fp, Session, downscale, dem_ar):
+def test_01_demCoarse(dem_fp, wrkr, downscale, dem_ar):
     
     #build with function
-    test_fp = Session.build_coarse(dem_fp, downscale=downscale)
+    test_fp = wrkr.build_coarse(dem_fp, downscale=downscale)
     
     #===========================================================================
     # #validate
@@ -157,7 +152,7 @@ def test_01_demCoarse(dem_fp, Session, downscale, dem_ar):
     
  
     #compute downscale w/ numpy
-    vali_ar = apply_blockwise(dem_ar, np.mean, n=downscale)
+    vali_ar = apply_block_reduce(dem_ar, np.mean, downscale=downscale)
  
     """having some issues with precision on the rasterio load"""
     assert np.array_equal(test_ar.round(2), vali_ar.round(2))
@@ -168,10 +163,10 @@ def test_01_demCoarse(dem_fp, Session, downscale, dem_ar):
     (toy_dem_ar, toy_wse_ar), 
     get_rand_ar((4,6))
     ])
-def test_02_fineDelta(dem_ar, dem_fp,wse_ar, wse_fp,  Session):
+def test_02_fineDelta(dem_ar, dem_fp,wse_ar, wse_fp,  wrkr):
     
     #build with function
-    test_fp = Session.build_delta(dem_fp, wse_fp)
+    test_fp = wrkr.build_delta(dem_fp, wse_fp)
     
     #===========================================================================
     # #validate
@@ -222,14 +217,14 @@ catMask_d = {
 @pytest.mark.parametrize('downscale',[
     #2, 
     5, 10]) 
-def test_03_catMask(dem_ar, dem_fp,wse_ar, wse_fp,  Session, downscale, vali_d):
+def test_03_catMask(dem_ar, dem_fp,wse_ar, wse_fp,  wrkr, downscale, vali_d):
     
     #overwrite for test data
     if not vali_d is None:
         downscale=2
     
     #build with function
-    test_d, _ = Session.build_cat_masks(dem_fp, wse_fp, downscale=downscale, write=True)
+    test_d, _ = wrkr.build_cat_masks(dem_fp, wse_fp, downscale=downscale, write=True)
     
     #===========================================================================
     # #validate
@@ -255,10 +250,10 @@ cmMosaic_ar = array([
 
 
 @pytest.mark.parametrize('cm_d, vali_ar',[[catMask_d['toy'], cmMosaic_ar]]) 
-def test_04_cmMosaic(cm_d, vali_ar, Session):
+def test_04_cmMosaic(cm_d, vali_ar, wrkr):
     """build_cat_mosaic"""
     #build the array
-    cm_ar = Session.get_catMosaic(cm_d)
+    cm_ar = wrkr.get_catMosaic(cm_d)
     
     #===========================================================================
     # validate
@@ -279,15 +274,15 @@ def test_04_cmMosaic(cm_d, vali_ar, Session):
     list(get_rand_ar((2*100,2*200)))+ [2, None], 
     #list(get_rand_ar((3,4)))+ [2, None], 
     ])
-def test_05_all(dem_ar, dem_fp,wse_ar, wse_fp,  vali_ar, downscale, Session):
+def test_05_all(dem_ar, dem_fp,wse_ar, wse_fp,  vali_ar, downscale, wrkr):
     
     #base the worker on the dem
-    Session._base_set(dem_fp)
-    Session._base_inherit()
+    wrkr._base_set(dem_fp)
+    wrkr._base_inherit()
  
     
     #run the chain to build the mosaic
-    test_fp = Session.run_all(dem_fp, wse_fp, downscale=downscale, write=True)
+    test_fp = wrkr.run_all(dem_fp, wse_fp, downscale=downscale, write=True)
     
     #===========================================================================
     # validate
