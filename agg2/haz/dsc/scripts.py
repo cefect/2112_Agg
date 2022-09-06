@@ -14,7 +14,7 @@ import numpy as np
 import os, copy, datetime
 import rasterio as rio
 from definitions import wrk_dir 
-from hp.np import apply_blockwise, upsample 
+from hp.np import apply_blockwise, downsample 
 from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar
@@ -269,18 +269,15 @@ class DsampClassifier(RioWrkr):
         #=======================================================================
         # globals
         #=======================================================================
-        def apply_upsample(ar, func):
+        def apply_downsample(ar, func):
             arC = apply_blockwise(ar, func, downscale=downscale) #max of each coarse block
             """
-            ar.shape
-            arC.shape
-            ar_upsampled.shape
-            plot_rast(arC)
+ 
             """
             #return np.kron(arC, np.ones((downscale,downscale))) #rescale back to original res
-            ar_upsampled = upsample(arC, n=downscale) 
-            assert ar_upsampled.shape==ar.shape
-            return ar_upsampled
+            fine_ar = downsample(arC, n=downscale) 
+            assert fine_ar.shape==ar.shape
+            return fine_ar
  
         
         def log_status(k):
@@ -298,14 +295,14 @@ class DsampClassifier(RioWrkr):
         # #dry-dry: max(delta) <=0
         #=======================================================================
         log.info('    computing DD')
-        delta_max_ar = apply_upsample(delta_ar, np.max)
+        delta_max_ar = apply_downsample(delta_ar, np.max)
         
         cm_d['DD'] = delta_max_ar<=0
         log_status('DD')
         #===================================================================
         # #wet-wet: min(delta) >0
         #===================================================================
-        delta_min_ar = apply_upsample(delta_ar, np.min)
+        delta_min_ar = apply_downsample(delta_ar, np.min)
         
         cm_d['WW'] = delta_min_ar>0
         log_status('WW')
@@ -327,8 +324,8 @@ class DsampClassifier(RioWrkr):
         #===============================================================
         # compute means
         #===============================================================
-        dem_mean_ar = apply_upsample(dem_ar, np.mean)
-        wse_mean_ar = apply_upsample(wse_ar, np.nanmean) #ignore nulls in denomenator
+        dem_mean_ar = apply_downsample(dem_ar, np.mean)
+        wse_mean_ar = apply_downsample(wse_ar, np.nanmean) #ignore nulls in denomenator
         #===============================================================
         # #wet-partials: mean(DEM)<mean(WSE)
         #===============================================================
