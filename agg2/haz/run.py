@@ -19,7 +19,7 @@ def build_vrt(
         pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\dsmp\SJ_r1\20220828\haz\direct\dsmp_SJ_r1_0828_haz_dsmp.pkl',
         **kwargs):
     
-    from agg2.haz.scripts import DownsampleSession as Session
+    from agg2.haz.scripts import UpsampleSession as Session
     with Session(**kwargs) as ses:
         ses.run_vrts(pick_fp)
         
@@ -35,7 +35,7 @@ def SJ_0829_base(method='direct',
     wse_fp=proj_d['wse_fp_d']['hi']
     dem_fp=proj_d['dem_fp_d'][1]
     
-    from agg2.haz.scripts import DownsampleSession as Session
+    from agg2.haz.scripts import UpsampleSession as Session
     
     #execute
     with Session(proj_name=proj_name, run_name='r4_%s'%method) as ses:
@@ -76,7 +76,7 @@ def SJ_plots_0830(
             }        
         ):
     """construct figure from SJ downscale cat results"""
-    from agg2.haz.da import DownsampleDASession as Session
+    from agg2.haz.da import UpsampleDASession as Session
     from hp.pd import view
     with Session(proj_name='SJ', run_name='r3_da') as ses:
         #join the simulation results
@@ -121,9 +121,9 @@ def SJ_plots_0830(
         ses.plot_matrix_metric_method_var(serx,
                                           map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'downscale'},
                                           ylab_d={
-                                              'vol':'$V_{s2}-V_{s2}^{\'}$ (m3)', 
-                                              'wd_mean':'$WD_{s2}-WD_{s2}^{\'}$ (m)', 
-                                              'wse_area':'$A_{s2}-A_{s2}^{\'}$ (m2)'},
+                                              'vol':'$\sum V_{s2}-\sum V_{s1}$ (m3)', 
+                                              'wd_mean':'$\overline{WD_{s2}}-\overline{WD_{s1}}$ (m)', 
+                                              'wse_area':'$\sum A_{s2}-\sum A_{s1}$ (m2)'},
                                           ofp=os.path.join(ses.out_dir, 'metric_method_var_resid.svg'))
         
         #=======================================================================

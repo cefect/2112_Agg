@@ -197,7 +197,7 @@ class UpsampleSession(UpsampleChild, Session):
  
         """
         
-        super().__init__(obj_name='dsmp', wrk_dir=wrk_dir,subdir=False, **kwargs)
+        super().__init__(obj_name='usmp', wrk_dir=wrk_dir,subdir=False, **kwargs)
         
         #=======================================================================
         # attach
@@ -700,7 +700,7 @@ class UpsampleSession(UpsampleChild, Session):
                  calc_trues=True,
                  **kwargs):
         """
-        compute global stats for each raster using each mask.
+        compute global stats for each aggregated raster using each mask.
         mean(depth), sum(area), sum(volume)
         """
         #=======================================================================

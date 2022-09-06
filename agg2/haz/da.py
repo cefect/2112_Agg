@@ -14,7 +14,7 @@ idx= pd.IndexSlice
 #===============================================================================
   
 import matplotlib
-matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
+#matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
 matplotlib.set_loglevel("info") #reduce logging level
 import matplotlib.pyplot as plt
  
@@ -40,7 +40,7 @@ for k,v in {
   
 print('loaded matplotlib %s'%matplotlib.__version__)
 
-from agg2.haz.scripts import DownsampleSession
+from agg2.haz.scripts import UpsampleSession
 from hp.plot import Plotr, view
 
 
@@ -48,7 +48,7 @@ def now():
     return datetime.datetime.now()
 
 
-class DownsampleDASession(DownsampleSession, Plotr):
+class UpsampleDASession(UpsampleSession, Plotr):
     """dataanalysis of downsampling"""
     colorMap_d = {
         'dsc':'PiYG'
