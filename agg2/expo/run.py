@@ -4,7 +4,7 @@ Created on Sep. 6, 2022
 @author: cefect
 '''
 from definitions import proj_lib
-
+from pyproj.crs import CRS
 
 
 
@@ -29,7 +29,9 @@ def run(
     
     
     from agg2.expo.scripts import ExpoSession
-    with ExpoSession(proj_name=proj_name, run_name='r1_expo', aoi_fp=aoi_fp) as wrkr:
+    with ExpoSession(proj_name=proj_name, run_name='r1_expo', aoi_fp=aoi_fp,
+                     crs=CRS.from_user_input(proj_d['EPSG']),
+                     ) as wrkr:
         wrkr.build_assetRsc(pick_fp, proj_d['finv_fp'])
 
 
@@ -38,7 +40,7 @@ def run(
 
 if __name__ == "__main__":
     fp=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl'
-    open_pick(fp=fp)
+    #open_pick(fp=fp)
     run(fp,
         aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT03_0906.geojson')
     

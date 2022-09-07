@@ -14,7 +14,7 @@ from pyproj.crs import CRS
 #===============================================================================
 # FIXTURES-----
 #===============================================================================
-bbox = sgeo.box(2491291.1699051843, 7436714.216724883, 2492192.6359471185, 7437512.984103812)
+bbox1 = sgeo.box(7, 88, 15, 97)
 
 
 @pytest.fixture(scope='function')
@@ -55,10 +55,19 @@ def wrkr(tmp_path,write,logger, test_name,
 
 @pytest.mark.parametrize('pick_fp', [r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'])
 @pytest.mark.parametrize('finv_fp', [r'C:\LS\09_REPOS\02_JOBS\2112_agg\cef\tests2\expo\data\finv_SJ_test_0906.geojson'])
-@pytest.mark.parametrize('bbox', [None])
+
+@pytest.mark.parametrize('bbox', [
+                                bbox1, 
+                                #None
+                                  ])
 def test_01_assetRsc(wrkr, pick_fp, finv_fp, bbox):
+    raise IOError('need to make this fit better within the raster bounds')
+    rdx = wrkr.build_assetRsc(pick_fp, finv_fp, bbox=bbox)
     
-    wrkr.build_assetRsc(pick_fp, finv_fp, bbox=bbox)
+    #validate
+    assert isinstance(rdx, pd.DataFrame)
+    assert isinstance(rdx.columns, pd.MultiIndex)
+    assert len(rdx.columns.names)==2
     
     
     

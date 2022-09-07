@@ -15,15 +15,17 @@ idx= pd.IndexSlice
 import os, copy, datetime
 
 import geopandas as gpd
+import shapely.geometry as sgeo
 import rasterio as rio
+import rasterio.windows
 from rasterstats import zonal_stats
 import rasterstats.utils
 import matplotlib.pyplot as plt
 
 
 from hp.oop import Session
-from hp.gpd import GeoPandasWrkr, assert_intersect, ds_get_bounds
-from hp.rio import load_array, RioWrkr
+from hp.gpd import GeoPandasWrkr, assert_intersect
+from hp.rio import load_array, RioWrkr, get_window
 from hp.pd import view
  
 from agg2.haz.rsc.scripts import ResampClassifier
@@ -32,7 +34,90 @@ def now():
     return datetime.datetime.now()
 
 
-class ExpoSession(GeoPandasWrkr, ResampClassifier, Session):
+class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
+
+    def get_assetRsc(self, cm_fp_d, gdf, bbox=None, logger=None):
+        """compute zonal stats for assets on each resample class mosaic"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_assetRsc')
+        
+        #=======================================================================
+        # loop and sample
+        #=======================================================================
+        res_d = dict()
+        for scale, rlay_fp in cm_fp_d.items():
+            log.info('on scale=%i w/ %s' % (scale, os.path.basename(rlay_fp)))
+            with rio.open(rlay_fp, mode='r') as ds:
+                #check consistency
+                assert ds.crs.to_epsg() == self.crs.to_epsg()
+                
+                #check intersection 
+                rbnds = sgeo.box(*ds.bounds)
+                ebnds = sgeo.box(*gdf.total_bounds)
+                if not bbox is None: #with the bounding box
+                    """
+                    plt.close('all')
+                    fig, ax = plt.subplots()
+                    ax.plot(*rbnds.exterior.xy, color='red', label='raster (raw)')
+                    ax.plot(*ebnds.exterior.xy, color='blue', label='assets')
+                    gdf.plot(ax=ax, color='blue')
+                    ax.plot(*bbox.exterior.xy, color='orange', label='bbox', linestyle='dashed')
+                    ax.plot(*wbnds.exterior.xy, color='green', label='window', linestyle='dotted')
+                    ax.plot(*bbox1.exterior.xy, color='black', label='bbox_buff', linestyle='dashed')
+                    fig.legend()
+                    """
+                    assert bbox.within(ebnds), 'bounding box exceeds assets extent'
+                    
+                    
+                    #build a clean window
+                    """basically rounding the raster window so everything fits"""
+                    window = get_window(ds, bbox)
+                    
+                else:  #between assets and raster
+                    assert ebnds.intersects(rbnds), 'raster and assets do not intersect'
+                    
+                    window=None
+                    
+ 
+                #===============================================================
+                # loop each category's mask'
+                #===============================================================
+ 
+                mosaic_ar = load_array(ds, window=window)
+                mosaic_ar.shape
+                
+                cm_d = self.mosaic_to_masks(mosaic_ar)
+                #load and compute zonal stats
+                zd = dict()
+                for catid, ar_raw in cm_d.items():
+                    if np.any(ar_raw):
+                        stats_d = zonal_stats(gdf, 
+                           np.where(ar_raw, 1, np.nan), 
+                            affine=ds.transform, 
+                            nodata=0, 
+                            all_touched=False, 
+                            stats=
+                            [ 'count',
+                                'nan',
+                                'mean'])
+                        zd[catid] = pd.DataFrame(stats_d)
+                
+                #===============================================================
+                # wrap
+                #===============================================================
+                res_d[scale] = pd.concat(zd, axis=1).droplevel(1, axis=1)
+        
+        #=======================================================================
+        # merge
+        #=======================================================================
+        rdx = pd.concat(res_d, axis=1, names=['scale', 'dsc'])
+        log.info('finished w/ %s' % str(rdx.shape))
+        return rdx
+
+class ExpoSession(ExpoWrkr, Session):
     """tools for experimenting with downsample sets"""
     
     def __init__(self, 
@@ -69,7 +154,7 @@ class ExpoSession(GeoPandasWrkr, ResampClassifier, Session):
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('arsc',  subdir=True,ext='.pkl', **kwargs)
         
         if bbox is None: bbox=self.bbox
-        
+        start=now()
         #=======================================================================
         # classification masks
         #=======================================================================
@@ -88,47 +173,39 @@ class ExpoSession(GeoPandasWrkr, ResampClassifier, Session):
         # load asset data         
         #=======================================================================
         gdf = gpd.read_file(finv_fp, bbox=bbox)
+        abnds = sgeo.box(*gdf.total_bounds) #bouds
+        
+        if not abnds.within(bbox):
+            """can happen when an asset intersects the bbox"""
+            log.warning('asset bounds  not within bounding box \n    %s\n    %s'%(
+                        abnds.bounds, bbox.bounds))
+        
+        log.info('loaded %i feats (w/ aoi: %s) from \n    %s'%(
+            len(gdf), type(bbox).__name__, os.path.basename(finv_fp)))
+        
         assert gdf.crs==self.crs, 'crs mismatch'
+        assert len(gdf)>0
+        
+        """
+        
+        tuple(np.round(gdf.total_bounds, 1).tolist())
+        """
         #=======================================================================
-        # loop downscales
+        # get downscales
         #=======================================================================
-        res_d = 
-        for scale, rlay_fp in cm_fp_d.items():
-            log.info('on %i w/ %s'%(scale, os.path.basename(rlay_fp)))
-            with rio.open(rlay_fp, mode='r') as ds:
-                
-                #check consistency
-                assert ds.crs.to_epsg()==self.crs.to_epsg()
-                assert_intersect(ds_get_bounds(ds).bounds, tuple(gdf.total_bounds.tolist()))
-                
-                #===============================================================
-                # loop each category's mask'
-                #===============================================================
-                mosaic_ar = load_array(ds) 
-                cm_d = self.mosaic_to_masks(mosaic_ar)
-                
-                #load and compute zonal stats
-                zd = dict()
-                for catid, ar_raw in cm_d.items():
-                    
-                    if np.any(ar_raw):
-                        stats_d = zonal_stats(gdf, np.where(ar_raw, 1, 0), 
-                                    affine=ds.transform,
-                                    nodata=0,
-                                    all_touched=False,
-                                    stats=[
-                                            #'count', 
-                                           'mean'
-                                           ],
-                                    
-                                    )
-                    
-                        zd[catid] = pd.DataFrame(stats_d)
-                #===============================================================
-                # wrap
-                #===============================================================
-                pd.concat(zd, axis=1).droplevel(1, axis=1)
-                raise IOError('stopped here')
+        res_dx = self.get_assetRsc(cm_fp_d, gdf, 
+                                   bbox=abnds, #using asset bounds because this might be larger than the bbox 
+                                   logger=log)
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        res_dx.to_pickle(ofp)
+        log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
+        
+        
+        return ofp
+ 
                 
  
         
@@ -137,6 +214,9 @@ class ExpoSession(GeoPandasWrkr, ResampClassifier, Session):
         gdf.plot()
         plt.show()
         """
+        
+
+
         
         
         
