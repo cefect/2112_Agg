@@ -254,7 +254,7 @@ class UpsampleDASession(UpsampleSession, Plotr):
                 if col_key == keys_all_d['col'][0]:
                     ax.set_ylabel(ylab_d[row_key])
                     
-                    #format tick labels
+                    #force 2decimal precision
                     ax.get_yaxis().set_major_formatter(lambda x,p:'%.2f'%x)
                     
                 
