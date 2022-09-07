@@ -38,11 +38,7 @@ def run(
 
 if __name__ == "__main__":
     fp=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl'
-    #===========================================================================
-    # open_pick(
-    #     fp=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl'
-    #     )
-    #===========================================================================
+    open_pick(fp=fp)
     run(fp,
         aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT03_0906.geojson')
     
