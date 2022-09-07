@@ -60,7 +60,7 @@ class UpsampleDASession(UpsampleSession, Plotr):
                 'WP':'#00ffff',
                 'DP':'#ff6400',
                 'DD':'#800000',
-                'all': '#000000'}
+                'full': '#000000'}
         }
         
     def join_stats(self,fp_d, **kwargs):
@@ -134,7 +134,7 @@ class UpsampleDASession(UpsampleSession, Plotr):
                                       ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
                                       xscale='linear',
                                       plot_kwargs_lib={
-                                          'all':{'marker':'x'},
+                                          'full':{'marker':'x'},
                                           'DD':{'marker':'s', 'fillstyle':'none'},
                                           'WW':{'marker':'o', 'fillstyle':'full'},
                                           'WP':{'marker':'o', 'fillstyle':'top'},
@@ -253,10 +253,14 @@ class UpsampleDASession(UpsampleSession, Plotr):
                 #first col
                 if col_key == keys_all_d['col'][0]:
                     ax.set_ylabel(ylab_d[row_key])
+                    
+                    #format tick labels
+                    ax.get_yaxis().set_major_formatter(lambda x,p:'%.2f'%x)
+                    
                 
                 #last row
                 if row_key==keys_all_d['row'][-1]:
-                    ax.set_xlabel('pixel size (m)')
+                    ax.set_xlabel('resolution (m)')
                 
                 #last col
                 if col_key == keys_all_d['col'][-1]:

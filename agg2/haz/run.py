@@ -79,11 +79,31 @@ def SJ_plots_0830(
     from agg2.haz.da import UpsampleDASession as Session
     from hp.pd import view
     with Session(proj_name='SJ', run_name='r3_da') as ses:
+        
+        #=======================================================================
+        # data prep
+        #=======================================================================
         #join the simulation results
         dxcol_raw = ses.join_stats(fp_d)
         
+ 
+        
+        #relabel all
+        idf = dxcol_raw.columns.to_frame().reset_index(drop=True)
+        idf.loc[:, 'dsc'] = idf['dsc'].replace({'all':'full'})
+        dxcol_raw.columns = pd.MultiIndex.from_frame(idf)
+        
+        
         #add residuals  
         dxcol1 = dxcol_raw.join(pd.concat([dxcol_raw['s2']-dxcol_raw['s1']], names=['base'], keys=['s12'], axis=1)).copy()
+        
+        #add residuals normalized        
+        base_ser = dxcol1.loc[1, idx['s1', 'direct','full', :]].droplevel((0,1,2)) #baseline values
+        
+        dxcol1 = dxcol1.join(
+            pd.concat([dxcol1['s12'].divide(base_ser, axis=1, level=2)], names=['base'], keys=['s12N'], axis=1)
+            )
+ 
         
  
         
@@ -99,7 +119,7 @@ def SJ_plots_0830(
         #=============================================R==========================
         dxcol2 = dxcol1.copy()
         #promote pixelLength to index
-        map_ser = dxcol1.loc[:, idx['s2','direct','all','pixelLength']].rename('pixelLength').astype(int)        
+        map_ser = dxcol1.loc[:, idx['s2','direct','full','pixelLength']].rename('pixelLength').astype(int)        
         dxcol2.index = pd.MultiIndex.from_frame(dxcol2.index.to_frame().join(map_ser))
         
         coln_l = ['wd_mean', 'wse_area', 'vol'] 
@@ -107,7 +127,8 @@ def SJ_plots_0830(
         
         """
         view(serx)
-        view(dxi)
+        view(dxcol1)
+        view(dxcol3)
         """
  
         #ses.plot_matrix_metric_method_var(serx)
@@ -118,13 +139,36 @@ def SJ_plots_0830(
  
         dxcol3 = dxcol1.loc[:, idx['s12', :, :, coln_l]].droplevel(0, axis=1)
         serx = dxcol3.unstack().reindex(index=coln_l, level=2) 
+        
+
+        
+        #=======================================================================
+        # ses.plot_matrix_metric_method_var(serx,
+        #                                   map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'downscale'},
+        #                                   ylab_d={
+        #                                       'vol':'$\sum V_{s2}-\sum V_{s1}$ (m3)', 
+        #                                       'wd_mean':'$\overline{WD_{s2}}-\overline{WD_{s1}}$ (m)', 
+        #                                       'wse_area':'$\sum A_{s2}-\sum A_{s1}$ (m2)'},
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid.svg'))
+        #=======================================================================
+        
+        
+        #=======================================================================
+        # lines on residuals NORMALIZED (s12N)
+        #=======================================================================
+ 
+        dxcol3 = dxcol1.loc[:, idx['s12N', :, :, coln_l]].droplevel(0, axis=1)
+        serx = dxcol3.unstack().reindex(index=coln_l, level=2) 
+        
+
+        
         ses.plot_matrix_metric_method_var(serx,
                                           map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'downscale'},
                                           ylab_d={
-                                              'vol':'$\sum V_{s2}-\sum V_{s1}$ (m3)', 
-                                              'wd_mean':'$\overline{WD_{s2}}-\overline{WD_{s1}}$ (m)', 
-                                              'wse_area':'$\sum A_{s2}-\sum A_{s1}$ (m2)'},
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid.svg'))
+                                              'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
+                                              'wd_mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
+                                              'wse_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$'},
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd.svg'))
         
         #=======================================================================
         # stackced areas ratios
