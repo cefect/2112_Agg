@@ -10,6 +10,9 @@ import numpy.ma as ma
 import pandas as pd
 import os, copy, datetime
 import rasterio as rio
+from rasterio.enums import Resampling
+import scipy.ndimage
+
  
 from definitions import wrk_dir
  
@@ -17,6 +20,7 @@ from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
 from hp.basic import get_dict_str
 from hp.pd import view
+from hp.sklearn import get_null_confusion
 from agg2.haz.rsc.scripts import ResampClassifier
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 idx= pd.IndexSlice
@@ -697,10 +701,26 @@ class UpsampleSession(UpsampleChild, Session):
 
 
 
+
+    def _stat_wrap(self, res_lib, meta_d, ofp):
+        res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()
+    #ammend commons to index
+        if not meta_d is None:
+            mindex = pd.MultiIndex.from_frame(
+                res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale'))
+            res_dx.index = mindex
+        """
+    
+    view(res_dx)
+    
+    """
+        res_dx.to_pickle(ofp)
+        return res_dx
+
     def run_stats(self, pick_fp, 
  
                  cols = ['dem', 'wse', 'wd', 'catMosaic_fp'],
-                 calc_trues=True,
+ 
                  **kwargs):
         """
         compute global stats for each aggregated raster using each mask.
@@ -774,14 +794,11 @@ class UpsampleSession(UpsampleChild, Session):
                 #===================================================================
                 
                 func = lambda x:self.get_depth_stats(x, pixelArea=pixelArea)
-                d = self.get_maskd_func(mask_d, wd_ar, func, log.getChild('%i.%s'%(i, layName)))
-                
-
-                    
+                d = self.get_maskd_func(mask_d, ar_raw, func, log.getChild('%i.%s'%(i, layName)))
+ 
                 res_d1[layName] = pd.DataFrame.from_dict(d)
             
-            
-            
+ 
             #===============================================================
             # store
             #===============================================================
@@ -795,20 +812,7 @@ class UpsampleSession(UpsampleChild, Session):
         #=======================================================================
         # wrap
         #=======================================================================
-        res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()
-        
-        #ammend commons to index
-        mindex = pd.MultiIndex.from_frame(
-            res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale')
-            )
-        
-        res_dx.index=mindex
- 
-        """
-        view(res_dx)
-        """
-        
-        res_dx.to_pickle(ofp)
+        res_dx = self._stat_wrap(res_lib, meta_d, ofp)
         log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
         
         return ofp
@@ -842,7 +846,7 @@ class UpsampleSession(UpsampleChild, Session):
         #=======================================================================
         # compute for each downscale
         #=======================================================================
-        res_lib=dict()
+        res_lib, meta_d=dict(), dict()
         for i, row in df.iterrows():
             log.info('computing for downscale=%i'%i)
             #===================================================================
@@ -850,10 +854,10 @@ class UpsampleSession(UpsampleChild, Session):
             #===================================================================
             if i==1:
                 #the complete mask
-                with rio.open(row['wse'], mode='r') as ds:
+                with rio.open(row['wd'], mode='r') as ds:
                     #get baseline data
                     
-                    wseF_ar = load_array(ds)                    
+                    wdF_ar = load_array(ds)                    
                     shape = ds.shape       
                     
                     #build for this loop
@@ -862,11 +866,7 @@ class UpsampleSession(UpsampleChild, Session):
                     pixelArea = ds.res[0]*ds.res[1]
                     pixelLength=ds.res[0]
                 
-
-                #water depth
-                wdF_ar = load_array(row['wd'])
-                assert wdF_ar.shape==wseF_ar.shape
-            
+ 
             #===================================================================
             # #build other masks
             #===================================================================
@@ -879,59 +879,37 @@ class UpsampleSession(UpsampleChild, Session):
                 mask_d.update(self.mosaic_to_masks(cm_ar))
    
             #===================================================================
-            # compute stats for each mask
+            # compute on each layer
             #===================================================================
             res_d1 = dict()
-            for maskName, mask_ar in mask_d.items():
-                log.info('    %s (%i/%i)'%(maskName, mask_ar.sum(), mask_ar.size))
-                res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea, 'pixelLength':pixelLength}
-
-                def get_arx(tag):
-                    ar = {'wse':wseF_ar, 'wd':wdF_ar}[tag]                   
-                    return ma.array(ar, mask=~mask_ar) #valids=True
-
-                #===============================================================
-                # some valid cells
-                #===============================================================
- 
-                if np.any(mask_ar):
-                    #===================================================================
-                    # depths
-                    #===================================================================
-                    wd_ar = get_arx('wd')                
-                    res_d['wd_mean'] = wd_ar.mean()
-                    
-                    #===================================================================
-                    # inundation area
-                    #===================================================================
-                    wse_ar = get_arx('wse')
-                    res_d['wse_area'] = np.sum(~np.isnan(wse_ar))*(pixelArea) #non-nulls times pixel area
-                        
-                    #===================================================================
-                    # volume
-                    #===================================================================
-                    
-                    res_d['vol'] = wd_ar.sum()*pixelArea
-                else:
-                    log.warning('%i.%s got no valids'%(i, maskName))
-                    res_d.update({'wd_mean':0.0, 'wse_area':0.0, 'vol':0.0})
+            for layName, ar_raw in {'wd': wdF_ar}.items():
+                """only doing wd for now
+                unlike the upscaled version.. here we always compute against the fine wd"""
+                #===================================================================
+                # compute stats function on each mask
+                #===================================================================
                 
-                res_d1[maskName] = res_d #store
-            res_lib[i] = pd.DataFrame.from_dict(res_d1)
+                func = lambda x:self.get_depth_stats(x, pixelArea=pixelArea)
+                d = self.get_maskd_func(mask_d, ar_raw, func, log.getChild('%i.%s'%(i, layName)))
+ 
+                res_d1[layName] = pd.DataFrame.from_dict(d)
+                
+            #===============================================================
+            # store
+            #===============================================================
+            """
+            view(pd.concat(res_d1, axis=1, names=['layer', 'dsc']))
+            """
+            res_lib[i] = pd.concat(res_d1, axis=1, names=['layer', 'dsc'])
+            #meta_d[i] = {'pixelArea':pixelArea, 'pixelLength':pixelLength} 
             
         #=======================================================================
         # wrap
         #=======================================================================
-        res_dx = pd.concat(res_lib, names=['downscale', 'metric'])
-        res_dx.columns.name='dsc'        
-        
-        res_dx = res_dx.unstack()
- 
         """
-                view(res_dx)
+        view(res_dx)
         """
-        
-        res_dx.to_pickle(ofp)
+        res_dx = self._stat_wrap(res_lib, None, ofp)
         log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
         
         return ofp
@@ -946,7 +924,7 @@ class UpsampleSession(UpsampleChild, Session):
     #===================================================================
     # inundation area
     #===================================================================
-        res_d['real_area'] = np.sum(~np.isnan(mar)) * (pixelArea) #non-nulls times pixel area
+        res_d['posi_area'] = np.sum(mar>0) * (pixelArea) #non-nulls times pixel area
     #===================================================================
     # volume
     #===================================================================
@@ -977,7 +955,111 @@ class UpsampleSession(UpsampleChild, Session):
         log.debug('    finished on %i masks'%len(res_lib))
         return res_lib
         
+    #===========================================================================
+    # ERRORS-------
+    #===========================================================================
+    def run_errs(self,pick_fp, **kwargs):
+        """build error grids for each layer"""
         
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('statsF',  subdir=True,ext='.pkl', **kwargs)
+        
+        #=======================================================================
+        # load
+        #=======================================================================
+        df_raw = pd.read_pickle(pick_fp).set_index('downscale')
+        
+        #=======================================================================
+        # loop on each layer
+        #=======================================================================
+        res_lib = dict()
+        for layName in ['wse']:
+            #===================================================================
+            # defaults
+            #===================================================================
+            fp = df_raw.loc[1, layName]
+            log.info('on %s from %s'%(layName, os.path.basename(fp)))
+            
+            res_cm_d, res_d = dict(), dict()
+            #===================================================================
+            # #load baseline
+            #===================================================================
+            with rio.open(fp, mode='r') as ds:
+                assert ds.res[0]==1
+                base_ar = load_array(ds)
+                
+            #===================================================================
+            # loop on reso
+            #===================================================================
+            for i, (scale, fp) in enumerate(df_raw[layName].items()):
+                log.info('    %i/%i scale=%i from %s'%(i+1, len(df_raw), scale, os.path.basename(fp)))
+ 
+                #===============================================================
+                # vs. base (no error)
+                #===============================================================
+                if i==0:
+                    res_ar = np.full(base_ar.shape, 0)
+                    cm_ser = pd.Series(
+                        {'TP':np.isnan(base_ar).sum(), 'FP':0, 'TN':base_ar.size-np.isnan(base_ar).sum(), 'FN':0},
+                        dtype=int)
+                    
+                #===============================================================
+                # vs. an  upscale
+                #===============================================================
+                else:
+                    #get disagg
+                    with rio.open(fp, mode='r') as ds:
+                        #resample load
+                        resamp_kwargs = dict(out_shape=base_ar.shape, resampling=Resampling.nearest)
+                        fine_raw_ar = ds.read(1, **resamp_kwargs)                        
+                        fine_mask = ds.read_masks(1,**resamp_kwargs)
+                        
+                        #handle nulls
+                        fine_ar = np.where(fine_mask==0,  ds.nodata, fine_raw_ar).astype(np.float32)
+                        #=======================================================
+                        # coarse_ar = load_array(ds) 
+                        # fine_ar = scipy.ndimage.zoom(coarse_ar, scale, order=0, mode='reflect',   grid_mode=True)
+                        #=======================================================
+                        assert fine_ar.shape==base_ar.shape
+                        
+                    #compute errors
+                    res_ar = fine_ar - base_ar
+                    
+                    #compute null confusion
+                    cm_df = get_null_confusion(base_ar, fine_ar, names=['fine', 'base'])                    
+                    cm_ser = cm_df.set_index('codes')['counts']
+                    
+
+                #===============================================================
+                # write
+                #===============================================================
+                od = os.path.join(out_dir, layName)
+                if not os.path.exists(od):os.makedirs(od)
+                res_d[scale] = self.write_array(res_ar, ofp=os.path.join(od, 'err_%s_%03i.tif'%(layName, scale)), logger=log)
+                
+                #===============================================================
+                # wrap scale
+                #===============================================================
+                res_cm_d[scale] = cm_ser
+            #===================================================================
+            # wrap lyaer
+            #===================================================================
+            rdx = pd.concat(res_cm_d, axis=1).T.join(pd.Series(res_d).rename('err_fp'))
+            rdx.index.name=df_raw.index.name
+            
+            res_dx = df_raw.join(rdx)
+            
+            #write
+            res_dx.to_pickle(ofp)
+            
+            log.info('finished on %s and wrote to\n    %s'%(str(res_dx.shape), ofp))
+            
+            return ofp
+
+        """
+        view(res_dx)
+        np.isnan(base_ar).sum()
+        view(cm_dx.unstack())
+        """
         
         
         
