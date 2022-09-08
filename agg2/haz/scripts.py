@@ -643,6 +643,7 @@ class UpsampleSession(UpsampleChild, Session):
                 continue
  
             """
+            wse_ds.read(1, masked=True)
             dem_ar = load_array(dem_ds)
             assert_dem_ar(dem_ar)
             
@@ -984,11 +985,10 @@ class UpsampleSession(UpsampleChild, Session):
             #===================================================================
             # #load baseline
             #===================================================================
-            base_ds = self._base_set(fp)
-            self._base_inherit()
-
-            assert base_ds.res[0]==1
-            base_ar = load_array(base_ds)
+            with rio.open(fp, mode='r') as ds: 
+                assert ds.res[0]==1
+                base_ar = ds.read(1, masked=True)
+                self._base_inherit(ds=ds)
                 
             #===================================================================
             # loop on reso
@@ -1000,7 +1000,8 @@ class UpsampleSession(UpsampleChild, Session):
                 # vs. base (no error)
                 #===============================================================
                 if i==0:
-                    res_ar = np.full(base_ar.shape, 0)
+ 
+                    res_ar = ma.masked_where(base_ar.mask, np.full(base_ar.shape, 0)) #same mask as base w/ some zeros
                     cm_ser = pd.Series(
                         {'TP':np.isnan(base_ar).sum(), 'FP':0, 'TN':base_ar.size-np.isnan(base_ar).sum(), 'FN':0},
                         dtype=int)
@@ -1011,13 +1012,16 @@ class UpsampleSession(UpsampleChild, Session):
                 else:
                     #get disagg
                     with rio.open(fp, mode='r') as ds:
+                        fine_ar = ds.read(1, out_shape=base_ar.shape, resampling=Resampling.nearest, masked=True)
                         #resample load
-                        resamp_kwargs = dict(out_shape=base_ar.shape, resampling=Resampling.nearest)
-                        fine_raw_ar = ds.read(1, **resamp_kwargs)                        
-                        fine_mask = ds.read_masks(1,**resamp_kwargs)
-                        
-                        #handle nulls
-                        fine_ar = np.where(fine_mask==0,  ds.nodata, fine_raw_ar).astype(np.float32)
+                        #=======================================================
+                        # resamp_kwargs = dict(out_shape=base_ar.shape, resampling=Resampling.nearest)
+                        # fine_raw_ar = ds.read(1, **resamp_kwargs)                        
+                        # fine_mask = ds.read_masks(1,**resamp_kwargs)
+                        # 
+                        # #handle nulls
+                        # fine_ar = np.where(fine_mask==0,  ds.nodata, fine_raw_ar).astype(np.float32)
+                        #=======================================================
                         #=======================================================
                         # coarse_ar = load_array(ds) 
                         # fine_ar = scipy.ndimage.zoom(coarse_ar, scale, order=0, mode='reflect',   grid_mode=True)
@@ -1037,9 +1041,14 @@ class UpsampleSession(UpsampleChild, Session):
                 #===============================================================
                 # write
                 #===============================================================
+                assert isinstance(res_ar, ma.MaskedArray)
+                assert not np.all(np.isnan(res_ar))
+                assert not np.all(res_ar.mask)
+ 
                 od = os.path.join(out_dir, layName)
                 if not os.path.exists(od):os.makedirs(od)
-                res_d[scale] = self.write_array(res_ar, ofp=os.path.join(od, '%s_err_%03i.tif'%(layName, scale)), logger=log)
+                res_d[scale] = self.write_array(res_ar, ofp=os.path.join(od, '%s_err_%03i.tif'%(layName, scale)), 
+                                                logger=log, masked=True)
                 
                 #===============================================================
                 # wrap scale
@@ -1049,7 +1058,7 @@ class UpsampleSession(UpsampleChild, Session):
             #===================================================================
             # wrap lyaer
             #===================================================================
-            base_ds.close()
+ 
             res_lib[layName] = pd.concat(res_cm_d, axis=1).T.join(pd.Series(res_d).rename('err_fp'))
  
             
@@ -1130,6 +1139,7 @@ class UpsampleSession(UpsampleChild, Session):
                     with rio.open(row['err_fp'], mode='r') as ds:
                         ar = ds.read(1, masked=True)
                         
+                    assert not np.all(np.isnan(ar)), scale
                     res_d['meanErr'] = ar.sum()/ar.size
                     res_d['meanAbsErr'] = np.abs(ar).sum()/ar.size
                     res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))

@@ -123,7 +123,7 @@ def test_00_dscList(wrkr, reso_iters):
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
 
- 
+
 @pytest.mark.parametrize('pick_fp', [
     os.path.join(src_dir, r'tests2\haz\data\direct\dsTest_test00_0828_haz_dsmp.pkl'),
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
@@ -153,19 +153,19 @@ def test_04_statsFine(wrkr, pick_fp):
  
 
  
- 
+@pytest.mark.dev
 @pytest.mark.parametrize('pick_fp', [
     os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'),
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
      ]) 
 def test_05_errs(wrkr, pick_fp):
     res_fp = wrkr.run_errs(pick_fp, write=True,
-                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                           out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
     
     
     
-@pytest.mark.dev
+
 @pytest.mark.parametrize('pick_fp', [
     os.path.join(src_dir, r'tests2\haz\data\errs\dsTest_test05_0908_errs.pkl'),
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
