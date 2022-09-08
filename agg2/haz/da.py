@@ -31,6 +31,8 @@ matplotlib.rc('font', **{
 for k,v in {
     'axes.titlesize':10,
     'axes.labelsize':10,
+    'xtick.labelsize':8,
+    'ytick.labelsize':8,
     'figure.titlesize':12,
     'figure.autolayout':False,
     'figure.figsize':(10,10),
@@ -79,19 +81,27 @@ class UpsampleDASession(UpsampleSession, Plotr):
         d = dict()
         for k,fp in fp_d.items():
             
-            dxcol_raw = pd.read_pickle(fp)
-            
+            dxcol_raw = pd.read_pickle(fp)            
             log.info('for %s loading %s'%(k, str(dxcol_raw.shape)))
             
-            #add labels
-            """should have done this earlier"""
-            dxcol_raw.index.name='downscale'
-            
-            dxcol_raw.columns.set_names(['dsc', 'metric'], inplace=True)
-            
-            d[k] = dxcol_raw
+            #drop excess levels
+            if len(dxcol_raw.index.names)>1:
+                #retrieve hte meta info
+                meta_df = dxcol_raw.index.to_frame().reset_index(drop=True).set_index('scale').sort_index(axis=0)
+                
+                #remove from index
+                dxcol = dxcol_raw.droplevel((1,2))
+            else:
+                dxcol = dxcol_raw
+ 
+            #wrap
+            d[k] = dxcol
         
-        rdxcol = pd.concat(d, names=['method']).unstack(level=0).swaplevel(axis=1, i=0).swaplevel(axis=1).sort_index(axis=1)
+        #concat
+        rdxcol = pd.concat(d, names=['method']).unstack(level=0).swaplevel(axis=1, i=0).swaplevel(axis=1).sort_index(axis=1).sort_index(axis=0)
+        
+        #add meta back
+        rdxcol.index = pd.MultiIndex.from_frame(rdxcol.index.to_frame().join(meta_df))
         
         #=======================================================================
         # fix method indexers
@@ -107,12 +117,17 @@ class UpsampleDASession(UpsampleSession, Plotr):
             
         rdxcol.columns = pd.MultiIndex.from_frame(mdf)
         
-        rdxcol = rdxcol.reorder_levels([ 'base','method', 'dsc', 'metric'], axis=1).sort_index(axis=1)
+        rdxcol = rdxcol.reorder_levels([ 'base','method', 'layer','dsc', 'metric'], axis=1).sort_index(axis=1)
                                
         
-        """
-        view(rdxcol)
-        """
+
+        
+        #=======================================================================
+        # #relabel all
+        #=======================================================================
+        idf = rdxcol.columns.to_frame().reset_index(drop=True)
+        idf.loc[:, 'dsc'] = idf['dsc'].replace({'all':'full'})
+        rdxcol.columns = pd.MultiIndex.from_frame(idf)
         
         #=======================================================================
         # wrap
@@ -122,7 +137,9 @@ class UpsampleDASession(UpsampleSession, Plotr):
         
         return rdxcol
     
- 
+        """
+        view(rdxcol)
+        """
  
         
     
@@ -145,6 +162,8 @@ class UpsampleDASession(UpsampleSession, Plotr):
                                       **kwargs):
         
         """build matrix plot of variance
+            x:pixelLength
+            y:(series values)
             rows: key metrics (wd_mean, wse_area, vol)
             cols: all methods
             colors: downsample class (dsc)

@@ -12,7 +12,6 @@ idx = pd.IndexSlice
 
  
 
-
  
     
 def build_vrt(
@@ -47,7 +46,7 @@ def SJ_0829_base(method='direct',
         #vrt_d = ses.run_vrts(fp2)
         
         ses.run_stats(fp2)
-        #ses.run_stats_fine(fp2)
+        ses.run_stats_fine(fp2)
         
     return fp2
 
@@ -58,87 +57,92 @@ def SJ_0830_filter(**kwargs):
 def SJ_0830_direct(**kwargs):
     return SJ_0829_base(method='direct', **kwargs)
         
-def open_pick(
-        fp =r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\stats\SJ_r3_direct_0829_haz_stats.pkl'
-        ):
-    import pandas as pd
-    from hp.pd import view
-    df = pd.read_pickle(fp)
  
-    view(df)
     
 def SJ_plots_0830(
         fp_d  = {
-            'direct':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220830\stats\SJ_r4_direct_0830_stats.pkl',
-            'directF':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_direct\20220830\statsF\SJ_r4_direct_0830_statsF.pkl',
-            'filter':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220830\stats\SJ_r4_filter_0830_stats.pkl', 
-            'filterF':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_filter\20220830\statsF\SJ_r4_filter_0830_statsF.pkl'           
+            'direct':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_direct\20220908\stats\SJ_r4_direct_0908_stats.pkl',
+            'directF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\statsF\SJ_r4_direct_0908_statsF.pkl',
+            'filter':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_filter\20220908\stats\SJ_r4_filter_0908_stats.pkl', 
+            'filterF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\statsF\SJ_r4_filter_0908_statsF.pkl'           
             }        
         ):
     """construct figure from SJ downscale cat results"""
     from agg2.haz.da import UpsampleDASession as Session
     from hp.pd import view
-    with Session(proj_name='SJ', run_name='r3_da') as ses:
+    with Session(proj_name='SJ', run_name='r4_da') as ses:
         
         #=======================================================================
         # data prep
         #=======================================================================
-        #join the simulation results
+        #join the simulation results (and clean up indicides
         dxcol_raw = ses.join_stats(fp_d)
         
  
-        
-        #relabel all
-        idf = dxcol_raw.columns.to_frame().reset_index(drop=True)
-        idf.loc[:, 'dsc'] = idf['dsc'].replace({'all':'full'})
-        dxcol_raw.columns = pd.MultiIndex.from_frame(idf)
-        
-        
         #add residuals  
         dxcol1 = dxcol_raw.join(pd.concat([dxcol_raw['s2']-dxcol_raw['s1']], names=['base'], keys=['s12'], axis=1)).copy()
         
-        #add residuals normalized        
-        base_ser = dxcol1.loc[1, idx['s1', 'direct','full', :]].droplevel((0,1,2)) #baseline values
+        print({lvlName:i for i, lvlName in enumerate(dxcol1.columns.names)})
+        
+        #=======================================================================
+        # #add residuals normalized        
+        #=======================================================================
+        """probably some way to do this natively w/ panda (transform?)
+        but couldnt figure out how to divide across 2 levels
+        """
+        base_dxcol = dxcol1.loc[1, idx['s1', 'direct',:,'full', :]].droplevel((0,1,3), axis=1).reset_index(drop=True) #baseline values
+        
+        d = dict()
+        for layName, gdx in dxcol1['s12'].groupby('layer', axis=1):
+            base_ser = base_dxcol[layName].iloc[0,:]
+            d[layName] = gdx.droplevel('layer',axis=1).divide(base_ser, axis=1, level='metric')
+        div_dxcol = pd.concat(d, axis=1, names=['layer'])
+ 
         
         dxcol1 = dxcol1.join(
-            pd.concat([dxcol1['s12'].divide(base_ser, axis=1, level=2)], names=['base'], keys=['s12N'], axis=1)
+            pd.concat([div_dxcol], names=['base'], keys=['s12N'], axis=1).reorder_levels(dxcol1.columns.names, axis=1)
             )
  
         
  
         
         """
+        dxcol_raw.columns.levels
+        
         open_pick(fp_d['directF'])
         view(dxcol_raw)
         dxcol_raw.columns
         """
-
+        print(dxcol1.columns.get_level_values('metric').unique().tolist())
+        metrics_l = ['mean', 'posi_area', 'vol']
+        
+ 
         
         #=======================================================================
         # lines on s2: row:metric, col:method, color:dsc
         #=============================================R==========================
-        dxcol2 = dxcol1.copy()
-        #promote pixelLength to index
-        map_ser = dxcol1.loc[:, idx['s2','direct','full','pixelLength']].rename('pixelLength').astype(int)        
-        dxcol2.index = pd.MultiIndex.from_frame(dxcol2.index.to_frame().join(map_ser))
-        
-        coln_l = ['wd_mean', 'wse_area', 'vol'] 
-        serx = dxcol2.loc[:, idx['s2', :, :, coln_l]].droplevel(0).droplevel(0, axis=1).unstack().reindex(index=coln_l, level=2) 
-        
-        """
-        view(serx)
-        view(dxcol1)
-        view(dxcol3)
-        """
- 
-        #ses.plot_matrix_metric_method_var(serx)
+ #==============================================================================
+ #        dxcol2 = dxcol1.copy()
+ #        #promote pixelLength to index
+ #        map_ser = dxcol1.loc[:, idx['s2','direct','full','pixelLength']].rename('pixelLength').astype(int)        
+ #        dxcol2.index = pd.MultiIndex.from_frame(dxcol2.index.to_frame().join(map_ser))
+ #        
+ #        
+ #        serx = dxcol2.loc[:, idx['s2', :, :, coln_l]].droplevel(0).droplevel(0, axis=1).unstack().reindex(index=coln_l, level=2) 
+ #        
+ # 
+ # 
+ #        #ses.plot_matrix_metric_method_var(serx)
+ #==============================================================================
         
         #=======================================================================
         # lines on residuals (s12)
         #=======================================================================
  
-        dxcol3 = dxcol1.loc[:, idx['s12', :, :, coln_l]].droplevel(0, axis=1)
-        serx = dxcol3.unstack().reindex(index=coln_l, level=2) 
+        #=======================================================================
+        # dxcol3 = dxcol1.loc[:, idx['s12', :, :, coln_l]].droplevel(0, axis=1)
+        # serx = dxcol3.unstack().reindex(index=coln_l, level=2) 
+        #=======================================================================
         
 
         
@@ -156,18 +160,23 @@ def SJ_plots_0830(
         #=======================================================================
         # lines on residuals NORMALIZED (s12N)
         #=======================================================================
+        #just water depth and the metrics
+        dxcol3 = dxcol1.loc[:, idx['s12N', :, 'wd',:, metrics_l]].droplevel(['base', 'layer'], axis=1)
+        
+        #stack into a series
+        serx = dxcol3.stack(level=dxcol3.columns.names).sort_index(sort_remaining=True
+                                       ).reindex(index=metrics_l, level='metric'
+                                        ).droplevel(['scale', 'pixelArea'])
  
-        dxcol3 = dxcol1.loc[:, idx['s12N', :, :, coln_l]].droplevel(0, axis=1)
-        serx = dxcol3.unstack().reindex(index=coln_l, level=2) 
         
 
         
         ses.plot_matrix_metric_method_var(serx,
-                                          map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'downscale'},
+                                          map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
                                           ylab_d={
                                               'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
-                                              'wd_mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
-                                              'wse_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$'},
+                                              'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
+                                              'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$'},
                                           ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd.svg'))
         
         #=======================================================================
@@ -203,13 +212,13 @@ def SJ_plots_0830(
  
     
 if __name__ == "__main__":
-    #pick_fp = SJ_0821()
+ 
     
     #SJ_0830_filter(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl')
-    SJ_0830_direct(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl')
-    #open_pick()
+    #SJ_0830_direct(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl')
+ 
     
-    #SJ_plots_0830()
+    SJ_plots_0830()
     
     print('finished')
  
