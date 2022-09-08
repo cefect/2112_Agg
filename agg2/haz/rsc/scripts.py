@@ -11,6 +11,7 @@ simple session (no retrieve)
  
 
 import numpy as np
+import numpy.ma as ma
 import os, copy, datetime
 import rasterio as rio
 from definitions import wrk_dir 
@@ -363,7 +364,145 @@ class ResampClassifier(RioWrkr):
         #===================================================================
         
         return cm_d
+
+
+    def get_catMasks2(self,
+ 
+                     dem_ar=None, wse_ar=None,
+                     downscale=None,
+                     **kwargs):
+        """compute the a mask for each resample category
         
+        converted to masked arrays
+        
+        Returns
+        -------
+        cm_d, dict
+            four masks from build_cat_masks {category label: np.ndarray}
+        
+        """
+        
+        #=======================================================================
+        # defautls
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cm',  **kwargs)
+        if downscale is None: downscale=self.downscale
+        
+        assert isinstance(downscale, int)
+        start = now()
+        #===================================================================
+        # load layers----
+        #===================================================================
+ 
+            
+        assert_dem_ar(dem_ar, masked=True)            
+        assert_wse_ar(wse_ar, masked=True)
+        
+        #=======================================================================
+        # globals
+        #=======================================================================
+ #==============================================================================
+ #        def apply_reducer(ar, func):
+ #            #apply aggregation
+ #            arC = apply_block_reduce(ar, func, downscale=downscale) #max of each coarse block
+ #            
+ #            #rescale back to original
+ #            """would have been nicer to just keep the reduce dscale"""
+ #            fine_ar = scipy.ndimage.zoom(arC, downscale, order=0, mode='reflect',   grid_mode=True)
+ #            #return np.kron(arC, np.ones((downscale,downscale))) #rescale back to original res
+ # 
+ #            assert fine_ar.shape==ar.shape
+ #            return fine_ar
+ #==============================================================================
+ 
+        
+        def log_status(k):
+            log.info('    calcd %i/%i \'%s\''%(cm_d[k].sum(), dem_ar.size, k))
+            
+        cm_d = dict()
+        #===================================================================
+        # compute delta
+        #===================================================================
+        log.info('    computing deltas')
+        delta_ar = (wse_ar-dem_ar).filled(0.0)
+        assert np.all(delta_ar>=0)
+        
+        #=======================================================================
+        # #dry-dry: max(delta) <=0
+        #=======================================================================
+        log.info('    computing DD')        
+        delta_max_ar = apply_block_reduce(delta_ar, np.max, downscale=downscale)
+        
+        cm_d['DD'] = delta_max_ar<=0
+        log_status('DD')
+        #===================================================================
+        # #wet-wet: min(delta) >0
+        #===================================================================        
+        delta_min_ar = apply_block_reduce(delta_ar, np.min, downscale=downscale)
+        
+        cm_d['WW'] = delta_min_ar>0
+        log_status('WW')
+        #===================================================================
+        # #partials: max(delta)>0 AND min(delta)==0
+        #===================================================================
+        partial_bool_ar = np.logical_and(
+            delta_max_ar>0,delta_min_ar==0)
+        
+        #check this is all remainers
+        assert partial_bool_ar.sum() + cm_d['WW'].sum() + cm_d['DD'].sum() == partial_bool_ar.size
+        
+        if not np.any(partial_bool_ar):
+            log.warning('no partials!')
+        else:
+            log.info('    flagged %i/%i partials'%(partial_bool_ar.sum(), partial_bool_ar.size))
+    
+
+        #===============================================================
+        # compute means
+        #===============================================================
+        
+        
+        dem_mean_ar =apply_block_reduce(dem_ar, np.mean, downscale=downscale).data
+        
+        """same thing
+        apply_block_reduce(wse_ar.filled(np.nan), np.nanmean, downscale=downscale)"""
+        wse_mean_ar = apply_block_reduce(wse_ar, np.mean, downscale=downscale).filled(np.nan) #ignore nulls in denomenator
+        
+ 
+        #===============================================================
+        # #wet-partials: mean(DEM)<mean(WSE)
+        #===============================================================
+        cm_d['WP'] = np.logical_and(partial_bool_ar,
+                                     dem_mean_ar<wse_mean_ar)
+        log_status('WP')
+        
+        #dry-partials: mean(DEM)>mean(WSE)
+        cm_d['DP'] = np.logical_and(partial_bool_ar,
+                                     dem_mean_ar>=wse_mean_ar)
+        
+        log_status('DP')
+        #===================================================================
+        # compute stats
+        #===================================================================
+        stats_d = {k:ar.sum()/ar.size for k, ar in cm_d.items()}
+        
+        
+        log.info('computed in %.2f secs w/ \n    %s'%((now()-start).total_seconds(), stats_d))
+        
+        #===================================================================
+        # check
+        #===================================================================
+        chk_ar = np.add.reduce(list(cm_d.values()))==1
+        assert np.all(chk_ar), '%i/%i failed logic'%((~chk_ar).sum(), chk_ar.size)
+        
+        for k, ar in cm_d.items(): 
+            assert delta_max_ar.shape==ar.shape, k
+            assert not isinstance(ar, ma.MaskedArray)
+        #===================================================================
+        # output rasteres
+        #===================================================================
+        
+        return cm_d
 
     def get_catMosaic(self, cm_d, cm_int_d=None, logger=None):
         """moasic together the four dsc cat masks

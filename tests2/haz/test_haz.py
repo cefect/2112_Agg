@@ -112,25 +112,39 @@ def test_00_dscList(wrkr, reso_iters):
     assert res_l[0]==1
 
  
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dem_ar, wse_ar', [
     get_rand_ar((8,8))
     ])
 @pytest.mark.parametrize('method', [
-    #'direct', 
+    'direct', 
     'filter'])
 @pytest.mark.parametrize('dsc_l', [([1,2])])
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
 
 
+@pytest.mark.parametrize('dem_ar, wse_ar', [
+    get_rand_ar((8,8))
+    ])
+@pytest.mark.parametrize('method', [
+    #'direct', 
+    'filter',
+    ])
+@pytest.mark.parametrize('dsc_l', [([1,2])])
+def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
+    wrkr.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True,
+                 out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                 )
+
+@pytest.mark.dev
 @pytest.mark.parametrize('pick_fp', [
-    os.path.join(src_dir, r'tests2\haz\data\direct\dsTest_test00_0828_haz_dsmp.pkl'),
+    os.path.join(src_dir, r'tests2\haz\data\agg_filter\dsTest_test01_0908_agg_filter.pkl'),
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
      ])
 def test_02_dsc(wrkr, pick_fp):
     res_fp = wrkr.run_catMasks(pick_fp, write=True,
-                               #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                               out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                                )
     
 

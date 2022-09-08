@@ -77,7 +77,7 @@ class UpsampleChild(ResampClassifier):
             
             #write it
             res_d[k] = self.write_memDataset(ds1, dtype=np.float32,
-                       ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),
+                       ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),masked=True,
                        logger=log)
             
         #=======================================================================
@@ -218,7 +218,7 @@ class UpsampleSession(UpsampleChild, Session):
                  dscList_kwargs = dict(reso_iters=5),
                  
                  method='direct',
-                 out_dir=None,
+ 
                  **kwargs):
         """build downsample set
         
@@ -241,7 +241,7 @@ class UpsampleSession(UpsampleChild, Session):
  
         start = now()
         #if out_dir is None: out_dir=os.path.join(self.out_dir, method)
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg',  ext='.pkl', subdir=True, **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg_%s'%method,  ext='.pkl', subdir=True, **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
         #=======================================================================
@@ -268,32 +268,15 @@ class UpsampleSession(UpsampleChild, Session):
         #=======================================================================
         res_lib = self.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method, out_dir=out_dir)
         
-        """not working
-        self.build_vrts(res_lib, out_dir=os.path.join(out_dir, 'vrt'))"""
-        #=======================================================================
-        # build upscaled twins
-        #=======================================================================
-        #=======================================================================
-        # res_libU = dict()
-        # for downscale, fp_d in res_lib.items():
-        #     res_libU[downscale] = self.build_upscales(fp_d, upscale=downscale)
-        # log.info('upscaled %i'%len(res_libU))
-        # #=======================================================================
-        # # build vrts
-        # #=======================================================================
-        # self.build_vrts(res_libU)
-        #=======================================================================
+ 
+ 
         
         log.info('finished in %.2f secs'%((now()-start).total_seconds()))
         
         #=======================================================================
         # assemble meta
         #=======================================================================
-        #=======================================================================
-        # meta_df = pd.DataFrame.from_dict(res_lib).T.join(
-        #     pd.DataFrame.from_dict(res_libU).T, rsuffix='_ups'
-        #     ).reset_index(drop=False).rename(columns={'index':'downscale'})
-        #=======================================================================
+ 
         meta_df = pd.DataFrame.from_dict(res_lib).T.reset_index(drop=False).rename(columns={'index':'downscale'})
         meta_df['downscale'] =meta_df['downscale'].astype(int)  #already int
         #write the meta
@@ -631,14 +614,11 @@ class UpsampleSession(UpsampleChild, Session):
  
                 dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp, reso_max=int(dsmp_df.iloc[-1, 0]),**skwargs)
                 
-                dem_ar = load_array(dem_ds)
-        
-                assert_dem_ar(dem_ar)
-         
-                assert_extent_equal(dem_ds, wse_ds)        
+                dem_ar = load_array(dem_ds, masked=True)        
+                assert_dem_ar(dem_ar, masked=True)         
                 
-                wse_ar = load_array(wse_ds)
-                assert_wse_ar(wse_ar)
+                wse_ar = load_array(wse_ds, masked=True)
+                assert_wse_ar(wse_ar, masked=True)
                 
                 continue
  
@@ -659,7 +639,7 @@ class UpsampleSession(UpsampleChild, Session):
             log.info('(%i/%i) downscale=%i building downsamp cat masks'%(i+1, len(dsmp_df), downscale)) 
             with ResampClassifier(session=self, downscale = downscale,  **skwargs) as wrkr:
                 #build each mask
-                cm_d = wrkr.get_catMasks(dem_ds=dem_ds, wse_ds=wse_ds, wse_ar=wse_ar, dem_ar=dem_ar)
+                cm_d = wrkr.get_catMasks2(wse_ar=wse_ar, dem_ar=dem_ar)
                 
                 #build the mosaic
                 cm_ar = wrkr.get_catMosaic(cm_d)
@@ -673,7 +653,13 @@ class UpsampleSession(UpsampleChild, Session):
             #===================================================================
             # write
             #===================================================================
-            ofp_d[downscale] = self.write_array(cm_ar, logger=log,ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%downscale))
+            #new transform
+            transform = dem_ds.transform * dem_ds.transform.scale(
+                        (dem_ds.width / cm_ar.shape[-1]),
+                        (dem_ds.height / cm_ar.shape[-2])
+                    )
+                    
+            ofp_d[downscale] = self.write_array(cm_ar, logger=log,ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%downscale), transform=transform)
                 
         log.info('finished building %i dsc mask mosaics'%len(res_d))
         #=======================================================================
@@ -686,7 +672,7 @@ class UpsampleSession(UpsampleChild, Session):
         
         meta_df = dsmp_df.join(meta_df, on='downscale') 
  
-        meta_df = meta_df.join(pd.Series(ofp_d).rename('catMosaic_fp'), on='downscale')
+        meta_df = meta_df.join(pd.Series(ofp_d).rename('catMosaic'), on='downscale')
             
         #=======================================================================
         # write meta
