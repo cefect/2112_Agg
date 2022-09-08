@@ -961,13 +961,14 @@ class UpsampleSession(UpsampleChild, Session):
     def run_errs(self,pick_fp, **kwargs):
         """build error grids for each layer"""
         
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('statsF',  subdir=True,ext='.pkl', **kwargs)
-        
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('errs',  subdir=True,ext='.pkl', **kwargs)
+        start = now()
         #=======================================================================
         # load
         #=======================================================================
         df_raw = pd.read_pickle(pick_fp).set_index('downscale')
         
+        log.info('on %i'%len(df_raw))
         #=======================================================================
         # loop on each layer
         #=======================================================================
@@ -977,15 +978,17 @@ class UpsampleSession(UpsampleChild, Session):
             # defaults
             #===================================================================
             fp = df_raw.loc[1, layName]
-            log.info('on %s from %s'%(layName, os.path.basename(fp)))
+            log.info('for \'%s\' from %s'%(layName, os.path.basename(fp)))
             
             res_cm_d, res_d = dict(), dict()
             #===================================================================
             # #load baseline
             #===================================================================
-            with rio.open(fp, mode='r') as ds:
-                assert ds.res[0]==1
-                base_ar = load_array(ds)
+            base_ds = self._base_set(fp)
+            self._base_inherit()
+
+            assert base_ds.res[0]==1
+            base_ar = load_array(base_ds)
                 
             #===================================================================
             # loop on reso
@@ -1028,32 +1031,59 @@ class UpsampleSession(UpsampleChild, Session):
                     cm_df = get_null_confusion(base_ar, fine_ar, names=['fine', 'base'])                    
                     cm_ser = cm_df.set_index('codes')['counts']
                     
+                    log.info('    calcd: %s'%cm_ser.to_dict())
+                    
 
                 #===============================================================
                 # write
                 #===============================================================
                 od = os.path.join(out_dir, layName)
                 if not os.path.exists(od):os.makedirs(od)
-                res_d[scale] = self.write_array(res_ar, ofp=os.path.join(od, 'err_%s_%03i.tif'%(layName, scale)), logger=log)
+                res_d[scale] = self.write_array(res_ar, ofp=os.path.join(od, '%s_err_%03i.tif'%(layName, scale)), logger=log)
                 
                 #===============================================================
                 # wrap scale
                 #===============================================================
                 res_cm_d[scale] = cm_ser
+                
             #===================================================================
             # wrap lyaer
             #===================================================================
-            rdx = pd.concat(res_cm_d, axis=1).T.join(pd.Series(res_d).rename('err_fp'))
-            rdx.index.name=df_raw.index.name
+            base_ds.close()
+            res_lib[layName] = pd.concat(res_cm_d, axis=1).T.join(pd.Series(res_d).rename('err_fp'))
+ 
             
-            res_dx = df_raw.join(rdx)
             
-            #write
-            res_dx.to_pickle(ofp)
-            
-            log.info('finished on %s and wrote to\n    %s'%(str(res_dx.shape), ofp))
-            
-            return ofp
+        #=======================================================================
+        # wrap on all
+        #=======================================================================
+        """as we are adding a nother level, need to do some re-organizing of the inputs"""
+        #collect
+        res_dx1 = pd.concat(res_lib,axis=1, names=['layer', 'val'])
+        res_dx1.index.name=df_raw.index.name
+        
+        #join with input filepaths
+        res_dx = pd.concat({'fp':df_raw.loc[:, ['dem', 'wse', 'wd', 'catMosaic_fp']]}, axis=1, names=['val', 'layer']).swaplevel(axis=1).join(res_dx1).sort_index(axis=1)
+        
+        #rename catMosaic level values\
+        res_dx = res_dx.rename(columns={'catMosaic_fp':'catMosaic'})        
+        
+        #join the dsc
+        res_dx = res_dx.join(pd.concat({'catMosaic':df_raw.loc[:, ['DD', 'WW', 'WP', 'DP']]}, axis=1, names=['layer', 'val'])).sort_index(axis=1)
+ 
+        """
+        view(df_raw)
+        view(res_dx.T)
+        view(pd.concat(res_lib,axis=1))
+        """
+        #=======================================================================
+        # #write
+        #=======================================================================
+        res_dx.to_pickle(ofp)
+        
+        log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
+        
+        return ofp
 
         """
         view(res_dx)

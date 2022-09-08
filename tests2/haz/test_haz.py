@@ -159,7 +159,9 @@ def test_04_statsFine(wrkr, pick_fp):
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
      ]) 
 def test_05_errs(wrkr, pick_fp):
-    res_fp = wrkr.run_errs(pick_fp, write=True)
+    res_fp = wrkr.run_errs(pick_fp, write=True,
+                           out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                           )
  
     
 
