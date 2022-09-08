@@ -401,19 +401,7 @@ class ResampClassifier(RioWrkr):
         #=======================================================================
         # globals
         #=======================================================================
- #==============================================================================
- #        def apply_reducer(ar, func):
- #            #apply aggregation
- #            arC = apply_block_reduce(ar, func, downscale=downscale) #max of each coarse block
- #            
- #            #rescale back to original
- #            """would have been nicer to just keep the reduce dscale"""
- #            fine_ar = scipy.ndimage.zoom(arC, downscale, order=0, mode='reflect',   grid_mode=True)
- #            #return np.kron(arC, np.ones((downscale,downscale))) #rescale back to original res
- # 
- #            assert fine_ar.shape==ar.shape
- #            return fine_ar
- #==============================================================================
+ 
  
         
         def log_status(k):

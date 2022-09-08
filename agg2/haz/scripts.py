@@ -706,7 +706,7 @@ class UpsampleSession(UpsampleChild, Session):
 
     def run_stats(self, pick_fp, 
  
-                 cols = ['dem', 'wse', 'wd', 'catMosaic_fp'],
+                 cols = ['dem', 'wse', 'wd', 'catMosaic'],
  
                  **kwargs):
         """
@@ -753,21 +753,23 @@ class UpsampleSession(UpsampleChild, Session):
                 pixelLength=ds.res[0]
                 
                 #load the array
-                wd_ar = load_array(ds)
+                wd_ar = load_array(ds, masked=True)
             
             #build other masks
             if i>1:
-                cm_ar = load_array(row['catMosaic_fp'])
+                cm_ar = load_array(row['catMosaic'])
                 
-                """mosaics are stored at the native resolution
-                here we decimate down to the downscaled resolution
-                ... could consider storing these at the low resolution to speed things up"""
-                cm_ar1 = cm_ar[::i, ::i] #decimate
+                #===============================================================
+                # """mosaics are stored at the native resolution
+                # here we decimate down to the downscaled resolution
+                # ... could consider storing these at the low resolution to speed things up"""
+                # cm_ar1 = cm_ar[::i, ::i] #decimate
+                #===============================================================
  
-                assert cm_ar1.shape==shape
+                assert cm_ar.shape==shape
                 
                 #boolean mask of each category
-                mask_d.update(self.mosaic_to_masks(cm_ar1))
+                mask_d.update(self.mosaic_to_masks(cm_ar))
                 
  
             #===================================================================
@@ -807,7 +809,7 @@ class UpsampleSession(UpsampleChild, Session):
  
     def run_stats_fine(self, pick_fp, 
  
-                 cols = ['wse', 'wd', 'catMosaic_fp'],
+                 cols = ['wse', 'wd', 'catMosaic'],
  
                  **kwargs):
         """
@@ -858,9 +860,11 @@ class UpsampleSession(UpsampleChild, Session):
             # #build other masks
             #===================================================================
             if i>1:
-                cm_ar = load_array(row['catMosaic_fp'])
-                
-                """here wee keep the fine resolution"""
+                """here we need to do wnscale"""
+                with rio.open(row['catMosaic'], mode='r') as ds:
+                    cm_ar = ds.read(1, out_shape=shape, resampling=Resampling.nearest, masked=False)
+ 
+ 
                 assert cm_ar.shape==wdF_ar.shape
                 
                 mask_d.update(self.mosaic_to_masks(cm_ar))

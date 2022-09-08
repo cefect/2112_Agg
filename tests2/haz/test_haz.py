@@ -134,34 +134,33 @@ def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
 @pytest.mark.parametrize('dsc_l', [([1,2])])
 def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True,
-                 out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                 #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                  )
+agg_fp = os.path.join(src_dir, r'tests2\haz\data\agg_filter\dsTest_test01_0908_agg_filter.pkl')
 
-@pytest.mark.dev
+
+
 @pytest.mark.parametrize('pick_fp', [
-    os.path.join(src_dir, r'tests2\haz\data\agg_filter\dsTest_test01_0908_agg_filter.pkl'),
+    agg_fp,
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
      ])
 def test_02_dsc(wrkr, pick_fp):
     res_fp = wrkr.run_catMasks(pick_fp, write=True,
-                               out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                               #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                                )
     
 
-@pytest.mark.parametrize('pick_fp', [
-    os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'),
-     #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
-     ]) 
+cmasks_fp = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data\cMasks\dsTest_test02_0908_cMasks.pkl'
+
+
+@pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
 def test_03_stats(wrkr, pick_fp):
     res_fp = wrkr.run_stats(pick_fp, write=True)
     
 
 
- 
-@pytest.mark.parametrize('pick_fp', [
-    os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'),
-     #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
-     ]) 
+@pytest.mark.dev
+@pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
 def test_04_statsFine(wrkr, pick_fp):
     res_fp = wrkr.run_stats_fine(pick_fp, write=True)
  
