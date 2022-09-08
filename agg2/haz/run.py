@@ -23,9 +23,10 @@ def build_vrt(
         ses.run_vrts(pick_fp)
         
 
-def SJ_0829_base(method='direct',
-                 fp2=None,
+def SJ_0829(method='direct',
+            fp_lib=None,
                  ):
+    
     #project data
     proj_name = 'SJ'
     proj_d = proj_lib['SJ']
@@ -34,28 +35,54 @@ def SJ_0829_base(method='direct',
     wse_fp=proj_d['wse_fp_d']['hi']
     dem_fp=proj_d['dem_fp_d'][1]
     
+    #intermittent results
+    fp_d = fp_lib[method]
+    
     from agg2.haz.scripts import UpsampleSession as Session
     
     #execute
     with Session(proj_name=proj_name, run_name='r4_%s'%method) as ses:
-        if fp2 is None:
+        
+        #=======================================================================
+        # build category masks
+        #=======================================================================
+        """todo: add something similar for the layers"""
+        if 'catMasks' in fp_d:
             fp1 = ses.run_dsmp(dem_fp, wse_fp, method=method, dsc_l=[1, 2**3, 2**6, 2**7, 2**8, 2**9])
  
             fp2 = ses.run_catMasks(fp1)
+        else:
+            fp2 = fp_d['catMasks']
  
+        
         #vrt_d = ses.run_vrts(fp2)
         
-        ses.run_stats(fp2)
-        ses.run_stats_fine(fp2)
+        #=======================================================================
+        # build agg stats
+        #=======================================================================
+
+        #ses.run_stats(fp2)
+        #ses.run_stats_fine(fp2)
         
-    return fp2
+        #=======================================================================
+        # build difference grids
+        #=======================================================================
+        if 'err' in fp_d:
+            fp3 = ses.run_errs(fp2)
+        else:
+            fp3 = fp_d['err']        
 
-def SJ_0830_filter(**kwargs):
-    return SJ_0829_base(method='filter', **kwargs)
+            
+        #=======================================================================
+        # build difference stats
+        #=======================================================================
 
+        ses.run_errStats(fp3)
+        
+        
+    return 
 
-def SJ_0830_direct(**kwargs):
-    return SJ_0829_base(method='direct', **kwargs)
+ 
         
  
     
@@ -213,12 +240,36 @@ def SJ_plots_0830(
     
 if __name__ == "__main__":
  
+    #intermittent results pickels
+    fp_lib = {
+        'direct':{
+            'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl',
+            'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\errs\SJ_r4_direct_0908_errs.pkl'
+            },
+        'filter':{
+            'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl',
+            'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\errs\SJ_r4_filter_0908_errs.pkl'
+            }
+        
+        }
     
-    #SJ_0830_filter(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl')
-    #SJ_0830_direct(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl')
+    method = 'filter'
+    SJ_0829(method=method, fp_lib=fp_lib)
  
+ 
+    #===========================================================================
+    # plotting
+    #===========================================================================
+    fp_d  = { 
+            'direct':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_direct\20220908\stats\SJ_r4_direct_0908_stats.pkl',
+            'directF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\statsF\SJ_r4_direct_0908_statsF.pkl',
+
+            'filter':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_filter\20220908\stats\SJ_r4_filter_0908_stats.pkl', 
+            'filterF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\statsF\SJ_r4_filter_0908_statsF.pkl',
+       
+            }   
     
-    SJ_plots_0830()
+    #SJ_plots_0830(fp_d=fp_d)
     
     print('finished')
  
