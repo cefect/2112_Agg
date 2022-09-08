@@ -112,7 +112,7 @@ def test_00_dscList(wrkr, reso_iters):
     assert res_l[0]==1
 
  
-
+@pytest.mark.dev
 @pytest.mark.parametrize('dem_ar, wse_ar', [
     get_rand_ar((8,8))
     ])
@@ -153,7 +153,7 @@ def test_04_statsFine(wrkr, pick_fp):
  
 
  
-@pytest.mark.dev
+
 @pytest.mark.parametrize('pick_fp', [
     os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'),
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),

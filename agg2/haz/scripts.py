@@ -988,6 +988,11 @@ class UpsampleSession(UpsampleChild, Session):
             with rio.open(fp, mode='r') as ds: 
                 assert ds.res[0]==1
                 base_ar = ds.read(1, masked=True)
+                assert base_ar.mask.shape==base_ar.shape
+                #===============================================================
+                # ds.read(1)
+                # np.all(ds.read_masks(1)==255)
+                #===============================================================
                 self._base_inherit(ds=ds)
                 
             #===================================================================
@@ -1140,6 +1145,7 @@ class UpsampleSession(UpsampleChild, Session):
                         ar = ds.read(1, masked=True)
                         
                     assert not np.all(np.isnan(ar)), scale
+                    assert not np.all(ar.mask)
                     res_d['meanErr'] = ar.sum()/ar.size
                     res_d['meanAbsErr'] = np.abs(ar).sum()/ar.size
                     res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))

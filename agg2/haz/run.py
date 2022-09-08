@@ -47,8 +47,8 @@ def SJ_0829(method='direct',
         # build category masks
         #=======================================================================
         """todo: add something similar for the layers"""
-        if 'catMasks' in fp_d:
-            fp1 = ses.run_dsmp(dem_fp, wse_fp, method=method, dsc_l=[1, 2**3, 2**6, 2**7, 2**8, 2**9])
+        if not 'catMasks' in fp_d:
+            fp1 = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=[1, 2**3, 2**6, 2**7, 2**8, 2**9])
  
             fp2 = ses.run_catMasks(fp1)
         else:
@@ -67,7 +67,7 @@ def SJ_0829(method='direct',
         #=======================================================================
         # build difference grids
         #=======================================================================
-        if 'err' in fp_d:
+        if not 'err' in fp_d:
             fp3 = ses.run_errs(fp2)
         else:
             fp3 = fp_d['err']        
@@ -244,17 +244,17 @@ if __name__ == "__main__":
     fp_lib = {
         'direct':{
             'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl',
-            'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\errs\SJ_r4_direct_0908_errs.pkl'
+            #'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\errs\SJ_r4_direct_0908_errs.pkl'
             },
         'filter':{
             'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl',
-            'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\errs\SJ_r4_filter_0908_errs.pkl'
+            #'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\errs\SJ_r4_filter_0908_errs.pkl'
             }
         
         }
     
-    method = 'filter'
-    SJ_0829(method=method, fp_lib=fp_lib)
+ 
+    SJ_0829(method='direct', fp_lib=fp_lib)
  
  
     #===========================================================================
