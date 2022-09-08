@@ -153,16 +153,29 @@ def test_04_statsFine(wrkr, pick_fp):
  
 
  
-@pytest.mark.dev
+ 
 @pytest.mark.parametrize('pick_fp', [
     os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'),
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
      ]) 
 def test_05_errs(wrkr, pick_fp):
     res_fp = wrkr.run_errs(pick_fp, write=True,
-                           out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
- 
+    
+    
+    
+@pytest.mark.dev
+@pytest.mark.parametrize('pick_fp', [
+    os.path.join(src_dir, r'tests2\haz\data\errs\dsTest_test05_0908_errs.pkl'),
+     #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
+     ]) 
+def test_06_errStats(wrkr, pick_fp):
+    res_fp = wrkr.run_errStats(pick_fp, write=True,
+                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                           )
+    
+    
     
 
 test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'

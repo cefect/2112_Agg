@@ -959,7 +959,7 @@ class UpsampleSession(UpsampleChild, Session):
     # ERRORS-------
     #===========================================================================
     def run_errs(self,pick_fp, **kwargs):
-        """build error grids for each layer"""
+        """build difference grids for each layer"""
         
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('errs',  subdir=True,ext='.pkl', **kwargs)
         start = now()
@@ -1084,6 +1084,8 @@ class UpsampleSession(UpsampleChild, Session):
         log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
         
         return ofp
+    
+    
 
         """
         view(res_dx)
@@ -1092,7 +1094,75 @@ class UpsampleSession(UpsampleChild, Session):
         """
         
         
+    def run_errStats(self,pick_fp, **kwargs):
+        """compute stats from diff rasters"""
         
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('errStats',  subdir=True,ext='.pkl', **kwargs)
+        start = now()
+        
+        dxcol_raw = pd.read_pickle(pick_fp)
+        confusion_l = ['FN', 'FP', 'TN', 'TP']
+        #=======================================================================
+        # loop on each layer
+        #=======================================================================
+        res_lib=dict()
+        for layName in ['wse']:
+            log.info('on \'%s\''%layName)
+            df_raw = dxcol_raw[layName]
+            assert 'err_fp' in df_raw.columns
+            
+            #===================================================================
+            # loop on each scale
+            #===================================================================
+            res_d1 = dict()
+            for i, (scale, row) in enumerate(df_raw.iterrows()):
+                log.info('    %i/%i from %s'%(i+1, len(df_raw), os.path.basename(row['err_fp'])))
+                res_d = dict()
+            
+
+                    
+                #===============================================================
+                # compute metrics
+                #===============================================================
+                if i==0:
+                    res_d.update({'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0})
+                else:
+                    with rio.open(row['err_fp'], mode='r') as ds:
+                        ar = ds.read(1, masked=True)
+                        
+                    res_d['meanErr'] = ar.sum()/ar.size
+                    res_d['meanAbsErr'] = np.abs(ar).sum()/ar.size
+                    res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
+                
+                    del ar
+                
+                #===============================================================
+                # add confusion
+                #===============================================================
+                res_d.update(row.loc[confusion_l].to_dict())
+                
+                #===============================================================
+                # wrap
+                #===============================================================
+                res_d1[scale] = res_d
+            #===================================================================
+            # wrap layer loop
+            #===================================================================
+            res_lib[layName] = pd.DataFrame.from_dict(res_d1).T.astype({k:np.int32 for k in confusion_l})
+        #=======================================================================
+        # wrap on layer
+        #=======================================================================
+        res_dx = pd.concat(res_lib, axis=1, names=['layer', 'metric'])
+        
+        #=======================================================================
+        # #write
+        #=======================================================================
+        res_dx.to_pickle(ofp)
+        
+        log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
+        
+        return ofp
+            
         
     
     
