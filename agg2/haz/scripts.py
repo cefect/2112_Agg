@@ -694,6 +694,9 @@ class UpsampleSession(UpsampleChild, Session):
     #===========================================================================
     # STATS-------
     #===========================================================================
+
+
+
     def run_stats(self, pick_fp, 
  
                  cols = ['dem', 'wse', 'wd', 'catMosaic_fp'],
@@ -719,23 +722,31 @@ class UpsampleSession(UpsampleChild, Session):
         #slice to specfied columns
         df = df_raw.loc[:, df_raw.columns.isin(cols+[icoln])].set_index(icoln)
         
+        """
+        view(df)
+        """
+        
         log.info('computing stats on %s'%str(df.shape))
         #=======================================================================
         # compute for each downscale
         #=======================================================================
         res_lib=dict()
+        meta_d = dict()
         for i, row in df.iterrows():
             log.info('computing for downscale=%i'%i)
             #===================================================================
             # setup masks
             #===================================================================
             #the complete mask
-            with rio.open(row['dem'], mode='r') as ds:
+            with rio.open(row['wd'], mode='r') as ds:
                 shape = ds.shape                    
                 mask_d = {'all':np.full(shape, True)}
  
                 pixelArea = ds.res[0]*ds.res[1]
                 pixelLength=ds.res[0]
+                
+                #load the array
+                wd_ar = load_array(ds)
             
             #build other masks
             if i>1:
@@ -748,60 +759,53 @@ class UpsampleSession(UpsampleChild, Session):
  
                 assert cm_ar1.shape==shape
                 
+                #boolean mask of each category
                 mask_d.update(self.mosaic_to_masks(cm_ar1))
                 
  
-                
-                
             #===================================================================
-            # compute stats for each mask
+            # compute on each layer
             #===================================================================
             res_d1 = dict()
-            for maskName, mask_ar in mask_d.items():
-                log.info('    %s (%i/%i)'%(maskName, mask_ar.sum(), mask_ar.size))
-                res_d={'count':mask_ar.sum(), 'pixelArea':pixelArea, 'pixelLength':pixelLength}
-
-                def get_arx(tag):
-                    ar = load_array(row[tag])                    
-                    return ma.array(ar, mask=~mask_ar) #valids=True
-
-                #===============================================================
-                # some valid cells
-                #===============================================================
-                if np.any(mask_ar):
-                    #===================================================================
-                    # depths
-                    #===================================================================
-                    wd_ar = get_arx('wd')                
-                    res_d['wd_mean'] = wd_ar.mean()
-                    
-                    #===================================================================
-                    # inundation area
-                    #===================================================================
-                    wse_ar = get_arx('wse')
-                    res_d['wse_area'] = np.sum(~np.isnan(wse_ar))*(pixelArea) #non-nulls times pixel area
-                        
-                    #===================================================================
-                    # volume
-                    #===================================================================
-                    
-                    res_d['vol'] = wd_ar.sum()*pixelArea
-                else:
-                    log.warning('%i.%s got no valids'%(i, maskName))
-                    res_d.update({'wd_mean':0.0, 'wse_area':0.0, 'vol':0.0})
+            for layName, ar_raw in {'wd': wd_ar}.items():
+                """only doing wd for now"""
+                #===================================================================
+                # compute stats function on each mask
+                #===================================================================
                 
-                res_d1[maskName] = res_d #store
-            res_lib[i] = pd.DataFrame.from_dict(res_d1)
+                func = lambda x:self.get_depth_stats(x, pixelArea=pixelArea)
+                d = self.get_maskd_func(mask_d, wd_ar, func, log.getChild('%i.%s'%(i, layName)))
+                
+
+                    
+                res_d1[layName] = pd.DataFrame.from_dict(d)
+            
+            
+            
+            #===============================================================
+            # store
+            #===============================================================
+            """
+            view(pd.concat(res_d1, axis=1, names=['layer', 'dsc']))
+            """
+            res_lib[i] = pd.concat(res_d1, axis=1, names=['layer', 'dsc'])
+            meta_d[i] = {'pixelArea':pixelArea, 'pixelLength':pixelLength}                    
+ 
             
         #=======================================================================
         # wrap
         #=======================================================================
-        res_dx = pd.concat(res_lib, names=['downscale', 'metric'])
-        res_dx.columns.name='dsc'        
+        res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()
         
-        res_dx = res_dx.unstack()
+        #ammend commons to index
+        mindex = pd.MultiIndex.from_frame(
+            res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale')
+            )
+        
+        res_dx.index=mindex
+ 
         """
-                view(res_dx)
+        view(res_dx)
         """
         
         res_dx.to_pickle(ofp)
@@ -933,7 +937,45 @@ class UpsampleSession(UpsampleChild, Session):
         return ofp
         
         
+    def get_depth_stats(self, mar, pixelArea):
+        res_d=dict()
+        #=======================================================
+    # simple mean
+    #=======================================================
+        res_d['mean'] = mar.mean()
+    #===================================================================
+    # inundation area
+    #===================================================================
+        res_d['real_area'] = np.sum(~np.isnan(mar)) * (pixelArea) #non-nulls times pixel area
+    #===================================================================
+    # volume
+    #===================================================================
+        res_d['vol'] = mar.sum() * pixelArea
         
+        return res_d
+
+
+    def get_maskd_func(self, mask_d, ar_raw, func, log):
+        log.debug('    on %s w/ %i masks'%(str(ar_raw.shape), len(mask_d)))
+        res_lib = dict()
+        for maskName, mask_ar in mask_d.items():
+            log.info('     %s (%i/%i)' % (maskName, mask_ar.sum(), mask_ar.size))
+            res_d = {'count':mask_ar.sum()}
+ 
+            #===============================================================
+            # some valid cells
+            #===============================================================
+            if np.any(mask_ar):
+                #build masked
+                mar = ma.array(ar_raw, mask=~mask_ar) #valids=True
+                res_d.update(func(mar))
+            else:
+                log.warning('%s got no valids' % (maskName))
+                #res_d.update({'wd_mean':0.0, 'wse_area':0.0, 'vol':0.0})
+            res_lib[maskName] = res_d #store
+        
+        log.debug('    finished on %i masks'%len(res_lib))
+        return res_lib
         
         
         

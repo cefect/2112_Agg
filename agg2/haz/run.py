@@ -44,9 +44,9 @@ def SJ_0829_base(method='direct',
  
             fp2 = ses.run_catMasks(fp1)
  
-        vrt_d = ses.run_vrts(fp2)
+        #vrt_d = ses.run_vrts(fp2)
         
-        #ses.run_stats(fp2)
+        ses.run_stats(fp2)
         #ses.run_stats_fine(fp2)
         
     return fp2
@@ -206,10 +206,10 @@ if __name__ == "__main__":
     #pick_fp = SJ_0821()
     
     #SJ_0830_filter(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl')
-    #SJ_0830_direct(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl')
+    SJ_0830_direct(fp2=r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl')
     #open_pick()
     
-    SJ_plots_0830()
+    #SJ_plots_0830()
     
     print('finished')
  
