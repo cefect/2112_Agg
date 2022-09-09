@@ -12,6 +12,7 @@ import pytest, copy, os, random
 import rasterio as rio
 from agg2.haz.misc import get_rand_ar, get_wse_filtered
 from agg2.haz.scripts import UpsampleSession as Session
+from agg2.haz.run import run_haz_agg2
 xfail = pytest.mark.xfail
  
 
@@ -58,7 +59,7 @@ def wrkr(tmp_path,write,logger, test_name,
                  out_dir=tmp_path, 
                  tmp_dir=os.path.join(tmp_path, 'tmp_dir'),
                  prec=prec,
-                  proj_name='dsTest', #probably a better way to propagate through this key 
+ 
                  run_name=test_name[:8].replace('_',''),
                   
                  relative=True, write=write, #avoid writing prep layers
@@ -183,13 +184,23 @@ def test_06_errStats(wrkr, pick_fp):
                            )
     
     
-    
+#===============================================================================
+# INTEGRATIOn tests ------------
+#===============================================================================
+#saint Jon sub-set test data
+SJ_test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'
 
-test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'
+proj_d = {
+    'EPSG':2953,
+    'finv_fp':'',
+    'wse_fp_d':{'hi':os.path.join(SJ_test_dir,  'GeoNB_LSJ_aoiT01_0829.tif')},
+    'dem_fp_d':{1:os.path.join(SJ_test_dir,'NBDNR2015_r01_aoiT01_0829.tif')},
+    }
+ 
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dem_fp, wse_fp', [
-    (os.path.join(test_dir,'NBDNR2015_r01_aoiT01_0829.tif'), os.path.join(test_dir,  'GeoNB_LSJ_aoiT01_0829.tif'))
+    (proj_d['dem_fp_d'][1],proj_d['wse_fp_d']['hi'])
     ])
 @pytest.mark.parametrize('dsc_l', [([1,2,4])])
 @pytest.mark.parametrize('method', [
@@ -211,6 +222,19 @@ def test_runAll(wrkr, dem_fp, wse_fp, dsc_l, method):
     fp3 = wrkr.run_errs(fp2)
     
     wrkr.run_errStats(fp3)
+    
+
+@pytest.mark.dev
+@pytest.mark.parametrize('dsc_l', [([1,2,4])])
+@pytest.mark.parametrize('method', [
+    'direct', 
+    'filter',
+    ])
+@pytest.mark.parametrize('proj_d', [proj_d])
+def test_runHaz(method, proj_d, dsc_l, tmp_path):
+    """use the function runner"""
+    run_haz_agg2(proj_d=proj_d, method=method, dsc_l=dsc_l, case_name='tCn', run_name='tRn',
+                 wrk_dir=tmp_path)
     
     
     

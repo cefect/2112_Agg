@@ -5,85 +5,102 @@ Created on Aug. 28, 2022
 '''
 import os
 from definitions import proj_lib
-
+from hp.basic import get_dict_str
 import pandas as pd
 idx = pd.IndexSlice
 
-
  
 
- 
+        
+
+def run_haz_agg2(method='direct',
+            fp_d={},
+            case_name = 'SJ',
+            dsc_l=[1, 2**3, 2**5, 2**6, 2**7, 2**8, 2**9],
+            proj_d=None,
+                 **kwargs):
+    """hazard/raster run for agg2"""
     
-def build_vrt(
-        pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\dsmp\SJ_r1\20220828\haz\direct\dsmp_SJ_r1_0828_haz_dsmp.pkl',
-        **kwargs):
+    #===========================================================================
+    # extract parametesr
+    #===========================================================================
+    #project data   
+    if proj_d is None: 
+        proj_d = proj_lib[case_name] 
+    wse_fp=proj_d['wse_fp_d']['hi']
+    dem_fp=proj_d['dem_fp_d'][1] 
+    
+    #===========================================================================
+    # run model
+    #===========================================================================
+    from agg2.haz.scripts import UpsampleSession as Session    
+    #execute
+    with Session(case_name=case_name,method=method, **kwargs) as ses:
+        stat_d = dict()
+        #=======================================================================
+        # build category masks
+        #=======================================================================
+        """todo: add something similar for the layers"""
+        if not 'catMasks' in fp_d:
+            fp1 = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
+ 
+            fp_d['catMasks'] = ses.run_catMasks(fp1)
+ 
+        
+        
+        #=======================================================================
+        # build agg stats
+        #=======================================================================
+
+        stat_d['s2'] = ses.run_stats(fp_d['catMasks'])
+        stat_d['s1'] =ses.run_stats_fine(fp_d['catMasks'])
+        
+        #=======================================================================
+        # build difference grids
+        #=======================================================================
+        if not 'err' in fp_d:
+            fp_d['err'] = ses.run_errs(fp_d['catMasks'])
+ 
+            
+        #=======================================================================
+        # build difference stats
+        #=======================================================================
+
+        stat_d['diff'] =ses.run_errStats(fp_d['err'])
+        
+        #=======================================================================
+        # assemble vrts
+        #=======================================================================
+        #vrt_d = ses.run_vrts(fp2)
+        
+        ses.logger.info('finished w/ array picks \n%s'%get_dict_str(fp_d))
+        ses.logger.info('finished w/ stat picks \n%s'%get_dict_str(stat_d))
+        
+        
+    return fp_d, stat_d
+
+ 
+def build_vrt(pick_fp = None,**kwargs):
     
     from agg2.haz.scripts import UpsampleSession as Session
     with Session(**kwargs) as ses:
         ses.run_vrts(pick_fp)
         
 
-def SJ_0829(method='direct',
-            fp_lib=None,
-                 ):
-    
-    #project data
-    proj_name = 'SJ'
-    proj_d = proj_lib['SJ']
-    
- 
-    wse_fp=proj_d['wse_fp_d']['hi']
-    dem_fp=proj_d['dem_fp_d'][1]
-    
-    #intermittent results
-    fp_d = fp_lib[method]
-    
-    from agg2.haz.scripts import UpsampleSession as Session
-    
-    #execute
-    with Session(proj_name=proj_name, run_name='r4_%s'%method) as ses:
-        
-        #=======================================================================
-        # build category masks
-        #=======================================================================
-        """todo: add something similar for the layers"""
-        if not 'catMasks' in fp_d:
-            fp1 = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=[1, 2**3, 2**6, 2**7, 2**8, 2**9])
- 
-            fp2 = ses.run_catMasks(fp1)
-        else:
-            fp2 = fp_d['catMasks']
- 
-        
-        #vrt_d = ses.run_vrts(fp2)
-        
-        #=======================================================================
-        # build agg stats
-        #=======================================================================
-
-        #ses.run_stats(fp2)
-        #ses.run_stats_fine(fp2)
-        
-        #=======================================================================
-        # build difference grids
-        #=======================================================================
-        if not 'err' in fp_d:
-            fp3 = ses.run_errs(fp2)
-        else:
-            fp3 = fp_d['err']        
-
-            
-        #=======================================================================
-        # build difference stats
-        #=======================================================================
-
-        ses.run_errStats(fp3)
-        
-        
-    return 
-
- 
-        
+def SJ_r5_0909(
+        method='direct',
+        fp_lib = {
+                'direct':{
+                    #'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl',
+                    #'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\errs\SJ_r4_direct_0908_errs.pkl'
+                    },
+                'filter':{
+                    #'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl',
+                    #'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\errs\SJ_r4_filter_0908_errs.pkl'
+                    }
+                },
+        **kwargs):
+    return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r5', **kwargs)
  
     
 def SJ_plots_0830(
@@ -235,26 +252,14 @@ def SJ_plots_0830(
         # ses.plot_dsc_ratios(dfi.dropna())
         #=======================================================================
         
- 
+
  
     
 if __name__ == "__main__":
  
-    #intermittent results pickels
-    fp_lib = {
-        'direct':{
-            'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl',
-            #'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\errs\SJ_r4_direct_0908_errs.pkl'
-            },
-        'filter':{
-            'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl',
-            #'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\errs\SJ_r4_filter_0908_errs.pkl'
-            }
-        
-        }
-    
- 
-    SJ_0829(method='direct', fp_lib=fp_lib)
+    SJ_r5_0909(method='filter',
+               dsc_l=[1, 2**8, 2**9],
+               )
  
  
     #===========================================================================

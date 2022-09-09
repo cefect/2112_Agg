@@ -11,16 +11,17 @@ import pandas as pd
 import os, copy, datetime
 import rasterio as rio
 from rasterio.enums import Resampling
-import scipy.ndimage
+#import scipy.ndimage
 
  
-from definitions import wrk_dir
+
  
-from hp.oop import Session
+
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
 from hp.basic import get_dict_str
 from hp.pd import view
 from hp.sklearn import get_null_confusion
+from agg2.coms import Agg2Session
 from agg2.haz.rsc.scripts import ResampClassifier
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar
 idx= pd.IndexSlice
@@ -52,8 +53,9 @@ class UpsampleChild(ResampClassifier):
         # build defaults
         #=======================================================================
  
-        super().__init__(subdir=subdir,
-                          **kwargs)
+        super().__init__(subdir=subdir,**kwargs)
+        
+
         
     def agg_direct(self,
                          ds_d,
@@ -187,27 +189,16 @@ class UpsampleChild(ResampClassifier):
         return res_d
         
  
-class UpsampleSession(UpsampleChild, Session):
+class UpsampleSession(Agg2Session, UpsampleChild):
     """tools for experimenting with downsample sets"""
     
-    def __init__(self, 
-
-                 **kwargs):
-        """
-        
-        Parameters
-        ----------
+    def __init__(self,method='direct', **kwargs):
  
- 
-        """
         
-        super().__init__(obj_name='usmp', wrk_dir=wrk_dir,subdir=False, **kwargs)
+        super().__init__(obj_name='haz',scen_name=method, **kwargs)
+        self.method=method
         
-        #=======================================================================
-        # attach
-        #=======================================================================
  
-        print('finished __init__')
         
     #===========================================================================
     # UPSAMPLING (aggregating)-----
@@ -217,7 +208,7 @@ class UpsampleSession(UpsampleChild, Session):
                  dsc_l=None,
                  dscList_kwargs = dict(reso_iters=5),
                  
-                 method='direct',
+                 method=None,
  
                  **kwargs):
         """build downsample set
@@ -238,7 +229,7 @@ class UpsampleSession(UpsampleChild, Session):
         #=======================================================================
         # defaults
         #=======================================================================
- 
+        if method is None: method=self.method
         start = now()
         #if out_dir is None: out_dir=os.path.join(self.out_dir, method)
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg_%s'%method,  ext='.pkl', subdir=True, **kwargs)
