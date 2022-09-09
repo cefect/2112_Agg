@@ -3,7 +3,7 @@ Created on Aug. 28, 2022
 
 @author: cefect
 '''
-import os
+import os, pathlib
 from definitions import proj_lib
 from hp.basic import get_dict_str
 import pandas as pd
@@ -23,6 +23,10 @@ def run_haz_agg2(method='direct',
     #===========================================================================
     # imports
     #===========================================================================
+    from dask.distributed import Client
+    client = Client(n_workers=6) #init a local cluster
+    print('started dask client w/ dashboard at \n    %s'%client.dashboard_link) #get the link to the dsashbaord
+
     from rasterio.crs import CRS
     
     #===========================================================================
@@ -95,12 +99,12 @@ def SJ_r5_0909(
         method='direct',
         fp_lib = {
                 'direct':{
-                    #'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_direct\20220829\haz\cMasks\SJ_r3_direct_0829_haz_cMasks.pkl',
-                    #'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\errs\SJ_r4_direct_0908_errs.pkl'
+                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\cMasks\\SJ_r5_direct_0909_cMasks.pkl',
+                    'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\errs\\SJ_r5_direct_0909_errs.pkl',
                     },
                 'filter':{
-                    #'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r3_filter\20220830\haz\cMasks\SJ_r3_filter_0830_haz_cMasks.pkl',
-                    #'err':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\errs\SJ_r4_filter_0908_errs.pkl'
+                    'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+                    'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
                     }
                 },
         **kwargs):
@@ -113,18 +117,47 @@ def SJ_plots_0830(
             'directF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\statsF\SJ_r4_direct_0908_statsF.pkl',
             'filter':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_filter\20220908\stats\SJ_r4_filter_0908_stats.pkl', 
             'filterF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\statsF\SJ_r4_filter_0908_statsF.pkl'           
-            }        
+            }):
+    return run_haz_plots(fp_d)
+
+def SJ_plots_0909(        
+        fp_lib = {
+            'filter':{
+                's2':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\stats\\SJ_r5_filter_0909_stats.pkl',
+                's1':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\statsF\\SJ_r5_filter_0909_statsF.pkl',
+                'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errStats\\SJ_r5_filter_0909_errStats.pkl',                
+                },
+            'direct':{
+                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\stats\\SJ_r5_direct_0909_stats.pkl',
+                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\statsF\\SJ_r5_direct_0909_statsF.pkl',
+                'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\errStats\\SJ_r5_direct_0909_errStats.pkl',                
+                
+                }
+            }
         ):
+    return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
+
+def run_haz_plots(fp_lib,
+                  **kwargs):
     """construct figure from SJ downscale cat results"""
     from agg2.haz.da import UpsampleDASession as Session
     from hp.pd import view
-    with Session(proj_name='SJ', run_name='r4_da') as ses:
+    
+    #===========================================================================
+    # get base dir
+    #=========================================================================== 
+    out_dir = pathlib.Path(os.path.dirname(fp_lib['filter']['s2'])).parents[3] #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+    
+    #===========================================================================
+    # execute
+    #===========================================================================
+    with Session(out_dir=out_dir, **kwargs) as ses:
         
         #=======================================================================
         # data prep
         #=======================================================================
         #join the simulation results (and clean up indicides
-        dxcol_raw = ses.join_stats(fp_d)
+        dxcol_raw = ses.join_stats(fp_lib)
         
  
         #add residuals  
@@ -261,24 +294,13 @@ def SJ_plots_0830(
     
 if __name__ == "__main__":
  
-    SJ_r5_0909(method='direct',
-               dsc_l=[1, 2**8, 2**9],
-               )
+    #SJ_r5_0909(method='direct')
  
  
-    #===========================================================================
-    # plotting
-    #===========================================================================
-    fp_d  = { 
-            'direct':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_direct\20220908\stats\SJ_r4_direct_0908_stats.pkl',
-            'directF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\statsF\SJ_r4_direct_0908_statsF.pkl',
-
-            'filter':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_filter\20220908\stats\SJ_r4_filter_0908_stats.pkl', 
-            'filterF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\statsF\SJ_r4_filter_0908_statsF.pkl',
-       
-            }   
+ 
+ 
     
-    #SJ_plots_0830(fp_d=fp_d)
+    SJ_plots_0909()
     
     print('finished')
  

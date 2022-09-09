@@ -3,9 +3,13 @@ Created on Aug. 27, 2022
 
 @author: cefect
 '''
+import copy
 import numpy as np
 import numpy.ma as ma
+import pandas as pd
 
+index_names = ['scale', 'pixelArea', 'pixelLength']
+column_names = ['layer', 'dsc', 'metric'] 
 
 def get_rand_ar(shape, scale=10):
     dem_ar =  np.random.random(shape)*scale
@@ -81,4 +85,22 @@ def assert_dem_ar(ar, masked=False, msg=''):
         
         if np.any(ar.mask):
             raise AssertionError('expect no masks on the DEM\n'+msg)
+        
+def assert_dx_names(dx, msg=''):
+    """index name expectations"""
+    if not __debug__: # true if Python was not started with an -O option
+        return
+ 
+    __tracebackhide__ = True
+    
+    if not isinstance(dx, pd.DataFrame):
+        raise TypeError('bad type: %s\n%s'%(type(dx).__name__, msg))
+ 
+    
+    for axis, vali_l, test_l in (
+        ('index', copy.deepcopy(index_names),  list(dx.index.names)),
+        ('columns', copy.deepcopy(column_names),  list(dx.columns.names)),
+        ):
+        if not np.array_equal(np.array(vali_l), np.array(test_l)):
+            raise AssertionError('%s does not match name expectations: \n    %s\n    %s'%(axis, test_l, msg))
         

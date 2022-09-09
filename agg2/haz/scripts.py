@@ -24,7 +24,7 @@ from hp.pd import view
 from hp.sklearn import get_null_confusion
 from agg2.coms import Agg2Session
 from agg2.haz.rsc.scripts import ResampClassifier
-from agg2.haz.misc import assert_dem_ar, assert_wse_ar
+from agg2.haz.misc import assert_dem_ar, assert_wse_ar, assert_dx_names
 idx= pd.IndexSlice
 #from skimage.transform import downscale_local_mean
 #debugging rasters
@@ -33,9 +33,7 @@ idx= pd.IndexSlice
 # import matplotlib.pyplot as plt
 #===============================================================================
 
-from dask.distributed import Client
-client = Client(n_workers=4) #init a local cluster
-print('started dask client w/ dashboard at \n    %s'%client.dashboard_link) #get the link to the dsashbaord
+
 import dask.array as da
 
 def now():
@@ -694,17 +692,26 @@ class UpsampleSession(Agg2Session, UpsampleChild):
 
 
     def _stat_wrap(self, res_lib, meta_d, ofp):
+        """
+        Parameters
+        -----------
+        res_lib, dict
+            {scale:dxcol (layer, dsc)}
+        """
+ 
         res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()
-    #ammend commons to index
+        
+        #ammend commons to index
         if not meta_d is None:
             mindex = pd.MultiIndex.from_frame(
                 res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale'))
             res_dx.index = mindex
-        """
-    
-    view(res_dx)
-    
-    """
+            
+        #checks
+        assert not res_dx.isna().all().all()
+        assert_dx_names(res_dx)
+        
+        #write
         res_dx.to_pickle(ofp)
         return res_dx
 
@@ -841,8 +848,11 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         # compute for each downscale
         #=======================================================================
         res_lib, meta_d=dict(), dict()
+        
         for i, row in df.iterrows():
             log.info('computing for downscale=%i'%i)
+            def upd_meta(ds):
+                meta_d[i] = get_pixel_info(ds)
             #===================================================================
             # load baseline
             #===================================================================
@@ -856,23 +866,28 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                     
                     #build for this loop
                     mask_d = {'all':np.full(shape, True)}
-     
-                    pixelArea = ds.res[0]*ds.res[1]
-                    #pixelLength=ds.res[0]
-                
+                    
+                    #scale info
+                    pixelArea = ds.res[0]*ds.res[1] #needed for scaler below
+                    upd_meta(ds)
  
             #===================================================================
             # #build other masks
             #===================================================================
-            if i>1:
+            else:
                 """here we need to do wnscale"""
                 with rio.open(row['catMosaic'], mode='r') as ds:
                     cm_ar = ds.read(1, out_shape=shape, resampling=Resampling.nearest, masked=False)
+                    
+                    upd_meta(ds)
  
  
                 assert cm_ar.shape==wdF_ar.shape
                 
                 mask_d.update(self.mosaic_to_masks(cm_ar))
+                
+ 
+                
    
             #===================================================================
             # compute on each layer
@@ -898,7 +913,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
             view(pd.concat(res_d1, axis=1, names=['layer', 'dsc']))
             """
             res_lib[i] = pd.concat(res_d1, axis=1, names=['layer', 'dsc'])
-            #meta_d[i] = {'pixelArea':pixelArea, 'pixelLength':pixelLength} 
+ 
             
         #=======================================================================
         # wrap
@@ -906,7 +921,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         """
         view(res_dx)
         """
-        res_dx = self._stat_wrap(res_lib, None, ofp)
+        res_dx = self._stat_wrap(res_lib, meta_d, ofp)
         log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
         
         return ofp
@@ -954,16 +969,31 @@ class UpsampleSession(Agg2Session, UpsampleChild):
     def get_maskd_func(self, mask_d, ar_raw, func, log):
         log.debug('    on %s w/ %i masks'%(str(ar_raw.shape), len(mask_d)))
         res_lib = dict()
+        
         for maskName, mask_ar in mask_d.items():
+            """
+            mask_ar=True: values we are interested in (opposite of numpy's mask convention)
+            """
             log.info('     %s (%i/%i)' % (maskName, mask_ar.sum(), mask_ar.size))
             res_d = {'count':mask_ar.sum()}
- 
+            assert mask_ar.shape==ar_raw.shape
             #===============================================================
             # some valid cells
             #===============================================================
             if np.any(mask_ar):
-                #build masked
-                mar = ma.array(ar_raw, mask=~mask_ar) #valids=True
+                #update an existing mask
+                if isinstance(ar_raw, ma.MaskedArray):
+                    #ar_raw.harden_mask() #make sure we don't unmask anything
+                    mar = ar_raw.copy()
+                    
+                    if not np.all(mask_ar):                        
+                        mar[~mask_ar] = ma.masked 
+                    
+                #construct mask from scratch 
+                else:
+                    mar = ma.array(ar_raw, mask=~mask_ar) #valids=True
+                    
+                #execute the stats function
                 res_d.update(func(mar))
             else:
                 log.warning('%s got no valids' % (maskName))
@@ -1125,78 +1155,128 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         """
         
         
+
+
+
     def run_errStats(self,pick_fp, **kwargs):
-        """compute stats from diff rasters"""
+        """compute stats from diff rasters
+        
+        
+        Notes
+        -----------
+        These are all at the base resolution
+        """
         
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('errStats',  subdir=True,ext='.pkl', **kwargs)
         start = now()
         
-        dxcol_raw = pd.read_pickle(pick_fp)
+        dxcol = pd.read_pickle(pick_fp).loc[:, idx[('catMosaic', 'wse'), :]]
         confusion_l = ['FN', 'FP', 'TN', 'TP']
-        #=======================================================================
-        # loop on each layer
-        #=======================================================================
-        res_lib=dict()
-        for layName in ['wse']:
-            log.info('on \'%s\''%layName)
-            df_raw = dxcol_raw[layName]
-            assert 'err_fp' in df_raw.columns
+        """
+        view(dxcol)
+        """
+        
+        #===================================================================
+        # loop on each scale
+        #===================================================================
+        res_lib, meta_d=dict(), dict()
+        for i, (scale, serx) in enumerate(dxcol.iterrows()):
+            log.info('    %i/%i scale=%i'%(i+1, len(dxcol), scale))
+            
             
             #===================================================================
-            # loop on each scale
+            # setup masks
             #===================================================================
-            res_d1 = dict()
-            for i, (scale, row) in enumerate(df_raw.iterrows()):
-                log.info('    %i/%i from %s'%(i+1, len(df_raw), os.path.basename(row['err_fp'])))
-                res_d = dict()
+            #the complete mask
+            if i==0:
+                """just using the ds of the raw wse for shape"""
+                with rio.open(serx['wse']['fp'], mode='r') as ds:
+                    shapeF = ds.shape                    
+                    meta_d[scale] = get_pixel_info(ds)
+ 
+                mask_d = {'all':np.full(shapeF, True)} #persists in for loop
+                
+            #build other masks
+            else: 
+                with rio.open(serx['catMosaic']['fp'], mode='r') as ds:
+                    cm_ar = ds.read(1, out_shape=shapeF, resampling=Resampling.nearest, masked=False) #downscale
+                    meta_d[scale] = get_pixel_info(ds)
+                    
+                assert cm_ar.shape==shapeF            
+                mask_d.update(self.mosaic_to_masks(cm_ar))
             
+            #=======================================================================
+            # loop on each layer
+            #=======================================================================
+            res_d = dict()
+            for layName, gserx in serx.drop('catMosaic').groupby('layer'):
+                row = gserx.droplevel('layer')
+                log.info('on \'%s\''%layName)
 
                     
                 #===============================================================
                 # compute metrics
                 #===============================================================
-                if i==0:
-                    res_d.update({'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0})
-                else:
-                    with rio.open(row['err_fp'], mode='r') as ds:
-                        ar = ds.read(1, masked=True)
+                with rio.open(row['err_fp'], mode='r') as ds:                    
+                    if i==0:
+                        rd1 = {'all':{'count':ds.width*ds.height, 'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}}
+
+                    else:    
+                        ar = ds.read(1, masked=True)    
                         
-                    assert not np.all(np.isnan(ar)), scale
-                    assert not np.all(ar.mask)
-                    res_d['meanErr'] = ar.sum()/ar.size
-                    res_d['meanAbsErr'] = np.abs(ar).sum()/ar.size
-                    res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
-                
-                    del ar
-                
+                        func = lambda x:self._get_diff_stats(x)
+                        rd1 = self.get_maskd_func(mask_d, ar, func, log.getChild('%i.%s'%(i, layName)))
+                    
+ 
                 #===============================================================
                 # add confusion
                 #===============================================================
-                res_d.update(row.loc[confusion_l].to_dict())
+                #rd1.update(row.loc[confusion_l].to_dict())
                 
                 #===============================================================
-                # wrap
+                # wrap layer
                 #===============================================================
-                res_d1[scale] = res_d
+                res_d[layName] = pd.DataFrame.from_dict(rd1)
             #===================================================================
             # wrap layer loop
             #===================================================================
-            res_lib[layName] = pd.DataFrame.from_dict(res_d1).T.astype({k:np.int32 for k in confusion_l})
+            res_lib[scale] = pd.concat(res_d, axis=1, names=['layer', 'dsc'])   
+            #pd.DataFrame.from_dict(res_d).T.astype({k:np.int32 for k in confusion_l})
         #=======================================================================
         # wrap on layer
         #=======================================================================
-        res_dx = pd.concat(res_lib, axis=1, names=['layer', 'metric'])
+        """
+        view(res_dx)
+        """
         
-        assert res_dx.notna().all().all()
-        #=======================================================================
-        # #write
-        #=======================================================================
-        res_dx.to_pickle(ofp)
+        res_dx = self._stat_wrap(res_lib, meta_d, ofp) 
         
         log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
         
         return ofp
-            
+    
+    def _get_diff_stats(self, ar):
+        """compute stats on difference grids.
+        NOTE: always using reals for denometer"""
+        assert isinstance(ar, ma.MaskedArray)
+        assert not np.any(np.isnan(ar))
         
+        
+        
+        #fully masked check
+        if np.all(ar.mask):
+            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
+        
+        dar = da.from_array(ar, chunks='auto')
+        res_d = dict()
+        rcnt = (~ar.mask).sum()
+        
+        res_d['meanErr'] =  dar.sum().compute()/rcnt #same as np.mean(ar)
+        res_d['meanAbsErr'] = np.abs(dar).sum().compute() / rcnt
+        res_d['RMSE'] = np.sqrt(np.mean(np.square(dar))).compute()
+        return res_d
+            
+def get_pixel_info(ds):
+    return {'pixelArea':ds.res[0]*ds.res[1], 'pixelLength':ds.res[0]}
     
     

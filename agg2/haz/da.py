@@ -64,38 +64,86 @@ class UpsampleDASession(UpsampleSession, Plotr):
                 'DD':'#800000',
                 'full': '#000000'}
         }
+    
+ 
         
-    def join_stats(self,fp_d, **kwargs):
+    def join_stats(self,fp_lib, **kwargs):
         """merge results from run_stats for different methodss and clean up the data"""
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('jstats',  subdir=False,ext='.pkl', **kwargs)
         
         #=======================================================================
         # preckec
         #=======================================================================
-        for k,fp in fp_d.items():
-            assert os.path.exists(fp), k
+        for k1,d in fp_lib.items():
+            for k2, fp in d.items():
+                assert os.path.exists(fp), '%s.%s'%(k1, k2)
         
         #=======================================================================
         # loop and join
         #=======================================================================
-        d = dict()
-        for k,fp in fp_d.items():
-            
-            dxcol_raw = pd.read_pickle(fp)            
-            log.info('for %s loading %s'%(k, str(dxcol_raw.shape)))
-            
-            #drop excess levels
-            if len(dxcol_raw.index.names)>1:
-                #retrieve hte meta info
-                meta_df = dxcol_raw.index.to_frame().reset_index(drop=True).set_index('scale').sort_index(axis=0)
-                
-                #remove from index
-                dxcol = dxcol_raw.droplevel((1,2))
-            else:
-                dxcol = dxcol_raw
+        rdx=None
+        for k1,fp_d in fp_lib.items():
  
-            #wrap
-            d[k] = dxcol
+            for k2, fp in fp_d.items():
+                
+                dxcol_raw = pd.read_pickle(fp)            
+                log.info('for %s loading %s'%(k, str(dxcol_raw.shape)))
+                
+                #check
+                assert_dx_names(dxcol_raw, msg='%s.%s'%(k1, k2))
+                
+ 
+                continue
+                #===============================================================
+                # #drop excess levels
+                #===============================================================
+                #===============================================================
+                # if len(dxcol_raw.index.names)>1:
+                #     #retrieve hte meta info
+                #     meta_df = dxcol_raw.index.to_frame().reset_index(drop=True).set_index('scale').sort_index(axis=0)
+                #       
+                #     #remove from index
+                #     dxcol = dxcol_raw.droplevel((1,2))
+                # else:
+                #     dxcol = dxcol_raw
+                #===============================================================
+                    
+                
+                #===============================================================
+                # #append levels
+                #===============================================================
+                dx1 = pd.concat({k1:pd.concat({k2:dxcol}, names=['metricLevel'], axis=1)},
+                          names=['method'], axis=1)
+                
+                #===============================================================
+                # add a dummy for missings
+                #===============================================================
+                miss_l = set(rdx.columns.names).symmetric
+                #===============================================================
+                # start
+                #===============================================================
+                if rdx is None:
+                    rdx = dx1.copy()
+                    continue
+                
+                try:
+                    rdx = rdx.join(dx1)
+                except Exception as e:
+                    """
+                    view(dx1)
+                    """
+                    raise IndexError('failed to join %s.%s. w/ \n    %s'%(k1, k2, e))
+                    
+ 
+                
+
+                
+            #===================================================================
+            # wrap cat
+            #===================================================================
+            d1[k1] = pd.concat(d2)
+ 
+            
         
         #concat
         rdxcol = pd.concat(d, names=['method']).unstack(level=0).swaplevel(axis=1, i=0).swaplevel(axis=1).sort_index(axis=1).sort_index(axis=0)
@@ -339,8 +387,17 @@ class UpsampleDASession(UpsampleSession, Plotr):
 
         
         
-        """
-        plt.show()
-        dxcol.columns
-        view(rdxcol)
-        """
+ 
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

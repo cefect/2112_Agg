@@ -10,9 +10,10 @@ import numpy as np
 import pandas as pd
 import pytest, copy, os, random
 import rasterio as rio
-from agg2.haz.misc import get_rand_ar, get_wse_filtered
+from agg2.haz.misc import get_rand_ar, get_wse_filtered, assert_dx_names
 from agg2.haz.scripts import UpsampleSession as Session
 from agg2.haz.run import run_haz_agg2
+ 
 xfail = pytest.mark.xfail
  
 
@@ -21,14 +22,16 @@ xfail = pytest.mark.xfail
 #===============================================================================
 crsid = 2953
 prec=5
-
+crs=rio.crs.CRS.from_epsg(crsid)
 #for test data
-output_kwargs = dict(crs=rio.crs.CRS.from_epsg(crsid),
-                     transform=rio.transform.from_origin(1,100,1,1)) 
+output_kwargs = dict(crs=crs,transform=rio.transform.from_origin(1,100,1,1)) 
 
 test_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data'
 
-
+def assert_stat_check(fp, msg=''):
+    dx = pd.read_pickle(fp)
+    assert_dx_names(dx, msg=msg+' %s'%os.path.basename(fp))
+    
 #===============================================================================
 # FIXTURES-----
 #===============================================================================
@@ -53,8 +56,8 @@ def wrkr(tmp_path,write,logger, test_name,
     random.seed(100)
  
     
-    with Session(  
-                 
+    with Session(
+                 crs=crs, nodata=-9999,
                  #oop.Basic
                  out_dir=tmp_path, 
                  tmp_dir=os.path.join(tmp_path, 'tmp_dir'),
@@ -157,14 +160,14 @@ cmasks_fp = os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0908_cM
 @pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
 def test_03_stats(wrkr, pick_fp):
     res_fp = wrkr.run_stats(pick_fp, write=True)
-    
+    assert_stat_check(res_fp)
 
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
 def test_04_statsFine(wrkr, pick_fp):
     res_fp = wrkr.run_stats_fine(pick_fp, write=True)
- 
+    assert_stat_check(res_fp)
 
  
 
@@ -173,15 +176,17 @@ def test_05_errs(wrkr, pick_fp):
     res_fp = wrkr.run_errs(pick_fp, write=True,
                            #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
+
     
 err_fp = os.path.join(src_dir, 'tests2\haz\data\errs\dsTest_test05_0909_errs.pkl')
     
-
+@pytest.mark.dev
 @pytest.mark.parametrize('pick_fp', [err_fp]) 
 def test_06_errStats(wrkr, pick_fp):
     res_fp = wrkr.run_errStats(pick_fp, write=True,
                            #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
+    assert_stat_check(res_fp)
     
     
 #===============================================================================
@@ -233,8 +238,11 @@ def test_runAll(wrkr, dem_fp, wse_fp, dsc_l, method):
 @pytest.mark.parametrize('proj_d', [proj_d])
 def test_runHaz(method, proj_d, dsc_l, tmp_path):
     """use the function runner"""
-    run_haz_agg2(proj_d=proj_d, method=method, dsc_l=dsc_l, case_name='tCn', run_name='tRn',
+    fp_d, stat_d = run_haz_agg2(proj_d=proj_d, method=method, dsc_l=dsc_l, case_name='tCn', run_name='tRn',
                  wrk_dir=tmp_path)
+    
+    for k, fp in stat_d.items():
+        assert_stat_check(fp)
     
     
     
