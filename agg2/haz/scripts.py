@@ -21,7 +21,8 @@ from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simpl
     assert_ds_attribute_match
 from hp.basic import get_dict_str
 from hp.pd import view
-from hp.sklearn import get_null_confusion
+from hp.sklearn import get_confusion
+
 from agg2.coms import Agg2Session
 from agg2.haz.rsc.scripts import ResampClassifier
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar, assert_dx_names
@@ -32,7 +33,7 @@ idx= pd.IndexSlice
 # from hp.plot import plot_rast
 # import matplotlib.pyplot as plt
 #===============================================================================
-
+from hp.plot import plot_rast #for debugging
 
 import dask.array as da
 
@@ -1054,11 +1055,11 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                 #===============================================================
                 # vs. base (no error)
                 #===============================================================
-                if i==0:
- 
+                if i==0: 
                     res_ar = ma.masked_where(base_ar.mask, np.full(base_ar.shape, 0)) #same mask as base w/ some zeros
+                    wets = ~base_ar.mask
                     cm_ser = pd.Series(
-                        {'TP':np.isnan(base_ar).sum(), 'FP':0, 'TN':base_ar.size-np.isnan(base_ar).sum(), 'FN':0},
+                        {'TP':wets.sum(), 'FP':0, 'TN':base_ar.size-wets.sum(), 'FN':0},
                         dtype=int)
                     
                 #===============================================================
@@ -1068,6 +1069,9 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                     #get disagg
                     with rio.open(fp, mode='r') as ds:
                         fine_ar = ds.read(1, out_shape=base_ar.shape, resampling=Resampling.nearest, masked=True)
+                        """
+                        plot_rast(res_ar)
+                        """
                         #resample load
                         #=======================================================
                         # resamp_kwargs = dict(out_shape=base_ar.shape, resampling=Resampling.nearest)
@@ -1087,7 +1091,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                     res_ar = fine_ar - base_ar
                     
                     #compute null confusion
-                    cm_df = get_null_confusion(base_ar, fine_ar, names=['fine', 'base'])                    
+                    cm_df = get_confusion(base_ar.mask, fine_ar.mask, names=['fine', 'base'])                    
                     cm_ser = cm_df.set_index('codes')['counts']
                     
                     log.info('    calcd: %s'%cm_ser.to_dict())
@@ -1136,8 +1140,8 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         res_dx = res_dx.join(pd.concat({'catMosaic':df_raw.loc[:, ['DD', 'WW', 'WP', 'DP']]}, axis=1, names=['layer', 'val'])).sort_index(axis=1)
  
         """
-        view(df_raw)
-        view(res_dx.T)
+ 
+        view(res_dx)
         view(pd.concat(res_lib,axis=1))
         """
         #=======================================================================

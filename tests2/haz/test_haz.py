@@ -180,7 +180,7 @@ def test_05_errs(wrkr, pick_fp):
     
 err_fp = os.path.join(src_dir, 'tests2\haz\data\errs\dsTest_test05_0909_errs.pkl')
     
-@pytest.mark.dev
+
 @pytest.mark.parametrize('pick_fp', [err_fp]) 
 def test_06_errStats(wrkr, pick_fp):
     res_fp = wrkr.run_errStats(pick_fp, write=True,
@@ -229,7 +229,7 @@ def test_runAll(wrkr, dem_fp, wse_fp, dsc_l, method):
     wrkr.run_errStats(fp3)
     
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('dsc_l', [([1,2,4])])
 @pytest.mark.parametrize('method', [
     'direct', 
