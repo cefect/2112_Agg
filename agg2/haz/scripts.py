@@ -33,6 +33,10 @@ idx= pd.IndexSlice
 # import matplotlib.pyplot as plt
 #===============================================================================
 
+from dask.distributed import Client
+client = Client(n_workers=4) #init a local cluster
+print('started dask client w/ dashboard at \n    %s'%client.dashboard_link) #get the link to the dsashbaord
+import dask.array as da
 
 def now():
     return datetime.datetime.now()
@@ -233,7 +237,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         if method is None: method=self.method
         start = now()
         #if out_dir is None: out_dir=os.path.join(self.out_dir, method)
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg_%s'%method,  ext='.pkl', subdir=True, **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg',  ext='.pkl', subdir=True, **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
         log.info('for %i upscales using \'%s\' from \n    DEM:  %s\n    WSE:  %s'%(
@@ -782,7 +786,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                 # compute stats function on each mask
                 #===================================================================
                 
-                func = lambda x:self.get_depth_stats(x, pixelArea=pixelArea)
+                func = lambda x:self.get_depth_stats_dask(x, pixelArea=pixelArea)
                 d = self.get_maskd_func(mask_d, ar_raw, func, log.getChild('%i.%s'%(i, layName)))
  
                 res_d1[layName] = pd.DataFrame.from_dict(d)
@@ -810,6 +814,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
     def run_stats_fine(self, pick_fp, 
  
                  cols = ['wse', 'wd', 'catMosaic'],
+ 
  
                  **kwargs):
         """
@@ -880,7 +885,8 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                 # compute stats function on each mask
                 #===================================================================
                 
-                func = lambda x:self.get_depth_stats(x, pixelArea=pixelArea)
+                #func = lambda x:self.get_depth_stats(x, pixelArea=pixelArea)
+                func = lambda x:self.get_depth_stats_dask(x, pixelArea=pixelArea)
                 d = self.get_maskd_func(mask_d, ar_raw, func, log.getChild('%i.%s'%(i, layName)))
  
                 res_d1[layName] = pd.DataFrame.from_dict(d)
@@ -907,22 +913,43 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         
         
     def get_depth_stats(self, mar, pixelArea):
+ 
         res_d=dict()
         #=======================================================
-    # simple mean
-    #=======================================================
+        # simple mean
+        #=======================================================
         res_d['mean'] = mar.mean()
-    #===================================================================
-    # inundation area
-    #===================================================================
+        #===================================================================
+        # inundation area
+        #===================================================================
         res_d['posi_area'] = np.sum(mar>0) * (pixelArea) #non-nulls times pixel area
-    #===================================================================
-    # volume
-    #===================================================================
+        #===================================================================
+        # volume
+        #===================================================================
         res_d['vol'] = mar.sum() * pixelArea
         
         return res_d
 
+    def get_depth_stats_dask(self, mar, pixelArea):
+ 
+        res_d=dict()
+        dar = da.from_array(mar, chunks='auto')
+        #=======================================================
+        # simple mean
+        #=======================================================
+        res_d['mean'] = dar.mean().compute() #mar.mean()
+        
+        
+        #===================================================================
+        # inundation area
+        #===================================================================
+        res_d['posi_area'] = (np.sum(dar>0) * (pixelArea)).compute() #non-nulls times pixel area
+        #===================================================================
+        # volume
+        #===================================================================
+        res_d['vol'] = (dar.sum() * pixelArea).compute()
+        
+        return res_d
 
     def get_maskd_func(self, mask_d, ar_raw, func, log):
         log.debug('    on %s w/ %i masks'%(str(ar_raw.shape), len(mask_d)))

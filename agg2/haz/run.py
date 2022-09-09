@@ -104,7 +104,7 @@ def SJ_r5_0909(
                     }
                 },
         **kwargs):
-    return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r5', **kwargs)
+    return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r6', **kwargs)
  
     
 def SJ_plots_0830(
@@ -261,7 +261,7 @@ def SJ_plots_0830(
     
 if __name__ == "__main__":
  
-    SJ_r5_0909(method='filter',
+    SJ_r5_0909(method='direct',
                dsc_l=[1, 2**8, 2**9],
                )
  

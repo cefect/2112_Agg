@@ -160,7 +160,7 @@ def test_03_stats(wrkr, pick_fp):
     
 
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
 def test_04_statsFine(wrkr, pick_fp):
     res_fp = wrkr.run_stats_fine(pick_fp, write=True)
@@ -224,7 +224,7 @@ def test_runAll(wrkr, dem_fp, wse_fp, dsc_l, method):
     wrkr.run_errStats(fp3)
     
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dsc_l', [([1,2,4])])
 @pytest.mark.parametrize('method', [
     'direct', 
