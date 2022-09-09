@@ -20,6 +20,10 @@ def run_haz_agg2(method='direct',
             proj_d=None,
                  **kwargs):
     """hazard/raster run for agg2"""
+    #===========================================================================
+    # imports
+    #===========================================================================
+    from rasterio.crs import CRS
     
     #===========================================================================
     # extract parametesr
@@ -29,13 +33,13 @@ def run_haz_agg2(method='direct',
         proj_d = proj_lib[case_name] 
     wse_fp=proj_d['wse_fp_d']['hi']
     dem_fp=proj_d['dem_fp_d'][1] 
-    
+    crs = CRS.from_epsg(proj_d['EPSG'])
     #===========================================================================
     # run model
     #===========================================================================
     from agg2.haz.scripts import UpsampleSession as Session    
     #execute
-    with Session(case_name=case_name,method=method, **kwargs) as ses:
+    with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, **kwargs) as ses:
         stat_d = dict()
         #=======================================================================
         # build category masks

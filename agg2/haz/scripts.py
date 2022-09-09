@@ -17,7 +17,8 @@ from rasterio.enums import Resampling
 
  
 
-from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
+from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
+    assert_ds_attribute_match
 from hp.basic import get_dict_str
 from hp.pd import view
 from hp.sklearn import get_null_confusion
@@ -235,11 +236,19 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg_%s'%method,  ext='.pkl', subdir=True, **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
+        log.info('for %i upscales using \'%s\' from \n    DEM:  %s\n    WSE:  %s'%(
+            len(dsc_l),method, os.path.basename(demR_fp), os.path.basename(wseR_fp)))
         #=======================================================================
         # populate downsample set
         #=======================================================================
         if dsc_l is None:
             dsc_l = self.get_dscList(**dscList_kwargs, **skwargs)
+            
+        #=======================================================================
+        # check layers
+        #=======================================================================
+        for layName, fp in {'dem':demR_fp, 'wse':wseR_fp}.items():
+            assert_ds_attribute_match(fp, crs=self.crs, nodata=self.nodata, msg=layName) 
             
         #=======================================================================
         # check divisibility
