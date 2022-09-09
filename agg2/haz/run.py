@@ -114,8 +114,8 @@ def SJ_r5_0909(
         method='direct',
         fp_lib = {
                 'direct':{
-                    #'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\cMasks\\SJ_r5_direct_0909_cMasks.pkl',
-                    #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\errs\\SJ_r5_direct_0909_errs.pkl',
+                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\cMasks\\SJ_r6_direct_0909_cMasks.pkl',
+                    'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
                     },
                 'filter':{
                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',

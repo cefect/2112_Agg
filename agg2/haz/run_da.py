@@ -171,6 +171,10 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         #join the differences
         metric2 = 'meanErr'
+        lab_d = {
+            'meanErr':r'$\overline{WSE_{s2,i} - WSE_{s1,i}}$',
+            #'meanErr':r'$\frac{\sum_{i}^{N_{12}} WSE_{s2,i} - WSE_{s1,i}}{N_{12}}$',
+            }
         dxcol4 = dxcol3.join(dxcol1.loc[:, idx['diff', :, 'wse',:, metric2]].droplevel(['base', 'layer'], axis=1)) 
         
         serx = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
@@ -184,9 +188,9 @@ def run_haz_plots(fp_lib,
                                               'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
                                               'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
                                               'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-                                              metric2:'WSE %s (m)'%metric2},
+                                              metric2:lab_d[metric2]},
                                           ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_%s.svg'%metric2),
-                                          matrix_kwargs = dict(figsize=(6.5,8))
+                                          matrix_kwargs = dict(figsize=(6.5,7.25))
                                           )
         
         #=======================================================================
