@@ -13,7 +13,7 @@ import rasterio as rio
 from rasterio.enums import Resampling
 #import scipy.ndimage
 
- 
+from osgeo import gdal
 
  
 
@@ -490,62 +490,59 @@ class UpsampleSession(Agg2Session, UpsampleChild):
     # COMPILING---------
     #===========================================================================
     def run_vrts(self, pick_fp, 
-                 out_dir=None,
-                 cols = ['dem', 'wse', 'wd', 'catMosaic_fp'],
+ 
+                 #cols = ['dem', 'wse', 'wd', 'catMosaic'],
                  **kwargs):
-        #log, tmp_dir, _, ofp, layname, write = self._func_setup('vrt',  **kwargs)
-        icoln='downscale'
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('vrt',  subdir=True, **kwargs)
+ 
         """
+        view(dxcol_raw)
         self.out_dir
         meta_df.columns
         """
-        df_raw = pd.read_pickle(pick_fp) 
+        dxcol_raw = pd.read_pickle(pick_fp)
+        log.info('compiling vrt from %s'%os.path.basename(pick_fp)) 
+        res_d = dict()
+        for layer, gdx in dxcol_raw.groupby(level=0, axis=1):
+            for coln, col in gdx.droplevel(0, axis=1).items():
+                if not coln.endswith('fp'):
+                    continue
+                fp_d = col.dropna().to_dict()
+                ofpi = self.build_vrts(fp_d,ofp = os.path.join(out_dir, '%s_%s_%i.vrt'%(layer, coln, len(fp_d))))
+                
+                log.info('    for \'%s.%s\' compiled %i into a vrt: %s'%(layer, coln, len(fp_d), os.path.basename(ofpi)))
+                
+                res_d['%s_%s'%(layer, coln)] = ofpi
         
-        #slice to specfied columns
-        df = df_raw.loc[:, df_raw.columns.isin(cols+[icoln])]
+        log.info('finished writing %i to \n    %s'%(len(res_d), out_dir))
         
-        #=======================================================================
-        # #get ouptut directory in the same location as the data files
-        # if out_dir is None:
-        #     out_dir = os.path.join(os.path.dirname(os.path.dirname(df.iloc[0, :]['dem'])), 'vrt')
-        #=======================================================================
-        
-        return self.build_vrts(df.set_index(icoln).to_dict(orient='index'), out_dir=out_dir, **kwargs)
+        return res_d
     
-    def build_vrts(self,res_lib,
- 
-                   **kwargs):
+    def build_vrts(self,fp_d,ofp):
         """build vrts of the results for nice animations"""
  
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('vrt', subdir=True, **kwargs)
+        #log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('b', subdir=False, **kwargs)
  
-        
-        from osgeo import gdal
-        vrt_d = dict()
-        
         """
         help(gdal.BuildVRT)
         gdal.BuildVRTOptions()
         help(gdal.BuildVRTOptions)
         """
+ 
+        #ofp = os.path.join(out_dir, '%s_%i.vrt'%(sub_dkey.replace('_fp', ''), len(d)))
         
-        for sub_dkey, d in pd.DataFrame.from_dict(res_lib).to_dict(orient='index').items():
-            log.debug(sub_dkey)
-            ofp = os.path.join(out_dir, '%s_%i.vrt'%(sub_dkey.replace('_fp', ''), len(d)))
-            
-            #pull reals
-            fp_l = [k for k in d.values() if isinstance(k, str)]
-            for k in fp_l: assert os.path.exists(k)
-            
-            gdal.BuildVRT(ofp, fp_l, separate=True, resolution='highest', resampleAlg='nearest')
-            if os.path.exists(ofp):
-                vrt_d[sub_dkey] = ofp
-            else:
-                raise IOError('failed to build vrt')
-            
-        log.info('wrote %i vrts\n%s'%(len(vrt_d),get_dict_str(vrt_d)))
+        #pull reals
+        fp_l = [k for k in fp_d.values() if isinstance(k, str)]
+        for k in fp_l: assert os.path.exists(k)
         
-        return vrt_d
+        gdal.BuildVRT(ofp, fp_l, separate=True, resolution='highest', resampleAlg='nearest')
+        
+        if not os.path.exists(ofp): 
+            raise IOError('failed to build vrt')
+            
+
+        
+        return ofp
  
  #==============================================================================
  #    def build_upscales(self,
@@ -1091,6 +1088,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                     res_ar = fine_ar - base_ar
                     
                     #compute null confusion
+                    """separate function for this?"""
                     cm_df = get_confusion(base_ar.mask, fine_ar.mask, names=['fine', 'base'])                    
                     cm_ser = cm_df.set_index('codes')['counts']
                     

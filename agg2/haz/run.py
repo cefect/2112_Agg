@@ -56,6 +56,22 @@ def run_haz_agg2(method='direct',
  
         
         
+
+        
+        #=======================================================================
+        # build difference grids
+        #=======================================================================
+        if not 'err' in fp_d:
+            fp_d['err'] = ses.run_errs(fp_d['catMasks'])
+            
+        
+        #=======================================================================
+        # assemble vrts
+        #=======================================================================
+        vrt_d = ses.run_vrts(fp_d['err']) #errs has all the raster filepaths
+        return
+ 
+            
         #=======================================================================
         # build agg stats
         #=======================================================================
@@ -64,23 +80,15 @@ def run_haz_agg2(method='direct',
         stat_d['s1'] = ses.run_stats_fine(fp_d['catMasks'])
         
         #=======================================================================
-        # build difference grids
-        #=======================================================================
-        if not 'err' in fp_d:
-            fp_d['err'] = ses.run_errs(fp_d['catMasks'])
- 
-            
-        #=======================================================================
         # build difference stats
         #=======================================================================
 
         stat_d['diff'] =ses.run_errStats(fp_d['err'])
         
+
         #=======================================================================
-        # assemble vrts
+        # wrap
         #=======================================================================
-        #vrt_d = ses.run_vrts(fp2)
-        
         ses.logger.info('finished w/ array picks \n%s'%get_dict_str(fp_d))
         ses.logger.info('finished w/ stat picks \n%s'%get_dict_str(stat_d))
         
@@ -122,7 +130,7 @@ if __name__ == "__main__":
  
  
     
-    #SJ_r5_0909(method='filter')
+    SJ_r5_0909(method='filter')
  
  
  
