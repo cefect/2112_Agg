@@ -792,8 +792,11 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                 #===================================================================
                 # compute stats function on each mask
                 #===================================================================
-                
-                func = lambda x:self.get_depth_stats_dask(x, pixelArea=pixelArea)
+                if self.engine=='dask':
+                    func = lambda x:self._get_depth_stats_dask(x, pixelArea=pixelArea)
+                else:
+                    func = lambda x:self._get_depth_stats(x, pixelArea=pixelArea)
+                    
                 d = self.get_maskd_func(mask_d, ar_raw, func, log.getChild('%i.%s'%(i, layName)))
  
                 res_d1[layName] = pd.DataFrame.from_dict(d)
@@ -900,8 +903,8 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                 # compute stats function on each mask
                 #===================================================================
                 
-                #func = lambda x:self.get_depth_stats(x, pixelArea=pixelArea)
-                func = lambda x:self.get_depth_stats_dask(x, pixelArea=pixelArea)
+                #func = lambda x:self._get_depth_stats(x, pixelArea=pixelArea)
+                func = lambda x:self._get_depth_stats_dask(x, pixelArea=pixelArea)
                 d = self.get_maskd_func(mask_d, ar_raw, func, log.getChild('%i.%s'%(i, layName)))
  
                 res_d1[layName] = pd.DataFrame.from_dict(d)
@@ -927,7 +930,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         return ofp
         
         
-    def get_depth_stats(self, mar, pixelArea):
+    def _get_depth_stats(self, mar, pixelArea):
  
         res_d=dict()
         #=======================================================
@@ -945,7 +948,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         
         return res_d
 
-    def get_depth_stats_dask(self, mar, pixelArea):
+    def _get_depth_stats_dask(self, mar, pixelArea):
  
         res_d=dict()
         dar = da.from_array(mar, chunks='auto')
@@ -1256,6 +1259,27 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         return ofp
     
     def _get_diff_stats(self, ar):
+        """compute stats on difference grids.
+        NOTE: always using reals for denometer"""
+        assert isinstance(ar, ma.MaskedArray)
+        assert not np.any(np.isnan(ar))
+        
+        
+        
+        #fully masked check
+        if np.all(ar.mask):
+            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
+        
+ 
+        res_d = dict()
+        rcnt = (~ar.mask).sum()
+        
+        res_d['meanErr'] =  ar.sum()/rcnt #same as np.mean(ar)
+        res_d['meanAbsErr'] = np.abs(ar).sum() / rcnt
+        res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
+        return res_d
+    
+    def _get_diff_stats_dask(self, ar):
         """compute stats on difference grids.
         NOTE: always using reals for denometer"""
         assert isinstance(ar, ma.MaskedArray)

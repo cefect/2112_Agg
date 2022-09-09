@@ -9,7 +9,7 @@ from hp.basic import get_dict_str
 import pandas as pd
 idx = pd.IndexSlice
 
- 
+
 
         
 
@@ -23,9 +23,9 @@ def run_haz_agg2(method='direct',
     #===========================================================================
     # imports
     #===========================================================================
-    from dask.distributed import Client
-    client = Client(n_workers=6) #init a local cluster
-    print('started dask client w/ dashboard at \n    %s'%client.dashboard_link) #get the link to the dsashbaord
+ 
+ 
+    
 
     from rasterio.crs import CRS
     
@@ -61,7 +61,7 @@ def run_haz_agg2(method='direct',
         #=======================================================================
 
         stat_d['s2'] = ses.run_stats(fp_d['catMasks'])
-        stat_d['s1'] =ses.run_stats_fine(fp_d['catMasks'])
+        stat_d['s1'] = ses.run_stats_fine(fp_d['catMasks'])
         
         #=======================================================================
         # build difference grids
@@ -294,13 +294,15 @@ def run_haz_plots(fp_lib,
     
 if __name__ == "__main__":
  
-    #SJ_r5_0909(method='direct')
+ 
+    
+    SJ_r5_0909(method='filter')
  
  
  
  
     
-    SJ_plots_0909()
+    #SJ_plots_0909()
     
     print('finished')
  

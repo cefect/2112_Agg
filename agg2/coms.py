@@ -16,6 +16,7 @@ class Agg2Session(Session):
                  run_name='r1',
                  subdir=False,
                  wrk_dir=None,
+                 engine='np', 
                  **kwargs):
         """handle project specific naming
         
@@ -26,6 +27,9 @@ class Agg2Session(Session):
         
         scen_name: str
             scenario name (i.e., method)
+            
+        engine: str, default 'np'
+            whether to use dask or numpy
  
         """
         if wrk_dir is None:
@@ -42,5 +46,6 @@ class Agg2Session(Session):
                          **kwargs)
         
         self.scen_name=scen_name
+        self.engine=engine
         
  
