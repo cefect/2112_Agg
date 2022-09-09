@@ -13,14 +13,14 @@ idx = pd.IndexSlice
 def SJ_plots_0909(        
         fp_lib = {
             'filter':{
-                's2':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\stats\\SJ_r5_filter_0909_stats.pkl',
-                's1':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\statsF\\SJ_r5_filter_0909_statsF.pkl',
-                'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errStats\\SJ_r5_filter_0909_errStats.pkl',                
+                's2':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\stats\\SJ_r6_filter_0909_stats.pkl',
+                's1':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\statsF\\SJ_r6_filter_0909_statsF.pkl',
+                'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
                 },
             'direct':{
-                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\stats\\SJ_r5_direct_0909_stats.pkl',
-                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\statsF\\SJ_r5_direct_0909_statsF.pkl',
-                'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\errStats\\SJ_r5_direct_0909_errStats.pkl',                
+                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\stats\\SJ_r6_direct_0909_stats.pkl',
+                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\statsF\\SJ_r6_direct_0909_statsF.pkl',
+                'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
                 
                 }
             }
@@ -56,7 +56,7 @@ def run_haz_plots(fp_lib,
         # data prep
         #=======================================================================
         #join the simulation results (and clean up indicides
-        dxcol_raw = ses.join_stats(fp_lib)
+        dxcol_raw = ses.join_stats(fp_lib, write=False)
         
  
         #add residuals  
@@ -142,22 +142,52 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         #just water depth and the metrics
         dxcol3 = dxcol1.loc[:, idx['s12N', :, 'wd',:, metrics_l]].droplevel(['base', 'layer'], axis=1)
-        
+ 
         #stack into a series
         serx = dxcol3.stack(level=dxcol3.columns.names).sort_index(sort_remaining=True
                                        ).reindex(index=metrics_l, level='metric'
                                         ).droplevel(['scale', 'pixelArea'])
+                                        
+        """
+        view(serx)
+        """
  
         
 
         
+        #=======================================================================
+        # ses.plot_matrix_metric_method_var(serx,
+        #                                   map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
+        #                                   ylab_d={
+        #                                       'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
+        #                                       'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
+        #                                       'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$'},
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd.svg'))
+        #=======================================================================
+        
+        
+        #=======================================================================
+        # with wse RMSE
+        #=======================================================================
+        #join the differences
+        metric2 = 'meanErr'
+        dxcol4 = dxcol3.join(dxcol1.loc[:, idx['diff', :, 'wse',:, metric2]].droplevel(['base', 'layer'], axis=1)) 
+        
+        serx = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
+                                       ).reindex(index=metrics_l+[metric2], level='metric'
+                                        ).droplevel(['scale', 'pixelArea'])
+                                        
+                                        
         ses.plot_matrix_metric_method_var(serx,
                                           map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
                                           ylab_d={
                                               'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
                                               'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
-                                              'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$'},
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd.svg'))
+                                              'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+                                              metric2:'WSE %s (m)'%metric2},
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_%s.svg'%metric2),
+                                          matrix_kwargs = dict(figsize=(6.5,8))
+                                          )
         
         #=======================================================================
         # stackced areas ratios

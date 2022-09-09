@@ -42,7 +42,7 @@ for k,v in {
   
 print('loaded matplotlib %s'%matplotlib.__version__)
 
-from agg2.haz.scripts import UpsampleSession
+from agg2.haz.scripts import UpsampleSession, assert_dx_names
 from hp.plot import Plotr, view
 
 
@@ -69,7 +69,7 @@ class UpsampleDASession(UpsampleSession, Plotr):
         
     def join_stats(self,fp_lib, **kwargs):
         """merge results from run_stats for different methodss and clean up the data"""
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('jstats',  subdir=False,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('jstats',  subdir=False,ext='.xls', **kwargs)
         
         #=======================================================================
         # preckec
@@ -81,19 +81,19 @@ class UpsampleDASession(UpsampleSession, Plotr):
         #=======================================================================
         # loop and join
         #=======================================================================
-        rdx=None
+        res_lib = dict()
         for k1,fp_d in fp_lib.items():
- 
+            res_d = dict() 
             for k2, fp in fp_d.items():
                 
                 dxcol_raw = pd.read_pickle(fp)            
-                log.info('for %s loading %s'%(k, str(dxcol_raw.shape)))
+                log.info('for %s.%s loading %s'%(k1, k2, str(dxcol_raw.shape)))
                 
                 #check
                 assert_dx_names(dxcol_raw, msg='%s.%s'%(k1, k2))
                 
+                res_d[k2] = dxcol_raw
  
-                continue
                 #===============================================================
                 # #drop excess levels
                 #===============================================================
@@ -112,60 +112,43 @@ class UpsampleDASession(UpsampleSession, Plotr):
                 #===============================================================
                 # #append levels
                 #===============================================================
-                dx1 = pd.concat({k1:pd.concat({k2:dxcol}, names=['metricLevel'], axis=1)},
-                          names=['method'], axis=1)
-                
                 #===============================================================
-                # add a dummy for missings
+                # dx1 = pd.concat({k1:pd.concat({k2:dxcol}, names=['metricLevel'], axis=1)},
+                #           names=['method'], axis=1)
+                # 
+                # #===============================================================
+                # # add a dummy for missings
+                # #===============================================================
+                # miss_l = set(rdx.columns.names).symmetric
+                # #===============================================================
+                # # start
+                # #===============================================================
+                # if rdx is None:
+                #     rdx = dx1.copy()
+                #     continue
+                # 
+                # try:
+                #     rdx = rdx.join(dx1)
+                # except Exception as e:
+                #     """
+                #     view(dx1)
+                #     """
+                #     raise IndexError('failed to join %s.%s. w/ \n    %s'%(k1, k2, e))
                 #===============================================================
-                miss_l = set(rdx.columns.names).symmetric
-                #===============================================================
-                # start
-                #===============================================================
-                if rdx is None:
-                    rdx = dx1.copy()
-                    continue
-                
-                try:
-                    rdx = rdx.join(dx1)
-                except Exception as e:
-                    """
-                    view(dx1)
-                    """
-                    raise IndexError('failed to join %s.%s. w/ \n    %s'%(k1, k2, e))
-                    
- 
-                
-
-                
-            #===================================================================
-            # wrap cat
-            #===================================================================
-            d1[k1] = pd.concat(d2)
- 
-            
         
-        #concat
-        rdxcol = pd.concat(d, names=['method']).unstack(level=0).swaplevel(axis=1, i=0).swaplevel(axis=1).sort_index(axis=1).sort_index(axis=0)
-        
-        #add meta back
-        rdxcol.index = pd.MultiIndex.from_frame(rdxcol.index.to_frame().join(meta_df))
+            #===================================================================
+            # wrap reference
+            #===================================================================
+            res_lib[k1] = pd.concat(res_d, axis=1, names=['base'])            
         
         #=======================================================================
-        # fix method indexers
+        # #concat
         #=======================================================================
-        mdf = rdxcol.columns.to_frame()
+        rdxcol = pd.concat(res_lib, axis=1,  names=['method']
+                   ).swaplevel('base', 'method', axis=1).sort_index(axis=1).sort_index(axis=0)
+ 
         
-        mdf = mdf.reset_index(drop=True).join(pd.DataFrame({
-            'direct':{'method1':'direct', 'base':'s2'},
-            'filter':{'method1':'filter', 'base':'s2'},
-            'directF':{'method1':'direct', 'base':'s1'},
-            'filterF':{'method1':'filter', 'base':'s1'},
-            }).T, on='method').drop('method', axis=1).rename(columns={'method1':'method'})
-            
-        rdxcol.columns = pd.MultiIndex.from_frame(mdf)
-        
-        rdxcol = rdxcol.reorder_levels([ 'base','method', 'layer','dsc', 'metric'], axis=1).sort_index(axis=1)
+ 
                                
         
 
@@ -178,10 +161,19 @@ class UpsampleDASession(UpsampleSession, Plotr):
         rdxcol.columns = pd.MultiIndex.from_frame(idf)
         
         #=======================================================================
+        # write
+        #=======================================================================
+        if write:
+            with pd.ExcelWriter(ofp, engine='xlsxwriter') as writer:       
+                rdxcol.to_excel(writer, sheet_name='stats', index=True, header=True)
+            log.info('wrote %s to \n    %s'%(str(rdxcol.shape), ofp))
+        #=======================================================================
         # wrap
         #=======================================================================
         metric_l = rdxcol.columns.get_level_values('metric').unique().to_list()
         log.info('finished on %s w/ %i metrics \n    %s'%(str(rdxcol.shape), len(metric_l), metric_l))
+        
+
         
         return rdxcol
     
@@ -198,6 +190,7 @@ class UpsampleDASession(UpsampleSession, Plotr):
                                       ylab_d={'vol':'$V_{s2}$ (m3)', 'wd_mean':r'$WD_{s2}$ (m)', 'wse_area':'$A_{s2}$ (m2)'},
                                       ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
                                       xscale='linear',
+                                      matrix_kwargs = dict(figsize=(6.5,6)),
                                       plot_kwargs_lib={
                                           'full':{'marker':'x'},
                                           'DD':{'marker':'s', 'fillstyle':'none'},
@@ -270,13 +263,12 @@ class UpsampleDASession(UpsampleSession, Plotr):
  
  
         fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'],
-                                    #figsize_scaler=4,
-                                    figsize=(6.5,6),
+                                    #figsize_scaler=4,                                    
                                     constrained_layout=True,
                                     sharey='row',sharex='all',  
                                     fig_id=0,
                                     set_ax_title=False, add_subfigLabel=True,
-                                    )
+                                    **matrix_kwargs)
      
  
         if not title is None:

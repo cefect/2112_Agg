@@ -1214,7 +1214,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
             res_d = dict()
             for layName, gserx in serx.drop('catMosaic').groupby('layer'):
                 row = gserx.droplevel('layer')
-                log.info('on \'%s\''%layName)
+                log.debug('on \'%s\''%layName)
 
                     
                 #===============================================================
@@ -1273,8 +1273,8 @@ class UpsampleSession(Agg2Session, UpsampleChild):
  
         res_d = dict()
         rcnt = (~ar.mask).sum()
-        
-        res_d['meanErr'] =  ar.sum()/rcnt #same as np.mean(ar)
+        res_d['sum'] = ar.sum()
+        res_d['meanErr'] =  res_d['sum']/rcnt #same as np.mean(ar)
         res_d['meanAbsErr'] = np.abs(ar).sum() / rcnt
         res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
         return res_d
