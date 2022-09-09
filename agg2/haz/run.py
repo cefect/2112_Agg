@@ -45,6 +45,7 @@ def run_haz_agg2(method='direct',
     #execute
     with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, **kwargs) as ses:
         stat_d = dict()
+        log = ses.logger
         #=======================================================================
         # build category masks
         #=======================================================================
@@ -68,8 +69,13 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # assemble vrts
         #=======================================================================
-        vrt_d = ses.run_vrts(fp_d['err']) #errs has all the raster filepaths
-        return
+        #=======================================================================
+        # try:
+        #     vrt_d = ses.run_vrts(fp_d['err']) #errs has all the raster filepaths
+        # except Exception as e:
+        #     log.error('failed run_vrt w/ \n    %s'%e)
+        #=======================================================================
+        
  
             
         #=======================================================================
@@ -91,8 +97,9 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         ses.logger.info('finished w/ array picks \n%s'%get_dict_str(fp_d))
         ses.logger.info('finished w/ stat picks \n%s'%get_dict_str(stat_d))
-        
-        
+        out_dir = ses.out_dir
+    print('finished to \n    %s'%out_dir)
+
     return fp_d, stat_d
 
  
@@ -107,8 +114,8 @@ def SJ_r5_0909(
         method='direct',
         fp_lib = {
                 'direct':{
-                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\cMasks\\SJ_r5_direct_0909_cMasks.pkl',
-                    'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\errs\\SJ_r5_direct_0909_errs.pkl',
+                    #'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\cMasks\\SJ_r5_direct_0909_cMasks.pkl',
+                    #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\direct\\20220909\\errs\\SJ_r5_direct_0909_errs.pkl',
                     },
                 'filter':{
                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
@@ -126,11 +133,10 @@ def SJ_r5_0909(
 
  
     
-if __name__ == "__main__":
- 
+if __name__ == "__main__": 
  
     
-    SJ_r5_0909(method='filter')
+    SJ_r5_0909(method='direct')
  
  
  

@@ -66,6 +66,12 @@ class UpsampleChild(ResampClassifier):
                          resampleAlg='average',
                          downscale=None,
                          **kwargs):
+        """direct aggregation of DEM and WD. WSE is recomputed
+        
+        NOTE
+        ----------
+         from DEM and WD (not a direct average of WSEs1)
+        """
         
         #=======================================================================
         # defaults
@@ -74,17 +80,32 @@ class UpsampleChild(ResampClassifier):
         if downscale is None: downscale=self.downscale
         start = now()
         #=======================================================================
-        # downscale each
+        # downscale DEM an WD each
         #=======================================================================
         log.info('downscale=%i on %s'%(downscale, list(ds_d.keys())))
-        res_d = dict()
+        res_d, ar_d = dict(), dict()
         for k, raw_ds in ds_d.items():
+            if k=='wse':continue
             ds1 = self.resample(dataset=raw_ds, resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/downscale)
+            
+            #load array (for wse calc)
+            ar_d[k] = ds1.read(1, masked=False)
             
             #write it
             res_d[k] = self.write_memDataset(ds1, dtype=np.float32,
                        ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),masked=True,
                        logger=log)
+            
+        #=======================================================================
+        # compute WSE
+        #=======================================================================
+        k='wse'
+        wse_ar = ma.array(ar_d['dem'] + ar_d['wd'], mask=ar_d['wd']<=0, fill_value=ds1.nodata)
+        
+        del ar_d
+        
+        res_d[k] = self.write_array(wse_ar,  masked=True, ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),
+                               logger=log)
             
         #=======================================================================
         # wrap
@@ -98,6 +119,7 @@ class UpsampleChild(ResampClassifier):
                          resampleAlg='average',
                          downscale=None,
                          **kwargs):
+        """fitlered agg of DEM and WSE. WD is recomputed."""
         
         #=======================================================================
         # defaults
@@ -448,7 +470,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         #=======================================================================
         # loop and build downsamples
         #=======================================================================
-        first=True
+ 
         res_lib=dict()
         for i, downscale in enumerate(dsc_l):
             log.info('    (%i/%i) reso=%i'%(i, len(dsc_l), downscale))
@@ -461,11 +483,9 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                 # base/first
                 #===================================================================
                 """writing raw for consistency"""
-                if first:
+                if i==0:
                     assert downscale==1
-                    res_lib[downscale] = wrkr.write_dataset_d(base_ar_d, logger=log)
- 
-                    first = False
+                    res_lib[downscale] = wrkr.write_dataset_d(base_ar_d, logger=log) 
                     continue
                 
                 #===============================================================
