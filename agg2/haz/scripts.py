@@ -853,7 +853,7 @@ class UpsampleSession(UpsampleChild, Session):
                     mask_d = {'all':np.full(shape, True)}
      
                     pixelArea = ds.res[0]*ds.res[1]
-                    pixelLength=ds.res[0]
+                    #pixelLength=ds.res[0]
                 
  
             #===================================================================
@@ -1067,10 +1067,10 @@ class UpsampleSession(UpsampleChild, Session):
         res_dx1.index.name=df_raw.index.name
         
         #join with input filepaths
-        res_dx = pd.concat({'fp':df_raw.loc[:, ['dem', 'wse', 'wd', 'catMosaic_fp']]}, axis=1, names=['val', 'layer']).swaplevel(axis=1).join(res_dx1).sort_index(axis=1)
+        res_dx = pd.concat({'fp':df_raw.loc[:, ['dem', 'wse', 'wd', 'catMosaic']]}, axis=1, names=['val', 'layer']
+                           ).swaplevel(axis=1).join(res_dx1).sort_index(axis=1)
         
-        #rename catMosaic level values\
-        res_dx = res_dx.rename(columns={'catMosaic_fp':'catMosaic'})        
+       
         
         #join the dsc
         res_dx = res_dx.join(pd.concat({'catMosaic':df_raw.loc[:, ['DD', 'WW', 'WP', 'DP']]}, axis=1, names=['layer', 'val'])).sort_index(axis=1)
@@ -1160,6 +1160,7 @@ class UpsampleSession(UpsampleChild, Session):
         #=======================================================================
         res_dx = pd.concat(res_lib, axis=1, names=['layer', 'metric'])
         
+        assert res_dx.notna().all().all()
         #=======================================================================
         # #write
         #=======================================================================
