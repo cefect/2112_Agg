@@ -31,7 +31,7 @@ def run_expo(
         if not 'arsc' in fp_d:
             fp_d['arsc'] = ses.build_assetRsc(fp_d['catMasks'], finv_fp)
             
-        ses.build_arsc_stats(fp_d['arsc'])
+ 
             
         
 
@@ -42,11 +42,11 @@ def SJ_r6_0910(
         fp_lib = {
                 'direct':{
                      'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r7\\SJ\\direct\\20220910\\cMasks\\SJ_r7_direct_0910_cMasks.pkl',
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220910\arsc\SJ_r1_direct_0910_arsc.pkl',
+                    #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220910\arsc\SJ_r1_direct_0910_arsc.pkl',
                     },
                 'filter':{
                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
+                    #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
                     }
                 },
         **kwargs):
@@ -54,7 +54,7 @@ def SJ_r6_0910(
 
 if __name__ == "__main__":
  
-    SJ_r6_0910(method='direct',
+    SJ_r6_0910(method='filter',
         #aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT03_0906.geojson',
         )
     

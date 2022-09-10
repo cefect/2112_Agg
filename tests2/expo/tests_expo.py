@@ -103,7 +103,7 @@ def cMask_ar(shape):
 #===============================================================================
 # TESTS-------------
 #===============================================================================
- 
+@pytest.mark.dev
 @pytest.mark.parametrize('finv_fp', [proj_d['finv_fp']])
 @pytest.mark.parametrize('shape', [(10,10)], indirect=False)
 @pytest.mark.parametrize('bbox', [
@@ -113,7 +113,7 @@ def cMask_ar(shape):
 def test_01_assetRsc(wrkr, cMask_pick_fp, finv_fp, bbox): 
     ofp = wrkr.build_assetRsc(cMask_pick_fp, finv_fp, bbox=bbox)
     
-@pytest.mark.dev
+
 @pytest.mark.parametrize('proj_d', [proj_d])
 @pytest.mark.parametrize('shape', [(10,10)], indirect=False)
 def test_runExpo(proj_d, tmp_path, cMask_pick_fp):

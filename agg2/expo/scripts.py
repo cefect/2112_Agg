@@ -60,38 +60,35 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
                 #check intersection 
                 rbnds = sgeo.box(*ds.bounds)
                 ebnds = sgeo.box(*gdf.total_bounds)
-                if not bbox is None: #with the bounding box
-                    
-                    """relaxing this for now... 
-                    would be better to determine a single bounds for everything before the zonal though...
-                    assert ebnds.contains(bbox), 'bounding box exceeds assets extent'                    
-                    """
-                    
-                    
-                    #build a clean window
-                    """basically rounding the raster window so everything fits"""
-                    window, win_transform = get_window(ds, bbox)
  
                     
-                    """
-                    plt.close('all')
-                    fig, ax = plt.subplots()
-                    ax.plot(*rbnds.exterior.xy, color='red', label='raster (raw)')
-                    ax.plot(*ebnds.exterior.xy, color='blue', label='assets')
-                    gdf.plot(ax=ax, color='blue')
-                    ax.plot(*bbox.exterior.xy, color='orange', label='bbox', linestyle='dashed')
-                    wbnds = sgeo.box(*rio.windows.bounds(window, transform=ds.transform))
-                    ax.plot(*wbnds.exterior.xy, color='green', label='window', linestyle='dotted')
-                    #ax.plot(*bbox1.exterior.xy, color='black', label='bbox_buff', linestyle='dashed')
-                    fig.legend()
-                    limits = ax.axis()
-                    """
+                """relaxing this for now... 
+                would be better to determine a single bounds for everything before the zonal though...
+                assert ebnds.contains(bbox), 'bounding box exceeds assets extent'                    
+                """
+                
+                
+                #build a clean window
+                """basically rounding the raster window so everything fits"""
+                window, win_transform = get_window(ds, bbox)
+                
+                
+                """
+                plt.close('all')
+                fig, ax = plt.subplots()
+                ax.plot(*rbnds.exterior.xy, color='red', label='raster (raw)')
+                ax.plot(*ebnds.exterior.xy, color='blue', label='assets')
+                gdf.plot(ax=ax, color='blue')
+                ax.plot(*bbox.exterior.xy, color='orange', label='bbox', linestyle='dashed')
+                wbnds = sgeo.box(*rio.windows.bounds(window, transform=ds.transform))
+                ax.plot(*wbnds.exterior.xy, color='green', label='window', linestyle='dotted')
+                #ax.plot(*bbox1.exterior.xy, color='black', label='bbox_buff', linestyle='dashed')
+                fig.legend()
+                limits = ax.axis()
+                """
                     
                     
-                else:  #between assets and raster
-                    assert ebnds.intersects(rbnds), 'raster and assets do not intersect'
-                    
-                    window=None
+ 
                     
  
                 #===============================================================
@@ -104,30 +101,44 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
                 zd = dict()
                 for catid, ar_raw in cm_d.items():
                     if np.any(ar_raw):
-                        stats_d = zonal_stats(gdf, 
-                                               np.where(ar_raw, 1, np.nan), 
+                        stats_d = zonal_stats(gdf, np.where(ar_raw, 1, 0), 
                                                 affine=win_transform, 
                                                 nodata=0, 
-                                                all_touched=False, #only centroids
-                                                stats=[ 'count',
+                                                all_touched=True, #when pixels get really large, need more than just the centroid
+                                                stats=[ 'max',
                                                        #'nan', #only interested in real interseects
                                                        ])
                         zd[catid] = pd.DataFrame(stats_d)
                         
  
                         """
+                        pd.DataFrame(stats_d).dtypes
                         plot_rast(ar_raw, transform=win_transform, ax=ax )
                         """
                 #===============================================================
                 # wrap
                 #===============================================================
-                res_d[scale] = pd.concat(zd, axis=1, names=['dsc']).droplevel(1, axis=1).rename_axis(gdf.index.name)
+                rdx1 = pd.concat(zd, axis=1, names=['dsc']).droplevel(1, axis=1).rename_axis(gdf.index.name)
+                
+                rdx1 = rdx1.where(~pd.isnull(rdx1), np.nan) #replace None w/ nulls
+ 
+                
+                if rdx1.notna().all(axis=1).any():
+                    log.warning('got some assets with no hits on scale=%i'%scale)
+                
+                res_d[scale]=rdx1
         
         #=======================================================================
         # merge
         #=======================================================================
         """dropping spatial data"""
         rdx = pd.concat(res_d, axis=1, names=['scale'])
+        
+        #=======================================================================
+        # checks
+        #=======================================================================
+        assert not rdx.notna().all(axis=1).any(), 'got some assets with no hits'
+        
         log.info('finished w/ %s' % str(rdx.shape))
         return rdx
 
@@ -193,7 +204,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         #=======================================================================
         """minimum intersection between the 3 bounds""" 
         bbox1 = get_multi_intersection([sgeo.box(*gpd.read_file(finv_fp).total_bounds),
-                                        rbnds.buffer(-k, resolution=1), #conservative to handle window rounding 
+                                        rbnds.buffer(-k*2, resolution=1), #conservative to handle window rounding 
                                         bbox])
         
         """

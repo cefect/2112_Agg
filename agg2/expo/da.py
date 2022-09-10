@@ -70,6 +70,8 @@ class ExpoDASession(ExpoSession, Plotr):
         
                 dx_raw = pd.read_pickle(fp)
                 
+                hit_dx = (dx_raw>0).sum().unstack('dsc')
+                
                 d[dsource] = dx_raw.sum(axis=0).unstack('dsc')
                 
             #wrap method
