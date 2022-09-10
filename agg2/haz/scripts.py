@@ -851,43 +851,11 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
 
 
 
-    def _stat_wrap(self, res_lib, meta_d, ofp):
-        """
-        Parameters
-        -----------
-        res_lib, dict
-            {scale:dxcol (layer, dsc)}
-        """
- 
-        res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()
-        
-        #ammend commons to index
-        if not meta_d is None:
-            mindex = pd.MultiIndex.from_frame(
-                res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale'))
-            res_dx.index = mindex
-            
-        #sort and clean
-        res_dx = res_dx.sort_index(axis=1, sort_remaining=True).dropna(axis=1, how='all')
-        
- 
-        #checks
-        assert not res_dx.isna().all().all()
-        assert_dx_names(res_dx)
-        
-        #write
-        res_dx.to_pickle(ofp)
-        return res_dx
-    """
-    res_lib.keys()
-    for k,v in res_lib.items():
-        view(v)
-    view(res_dx)
-    """
+
 
     def run_stats(self, pick_fp, 
  
-                 layName_l = ['wse', 'wd', 'catMosaic'],
+                 layName_l = ['wse', 'wd'],
  
  
                  **kwargs):
@@ -900,27 +868,14 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('stats',  subdir=True,ext='.pkl', **kwargs)
  
-        start=now()
-        icoln='downscale'
-        self._build_statFuncs()
-        #=======================================================================
-        # load data
-        #=======================================================================
-        df_raw = pd.read_pickle(pick_fp) 
+        df, start = self._rstats_init(pick_fp, layName_l, log)
         
-        #slice to specfied columns
-        df = df_raw.loc[:, df_raw.columns.isin(layName_l+[icoln])].set_index(icoln)
-        
-        """
-        view(df)
-        """
-        
-        log.info('computing stats on %s'%str(df.shape))
+        res_lib, meta_d =dict(), dict()
         #=======================================================================
         # compute for each downscale
         #=======================================================================
-        res_lib=dict()
-        meta_d = dict()
+ 
+        
         for i, row in df.iterrows():
             log.info('computing for downscale=%i'%i)
  
@@ -981,7 +936,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # wrap
         #=======================================================================
-        res_dx = self._stat_wrap(res_lib, meta_d, ofp)
+        res_dx = self._rstats_wrap(res_lib, meta_d, ofp)
         log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
         
         return ofp
@@ -989,108 +944,112 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
  
     def run_stats_fine(self, pick_fp, 
  
-                 cols = ['wse', 'wd', 'catMosaic'],
+                 layName_l = ['wse', 'wd'],
  
  
                  **kwargs):
         """
-        compute global stats on fine rasters using cat masks
+        compute global stats on fine/raw rasters using cat masks
         """
         #=======================================================================
         # defaults
         #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('statsF',  subdir=True,ext='.pkl', **kwargs)
  
-        start=now()
-        icoln='downscale'
+        df, start = self._rstats_init(pick_fp, layName_l, log)
         
-        #=======================================================================
-        # load data
-        #=======================================================================
-        df_raw = pd.read_pickle(pick_fp) 
+        meta_d =dict()
         
-        #slice to specfied columns
-        df = df_raw.loc[:, df_raw.columns.isin(cols+[icoln])].set_index(icoln)
-        
-        log.info('computing stats on %s'%str(df.shape))
+        """because we loop in a differnet order from normal stats... need to precosntruct to match"""
+        res_lib = {scale:{layName:dict() for layName in layName_l} for scale in df.index}
         #=======================================================================
-        # compute for each downscale
+        # compute for each layer
         #=======================================================================
-        res_lib, meta_d=dict(), dict()
-        
-        for i, row in df.iterrows():
-            log.info('computing for downscale=%i'%i)
-            def upd_meta(ds):
-                meta_d[i] = get_pixel_info(ds)
+        """runing different masks against the same layer... need a different outer loop"""
+        for layName, fp in df.loc[1, layName_l].to_dict().items(): 
             #===================================================================
-            # load baseline
+            # #load baseline layer
             #===================================================================
-            if i==1:
-                #the complete mask
-                with rio.open(row['wd'], mode='r') as ds:
-                    #get baseline data
-                    
-                    wdF_ar = load_array(ds)                    
-                    shape = ds.shape       
-                    
-                    #build for this loop
-                    mask_d = {'all':np.full(shape, True)}
-                    
-                    #scale info
-                    pixelArea = ds.res[0]*ds.res[1] #needed for scaler below
-                    upd_meta(ds)
- 
-            #===================================================================
-            # #build other masks
-            #===================================================================
-            else:
-                """here we need to do wnscale"""
-                with rio.open(row['catMosaic'], mode='r') as ds:
-                    cm_ar = ds.read(1, out_shape=shape, resampling=Resampling.nearest, masked=False)
-                    
-                    upd_meta(ds)
- 
- 
-                assert cm_ar.shape==wdF_ar.shape
+            with rio.open(fp, mode='r') as ds:
+                #get baseline data
                 
-                mask_d.update(self.mosaic_to_masks(cm_ar))
+                ar_raw = load_array(ds, masked=True)                    
+                shape = ds.shape
+                                
+                #scale info
+                pixelArea = ds.res[0]*ds.res[1] #needed for scaler below
+                
+                metaF_d = get_pixel_info(ds)
+                
+
+            #===================================================================
+            # loop on scale
+            #===================================================================
+            log.info('for \'%s\' w/ %s computing against %i scales'%(layName, str(ar_raw.shape), len(df)))
+            
+            
+            #stat vars for this layer
+            mask_full = np.full(shape, True)
+            func = self.statFunc_d[layName]
+            fkwargs = dict(pixelArea=pixelArea)
+            
+
+            #loop
+            for i, (scale, row) in enumerate(df.iterrows()):
+                #setup this scale
+                logi = log.getChild('%i.%s'%(scale, layName))
+                logi.debug(row.to_dict())
                 
  
-                
-   
-            #===================================================================
-            # compute on each layer
-            #===================================================================
-            res_d1 = dict()
-            for layName, ar_raw in {'wd': wdF_ar}.items():
-                """only doing wd for now
-                unlike the upscaled version.. here we always compute against the fine wd"""
+ 
+                def upd_meta(ds):
+                    meta_d[scale] = get_pixel_info(ds)
+                    
+                #===============================================================
+                # build baseline mask
+                #===============================================================
+                mask_d = {'all':mask_full} 
+                if i==0:
+                    meta_d[scale] = copy.deepcopy(metaF_d)
+     
+                #===================================================================
+                # add other masks
+                #===================================================================
+                else:
+                    """here we need to do wnscale"""
+                    with rio.open(row['catMosaic'], mode='r') as ds:
+                        cm_ar = ds.read(1, out_shape=shape, resampling=Resampling.nearest, masked=False)                        
+                        upd_meta(ds)     
+     
+                    assert cm_ar.shape==shape
+                    
+                    mask_d.update(self.mosaic_to_masks(cm_ar))
+                    
+                    
                 #===================================================================
                 # compute stats function on each mask
-                #===================================================================
-                
-                #func = lambda x:self._get_depth_stats(x, pixelArea=pixelArea)
-                func = lambda x:self._get_depth_stats_dask(x, pixelArea=pixelArea)
-                d = self.get_maskd_func(mask_d, ar_raw, func, log.getChild('%i.%s'%(i, layName)))
+                #=================================================================== 
+                d = self.get_maskd_func(mask_d, ar_raw, func, logi, **fkwargs)
  
-                res_d1[layName] = pd.DataFrame.from_dict(d)
+                res_lib[scale][layName] = pd.DataFrame.from_dict(d) 
                 
             #===============================================================
-            # store
+            # wrap layer
             #===============================================================
-            """
-            view(pd.concat(res_d1, axis=1, names=['layer', 'dsc']))
-            """
-            res_lib[i] = pd.concat(res_d1, axis=1, names=['layer', 'dsc'])
+            """handling this in the below reorient"""
  
             
         #=======================================================================
         # wrap
         #=======================================================================
+        #re-orient container to match stats expectations
+        d = dict()
+        for scale, d1 in res_lib.items():
+            d[scale] = pd.concat({l:df for l,df in d1.items()}, axis=1, names=['layer', 'dsc'])
         """
         view(res_dx)
         """
-        res_dx = self._stat_wrap(res_lib, meta_d, ofp)
+        res_dx = self._rstats_wrap(d, meta_d, ofp)
         log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
         
         return ofp
@@ -1157,6 +1116,51 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
         log.debug('    finished on %i masks'%len(res_lib))
         return res_lib
+    
+    def _rstats_wrap(self, res_lib, meta_d, ofp):
+        """post for rstat funcs
+        Parameters
+        -----------
+        res_lib, dict
+            {scale:dxcol (layer, dsc)}
+        """
+ 
+        res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()
+        
+        #ammend commons to index
+        if not meta_d is None:
+            mindex = pd.MultiIndex.from_frame(
+                res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale'))
+            res_dx.index = mindex
+            
+        #sort and clean
+        res_dx = res_dx.sort_index(axis=1, sort_remaining=True).dropna(axis=1, how='all')
+        
+ 
+        #checks
+        assert not res_dx.isna().all().all()
+        assert_dx_names(res_dx)
+        
+        #write
+        res_dx.to_pickle(ofp)
+        return res_dx
+ 
+
+
+    def _rstats_init(self, pick_fp, layName_l, log):
+        """init for rstat funcs"""
+        start = now()
+        icoln = 'downscale'
+        self._build_statFuncs()
+    #=======================================================================
+    # load data
+    #=======================================================================
+        df_raw = pd.read_pickle(pick_fp)
+    #slice to specfied columns
+        df = df_raw.loc[:, df_raw.columns.isin(layName_l + [icoln ,'catMosaic'])].set_index(icoln)
+ 
+        log.info('computing stats on %s' % str(df.shape))
+        return df, start
         
     #===========================================================================
     # ERRORS-------
@@ -1408,7 +1412,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         view(res_dx)
         """
         
-        res_dx = self._stat_wrap(res_lib, meta_d, ofp) 
+        res_dx = self._rstats_wrap(res_lib, meta_d, ofp) 
         
         log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
         
