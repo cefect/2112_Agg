@@ -189,6 +189,7 @@ class UpsampleDASession(UpsampleSession, Plotr):
                                       title=None, colorMap=None,color_d=None,
                                       ylab_d={'vol':'$V_{s2}$ (m3)', 'wd_mean':r'$WD_{s2}$ (m)', 'wse_area':'$A_{s2}$ (m2)'},
                                       ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
+                                      ax_lims_d = dict(),
                                       xscale='linear',
                                       matrix_kwargs = dict(figsize=(6.5,6)),
                                       plot_kwargs_lib={
@@ -313,8 +314,17 @@ class UpsampleDASession(UpsampleSession, Plotr):
                 if col_key == keys_all_d['col'][0]:
                     ax.set_ylabel(ylab_d[row_key])
                     
+                    #set lims
+                    if 'y' in ax_lims_d:
+                        if row_key in ax_lims_d['y']:
+                            ax.set_ylim(ax_lims_d['y'][row_key])
+                    
                     #force 2decimal precision
                     ax.get_yaxis().set_major_formatter(lambda x,p:'%.2f'%x)
+                    
+                    #first row
+                    if row_key==keys_all_d['row'][0]:
+                        ax.legend()
                     
                 
                 #last row
@@ -323,10 +333,8 @@ class UpsampleDASession(UpsampleSession, Plotr):
                 
                 #last col
                 if col_key == keys_all_d['col'][-1]:
-                    
-                    #first row
-                    if row_key==keys_all_d['row'][0]:
-                        ax.legend()
+                    pass
+ 
                         
         #=======================================================================
         # output

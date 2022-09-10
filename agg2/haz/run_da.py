@@ -9,6 +9,22 @@ from hp.basic import get_dict_str
 import pandas as pd
 idx = pd.IndexSlice
 
+def SJ_plots_0910(        
+        fp_lib = {
+            'filter':{
+                's2':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\filter\20220910\stats\SJ_r6_filter_0910_stats.pkl',
+                's1':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\filter\20220910\statsF\SJ_r6_filter_0910_statsF.pkl',
+                #'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
+                },
+            'direct':{
+                's2': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\direct\20220910\stats\SJ_r6_direct_0910_stats.pkl',
+                's1': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\direct\20220910\statsF\SJ_r6_direct_0910_statsF.pkl',
+                #'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
+                
+                }
+            }
+        ):
+    return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
 
 def SJ_plots_0909(        
         fp_lib = {
@@ -26,6 +42,7 @@ def SJ_plots_0909(
             }
         ):
     return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
+
 
 def SJ_plots_0830(
         fp_d  = {
@@ -83,16 +100,7 @@ def run_haz_plots(fp_lib,
             pd.concat([div_dxcol], names=['base'], keys=['s12N'], axis=1).reorder_levels(dxcol1.columns.names, axis=1)
             )
  
-        
  
-        
-        """
-        dxcol_raw.columns.levels
-        
-        open_pick(fp_d['directF'])
-        view(dxcol_raw)
-        dxcol_raw.columns
-        """
         print(dxcol1.columns.get_level_values('metric').unique().tolist())
         metrics_l = ['mean', 'posi_area', 'vol']
         
@@ -170,29 +178,73 @@ def run_haz_plots(fp_lib,
         # with wse RMSE
         #=======================================================================
         #join the differences
-        metric2 = 'meanErr'
-        lab_d = {
-            'meanErr':r'$\overline{WSE_{s2,i} - WSE_{s1,i}}$',
-            #'meanErr':r'$\frac{\sum_{i}^{N_{12}} WSE_{s2,i} - WSE_{s1,i}}{N_{12}}$',
-            }
-        dxcol4 = dxcol3.join(dxcol1.loc[:, idx['diff', :, 'wse',:, metric2]].droplevel(['base', 'layer'], axis=1)) 
+        #=======================================================================
+        # metric2 = 'meanErr'
+        # lab_d = {
+        #     'meanErr':r'$\overline{WSE_{s2,i} - WSE_{s1,i}}$',
+        #     #'meanErr':r'$\frac{\sum_{i}^{N_{12}} WSE_{s2,i} - WSE_{s1,i}}{N_{12}}$',
+        #     }
+        # 
+        # 
+        # 
+        # dxcol4 = dxcol3.join(dxcol1.loc[:, idx['diff', :, 'wse',:, metric2]].droplevel(['base', 'layer'], axis=1)) 
+        # 
+        # serx = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
+        #                                ).reindex(index=metrics_l+[metric2], level='metric'
+        #                                 ).droplevel(['scale', 'pixelArea'])
+        #                                 
+        #                                 
+        # ses.plot_matrix_metric_method_var(serx,
+        #                                   map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
+        #                                   ylab_d={
+        #                                       'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
+        #                                       'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
+        #                                       'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+        #                                       metric2:lab_d[metric2]},
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_%s.svg'%metric2),
+        #                                   matrix_kwargs = dict(figsize=(6.5,7.25))
+        #                                   )
+        #=======================================================================
         
-        serx = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
-                                       ).reindex(index=metrics_l+[metric2], level='metric'
+        #=======================================================================
+        # with WSE mean
+        #=======================================================================
+        
+        dxcol4 = dxcol1.loc[:, idx['s12N', :, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
+        
+        #stack into a series
+        serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
+                                       ).reindex(index=metrics_l, level='metric'
                                         ).droplevel(['scale', 'pixelArea'])
                                         
-                                        
-        ses.plot_matrix_metric_method_var(serx,
-                                          map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
-                                          ylab_d={
-                                              'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
-                                              'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
-                                              'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-                                              metric2:lab_d[metric2]},
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_%s.svg'%metric2),
-                                          matrix_kwargs = dict(figsize=(6.5,7.25))
-                                          )
+        #concat layer and metric
+        """because for plotting we treat this as combined as 1 dimension"""
+        mcoln = 'layer_metric'
+        df = serx1.index.to_frame().reset_index(drop=True)
+        df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
+ 
+        serx = pd.Series(serx1.values, index = pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
         
+        #sort
+        m1_l = ['wd_mean', 'wse_mean', 'wd_posi_area', 'wd_vol']
+        serx = serx.reindex(index=m1_l, level=mcoln) #apply order
+        
+        
+        #plot
+        ses.plot_matrix_metric_method_var(serx,
+                                          map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                          ylab_d={
+                                              'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
+                                              'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
+                                              'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+                                              'wse_mean':r'$\frac{\overline{WSE_{s2}}-\overline{WSE_{s1}}}{\overline{WSE_{s1}}}$', 
+                                              },
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_wse.svg'),
+                                          matrix_kwargs = dict(figsize=(6.5,7.25)),
+                                          ax_lims_d = {
+                                              'y':{'wd_mean':(0.1, -1.5), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(0.1, -0.5)},
+                                              }
+                                          )
         #=======================================================================
         # stackced areas ratios
         #=======================================================================
@@ -225,5 +277,5 @@ def run_haz_plots(fp_lib,
         
         
 if __name__ == "__main__":
-    SJ_plots_0909()
+    SJ_plots_0910()
         
