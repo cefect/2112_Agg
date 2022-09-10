@@ -5,7 +5,7 @@ unit tests for downsample v2
 from hp.np import dropna
 from hp.rio import RioWrkr, write_array, load_array
 from numpy import array, dtype
-from tests2.conftest import validate_dict, src_dir, get_abs, crs
+from tests2.conftest import validate_dict, src_dir, get_abs, crs, proj_d
 import numpy as np
 import pandas as pd
 import pytest, copy, os, random
@@ -195,15 +195,7 @@ def test_06_errStats(wrkr, pick_fp):
 #===============================================================================
 # INTEGRATIOn tests ------------
 #===============================================================================
-#saint Jon sub-set test data
-SJ_test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'
 
-proj_d = {
-    'EPSG':2953,
-    'finv_fp':'',
-    'wse_fp_d':{'hi':os.path.join(SJ_test_dir,  'GeoNB_LSJ_aoiT01_0829.tif')},
-    'dem_fp_d':{1:os.path.join(SJ_test_dir,'NBDNR2015_r01_aoiT01_0829.tif')},
-    }
  
 
 

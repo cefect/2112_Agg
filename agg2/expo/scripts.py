@@ -31,6 +31,7 @@ from hp.pd import view
 #from hp.plot import plot_rast
  
 from agg2.haz.rsc.scripts import ResampClassifier
+from agg2.coms import Agg2Session
 
 def now():
     return datetime.datetime.now()
@@ -126,11 +127,11 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
         log.info('finished w/ %s' % str(rdx.shape))
         return rdx
 
-class ExpoSession(ExpoWrkr, Session):
+class ExpoSession(ExpoWrkr, Agg2Session):
     """tools for experimenting with downsample sets"""
     
     def __init__(self, 
-
+                 method='direct',
                  **kwargs):
         """
         
@@ -139,7 +140,7 @@ class ExpoSession(ExpoWrkr, Session):
  
         """
         
-        super().__init__(obj_name='expo', wrk_dir=wrk_dir,subdir=False, **kwargs)
+        super().__init__(obj_name='expo', scen_name=method,subdir=False, **kwargs)
         
         #=======================================================================
         # attach
@@ -185,10 +186,11 @@ class ExpoSession(ExpoWrkr, Session):
         assert len(gdf)>0
         abnds = sgeo.box(*gdf.total_bounds) #bouds
         
-        if not abnds.within(bbox):
-            """can happen when an asset intersects the bbox"""
-            log.warning('asset bounds  not within bounding box \n    %s\n    %s'%(
-                        abnds.bounds, bbox.bounds))
+        if not bbox is None:
+            if not abnds.within(bbox):
+                """can happen when an asset intersects the bbox"""
+                log.warning('asset bounds  not within bounding box \n    %s\n    %s'%(
+                            abnds.bounds, bbox.bounds))
         
         log.info('loaded %i feats (w/ aoi: %s) from \n    %s'%(
             len(gdf), type(bbox).__name__, os.path.basename(finv_fp)))

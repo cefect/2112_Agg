@@ -18,6 +18,16 @@ from hp.rio import write_array
 #===============================================================================
 bbox_base = sgeo.box(0, 0, 100, 100)
 crs=CRS.from_user_input(2953)
+
+#saint Jon sub-set test data
+SJ_test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'
+
+proj_d = {
+    'EPSG':2953,
+    'finv_fp':r'C:\LS\09_REPOS\02_JOBS\2112_agg\cef\tests2\expo\data\finv_SJ_test_0906.geojson',
+    'wse_fp_d':{'hi':os.path.join(SJ_test_dir,  'GeoNB_LSJ_aoiT01_0829.tif')},
+    'dem_fp_d':{1:os.path.join(SJ_test_dir,'NBDNR2015_r01_aoiT01_0829.tif')},
+    }
 #===============================================================================
 # MISC----
 #===============================================================================

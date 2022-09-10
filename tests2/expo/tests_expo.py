@@ -4,11 +4,12 @@ Created on Sep. 6, 2022
 @author: cefect
 '''
 
-from tests2.conftest import validate_dict, src_dir, get_abs
+from tests2.conftest import proj_d
 import numpy as np
 import pandas as pd
 import pytest, copy, os, random
 from agg2.expo.scripts import ExpoSession as Session
+from agg2.expo.run import run_expo
 from agg2.haz.coms import cm_int_d
 from hp.rio import write_array
 import shapely.geometry as sgeo
@@ -102,15 +103,23 @@ def cMask_ar(shape):
 #===============================================================================
 # TESTS-------------
 #===============================================================================
-#@pytest.mark.parametrize('pick_fp', [r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'])
-@pytest.mark.parametrize('finv_fp', [r'C:\LS\09_REPOS\02_JOBS\2112_agg\cef\tests2\expo\data\finv_SJ_test_0906.geojson'])
+ 
+@pytest.mark.parametrize('finv_fp', [proj_d['finv_fp']])
 @pytest.mark.parametrize('shape', [(10,10)], indirect=False)
 @pytest.mark.parametrize('bbox', [
                                 bbox1, 
-                                #None
+                                None
                                   ])
 def test_01_assetRsc(wrkr, cMask_pick_fp, finv_fp, bbox): 
     ofp = wrkr.build_assetRsc(cMask_pick_fp, finv_fp, bbox=bbox)
+    
+@pytest.mark.dev
+@pytest.mark.parametrize('proj_d', [proj_d])
+@pytest.mark.parametrize('shape', [(10,10)], indirect=False)
+def test_runExpo(proj_d, tmp_path, cMask_pick_fp):
+    run_expo( wrk_dir=tmp_path, case_name='tCn', run_name='tRn', proj_d=proj_d,
+              fp_d={'catMasks':cMask_pick_fp},
+              )
     
  
     
