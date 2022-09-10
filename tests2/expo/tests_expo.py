@@ -9,12 +9,27 @@ import numpy as np
 import pandas as pd
 import pytest, copy, os, random
 from agg2.expo.scripts import ExpoSession as Session
+from agg2.haz.coms import cm_int_d
+from hp.rio import write_array
 import shapely.geometry as sgeo
-from pyproj.crs import CRS
+import rasterio as rio
+
+from tests2.conftest import bbox_base, crs
+
+#===============================================================================
+# vars
+#===============================================================================
+
+bbox1 = sgeo.box(25, 25, 70, 70)
+
+#===============================================================================
+# HELPERS--------
+#===============================================================================
+ 
 #===============================================================================
 # FIXTURES-----
 #===============================================================================
-bbox1 = sgeo.box(7, 88, 15, 97)
+
 
 
 @pytest.fixture(scope='function')
@@ -23,13 +38,13 @@ def wrkr(tmp_path,write,logger, test_name,
     
     """Mock session for tests"""
  
-    np.random.seed(100)
-    random.seed(100)
+    #np.random.seed(100)
+    #random.seed(100)
  
     
     with Session(  
                  #GeoPandas
-                 crs=CRS.from_user_input(2953),
+                 crs=crs,
                  #oop.Basic
                  out_dir=tmp_path, 
                  tmp_dir=os.path.join(tmp_path, 'tmp_dir'),
@@ -52,22 +67,52 @@ def wrkr(tmp_path,write,logger, test_name,
         assert len(ses.compiled_fp_d)==0
         assert len(ses.ofp_d)==0
         yield ses
+        
+@pytest.fixture(scope='function')
+def cMask_pick_fp(cMask_rlay_fp, tmp_path):
+    """mimic output of run_catMasks"""
+    df = pd.DataFrame.from_dict(
+        {'downscale':[1,2],'catMosaic':[np.nan, cMask_rlay_fp],}
+        )
+    ofp = os.path.join(tmp_path, 'test_cMasks_%i.pkl'%len(df))
+    df.to_pickle(ofp)
+    
+    return ofp
+ 
 
-@pytest.mark.parametrize('pick_fp', [r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'])
+@pytest.fixture(scope='function')
+def cMask_rlay_fp(cMask_ar, tmp_path):
+    ofp = os.path.join(tmp_path, 'cMask_%i.tif'%cMask_ar.size)
+    
+    width, height = cMask_ar.shape
+    
+    write_array(cMask_ar, ofp, crs=crs,
+                 transform=rio.transform.from_bounds(*bbox_base.bounds,width, height),  
+                 masked=False)
+    
+    return ofp
+ 
+    
+ 
+@pytest.fixture(scope='function')    
+def cMask_ar(shape):
+    return np.random.choice(np.array(list(cm_int_d.values())), size=shape)
+    
+
+#===============================================================================
+# TESTS-------------
+#===============================================================================
+#@pytest.mark.parametrize('pick_fp', [r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data\cMasks\dsTest_test02_0829_haz_cMasks.pkl'])
 @pytest.mark.parametrize('finv_fp', [r'C:\LS\09_REPOS\02_JOBS\2112_agg\cef\tests2\expo\data\finv_SJ_test_0906.geojson'])
-
+@pytest.mark.parametrize('shape', [(10,10)], indirect=False)
 @pytest.mark.parametrize('bbox', [
                                 bbox1, 
                                 #None
                                   ])
-def test_01_assetRsc(wrkr, pick_fp, finv_fp, bbox):
-    raise IOError('need to make this fit better within the raster bounds')
-    rdx = wrkr.build_assetRsc(pick_fp, finv_fp, bbox=bbox)
+def test_01_assetRsc(wrkr, cMask_pick_fp, finv_fp, bbox): 
+    ofp = wrkr.build_assetRsc(cMask_pick_fp, finv_fp, bbox=bbox)
     
-    #validate
-    assert isinstance(rdx, pd.DataFrame)
-    assert isinstance(rdx.columns, pd.MultiIndex)
-    assert len(rdx.columns.names)==2
+ 
     
     
     

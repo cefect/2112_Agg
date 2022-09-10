@@ -8,8 +8,16 @@ import pytest
 import numpy as np
 import pandas as pd
 from definitions import src_dir
+import shapely.geometry as sgeo
+from pyproj.crs import CRS
 from hp.logr import get_new_file_logger, get_new_console_logger, logging
 from hp.rio import write_array
+
+#===============================================================================
+# VARS--------
+#===============================================================================
+bbox_base = sgeo.box(0, 0, 100, 100)
+crs=CRS.from_user_input(2953)
 #===============================================================================
 # MISC----
 #===============================================================================

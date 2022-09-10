@@ -5,7 +5,7 @@ unit tests for downsample v2
 from hp.np import dropna
 from hp.rio import RioWrkr, write_array, load_array
 from numpy import array, dtype
-from tests2.conftest import validate_dict, src_dir, get_abs
+from tests2.conftest import validate_dict, src_dir, get_abs, crs
 import numpy as np
 import pandas as pd
 import pytest, copy, os, random
@@ -20,10 +20,11 @@ xfail = pytest.mark.xfail
 #===============================================================================
 # helpers and globals------
 #===============================================================================
-crsid = 2953
+ 
 prec=5
-crs=rio.crs.CRS.from_epsg(crsid)
+ 
 #for test data
+"""better to use a bounding box for integration w/ vectors"""
 output_kwargs = dict(crs=crs,transform=rio.transform.from_origin(1,100,1,1)) 
 
 test_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data'
@@ -145,7 +146,7 @@ def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
 agg_fp = os.path.join(src_dir, r'tests2\haz\data\agg_filter\dsTest_test01_0908_agg_filter.pkl')
 
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('pick_fp', [
     agg_fp,
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
@@ -165,7 +166,7 @@ def test_03_stats(wrkr, pick_fp):
     assert_stat_check(res_fp)
 
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
 def test_04_statsFine(wrkr, pick_fp):
     res_fp = wrkr.run_stats_fine(pick_fp, write=True)

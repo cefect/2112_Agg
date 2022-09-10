@@ -18,6 +18,7 @@ import geopandas as gpd
 import shapely.geometry as sgeo
 import rasterio as rio
 import rasterio.windows
+
 from rasterstats import zonal_stats
 import rasterstats.utils
 import matplotlib.pyplot as plt
@@ -25,8 +26,9 @@ import matplotlib.pyplot as plt
 
 from hp.oop import Session
 from hp.gpd import GeoPandasWrkr, assert_intersect
-from hp.rio import load_array, RioWrkr, get_window
+from hp.rio import load_array, RioWrkr, get_window, plot_rast
 from hp.pd import view
+#from hp.plot import plot_rast
  
 from agg2.haz.rsc.scripts import ResampClassifier
 
@@ -58,6 +60,14 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
                 rbnds = sgeo.box(*ds.bounds)
                 ebnds = sgeo.box(*gdf.total_bounds)
                 if not bbox is None: #with the bounding box
+
+                    assert bbox.within(ebnds), 'bounding box exceeds assets extent'                    
+                    
+                    #build a clean window
+                    """basically rounding the raster window so everything fits"""
+                    window, win_transform = get_window(ds, bbox)
+ 
+                    
                     """
                     plt.close('all')
                     fig, ax = plt.subplots()
@@ -65,16 +75,13 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
                     ax.plot(*ebnds.exterior.xy, color='blue', label='assets')
                     gdf.plot(ax=ax, color='blue')
                     ax.plot(*bbox.exterior.xy, color='orange', label='bbox', linestyle='dashed')
+                    wbnds = sgeo.box(*rio.windows.bounds(window, transform=ds.transform))
                     ax.plot(*wbnds.exterior.xy, color='green', label='window', linestyle='dotted')
-                    ax.plot(*bbox1.exterior.xy, color='black', label='bbox_buff', linestyle='dashed')
+                    #ax.plot(*bbox1.exterior.xy, color='black', label='bbox_buff', linestyle='dashed')
                     fig.legend()
+                    limits = ax.axis()
                     """
-                    assert bbox.within(ebnds), 'bounding box exceeds assets extent'
                     
-                    
-                    #build a clean window
-                    """basically rounding the raster window so everything fits"""
-                    window = get_window(ds, bbox)
                     
                 else:  #between assets and raster
                     assert ebnds.intersects(rbnds), 'raster and assets do not intersect'
@@ -84,10 +91,8 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
  
                 #===============================================================
                 # loop each category's mask'
-                #===============================================================
- 
-                mosaic_ar = load_array(ds, window=window)
-                mosaic_ar.shape
+                #=============================================================== 
+                mosaic_ar = load_array(ds, window=window) 
                 
                 cm_d = self.mosaic_to_masks(mosaic_ar)
                 #load and compute zonal stats
@@ -95,25 +100,29 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
                 for catid, ar_raw in cm_d.items():
                     if np.any(ar_raw):
                         stats_d = zonal_stats(gdf, 
-                           np.where(ar_raw, 1, np.nan), 
-                            affine=ds.transform, 
-                            nodata=0, 
-                            all_touched=False, 
-                            stats=
-                            [ 'count',
-                                'nan',
-                                'mean'])
+                                               np.where(ar_raw, 1, np.nan), 
+                                                affine=win_transform, 
+                                                nodata=0, 
+                                                all_touched=False, #only centroids
+                                                stats=[ 'count',
+                                                       #'nan', #only interested in real interseects
+                                                       ])
                         zd[catid] = pd.DataFrame(stats_d)
-                
+                        
+ 
+                        """
+                        plot_rast(ar_raw, transform=win_transform, ax=ax )
+                        """
                 #===============================================================
                 # wrap
                 #===============================================================
-                res_d[scale] = pd.concat(zd, axis=1).droplevel(1, axis=1)
+                res_d[scale] = pd.concat(zd, axis=1, names=['dsc']).droplevel(1, axis=1).rename_axis(gdf.index.name)
         
         #=======================================================================
         # merge
         #=======================================================================
-        rdx = pd.concat(res_d, axis=1, names=['scale', 'dsc'])
+        """dropping spatial data"""
+        rdx = pd.concat(res_d, axis=1, names=['scale'])
         log.info('finished w/ %s' % str(rdx.shape))
         return rdx
 
@@ -158,7 +167,7 @@ class ExpoSession(ExpoWrkr, Session):
         #=======================================================================
         # classification masks
         #=======================================================================
-        df_raw = pd.read_pickle(pick_fp).loc[:, ['downscale', 'catMosaic_fp']]
+        df_raw = pd.read_pickle(pick_fp).loc[:, ['downscale', 'catMosaic']]
         cm_fp_d = df_raw.set_index('downscale').dropna().iloc[:,0].to_dict()  
         
         """
@@ -172,7 +181,8 @@ class ExpoSession(ExpoWrkr, Session):
         #=======================================================================
         # load asset data         
         #=======================================================================
-        gdf = gpd.read_file(finv_fp, bbox=bbox)
+        gdf = gpd.read_file(finv_fp, bbox=bbox).rename_axis('fid')
+        assert len(gdf)>0
         abnds = sgeo.box(*gdf.total_bounds) #bouds
         
         if not abnds.within(bbox):
@@ -189,6 +199,7 @@ class ExpoSession(ExpoWrkr, Session):
         """
         
         tuple(np.round(gdf.total_bounds, 1).tolist())
+        
         """
         #=======================================================================
         # get downscales
