@@ -158,7 +158,7 @@ def test_02_dsc(wrkr, pick_fp):
 
 cmasks_fp = os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0908_cMasks.pkl')
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
 def test_03_stats(wrkr, pick_fp):
     res_fp = wrkr.run_stats(pick_fp, write=True)
@@ -209,7 +209,7 @@ proj_d = {
  
     
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dsc_l', [([1,2,4])])
 @pytest.mark.parametrize('method', [
     'direct', 

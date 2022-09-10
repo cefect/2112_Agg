@@ -2,12 +2,17 @@
 Created on Sep. 9, 2022
 
 @author: cefect
+
+commons for all of Agg
 '''
 import os, datetime
 
 from hp.oop import Session, today_str
 
+
+
 class Agg2Session(Session):
+ 
     def __init__(self,
                  case_name='SJ',
                  out_dir=None, fancy_name=None,
@@ -16,7 +21,7 @@ class Agg2Session(Session):
                  run_name='r1',
                  subdir=False,
                  wrk_dir=None,
-                 engine='np', 
+                 
                  **kwargs):
         """handle project specific naming
         
@@ -28,8 +33,7 @@ class Agg2Session(Session):
         scen_name: str
             scenario name (i.e., method)
             
-        engine: str, default 'np'
-            whether to use dask or numpy
+
  
         """
         if wrk_dir is None:
@@ -46,6 +50,7 @@ class Agg2Session(Session):
                          **kwargs)
         
         self.scen_name=scen_name
-        self.engine=engine
+
         
- 
+class AggBase(object):
+    pass

@@ -2,14 +2,18 @@
 Created on Aug. 27, 2022
 
 @author: cefect
+
+commons for Haz
 '''
 import copy
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
 
+
 index_names = ['scale', 'pixelArea', 'pixelLength']
 column_names = ['layer', 'dsc', 'metric'] 
+layName_l = ['dem', 'wse', 'wd', 'catMask', 'diff']
 
 def get_rand_ar(shape, scale=10):
     dem_ar =  np.random.random(shape)*scale

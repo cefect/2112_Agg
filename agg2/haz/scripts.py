@@ -23,7 +23,7 @@ from hp.basic import get_dict_str
 from hp.pd import view
 from hp.sklearn import get_confusion
 
-from agg2.coms import Agg2Session
+from agg2.coms import Agg2Session, AggBase
 from agg2.haz.rsc.scripts import ResampClassifier
 from agg2.haz.misc import assert_dem_ar, assert_wse_ar, assert_dx_names
 idx= pd.IndexSlice
@@ -41,7 +41,7 @@ def now():
     return datetime.datetime.now()
 
 
-class UpsampleChild(ResampClassifier):
+class UpsampleChild(ResampClassifier, AggBase):
     """child for performing a single downsample set
     
     NOTES
@@ -213,9 +213,136 @@ class UpsampleChild(ResampClassifier):
         # wrap
         #=======================================================================
         return res_d
+    
+class RasterArrayStats(AggBase):
+
+    
+    def __init__(self,
+                 engine='np', 
+                 **kwargs):
+        """methods for ocmputing raster stats on arrays
+        
+        Parameters
+        ----------
+        engine: str, default 'np'
+            whether to use dask or numpy
+        """
+ 
+        #=======================================================================
+        # build defaults
+        #=======================================================================
+        self.engine=engine
+ 
+        super().__init__(**kwargs)
+        
+    def _build_statFuncs(self, engine=None):
+        """construct the dictinoary of methods"""
+        if engine is None: engine=self.engine
+        
+        if engine=='np':
+            d = {'wse':lambda ar, *args:self._get_wse_stats(ar, *args),
+                 'wd':lambda ar, *args:self._get_depth_stats(ar, *args),
+                 'diff':lambda ar, *args:self._get_diff_stats(ar, *args),
+                }
+            
+        else:
+            raise IOError('not implemented')
+        
+        #check
+        miss_l = set(d.keys()).difference(self.layName_l)
+        assert len(miss_l)==0, miss_l
+        
+        self.statFunc_d = d
+            
+        
+        
+        
+    def _get_wse_stats(self, ar, *args):
+        pass
+    
+    def _get_diff_stats(self, ar):
+        """compute stats on difference grids.
+        NOTE: always using reals for denometer"""
+        assert isinstance(ar, ma.MaskedArray)
+        assert not np.any(np.isnan(ar))
+        
+        
+        
+        #fully masked check
+        if np.all(ar.mask):
+            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
         
  
-class UpsampleSession(Agg2Session, UpsampleChild):
+        res_d = dict()
+        rcnt = (~ar.mask).sum()
+        res_d['sum'] = ar.sum()
+        res_d['meanErr'] =  res_d['sum']/rcnt #same as np.mean(ar)
+        res_d['meanAbsErr'] = np.abs(ar).sum() / rcnt
+        res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
+        return res_d
+    
+    def _get_diff_stats_dask(self, ar):
+        """compute stats on difference grids.
+        NOTE: always using reals for denometer"""
+        assert isinstance(ar, ma.MaskedArray)
+        assert not np.any(np.isnan(ar))
+        
+        
+        
+        #fully masked check
+        if np.all(ar.mask):
+            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
+        
+        dar = da.from_array(ar, chunks='auto')
+        res_d = dict()
+        rcnt = (~ar.mask).sum()
+        
+        res_d['meanErr'] =  dar.sum().compute()/rcnt #same as np.mean(ar)
+        res_d['meanAbsErr'] = np.abs(dar).sum().compute() / rcnt
+        res_d['RMSE'] = np.sqrt(np.mean(np.square(dar))).compute()
+        return res_d
+    
+    def _get_depth_stats(self, mar, pixelArea):
+ 
+        res_d=dict()
+        #=======================================================
+        # simple mean
+        #=======================================================
+        res_d['mean'] = mar.mean()
+        #===================================================================
+        # inundation area
+        #===================================================================
+        res_d['posi_area'] = np.sum(mar>0) * (pixelArea) #non-nulls times pixel area
+        #===================================================================
+        # volume
+        #===================================================================
+        res_d['vol'] = mar.sum() * pixelArea
+        
+        return res_d
+
+    def _get_depth_stats_dask(self, mar, pixelArea):
+ 
+        res_d=dict()
+        dar = da.from_array(mar, chunks='auto')
+        #=======================================================
+        # simple mean
+        #=======================================================
+        res_d['mean'] = dar.mean().compute() #mar.mean()
+        
+        
+        #===================================================================
+        # inundation area
+        #===================================================================
+        res_d['posi_area'] = (np.sum(dar>0) * (pixelArea)).compute() #non-nulls times pixel area
+        #===================================================================
+        # volume
+        #===================================================================
+        res_d['vol'] = (dar.sum() * pixelArea).compute()
+        
+        return res_d
+        
+ 
+class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     """tools for experimenting with downsample sets"""
     
     def __init__(self,method='direct', **kwargs):
@@ -735,7 +862,8 @@ class UpsampleSession(Agg2Session, UpsampleChild):
 
     def run_stats(self, pick_fp, 
  
-                 cols = ['dem', 'wse', 'wd', 'catMosaic'],
+                 layName_l = ['wse', 'wd', 'catMosaic'],
+ 
  
                  **kwargs):
         """
@@ -756,7 +884,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         df_raw = pd.read_pickle(pick_fp) 
         
         #slice to specfied columns
-        df = df_raw.loc[:, df_raw.columns.isin(cols+[icoln])].set_index(icoln)
+        df = df_raw.loc[:, df_raw.columns.isin(layName_l+[icoln])].set_index(icoln)
         
         """
         view(df)
@@ -770,9 +898,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         meta_d = dict()
         for i, row in df.iterrows():
             log.info('computing for downscale=%i'%i)
-            #===================================================================
-            # setup masks
-            #===================================================================
+ 
             #the complete mask
             with rio.open(row['wd'], mode='r') as ds:
                 shape = ds.shape                    
@@ -781,8 +907,10 @@ class UpsampleSession(Agg2Session, UpsampleChild):
                 pixelArea = ds.res[0]*ds.res[1]
                 pixelLength=ds.res[0]
                 
+            
+                
                 #load the array
-                wd_ar = load_array(ds, masked=True)
+                #wd_ar = load_array(ds, masked=True)
             
             #build other masks
             if i>1:
@@ -805,16 +933,22 @@ class UpsampleSession(Agg2Session, UpsampleChild):
             # compute on each layer
             #===================================================================
             res_d1 = dict()
-            for layName, ar_raw in {'wd': wd_ar}.items():
-                """only doing wd for now"""
-                #===================================================================
-                # compute stats function on each mask
-                #===================================================================
+            for layName, fp in row.items():
+                if layName=='catMask': continue                 
+                
+                #===============================================================
+                # get stats func
+                #===============================================================
+                
+
                 if self.engine=='dask':
                     func = lambda x:self._get_depth_stats_dask(x, pixelArea=pixelArea)
                 else:
                     func = lambda x:self._get_depth_stats(x, pixelArea=pixelArea)
                     
+                #===================================================================
+                # compute stats function on each mask
+                #===================================================================
                 d = self.get_maskd_func(mask_d, ar_raw, func, log.getChild('%i.%s'%(i, layName)))
  
                 res_d1[layName] = pd.DataFrame.from_dict(d)
@@ -948,44 +1082,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         return ofp
         
         
-    def _get_depth_stats(self, mar, pixelArea):
- 
-        res_d=dict()
-        #=======================================================
-        # simple mean
-        #=======================================================
-        res_d['mean'] = mar.mean()
-        #===================================================================
-        # inundation area
-        #===================================================================
-        res_d['posi_area'] = np.sum(mar>0) * (pixelArea) #non-nulls times pixel area
-        #===================================================================
-        # volume
-        #===================================================================
-        res_d['vol'] = mar.sum() * pixelArea
-        
-        return res_d
 
-    def _get_depth_stats_dask(self, mar, pixelArea):
- 
-        res_d=dict()
-        dar = da.from_array(mar, chunks='auto')
-        #=======================================================
-        # simple mean
-        #=======================================================
-        res_d['mean'] = dar.mean().compute() #mar.mean()
-        
-        
-        #===================================================================
-        # inundation area
-        #===================================================================
-        res_d['posi_area'] = (np.sum(dar>0) * (pixelArea)).compute() #non-nulls times pixel area
-        #===================================================================
-        # volume
-        #===================================================================
-        res_d['vol'] = (dar.sum() * pixelArea).compute()
-        
-        return res_d
 
     def get_maskd_func(self, mask_d, ar_raw, func, log):
         log.debug('    on %s w/ %i masks'%(str(ar_raw.shape), len(mask_d)))
@@ -1280,47 +1377,7 @@ class UpsampleSession(Agg2Session, UpsampleChild):
         
         return ofp
     
-    def _get_diff_stats(self, ar):
-        """compute stats on difference grids.
-        NOTE: always using reals for denometer"""
-        assert isinstance(ar, ma.MaskedArray)
-        assert not np.any(np.isnan(ar))
-        
-        
-        
-        #fully masked check
-        if np.all(ar.mask):
-            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
-        
- 
-        res_d = dict()
-        rcnt = (~ar.mask).sum()
-        res_d['sum'] = ar.sum()
-        res_d['meanErr'] =  res_d['sum']/rcnt #same as np.mean(ar)
-        res_d['meanAbsErr'] = np.abs(ar).sum() / rcnt
-        res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
-        return res_d
-    
-    def _get_diff_stats_dask(self, ar):
-        """compute stats on difference grids.
-        NOTE: always using reals for denometer"""
-        assert isinstance(ar, ma.MaskedArray)
-        assert not np.any(np.isnan(ar))
-        
-        
-        
-        #fully masked check
-        if np.all(ar.mask):
-            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
-        
-        dar = da.from_array(ar, chunks='auto')
-        res_d = dict()
-        rcnt = (~ar.mask).sum()
-        
-        res_d['meanErr'] =  dar.sum().compute()/rcnt #same as np.mean(ar)
-        res_d['meanAbsErr'] = np.abs(dar).sum().compute() / rcnt
-        res_d['RMSE'] = np.sqrt(np.mean(np.square(dar))).compute()
-        return res_d
+
             
 def get_pixel_info(ds):
     return {'pixelArea':ds.res[0]*ds.res[1], 'pixelLength':ds.res[0]}
