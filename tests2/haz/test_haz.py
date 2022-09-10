@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest, copy, os, random
 import rasterio as rio
-from agg2.haz.misc import get_rand_ar, get_wse_filtered, assert_dx_names
+from agg2.haz.coms import get_rand_ar, get_wse_filtered, assert_dx_names
 from agg2.haz.scripts import UpsampleSession as Session
 from agg2.haz.run import run_haz_agg2
  

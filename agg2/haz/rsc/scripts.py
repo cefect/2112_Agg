@@ -19,7 +19,7 @@ from hp.np import apply_block_reduce, downsample
 from hp.oop import Session
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array
 import scipy.ndimage
-from agg2.haz.misc import assert_dem_ar, assert_wse_ar
+from agg2.haz.coms import assert_dem_ar, assert_wse_ar, cm_int_d
 
 
 from hp.plot import plot_rast
@@ -30,8 +30,8 @@ def now():
  
 class ResampClassifier(RioWrkr): 
     """shareable tools for build downsample classification masks"""
-    #integer maps for buildilng the mosaic
-    cm_int_d = {'DD':11, 'WW':21, 'WP':31, 'DP':41}
+    
+    cm_int_d=cm_int_d
     
     def __init__(self, 
                  downscale=2,

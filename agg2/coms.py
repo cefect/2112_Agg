@@ -53,4 +53,5 @@ class Agg2Session(Session):
 
         
 class AggBase(object):
+    """placeholder"""
     pass
