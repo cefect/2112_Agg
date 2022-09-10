@@ -69,12 +69,9 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # assemble vrts
         #=======================================================================
-        #=======================================================================
-        # try:
-        #     vrt_d = ses.run_vrts(fp_d['err']) #errs has all the raster filepaths
-        # except Exception as e:
-        #     log.error('failed run_vrt w/ \n    %s'%e)
-        #=======================================================================
+ 
+        vrt_d = ses.run_vrts(fp_d['catMasks'])  
+ 
         
  
             
@@ -82,8 +79,10 @@ def run_haz_agg2(method='direct',
         # build agg stats
         #=======================================================================
 
-        stat_d['s2'] = ses.run_stats(fp_d['catMasks'])
-        stat_d['s1'] = ses.run_stats_fine(fp_d['catMasks'])
+        #=======================================================================
+        # stat_d['s2'] = ses.run_stats(fp_d['catMasks'])
+        # stat_d['s1'] = ses.run_stats_fine(fp_d['catMasks'])
+        #=======================================================================
         
         #=======================================================================
         # build difference stats
@@ -114,7 +113,7 @@ def SJ_r5_0909(
         method='direct',
         fp_lib = {
                 'direct':{
-                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\cMasks\\SJ_r6_direct_0909_cMasks.pkl',
+                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r7\\SJ\\direct\\20220910\\cMasks\\SJ_r7_direct_0910_cMasks.pkl',
                     #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
                     },
                 'filter':{
@@ -123,7 +122,7 @@ def SJ_r5_0909(
                     }
                 },
         **kwargs):
-    return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r6', **kwargs)
+    return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r7', **kwargs)
  
     
 #===============================================================================
@@ -154,7 +153,7 @@ def SJ_r5_0909(
 if __name__ == "__main__": 
  
     
-    SJ_r5_0909(method='filter')
+    SJ_r5_0909(method='direct')
  
  
  

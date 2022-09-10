@@ -105,7 +105,9 @@ class UpsampleChild(ResampClassifier, AggBase):
         del ar_d
         
         res_d[k] = self.write_array(wse_ar,  masked=True, ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),
-                               logger=log)
+                               logger=log, 
+                               transform=ds1.transform, #use the resampled from above
+                               )
             
         #=======================================================================
         # wrap
@@ -662,19 +664,36 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         self.out_dir
         meta_df.columns
         """
-        dxcol_raw = pd.read_pickle(pick_fp)
+        dxcol_raw = pd.read_pickle(pick_fp).set_index('downscale')
         log.info('compiling vrt from %s'%os.path.basename(pick_fp)) 
         res_d = dict()
-        for layer, gdx in dxcol_raw.groupby(level=0, axis=1):
-            for coln, col in gdx.droplevel(0, axis=1).items():
-                if not coln.endswith('fp'):
-                    continue
-                fp_d = col.dropna().to_dict()
-                ofpi = self.build_vrts(fp_d,ofp = os.path.join(out_dir, '%s_%s_%i.vrt'%(layer, coln, len(fp_d))))
+        
+        for layName, col in dxcol_raw.items():  
+            if not layName in coldx_d['layer']:
+                continue  
+            fp_d = col.dropna().to_dict()
+            
+            
+            try:
+                ofpi = self.build_vrts(fp_d,ofp = os.path.join(out_dir, '%s_%i.vrt'%(layName,  len(fp_d))))
                 
-                log.info('    for \'%s.%s\' compiled %i into a vrt: %s'%(layer, coln, len(fp_d), os.path.basename(ofpi)))
+                log.info('    for \'%s\' compiled %i into a vrt: %s'%(layName, len(fp_d), os.path.basename(ofpi)))
                 
-                res_d['%s_%s'%(layer, coln)] = ofpi
+                res_d['%s'%(layName)] = ofpi
+            except Exception as e:
+                log.error('failed to build vrt on %s w/ \n    %s'%(layName, e))
+        #=======================================================================
+        # for layer, gdx in dxcol_raw.groupby(level=0, axis=1):
+        #     for coln, col in gdx.droplevel(0, axis=1).items():
+        #         if not coln.endswith('fp'):
+        #             continue
+        #         fp_d = col.dropna().to_dict()
+        #         ofpi = self.build_vrts(fp_d,ofp = os.path.join(out_dir, '%s_%s_%i.vrt'%(layer, coln, len(fp_d))))
+        #         
+        #         log.info('    for \'%s.%s\' compiled %i into a vrt: %s'%(layer, coln, len(fp_d), os.path.basename(ofpi)))
+        #         
+        #         res_d['%s_%s'%(layer, coln)] = ofpi
+        #=======================================================================
         
         log.info('finished writing %i to \n    %s'%(len(res_d), out_dir))
         
@@ -695,7 +714,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
         #pull reals
         fp_l = [k for k in fp_d.values() if isinstance(k, str)]
-        for k in fp_l: assert os.path.exists(k)
+        for k in fp_l: assert os.path.exists(k), k
         
         gdal.BuildVRT(ofp, fp_l, separate=True, resolution='highest', resampleAlg='nearest')
         

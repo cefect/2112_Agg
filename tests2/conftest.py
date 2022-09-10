@@ -82,7 +82,7 @@ def get_abs(relative_fp):
 # VALIDATIOn-------
 #===============================================================================
 
-def compare_dicts(dtest, dtrue, index_l = None,
+def compare_dicts(dtest, dtrue, index_l = None, msg=''
                  ):
         df1 = pd.DataFrame.from_dict({'true':dtrue, 'test':dtest})
         
@@ -93,7 +93,7 @@ def compare_dicts(dtest, dtrue, index_l = None,
         
         bx = ~df2['test'].eq(other=df2['true'], axis=0)
         if bx.any():
-            raise AssertionError('%i/%i raster stats failed to match\n%s'%(bx.sum(), len(bx), df2.loc[bx,:]))
+            raise AssertionError('%i/%i raster stats failed to match\n%s\n'%(bx.sum(), len(bx), df2.loc[bx,:])+msg)
                 
 def validate_dict(session, valid_dir, test_stats_d, baseName='base'):
     

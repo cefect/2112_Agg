@@ -20,7 +20,7 @@ cm_int_d = {'DD':11, 'WW':21, 'WP':31, 'DP':41}
 index_names = ['scale', 'pixelArea', 'pixelLength']
  
 coldx_d = { 
-    'layer':['dem', 'wse', 'wd', 'catMask', 'diff'],
+    'layer':['dem', 'wse', 'wd', 'catMosaic', 'diff'],
 
     'dsc':list(cm_int_d.keys())+['all'],
     'metric':['mean', 'posi_area', 'post_count', 'pre_count', 'vol'],

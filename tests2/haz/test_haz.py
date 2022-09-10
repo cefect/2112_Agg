@@ -3,14 +3,14 @@ unit tests for downsample v2
 '''
  
 from hp.np import dropna
-from hp.rio import RioWrkr, write_array, load_array
+from hp.rio import RioWrkr, write_array, load_array, get_stats
 from numpy import array, dtype
-from tests2.conftest import validate_dict, src_dir, get_abs, crs, proj_d
+from tests2.conftest import compare_dicts, src_dir, get_abs, crs, proj_d
 import numpy as np
 import pandas as pd
 import pytest, copy, os, random
 import rasterio as rio
-from agg2.haz.coms import get_rand_ar, get_wse_filtered, assert_dx_names
+from agg2.haz.coms import get_rand_ar, get_wse_filtered, assert_dx_names, coldx_d
 from agg2.haz.scripts import UpsampleSession as Session
 from agg2.haz.run import run_haz_agg2
  
@@ -129,7 +129,7 @@ def test_00_dscList(wrkr, reso_iters):
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('dem_ar, wse_ar', [
     get_rand_ar((8,8))
     ])
@@ -140,13 +140,39 @@ def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
 @pytest.mark.parametrize('dsc_l', [([1,2])])
 def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     """wrapper for build_dset"""
-    wrkr.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True,
+    pick_fp = wrkr.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True,
                  #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                  )
+    
+    #validate
+    df = pd.read_pickle(pick_fp).set_index('downscale')
+    
+    #loop and make sure each layer has matching properties
+    first=True
+    
+    for layName, col in df.items():
+        assert layName in coldx_d['layer']
+        
+        for scale, fp in col.items():
+            with rio.open(fp, mode='r') as ds:
+                stats_d  = get_stats(ds, att_l=['crs', 'nodata', 'bounds'])
+                if first:
+                    stats_d1 = stats_d
+                    first = False
+                    continue
+                
+                compare_dicts(stats_d, stats_d1, msg='%s.%s'%(layName, scale))
+                
+ 
+                
+    
+    
+    
+    
 agg_fp = os.path.join(src_dir, r'tests2\haz\data\agg_filter\dsTest_test01_0908_agg_filter.pkl')
 
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('pick_fp', [
     agg_fp,
      #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),

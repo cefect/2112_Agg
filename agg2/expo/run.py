@@ -46,7 +46,7 @@ def SJ_r6_0910(
                     }
                 },
         **kwargs):
-    return run_expo(fp_d=fp_lib[method], case_name = 'SJ')
+    return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method)
 
 if __name__ == "__main__":
  
