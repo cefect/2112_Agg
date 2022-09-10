@@ -657,6 +657,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
  
                  #cols = ['dem', 'wse', 'wd', 'catMosaic'],
                  **kwargs):
+        """this really isnt working well... should find a different format"""
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('vrt',  subdir=True, **kwargs)
  
         """
@@ -670,7 +671,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
         for layName, col in dxcol_raw.items():  
             if not layName in coldx_d['layer']:
-                continue  
+                continue
+            #if not layName=='wse': continue 
             fp_d = col.dropna().to_dict()
             
             

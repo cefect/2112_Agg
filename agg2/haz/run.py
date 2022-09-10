@@ -54,6 +54,8 @@ def run_haz_agg2(method='direct',
             fp1 = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
  
             fp_d['catMasks'] = ses.run_catMasks(fp1)
+            
+            ses._clear()
         
 
         
