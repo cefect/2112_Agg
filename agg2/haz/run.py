@@ -54,8 +54,6 @@ def run_haz_agg2(method='direct',
             fp1 = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
  
             fp_d['catMasks'] = ses.run_catMasks(fp1)
- 
-        
         
 
         
@@ -97,8 +95,8 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # wrap
         #=======================================================================
-        ses.logger.info('finished w/ array picks \n%s'%get_dict_str(fp_d))
-        ses.logger.info('finished w/ stat picks \n%s'%get_dict_str(stat_d))
+        log.info('finished w/ array picks \n%s'%get_dict_str(fp_d))
+        log.info('finished w/ stat picks \n%s'%get_dict_str(stat_d))
         out_dir = ses.out_dir
     print('finished to \n    %s'%out_dir)
 
@@ -117,19 +115,37 @@ def SJ_r5_0909(
         fp_lib = {
                 'direct':{
                     'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\cMasks\\SJ_r6_direct_0909_cMasks.pkl',
-                    'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
+                    #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
                     },
                 'filter':{
                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-                    'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
+                    #'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
                     }
                 },
         **kwargs):
     return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r6', **kwargs)
  
     
-
-
+#===============================================================================
+# def SJ_r7_0910(
+#         method='direct',
+#         fp_lib = {
+#                 'direct':{
+#                     #===========================================================
+#                     # 'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\cMasks\\SJ_r6_direct_0909_cMasks.pkl',
+#                     # 'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
+#                     #===========================================================
+#                     },
+#                 'filter':{
+#                     #===========================================================
+#                     # 'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+#                     # 'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
+#                     #===========================================================
+#                     }
+#                 },
+#         **kwargs):
+#     return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r7', **kwargs)
+#===============================================================================
 
         
 
@@ -138,7 +154,7 @@ def SJ_r5_0909(
 if __name__ == "__main__": 
  
     
-    SJ_r5_0909(method='direct')
+    SJ_r5_0909(method='filter')
  
  
  
