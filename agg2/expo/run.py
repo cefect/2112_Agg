@@ -34,10 +34,10 @@ def run_expo(
 
 
 def SJ_r6_0910(
-        method='direct',
+        method='filter',
         fp_lib = {
                 'direct':{
-                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\cMasks\\SJ_r6_direct_0909_cMasks.pkl',
+                     'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r7\\SJ\\direct\\20220910\\cMasks\\SJ_r7_direct_0910_cMasks.pkl',
                     #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
                     },
                 'filter':{
@@ -46,12 +46,12 @@ def SJ_r6_0910(
                     }
                 },
         **kwargs):
-    return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method)
+    return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method, **kwargs)
 
 if __name__ == "__main__":
  
     SJ_r6_0910( 
-        aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT03_0906.geojson',
+        #aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT03_0906.geojson',
         )
     
     print('finished')

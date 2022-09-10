@@ -25,8 +25,8 @@ import matplotlib.pyplot as plt
 
 
 from hp.oop import Session
-from hp.gpd import GeoPandasWrkr, assert_intersect
-from hp.rio import load_array, RioWrkr, get_window, plot_rast
+from hp.gpd import GeoPandasWrkr, get_multi_intersection
+from hp.rio import load_array, RioWrkr, get_window, plot_rast, get_ds_attr
 from hp.pd import view
 #from hp.plot import plot_rast
  
@@ -61,8 +61,12 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
                 rbnds = sgeo.box(*ds.bounds)
                 ebnds = sgeo.box(*gdf.total_bounds)
                 if not bbox is None: #with the bounding box
-
-                    assert bbox.within(ebnds), 'bounding box exceeds assets extent'                    
+                    
+                    """relaxing this for now... 
+                    would be better to determine a single bounds for everything before the zonal though...
+                    assert ebnds.contains(bbox), 'bounding box exceeds assets extent'                    
+                    """
+                    
                     
                     #build a clean window
                     """basically rounding the raster window so everything fits"""
@@ -166,7 +170,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         if bbox is None: bbox=self.bbox
         start=now()
         #=======================================================================
-        # classification masks
+        # load classification masks
         #=======================================================================
         df_raw = pd.read_pickle(pick_fp).loc[:, ['downscale', 'catMosaic']]
         cm_fp_d = df_raw.set_index('downscale').dropna().iloc[:,0].to_dict()  
@@ -177,23 +181,41 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         
         log.info('on %i catMasks'%len(cm_fp_d))
         
+        
         for k,v in cm_fp_d.items():
             assert os.path.exists(v), k
+            
+        #get extents from this
+        rbnds = sgeo.box(*get_ds_attr(v, 'bounds'))
+        
+        #=======================================================================
+        # harmonize extents
+        #=======================================================================
+        """minimum intersection between the 3 bounds""" 
+        bbox1 = get_multi_intersection([sgeo.box(*gpd.read_file(finv_fp).total_bounds),
+                                        rbnds.buffer(-k, resolution=1), #conservative to handle window rounding 
+                                        bbox])
+        
+        """
+        plt.plot(*rbnds.buffer(-k, resolution=1).exterior.xy)
+        """
+ 
+        
+            
         #=======================================================================
         # load asset data         
         #=======================================================================
-        gdf = gpd.read_file(finv_fp, bbox=bbox).rename_axis('fid')
+        gdf = gpd.read_file(finv_fp, bbox=bbox1).rename_axis('fid')
         assert len(gdf)>0
         abnds = sgeo.box(*gdf.total_bounds) #bouds
-        
-        if not bbox is None:
-            if not abnds.within(bbox):
-                """can happen when an asset intersects the bbox"""
-                log.warning('asset bounds  not within bounding box \n    %s\n    %s'%(
-                            abnds.bounds, bbox.bounds))
+ 
+        if not abnds.within(bbox1):
+            """can happen when an asset intersects the bbox"""
+            log.warning('asset bounds  not within bounding box \n    %s\n    %s'%(
+                        abnds.bounds, bbox1.bounds))
         
         log.info('loaded %i feats (w/ aoi: %s) from \n    %s'%(
-            len(gdf), type(bbox).__name__, os.path.basename(finv_fp)))
+            len(gdf), type(bbox1).__name__, os.path.basename(finv_fp)))
         
         assert gdf.crs==self.crs, 'crs mismatch'
         assert len(gdf)>0
@@ -207,7 +229,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         # get downscales
         #=======================================================================
         res_dx = self.get_assetRsc(cm_fp_d, gdf, 
-                                   bbox=abnds, #using asset bounds because this might be larger than the bbox 
+                                   bbox=bbox1, #asset bounds may go beyond raster
                                    logger=log)
         
         #=======================================================================
