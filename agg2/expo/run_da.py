@@ -43,9 +43,31 @@ def run_plots(fp_lib,
         # data prep
         #=======================================================================
         #join the simulation results (and clean up indicides
-        dxcol_raw = ses.join_arsc_stats(fp_lib, write=False)
+        arsc_dx = ses.join_arsc_stats(fp_lib, write=False)
         
+        #=======================================================================
+        # stackced areas ratios
+        #=======================================================================
         
+        #=======================================================================
+        # #compute fraction
+        #=======================================================================
+        coln = 'frac'
+        dxcol1 = arsc_dx.droplevel('metric', axis=1)
+         
+        #divide by the total        
+        cnt_dx = dxcol1.divide(cnt_dx.loc[:, idx[:, 'all', :]].droplevel([1,2], axis=1), axis=0, level=0).droplevel(-1, axis=1)
+         
+        #add the new label
+        cnt_dx = pd.concat([cnt_dx], keys=[coln], names=['metric'], axis=1).reorder_levels(dxcol4.columns.names, axis=1)
+         
+        dxcol4 = dxcol4.join(cnt_dx).sort_index(axis=1)
+          
+        #slice to just these
+        dfi = dxcol4.loc[:, idx['direct', :, 'frac']].droplevel([0,2], axis=1).drop('all', axis=1)
+         
+        #plot
+        ses.plot_dsc_ratios(dfi.dropna())
         
         
         

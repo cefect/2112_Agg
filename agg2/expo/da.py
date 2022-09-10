@@ -66,14 +66,19 @@ class ExpoDASession(ExpoSession, Plotr):
         res_d = dict()
         for method, d1 in fp_lib.items():
             d = dict()
-            for base, fp in d1.items():
+            for dsource, fp in d1.items():
         
                 dx_raw = pd.read_pickle(fp)
                 
-                d[base] = dx_raw.sum(axis=0).unstack('dsc')
+                d[dsource] = dx_raw.sum(axis=0).unstack('dsc')
                 
             #wrap method
-            res_d[method] = pd.concat(d, axis=1, names=['base'])
+            res_d[method] = pd.concat(d, axis=1, names=['metric'])
             
         #wrap
-        pd.concat(res_d)
+        dx1 =  pd.concat(res_d, axis=1, names=['method'])
+        dx1 = dx1.rename(columns={dsource:'count'}).swaplevel('metric', 'dsc', axis=1)
+        
+ 
+        
+        return dx1
