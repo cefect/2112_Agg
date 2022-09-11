@@ -190,43 +190,74 @@ def run_haz_plots(fp_lib,
         # with WSE mean
         #=======================================================================
         
-  #=============================================================================
-  #       dxcol4 = dxcol1.loc[:, idx['s12N', :, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
-  #        
-  #       #stack into a series
-  #       serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
-  #                                      ).reindex(index=metrics_l, level='metric'
-  #                                       ).droplevel(['scale', 'pixelArea'])
-  #                                        
-  #       #concat layer and metric
-  #       """because for plotting we treat this as combined as 1 dimension"""
-  #       mcoln = 'layer_metric'
-  #       df = serx1.index.to_frame().reset_index(drop=True)
-  #       df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
-  # 
-  #       serx = pd.Series(serx1.values, index = pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
-  #        
-  #       #sort
-  #       m1_l = ['wd_mean', 'wse_mean', 'wd_posi_area', 'wd_vol']
-  #       serx = serx.reindex(index=m1_l, level=mcoln) #apply order
-  #        
-  #        
-  #       #plot
-  #       ses.plot_matrix_metric_method_var(serx,
-  #                                         map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'pixelLength'},
-  #                                         ylab_d={
-  #                                             'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
-  #                                             'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
-  #                                             'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-  #                                             'wse_mean':r'$\frac{\overline{WSE_{s2}}-\overline{WSE_{s1}}}{\overline{WSE_{s1}}}$', 
-  #                                             },
-  #                                         ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_wse.svg'),
-  #                                         matrix_kwargs = dict(figsize=(6.5,7.25)),
-  #                                         ax_lims_d = {
-  #                                             'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
-  #                                             }
-  #                                         )
-  #=============================================================================
+   #============================================================================
+   #      dxcol4 = dxcol1.loc[:, idx['s12N', :, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
+   #        
+   #      #stack into a series
+   #      serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
+   #                                     ).reindex(index=metrics_l, level='metric'
+   #                                      ).droplevel(['scale', 'pixelArea'])
+   #                                        
+   #      #concat layer and metric
+   #      """because for plotting we treat this as combined as 1 dimension"""
+   #      mcoln = 'layer_metric'
+   #      df = serx1.index.to_frame().reset_index(drop=True)
+   #      df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
+   # 
+   #      serx = pd.Series(serx1.values, index = pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
+   #        
+   #      #sort
+   #      m1_l = ['wd_mean', 'wse_mean', 'wd_posi_area', 'wd_vol']
+   #      serx = serx.reindex(index=m1_l, level=mcoln) #apply order
+   #        
+   #        
+   #      #plot
+   #      ses.plot_matrix_metric_method_var(serx,
+   #                                        map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'pixelLength'},
+   #                                        ylab_d={
+   #                                            'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
+   #                                            'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
+   #                                            'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+   #                                            'wse_mean':r'$\frac{\overline{WSE_{s2}}-\overline{WSE_{s1}}}{\overline{WSE_{s1}}}$', 
+   #                                            },
+   #                                        ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_wse.svg'),
+   #                                        matrix_kwargs = dict(figsize=(6.5,7.25)),
+   #                                        ax_lims_d = {
+   #                                            'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+   #                                            }
+   #                                        )
+   #============================================================================
+        
+        #=======================================================================
+        # for presentation (WD and A)
+        #=======================================================================
+        m_l = ['mean', 'posi_area']
+        dx1 = dxcol1.loc[:, idx['s12N', :, 'wd',:, m_l]
+                         ].droplevel(['base', 'layer'], axis=1).droplevel(('scale', 'pixelArea')
+                              ).drop('direct', level='method',axis=1)
+          
+        #stack into a series
+        serx = dx1.stack(level=dx1.columns.names).sort_index(sort_remaining=True
+                                       ).reindex(index=m_l, level='metric') 
+          
+          
+        #plot
+        ses.plot_matrix_metric_method_var(serx,
+                                          map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                          ylab_d={
+                                            #'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
+                                            'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
+                                            'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+                                              },
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_present.svg'),
+                                          matrix_kwargs = dict(figsize=(3,4), set_ax_title=False, add_subfigLabel=False),
+                                          ax_lims_d = {
+                                              'y':{'mean':(-1.5, 0.2),  'posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+                                              },
+                                          output_fig_kwargs=dict(transparent=False, add_stamp=False),
+                                          legend_kwargs=dict(loc=3),
+                                          ax_title_d=dict(), #no axis titles
+                                          )
         #=======================================================================
         # stackced areas ratios
         #=======================================================================
@@ -234,21 +265,18 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         # #compute fraction
         #=======================================================================
- 
         
-        #reduce
-        dx1 = dxcol_raw.loc[:, idx['s2',:,'wd',:,'post_count']].droplevel(('base', 'metric', 'layer'), axis=1).droplevel((1,2), axis=0)
-        df1 = dx1.drop('full',level='dsc', axis=1).dropna().drop('filter',level='method', axis=1).droplevel('method', axis=1)
-         
-        #compute fraction
-        fdf = df1.divide(df1.sum(axis=1), axis=0)
-  
-          
-        #plot
-        ses.plot_dsc_ratios(fdf)
-        
-        
-        
+        #=======================================================================
+        # #reduce
+        # dx1 = dxcol_raw.loc[:, idx['s2',:,'wd',:,'post_count']].droplevel(('base', 'metric', 'layer'), axis=1).droplevel((1,2), axis=0)
+        # df1 = dx1.drop('full',level='dsc', axis=1).dropna().drop('filter',level='method', axis=1).droplevel('method', axis=1)
+        #  
+        # #compute fraction
+        # fdf = df1.divide(df1.sum(axis=1), axis=0)
+        #   
+        # #plot
+        # ses.plot_dsc_ratios(fdf)
+        #=======================================================================
         
         
 if __name__ == "__main__":

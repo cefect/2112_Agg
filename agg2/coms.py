@@ -82,7 +82,7 @@ class Agg2DAComs(Plotr):
                                       ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
                                       ax_lims_d = dict(),
                                       xscale='linear',
-                                      matrix_kwargs = dict(figsize=(6.5,6)),
+                                      matrix_kwargs = dict(figsize=(6.5,6), set_ax_title=False, add_subfigLabel=True),
                                       plot_kwargs_lib={
                                           'full':{'marker':'x'},
                                           'DD':{'marker':'s', 'fillstyle':'none'},
@@ -91,6 +91,8 @@ class Agg2DAComs(Plotr):
                                           'DP':{'marker':'o', 'fillstyle':'bottom'},
                                           },
                                       plot_kwargs={'linestyle':'solid', 'marker':'x', 'markersize':7, 'alpha':0.8}, 
+                                      output_fig_kwargs=dict(),
+                                      legend_kwargs=dict(),
  
                                       **kwargs):
         
@@ -158,10 +160,7 @@ class Agg2DAComs(Plotr):
                                     #figsize_scaler=4,                                    
                                     constrained_layout=True,
                                     sharey='row',sharex='all',  
-                                    fig_id=0,
-                                    set_ax_title=False, add_subfigLabel=True,
-                                    **matrix_kwargs)
-     
+                                    fig_id=0,**matrix_kwargs)
  
         if not title is None:
             fig.suptitle(title)
@@ -198,7 +197,8 @@ class Agg2DAComs(Plotr):
                 
                 #first row
                 if row_key==keys_all_d['row'][0]:
-                    ax.set_title(ax_title_d[col_key])
+                    if col_key in ax_title_d:
+                        ax.set_title(ax_title_d[col_key])
                     
                     
                 #first col
@@ -219,7 +219,7 @@ class Agg2DAComs(Plotr):
                     
                     #first row
                     if row_key==keys_all_d['row'][0]:
-                        ax.legend()
+                        ax.legend(**legend_kwargs)
                     
                 
                 #last row
@@ -234,7 +234,7 @@ class Agg2DAComs(Plotr):
         #=======================================================================
         # output
         #=======================================================================
-        return self.output_fig(fig, ofp=ofp, logger=log)
+        return self.output_fig(fig, ofp=ofp, logger=log, **output_fig_kwargs)
     
     def plot_dsc_ratios(self, df,
                         colorMap=None,color_d=None,
