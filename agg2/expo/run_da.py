@@ -13,11 +13,11 @@ def SJ_plots_0910(
         fp_lib = {
                 'direct':{
                       
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220910\arsc\SJ_r1_direct_0910_arsc.pkl',
+                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220910\arsc\SJ_r7_direct_0910_arsc.pkl',
                     },
                 'filter':{
  
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
+                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220910\arsc\SJ_r7_filter_0910_arsc.pkl',
                     }
             }
         ):
@@ -48,26 +48,20 @@ def run_plots(fp_lib,
         #=======================================================================
         # stackced areas ratios
         #=======================================================================
+        #compute counts
+        dx1 = arsc_dx.sum(axis=0).astype(int).rename('count').to_frame()
         
-        #=======================================================================
-        # #compute fraction
-        #=======================================================================
-        coln = 'frac'
-        dxcol1 = arsc_dx.droplevel('metric', axis=1)
-         
-        #divide by the total        
-        cnt_dx = dxcol1.divide(cnt_dx.loc[:, idx[:, 'all', :]].droplevel([1,2], axis=1), axis=0, level=0).droplevel(-1, axis=1)
-         
-        #add the new label
-        cnt_dx = pd.concat([cnt_dx], keys=[coln], names=['metric'], axis=1).reorder_levels(dxcol4.columns.names, axis=1)
-         
-        dxcol4 = dxcol4.join(cnt_dx).sort_index(axis=1)
-          
-        #slice to just these
-        dfi = dxcol4.loc[:, idx['direct', :, 'frac']].droplevel([0,2], axis=1).drop('all', axis=1)
+        #compute fraction        
+        tdx = dx1.groupby(level=('method', 'scale'), axis=0).sum()  #totals per scale (roughly equal)         
+              
+        fdx = dx1.divide(tdx).iloc[:,0].rename('frac').sort_index() #divide by the total
+        """two methods should hvae identical cat masks"""
+        
+        fdf = fdx.drop('filter').droplevel(0).unstack() #reduce
+ 
          
         #plot
-        ses.plot_dsc_ratios(dfi.dropna())
+        ses.plot_dsc_ratios(fdf)
         
         
         

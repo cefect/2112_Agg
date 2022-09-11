@@ -45,18 +45,23 @@ print('loaded matplotlib %s'%matplotlib.__version__)
 
 #from agg2.haz.da import UpsampleDASession
 from agg2.expo.scripts import ExpoSession
-from hp.plot import Plotr, view
+from agg2.coms import Agg2DAComs
+from hp.plot import view
 
 
 def now():
     return datetime.datetime.now()
 
 
-class ExpoDASession(ExpoSession, Plotr):
+class ExpoDASession(ExpoSession, Agg2DAComs):
     
     def join_arsc_stats(self,fp_lib,
                          **kwargs):
-        """stats on resample class of assets"""
+        """assemble resample class of assets
+        
+        this is used to tag assets to dsc for reporting.
+        can also compute stat counts from this
+        """
         
         #=======================================================================
         # defaults
@@ -70,17 +75,13 @@ class ExpoDASession(ExpoSession, Plotr):
         
                 dx_raw = pd.read_pickle(fp)
                 
-                hit_dx = (dx_raw>0).sum().unstack('dsc')
-                
-                d[dsource] = dx_raw.sum(axis=0).unstack('dsc')
+                d[dsource] = dx_raw
                 
             #wrap method
-            res_d[method] = pd.concat(d, axis=1, names=['metric'])
+            res_d[method] = pd.concat(d, axis=1, names=['dsource'])
             
         #wrap
-        dx1 =  pd.concat(res_d, axis=1, names=['method'])
-        dx1 = dx1.rename(columns={dsource:'count'}).swaplevel('metric', 'dsc', axis=1)
-        
+        dx1 =  pd.concat(res_d, axis=1, names=['method']).swaplevel('method', 'dsource', axis=1).droplevel('dsource', axis=1).sort_index(axis=1)
  
         
         return dx1

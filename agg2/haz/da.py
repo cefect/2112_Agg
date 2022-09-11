@@ -53,18 +53,7 @@ def now():
 
 class UpsampleDASession(UpsampleSession, Agg2DAComs):
     """dataanalysis of downsampling"""
-    colorMap_d = {
-        'dsc':'PiYG'
-        }
-    
-    color_lib = {
-        'dsc':{  
-                'WW':'#0000ff',
-                'WP':'#00ffff',
-                'DP':'#ff6400',
-                'DD':'#800000',
-                'full': '#000000'}
-        }
+
     
  
         

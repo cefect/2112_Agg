@@ -58,6 +58,21 @@ class Agg2Session(AggBase, Session):
         
 
 class Agg2DAComs(Plotr):
+    """data analysis common to all"""
+    
+    
+    colorMap_d = {
+        'dsc':'PiYG'
+        }
+    
+    color_lib = {
+        'dsc':{  
+                'WW':'#0000ff',
+                'WP':'#00ffff',
+                'DP':'#ff6400',
+                'DD':'#800000',
+                'full': '#000000'}
+        }
     
     def plot_matrix_metric_method_var(self,
                                       serx,
@@ -219,7 +234,11 @@ class Agg2DAComs(Plotr):
     
     def plot_dsc_ratios(self, df,
                         colorMap=None,color_d=None,
+                        ylim = (0.6,1.0),
+                        xlim = (0, 500),
+                        figsize=(6.5,2),
                         **kwargs):
+        """plot ratio of dsc class vs. resolution"""
         log, tmp_dir, out_dir, ofp, _, write = self._func_setup('dsc_rats',  subdir=False,ext='.svg', **kwargs)
         
         #=======================================================================
@@ -238,7 +257,7 @@ class Agg2DAComs(Plotr):
         # setup plot
         #=======================================================================
         plt.close('all')
-        fig, ax = plt.subplots(figsize=(6.5,2), constrained_layout=True)
+        fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
             
         #=======================================================================
         # loop and plot
@@ -253,7 +272,8 @@ class Agg2DAComs(Plotr):
         ax.legend(loc=3)
         ax.set_xlabel('pixel size (m)')
         ax.set_ylabel('domain fraction')
-        ax.set_ylim((0.6,1.0))
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
         
         #=======================================================================
         # output
