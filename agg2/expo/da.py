@@ -8,7 +8,7 @@ import numpy.ma as ma
 import pandas as pd
 import os, copy, datetime
 idx= pd.IndexSlice
-
+from agg2.haz.coms import coldx_d
 
 #===============================================================================
 # setup matplotlib----------
@@ -66,13 +66,13 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('arsc_stats',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('arscJ',  subdir=True,ext='.pkl', **kwargs)
         
         res_d = dict()
         for method, d1 in fp_lib.items():
             d = dict()
             for dsource, fp in d1.items():
-        
+                if not dsource=='arsc': continue        
                 dx_raw = pd.read_pickle(fp)
                 
                 d[dsource] = dx_raw
@@ -82,6 +82,36 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             
         #wrap
         dx1 =  pd.concat(res_d, axis=1, names=['method']).swaplevel('method', 'dsource', axis=1).droplevel('dsource', axis=1).sort_index(axis=1)
+ 
+        
+        return dx1
+    
+    def join_layer_samps(self,fp_lib,
+                         **kwargs):
+        """assemble resample class of assets
+        
+        this is used to tag assets to dsc for reporting.
+        can also compute stat counts from this
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('lsampsK',  subdir=True,ext='.pkl', **kwargs)
+        
+        res_d = dict()
+        for method, d1 in fp_lib.items():
+            d = dict()
+            for layName, fp in d1.items():
+                if not layName in ['wd', 'wse', 'dem']: continue        
+ 
+                d[layName] = pd.read_pickle(fp)
+                
+            #wrap method
+            res_d[method] = pd.concat(d, axis=1).droplevel(0, axis=1) #already a dx
+            
+        #wrap
+        dx1 =  pd.concat(res_d, axis=1, names=['method']).sort_index(axis=1)
  
         
         return dx1

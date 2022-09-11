@@ -45,7 +45,7 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
         # defaults
         #=======================================================================
         if logger is None: logger=self.logger
-        log=logger.getChild('get_assetRsc')
+        log=logger.getChild('get_rlay_samp')
         
         
         assert isinstance(gdf.iloc[1, :]['geometry'], sgeo.point.Point), 'only setup for points here'
