@@ -68,7 +68,10 @@ def wrkr(tmp_path,write,logger, test_name,
         assert len(ses.compiled_fp_d)==0
         assert len(ses.ofp_d)==0
         yield ses
-        
+
+#===============================================================================
+# ressampl class mask
+#===============================================================================
 @pytest.fixture(scope='function')
 def cMask_pick_fp(cMask_rlay_fp, tmp_path):
     """mimic output of run_catMasks"""
@@ -98,12 +101,81 @@ def cMask_rlay_fp(cMask_ar, tmp_path):
 @pytest.fixture(scope='function')    
 def cMask_ar(shape):
     return np.random.choice(np.array(list(cm_int_d.values())), size=shape)
+
+#===============================================================================
+# data grids
+#===============================================================================
+
+@pytest.fixture(scope='function')
+def lay_pick_fp(rlay_fp_d, layName, tmp_path):
+    
+    df = pd.Series(rlay_fp_d).rename(layName).to_frame().rename_axis('downscale').reset_index()
+ 
+    ofp = os.path.join(tmp_path, 't%s_%i.pkl'%(layName, len(df)))
+    df.to_pickle(ofp)
+    
+    return ofp
+
+
+@pytest.fixture(scope='function')
+def rlay_fp_d(ar_d, layName, tmp_path):
+    ofp_d = dict()
+    for scale, ar_raw in ar_d.items():
+        ofp = os.path.join(tmp_path, '%s_%03i.tif'%(layName, scale))
+        
+        width, height = ar_raw.shape
+        
+        write_array(ar_raw, ofp, crs=crs,transform=rio.transform.from_bounds(*bbox_base.bounds,width, height),  
+                     masked=False, nodata=-9999)
+        
+        ofp_d[scale]=ofp
+    
+    return ofp_d
+ 
+    
+ 
+@pytest.fixture(scope='function')    
+def ar_d(shape, dsc_l, layName):
+    """building some dummy grids for a set of scales"""
+    assert dsc_l[0]==1
+    d1 = shape[0]
+    assert d1%dsc_l[-1]==0, 'bad divisor'
+    #===========================================================================
+    # build base
+    #===========================================================================
+    s1 = (10, 10)
+    if layName=='wd':        
+        samp_ar = np.concatenate( #50% real 50% ry
+            (np.round(np.random.random(s1)*10, 2).ravel(),
+            np.full(s1, 0).ravel())
+            ).ravel()
+            
+    elif layName=='wse':
+        samp_ar = np.concatenate( #50% real 50% ry
+            (np.round(np.random.random(s1)*20, 2).ravel(),
+            np.full(s1, -9999).ravel())
+            ).ravel()
+    
+    else:
+        raise IOError('not implemented')
+    
+ 
+    
+    res_d = dict()
+    for scale in dsc_l: 
+        assert d1%scale==0, 'bad divisor: %i'%scale
+        si = tuple((np.array(shape)//scale).astype(int))           
+        res_d[scale] = np.random.choice(samp_ar, size=si)
+        
+        
+    return res_d
+
     
 
 #===============================================================================
 # TESTS-------------
 #===============================================================================
-@pytest.mark.dev
+ 
 @pytest.mark.parametrize('finv_fp', [proj_d['finv_fp']])
 @pytest.mark.parametrize('shape', [(10,10)], indirect=False)
 @pytest.mark.parametrize('bbox', [
@@ -114,9 +186,27 @@ def test_01_assetRsc(wrkr, cMask_pick_fp, finv_fp, bbox):
     ofp = wrkr.build_assetRsc(cMask_pick_fp, finv_fp, bbox=bbox)
     
 
+
+@pytest.mark.dev
+@pytest.mark.parametrize('dsc_l', [([1,2,5])])
+@pytest.mark.parametrize('layName', [
+    #'wd',
+    'wse'])
+@pytest.mark.parametrize('finv_fp', [proj_d['finv_fp']])
+@pytest.mark.parametrize('shape', [(10,10)], indirect=False)
+@pytest.mark.parametrize('bbox', [
+                                bbox1, 
+                                None
+                                  ])
+def test_02_laySamp(wrkr, lay_pick_fp, finv_fp, bbox, layName): 
+    ofp = wrkr.build_layerSamps(lay_pick_fp, finv_fp, bbox=bbox, layName=layName,
+                                write=True,
+                                )
+    
+    
 @pytest.mark.parametrize('proj_d', [proj_d])
 @pytest.mark.parametrize('shape', [(10,10)], indirect=False)
-def test_runExpo(proj_d, tmp_path, cMask_pick_fp):
+def test_runExpo(proj_d, tmp_path, lay_pick_fp):
     run_expo( wrk_dir=tmp_path, case_name='tCn', run_name='tRn', proj_d=proj_d,
               fp_d={'catMasks':cMask_pick_fp},
               )

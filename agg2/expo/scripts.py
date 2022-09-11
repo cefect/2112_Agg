@@ -38,6 +38,43 @@ def now():
 
 
 class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
+    
+    def get_rlays_samp_pts(self, rlay_fp_d, gdf, bbox=None, logger=None):
+        """compute  stats for assets on each raster"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if logger is None: logger=self.logger
+        log=logger.getChild('get_assetRsc')
+        
+        
+        assert isinstance(gdf.iloc[1, :]['geometry'], sgeo.point.Point), 'only setup for points here'
+        
+        #=======================================================================
+        # loop and sample
+        #=======================================================================
+        coord_list = [(x,y) for x,y in zip(gdf['geometry'].x , gdf['geometry'].y)]
+        
+        res_d = dict()
+        for scale, rlay_fp in rlay_fp_d.items():
+            log.info('on scale=%i w/ %s' % (scale, os.path.basename(rlay_fp)))
+ 
+            with rio.open(rlay_fp, mode='r') as ds:
+                #check consistency
+                assert ds.crs.to_epsg() == self.crs.to_epsg()
+ 
+                #ds.read(1)
+ 
+                
+                res_d[scale] = [x[0] for x in ds.sample(coord_list, masked=False, indexes=1)]
+                
+                nodata = ds.nodata
+                
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        rdf = pd.DataFrame.from_dict(res_d).rename_axis(gdf.index.name).rename_axis('scale', axis=1)
+        return rdf.replace({nodata:np.nan})
 
     def get_assetRsc(self, cm_fp_d, gdf, bbox=None, logger=None):
         """compute zonal stats for assets on each resample class mosaic"""
@@ -169,6 +206,8 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         
         #join resampClass to each asset (one column per resolution)
         
+        #sample layers on assets
+        
         #compute stats
         
     def build_assetRsc(self, pick_fp, finv_fp,
@@ -210,8 +249,6 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         """
         plt.plot(*rbnds.buffer(-k, resolution=1).exterior.xy)
         """
- 
-        
             
         #=======================================================================
         # load asset data         
@@ -254,13 +291,99 @@ class ExpoSession(ExpoWrkr, Agg2Session):
  
                 
  
+    def build_layerSamps(self, pick_fp, finv_fp,
+                         layName='wd',
+                         centroids=True,
+                       bbox=None,
+                       prec=None,
+                        **kwargs):
+        """join grid values to each asset (one column per resolution)"""
+        start=now()
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('lsamp_%s'%layName,  subdir=True,ext='.pkl', **kwargs)
         
+        if bbox is None: bbox=self.bbox
+        if prec is None: prec=self.prec
+        
+        #=======================================================================
+        # load classification masks
+        #=======================================================================
+        df_raw = pd.read_pickle(pick_fp).loc[:, ['downscale', layName]].set_index('downscale')
+        rlay_fp_d = df_raw.dropna().iloc[:,0].to_dict()  
+ 
+        
+        log.info('on %i \'%s\' layers'%(len(rlay_fp_d), layName))        
+        for k,v in rlay_fp_d.items():
+            assert os.path.exists(v), k
+            
+        #get extents from this
+        rbnds = sgeo.box(*get_ds_attr(v, 'bounds'))
+        
+        #=======================================================================
+        # harmonize extents
+        #=======================================================================
+        """minimum intersection between the 3 bounds""" 
+        bbox1 = get_multi_intersection([sgeo.box(*gpd.read_file(finv_fp).total_bounds),
+                                        rbnds.buffer(-k*2, resolution=1), #conservative to handle window rounding 
+                                        bbox])
         
         """
-        gdf.plot()
-        plt.show()
+        plt.plot(*rbnds.buffer(-k, resolution=1).exterior.xy)
         """
+            
+        #=======================================================================
+        # load asset data         
+        #=======================================================================
+        gdf_raw = gpd.read_file(finv_fp, bbox=bbox1).rename_axis('fid')
+        assert len(gdf_raw)>0
+        abnds = sgeo.box(*gdf_raw.total_bounds) #bouds
+ 
+        if not abnds.within(bbox1):
+            """can happen when an asset intersects the bbox"""
+            log.warning('asset bounds  not within bounding box \n    %s\n    %s'%(
+                        abnds.bounds, bbox1.bounds))
         
+        log.info('loaded %i feats (w/ aoi: %s) from \n    %s'%(
+            len(gdf_raw), type(bbox1).__name__, os.path.basename(finv_fp)))
+        
+        assert gdf_raw.crs==self.crs, 'crs mismatch'
+        assert len(gdf_raw)>0
+        
+        
+        #=======================================================================
+        # compute
+        #=======================================================================
+        if centroids:
+ 
+            
+            rdf = self.get_rlays_samp_pts(rlay_fp_d, gdf_raw.set_geometry(gdf_raw.centroid), 
+                                   bbox=bbox1, #asset bounds may go beyond raster
+                                   logger=log)
+        else:
+            raise IOError('not implemented')
+ 
+ 
+ 
+
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        res_dx = pd.concat({layName:rdf}, axis=1, names=['layer'])
+        res_dx.to_pickle(ofp)
+        log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
+        
+        #=======================================================================
+        # write geo
+        #=======================================================================
+        if write:
+            rdf.columns = rdf.columns.astype(str)
+            ofpi = os.path.join(out_dir, layname+'.gpkg')
+            gdf_raw.join(rdf.astype(np.float32)).to_file(ofpi, driver='GPKG', index=False, engine='fiona')
+            
+            log.info('wrote  to \n    %s'%(ofpi))
+        
+        
+        return ofp
 
 
         
