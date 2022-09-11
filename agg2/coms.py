@@ -15,7 +15,7 @@ class AggBase(object):
     """placeholder"""
     pass
 
-class Agg2Session(AggBase, Session):
+class Agg2Session(Session):
  
     def __init__(self,
                  case_name='SJ',
@@ -209,6 +209,10 @@ class Agg2DAComs(Plotr):
                     if 'y' in ax_lims_d:
                         if row_key in ax_lims_d['y']:
                             ax.set_ylim(ax_lims_d['y'][row_key])
+                            
+                            """
+                            plt.show()
+                            """
                     
                     #force 2decimal precision
                     ax.get_yaxis().set_major_formatter(lambda x,p:'%.2f'%x)
@@ -237,8 +241,15 @@ class Agg2DAComs(Plotr):
                         ylim = (0.6,1.0),
                         xlim = (0, 500),
                         figsize=(6.5,2),
+                        ylabel= 'domain fraction',
                         **kwargs):
-        """plot ratio of dsc class vs. resolution"""
+        """plot ratio of dsc class vs. resolution
+        
+        Parameters
+        ---------
+        df: pd.DataFrame
+            data to plot {index:scale, columns:dsc}
+        """
         log, tmp_dir, out_dir, ofp, _, write = self._func_setup('dsc_rats',  subdir=False,ext='.svg', **kwargs)
         
         #=======================================================================
@@ -271,7 +282,7 @@ class Agg2DAComs(Plotr):
         #=======================================================================
         ax.legend(loc=3)
         ax.set_xlabel('pixel size (m)')
-        ax.set_ylabel('domain fraction')
+        ax.set_ylabel(ylabel)
         ax.set_ylim(ylim)
         ax.set_xlim(xlim)
         

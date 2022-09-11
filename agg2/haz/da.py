@@ -51,7 +51,7 @@ def now():
     return datetime.datetime.now()
 
 
-class UpsampleDASession(UpsampleSession, Agg2DAComs):
+class UpsampleDASession(Agg2DAComs, UpsampleSession):
     """dataanalysis of downsampling"""
 
     

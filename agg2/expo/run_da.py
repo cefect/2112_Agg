@@ -44,6 +44,10 @@ def run_plots(fp_lib,
         #=======================================================================
         #join the simulation results (and clean up indicides
         arsc_dx = ses.join_arsc_stats(fp_lib, write=False)
+        """
+        arsc_dx.columns.get_level_values('scale').unique()
+        2**5
+        """
         
         #=======================================================================
         # stackced areas ratios
@@ -61,7 +65,10 @@ def run_plots(fp_lib,
  
          
         #plot
-        ses.plot_dsc_ratios(fdf)
+        ses.plot_dsc_ratios(fdf, ylabel='asset pop. fraction')
+        """
+        view(fdf)
+        """
         
         
         
