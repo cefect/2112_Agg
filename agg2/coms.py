@@ -6,12 +6,16 @@ Created on Sep. 9, 2022
 commons for all of Agg
 '''
 import os, datetime
+import matplotlib.pyplot as plt
 
 from hp.oop import Session, today_str
+from hp.plot import Plotr
 
+class AggBase(object):
+    """placeholder"""
+    pass
 
-
-class Agg2Session(Session):
+class Agg2Session(AggBase, Session):
  
     def __init__(self,
                  case_name='SJ',
@@ -52,6 +56,206 @@ class Agg2Session(Session):
         self.scen_name=scen_name
 
         
-class AggBase(object):
-    """placeholder"""
-    pass
+
+class Agg2DAComs(Plotr):
+    
+    def plot_matrix_metric_method_var(self,
+                                      serx,
+                                      map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                      title=None, colorMap=None,color_d=None,
+                                      ylab_d={'vol':'$V_{s2}$ (m3)', 'wd_mean':r'$WD_{s2}$ (m)', 'wse_area':'$A_{s2}$ (m2)'},
+                                      ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
+                                      ax_lims_d = dict(),
+                                      xscale='linear',
+                                      matrix_kwargs = dict(figsize=(6.5,6)),
+                                      plot_kwargs_lib={
+                                          'full':{'marker':'x'},
+                                          'DD':{'marker':'s', 'fillstyle':'none'},
+                                          'WW':{'marker':'o', 'fillstyle':'full'},
+                                          'WP':{'marker':'o', 'fillstyle':'top'},
+                                          'DP':{'marker':'o', 'fillstyle':'bottom'},
+                                          },
+                                      plot_kwargs={'linestyle':'solid', 'marker':'x', 'markersize':7, 'alpha':0.8}, 
+ 
+                                      **kwargs):
+        
+        """build matrix plot of variance
+            x:pixelLength
+            y:(series values)
+            rows: key metrics (wd_mean, wse_area, vol)
+            cols: all methods
+            colors: downsample class (dsc)
+            
+        Parameters
+        -----------
+        serx: pd.Series w/ multindex
+            see join_stats
+        map_d: dict
+            plot matrix name dict mapping dxcol data labels to the matrix plot
+            
+        plot_kwargs_lib: {series name: **plot_kwargs}
+            series specific kwargs
+        
+        plot_kwargs: dict
+            kwargs for all series (gives up precedent to series specific)
+            
+        Note
+        --------
+        cleaner to do all slicing and data maniupation before the plotter
+        
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('metric_method_var',  subdir=False,ext='.svg', **kwargs)
+ 
+            
+        #=======================================================================
+        # extract data
+        #=======================================================================
+        map_d = {k:map_d[k] for k in ['row', 'col', 'color', 'x']} #ensure order on map
+        
+        """leaving data order passed by theuser"""
+        serx = serx.reorder_levels(list(map_d.values()))#.sort_index(level=map_d['x']) #ensure order on data
+        
+        mdex = serx.index
+        keys_all_d = {k:mdex.unique(v).tolist() for k,v in map_d.items()} #order matters
+        
+        if color_d is None:
+            color_d = self._get_color_d(map_d['color'], keys_all_d['color'], colorMap=colorMap, color_d=color_d)
+        
+        #plot kwargs
+        """here we populate with blank kwargs to ensure every series has some kwargs"""
+        if plot_kwargs_lib is None: plot_kwargs_lib=dict()
+        for k in keys_all_d['color']:
+            if not k in plot_kwargs_lib:
+                plot_kwargs_lib[k] = plot_kwargs
+            else:
+                plot_kwargs_lib[k] = {**plot_kwargs, **plot_kwargs_lib[k]} #respects precedent
+ 
+        #=======================================================================
+        # setup figure
+        #=======================================================================
+        plt.close('all')
+ 
+ 
+        fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'],
+                                    #figsize_scaler=4,                                    
+                                    constrained_layout=True,
+                                    sharey='row',sharex='all',  
+                                    fig_id=0,
+                                    set_ax_title=False, add_subfigLabel=True,
+                                    **matrix_kwargs)
+     
+ 
+        if not title is None:
+            fig.suptitle(title)
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        levels = [map_d[k] for k in ['row', 'col']]
+        for gk0, gsx0 in serx.groupby(level=levels):
+            #===================================================================
+            # setup
+            #===================================================================
+            ax = ax_d[gk0[0]][gk0[1]]
+            keys_d = dict(zip(levels, gk0))
+            
+            ax.set_xscale(xscale)
+            #===================================================================
+            # loop each series (color group)
+            #===================================================================
+            for gk1, gsx1 in gsx0.groupby(level=map_d['color']):
+                keys_d[map_d['color']] = gk1
+                xar, yar = gsx1.index.get_level_values(map_d['x']).values, gsx1.values
+                #===============================================================
+                # plot
+                #===============================================================
+                ax.plot(xar, yar, color=color_d[gk1],label=gk1,**plot_kwargs_lib[gk1])
+                
+        #=======================================================================
+        # post format
+        #=======================================================================
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                ax.grid()
+                
+                #first row
+                if row_key==keys_all_d['row'][0]:
+                    ax.set_title(ax_title_d[col_key])
+                    
+                    
+                #first col
+                if col_key == keys_all_d['col'][0]:
+                    ax.set_ylabel(ylab_d[row_key])
+                    
+                    #set lims
+                    if 'y' in ax_lims_d:
+                        if row_key in ax_lims_d['y']:
+                            ax.set_ylim(ax_lims_d['y'][row_key])
+                    
+                    #force 2decimal precision
+                    ax.get_yaxis().set_major_formatter(lambda x,p:'%.2f'%x)
+                    
+                    #first row
+                    if row_key==keys_all_d['row'][0]:
+                        ax.legend()
+                    
+                
+                #last row
+                if row_key==keys_all_d['row'][-1]:
+                    ax.set_xlabel('resolution (m)')
+                
+                #last col
+                if col_key == keys_all_d['col'][-1]:
+                    pass
+ 
+                        
+        #=======================================================================
+        # output
+        #=======================================================================
+        return self.output_fig(fig, ofp=ofp, logger=log)
+    
+    def plot_dsc_ratios(self, df,
+                        colorMap=None,color_d=None,
+                        **kwargs):
+        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('dsc_rats',  subdir=False,ext='.svg', **kwargs)
+        
+        #=======================================================================
+        # setup
+        #=======================================================================
+ 
+        coln = df.columns.name
+        keys_all_d={'color':df.columns.tolist()}
+        
+        if color_d is None:
+            color_d = self._get_color_d(coln, keys_all_d['color'], colorMap=colorMap, color_d=color_d)
+        
+        color_l = [color_d[k] for k in df.columns]
+            
+        #=======================================================================
+        # setup plot
+        #=======================================================================
+        plt.close('all')
+        fig, ax = plt.subplots(figsize=(6.5,2), constrained_layout=True)
+            
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        ax.stackplot(df.index, df.T.values, labels=df.columns, colors=color_l,
+                     alpha=0.8)
+ 
+        
+        #=======================================================================
+        # format
+        #=======================================================================
+        ax.legend(loc=3)
+        ax.set_xlabel('pixel size (m)')
+        ax.set_ylabel('domain fraction')
+        ax.set_ylim((0.6,1.0))
+        
+        #=======================================================================
+        # output
+        #=======================================================================
+        return self.output_fig(fig, ofp=ofp, logger=log)
