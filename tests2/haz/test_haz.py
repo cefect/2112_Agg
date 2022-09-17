@@ -129,13 +129,15 @@ def test_00_dscList(wrkr, reso_iters):
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
 
+
+
 @pytest.mark.dev
 @pytest.mark.parametrize('dem_ar, wse_ar', [
-    get_rand_ar((8,8))
+    get_rand_ar((8*2,8*2))
     ])
 @pytest.mark.parametrize('method', [
     'direct', 
-    'filter',
+    #'filter',
     ])
 @pytest.mark.parametrize('dsc_l', [([1,2])])
 def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
@@ -162,6 +164,9 @@ def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
                     continue
                 
                 compare_dicts(stats_d, stats_d1, msg='%s.%s'%(layName, scale))
+                
+                if layName=='wse':
+                    ds.read(1, masked=True)
                 
  
                 

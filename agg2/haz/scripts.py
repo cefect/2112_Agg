@@ -100,12 +100,13 @@ class UpsampleChild(ResampClassifier, AggBase):
         # compute WSE
         #=======================================================================
         k='wse'
-        wse_ar = ma.array(ar_d['dem'] + ar_d['wd'], mask=ar_d['wd']<=0, fill_value=ds1.nodata)
+        #wse_ar = ma.array(ar_d['dem'] + ar_d['wd'], mask=ar_d['wd']<=0, fill_value=ds1.nodata)
+        wse_ar = np.where(ar_d['wd']<=0, ds1.nodata, ar_d['dem'] + ar_d['wd']).astype(np.float32)
         
         del ar_d
         
-        res_d[k] = self.write_array(wse_ar,  masked=True, ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),
-                               logger=log, 
+        res_d[k] = self.write_array(wse_ar,  masked=False, ofp=os.path.join(out_dir, '%s_%s.tif'%(k, self.obj_name)),
+                               logger=log, nodata=ds1.nodata,
                                transform=ds1.transform, #use the resampled from above
                                )
             

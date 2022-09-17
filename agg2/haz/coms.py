@@ -31,7 +31,7 @@ coldx_d = {
 
 def get_rand_ar(shape, scale=10):
     dem_ar =  np.random.random(shape)*scale
-    wse_ar = get_wse_filtered(np.random.random(shape)*scale, dem_ar)
+    wse_ar = get_wse_filtered(np.random.random(shape)*scale*0.5, dem_ar)
     
     return dem_ar, wse_ar
 
