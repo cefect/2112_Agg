@@ -8,8 +8,8 @@ import numpy.ma as ma
 import pandas as pd
 import os, copy, datetime
 idx= pd.IndexSlice
-from agg2.haz.coms import coldx_d
-
+from agg2.haz.coms import coldx_d, cm_int_d
+ 
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
@@ -54,8 +54,9 @@ def now():
 
 
 class ExpoDASession(ExpoSession, Agg2DAComs):
+    cm_int_d=cm_int_d
     
-    def join_arsc_stats(self,fp_lib,
+    def join_arsc(self,fp_lib,
                          **kwargs):
         """assemble resample class of assets
         
@@ -68,23 +69,47 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('arscJ',  subdir=True,ext='.pkl', **kwargs)
         
-        res_d = dict()
+        #=======================================================================
+        # load the first
+        #=======================================================================
+        dx_raw = None
         for method, d1 in fp_lib.items():
-            d = dict()
-            for dsource, fp in d1.items():
-                if not dsource=='arsc': continue        
-                dx_raw = pd.read_pickle(fp)
-                
-                d[dsource] = dx_raw
-                
-            #wrap method
-            res_d[method] = pd.concat(d, axis=1, names=['dsource'])
-            
-        #wrap
-        dx1 =  pd.concat(res_d, axis=1, names=['method']).swaplevel('method', 'dsource', axis=1).droplevel('dsource', axis=1).sort_index(axis=1)
  
+            for dsource, fp in d1.items():
+                if dsource=='arsc':        
+                    dx_raw = pd.read_pickle(fp)
+                    """only need one of these"""
+                    break                
+        #=======================================================================
+        # check
+        #=======================================================================
+        assert not dx_raw is None
+        cbx = dx_raw.groupby(level='scale', axis=1).sum() ==1
         
-        return dx1
+        #=======================================================================
+        # if not cbx.all().all():
+        #     raise AssertionError('got %i/%i assets w/ multiple dsc'%(np.invert(cbx).sum().sum(), cbx.size))
+        #=======================================================================
+        
+        #=======================================================================
+        # convert to code
+        #=======================================================================
+        def get_hot(row):
+            return row
+ 
+        d = dict()
+        for scale, gdx in dx_raw.astype(float).groupby(level='scale', axis=1):
+            d[scale] = gdx.droplevel(0, axis=1).idxmax(axis=1)
+            
+        rdf = pd.concat(d, axis=1)
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        assert rdf.notna().all().all()        
+ 
+        rdf.columns.name = 'scale'
+        return rdf
     
     def join_layer_samps(self,fp_lib,
                          **kwargs):

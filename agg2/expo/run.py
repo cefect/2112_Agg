@@ -31,11 +31,13 @@ def run_expo(
         if not 'arsc' in fp_d:
             fp_d['arsc'] = ses.build_assetRsc(fp_d['catMasks'], finv_fp)
             
-        for layName in [
-            'wd', 
-            'wse']:
-            if not layName in fp_d:
-                fp_d[layName] = ses.build_layerSamps(fp_d['catMasks'], finv_fp,  layName=layName,write=True,)
+        #=======================================================================
+        # for layName in [
+        #     'wd', 
+        #     'wse']:
+        #     if not layName in fp_d:
+        #         fp_d[layName] = ses.build_layerSamps(fp_d['catMasks'], finv_fp,  layName=layName,write=True,)
+        #=======================================================================
             
  
             
@@ -48,7 +50,7 @@ def SJ_r6_0910(
         fp_lib = {
                 'direct':{
                      'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r7\\SJ\\direct\\20220910\\cMasks\\SJ_r7_direct_0910_cMasks.pkl',
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220910\arsc\SJ_r1_direct_0910_arsc.pkl',
+                    #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220910\arsc\SJ_r1_direct_0910_arsc.pkl',
                     'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wd\SJ_r7_direct_0911_lsamp_wd.pkl',
                     'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wse\SJ_r7_direct_0911_lsamp_wse.pkl',
                     },
@@ -60,7 +62,7 @@ def SJ_r6_0910(
                     }
                 },
         **kwargs):
-    return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method,run_name='r7', **kwargs)
+    return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method,run_name='r8', **kwargs)
 
 if __name__ == "__main__":
  

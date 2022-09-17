@@ -12,14 +12,14 @@ idx = pd.IndexSlice
 def SJ_plots_0910(
         fp_lib = {
                 'direct':{
-                     'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r7\\SJ\\direct\\20220910\\cMasks\\SJ_r7_direct_0910_cMasks.pkl',
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220910\arsc\SJ_r1_direct_0910_arsc.pkl',
+                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r7\\SJ\\direct\\20220910\\cMasks\\SJ_r7_direct_0910_cMasks.pkl',
+                    'arsc':r'C:\LS\10_IO\2112_Agg\outs\agg2\r7\SJ\direct\20220910\arsc\SJ_r7_direct_0910_arsc.pkl',
                     'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wd\SJ_r7_direct_0911_lsamp_wd.pkl',
                     'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wse\SJ_r7_direct_0911_lsamp_wse.pkl',
                     },
                 'filter':{
                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
+                    #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
                     'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
                     'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
                     }
@@ -36,7 +36,7 @@ def run_plots(fp_lib,
     #===========================================================================
     # get base dir
     #=========================================================================== 
-    out_dir = pathlib.Path(os.path.dirname(fp_lib['filter']['arsc'])).parents[3] #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+    out_dir = pathlib.Path(os.path.dirname(fp_lib['filter']['catMasks'])).parents[3] #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
     
     #===========================================================================
     # execute
@@ -46,14 +46,12 @@ def run_plots(fp_lib,
         #=======================================================================
         # data prep
         #=======================================================================
-        lsamp_dx = ses.join_layer_samps(fp_lib, write=False)
         #join the simulation results (and clean up indicides
-        #arsc_dx = ses.join_arsc_stats(fp_lib, write=False)
-        """
-        arsc_dx.columns.get_level_values('scale').unique()
-        2**5
-        """
+        lsamp_dx = ses.join_layer_samps(fp_lib, write=False)
         
+        #get the rsc for each asset and scale
+        dsc_df = ses.join_arsc(fp_lib, write=False)
+ 
         #=======================================================================
         # agg stats----------
         #=======================================================================
@@ -83,7 +81,7 @@ def run_plots(fp_lib,
   
         #stack into a series
         serx = dx.stack(level=dx.columns.names)
-        raise IOError('stopped here... this looks strange')
+ 
  
         ses.plot_matrix_metric_method_var(serx,
                                           map_d = {'row':'layer','col':'method', 'color':'dsc', 'x':'scale'},
