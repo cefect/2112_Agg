@@ -6,6 +6,7 @@ Created on Sep. 10, 2022
 import os, pathlib
 from definitions import proj_lib
 from hp.basic import get_dict_str
+from hp.pd import append_levels
 import pandas as pd
 idx = pd.IndexSlice
 
@@ -52,39 +53,84 @@ def run_plots(fp_lib,
         dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
         
         #join the simulation results (and clean up indicides
-        raw_dx = ses.join_layer_samps(fp_lib, write=False, dsc_df=dsc_df)
+        samp_dx = ses.join_layer_samps(fp_lib)
         
- 
+        samp_dx.loc[:, idx['filter', 'wse', (1, 8)]].hist()
         #=======================================================================
         # agg stats----------
         #=======================================================================
-        sdx = ses.get_dsc_stats(raw_dx)   #compute zonal stats
+        #=======================================================================
+        # #compute s2 zonal
+        #=======================================================================
+        gcols = ['method', 'layer']
+        d = dict()
+        for i, (gkeys, gdx) in enumerate(samp_dx.groupby(level=gcols, axis=1)):
+            gdx_c = pd.concat({gkeys[1]:gdx.droplevel(gcols, axis=1), 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
+            dxi = ses.get_dsc_stats1(gdx_c)   #compute zonal stats
+            dxi.columns = append_levels(dxi.columns, dict(zip(gcols, gkeys))) #add the levels back
+            d[i] = dxi
+         
+        #merge
+        sdx_s2 = pd.concat(d.values(), axis=1).reorder_levels(list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
+         
+        sdx1 = pd.concat({'s2':sdx_s2}, axis=1, names=['base'])
         
+        #=======================================================================
+        # s1 zonal
+        #=======================================================================
+        d = dict()
+        for i, (gkeys, gdx) in enumerate(samp_dx.groupby(level=gcols, axis=1)):
+            #always computing against the fine samples
+            gdx0 = pd.concat({res:gdx.droplevel(gcols, axis=1).iloc[:, 0] for res in gdx.columns.unique('scale')}, axis=1, names='scale')
+ 
+
+            gdx_c = pd.concat({gkeys[1]:gdx0, 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
+            dxi = ses.get_dsc_stats1(gdx_c)   #compute zonal stats
+            dxi.columns = append_levels(dxi.columns, dict(zip(gcols, gkeys))) #add the levels back
+            d[i] = dxi
+        
+        #merge
+        sdx_s1 = pd.concat(d.values(), axis=1).reorder_levels(list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
+        
+        sdx2 = pd.concat([sdx1, pd.concat({'s1':sdx_s1}, axis=1, names=['base'])], axis=1)
         """
-        view(sdx1.T)
+        view(sdx4.loc[:, idx[:, 'direct', 'wd', (1,8,32),'mean']].T)
         """
+        #add zeros for dd
         
                         
-        #compute residual
-        sdx1 = pd.concat({'samps':sdx, 'resid':sdx.subtract(sdx.loc['full', :])}, axis=1, names=['base'])
+        #=======================================================================
+        # #compute residual
+        #=======================================================================
+        sdx3 = pd.concat([sdx2, pd.concat({'s12R':sdx_s2.subtract(sdx_s1)}, axis=1, names=['base'])], axis=1)
         
-        #residuals normalized
-        ndx = adx1.loc[:, 'resid'].divide(adx1.loc[1, 'samps'])
-        adx2 = adx1.join(pd.concat({'residN':ndx}, names=['base'], axis=1))
+        #=======================================================================
+        # resid normalized
+        #=======================================================================
+        """ (s2-s1)/s1"""
+        sdx4 = pd.concat([sdx3, pd.concat({'s12Rn':sdx3['s12R'].divide(sdx3['s1'])}, axis=1, names=['base'])], axis=1
+                         ).sort_index(sort_remaining=True, axis=1).fillna(0.0)
         
-        """
-        view(adx2.loc[:, idx[:, 'direct', 'wd', 'mean']])
-        """
+        sdx4.index.name='dsc'
         
+        #switch to hazard order
+        sdx5 = sdx4.stack('scale').unstack('dsc')
         #=======================================================================
         # plot resid normd
         #=======================================================================
-        #just water depth and the metrics
-        dx = pd.concat({'full':adx2['residN'].loc[:, idx[:, :, 'mean']].droplevel('metric', axis=1)}, names=['dsc'], axis=1)
+        """looks bad
  
-  
+        direct:WSE:full?
+        
+        view(sdx5.loc[:, idx[:, 'direct', 'wse', 'mean', 'full']])
+        
+        direct:wd:dp?
+        """
+        #just wd and wse mean (for now)        
+        pdx1 = sdx5['s12R'].loc[:, idx[:, :, 'mean', :]].droplevel('metric', axis=1) #.join(sdx5['s12Rn'].loc[:, idx[:, 'wse', 'mean', :]])
+          
         #stack into a series
-        serx = dx.stack(level=dx.columns.names)
+        serx = pdx1.stack(level=pdx1.columns.names).sort_index()
  
  
         ses.plot_matrix_metric_method_var(serx,
@@ -94,15 +140,9 @@ def run_plots(fp_lib,
                                             'wse':r'$\frac{\overline{WSE_{s2}}-\overline{WSE_{s1}}}{\overline{WSE_{s1}}}$', 
                                             #'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
                                               },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_assets.svg'))
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_assets2.svg'))
         
-        #=======================================================================
-        # item residuals
-        #=======================================================================
-        """NOTE: for WSE this returns nulls if any value is null"""
-        ldx1 = lsamp_dx.subtract(lsamp_dx.loc[:, idx[:, :, 1]].droplevel('scale', axis=1), axis=1) 
-        
-        ldx2 = pd.concat({'samps':lsamp_dx, 'resid':ldx1}, axis=1, names=['base'])
+ 
  
         
         #=======================================================================

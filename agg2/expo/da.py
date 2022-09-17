@@ -85,6 +85,9 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
                 if not layName in ['wd', 'wse', 'dem']: continue        
  
                 d[layName] = pd.read_pickle(fp)
+                """
+                pd.read_pickle(fp).hist()
+                """
                 
             #wrap method
             res_d[method] = pd.concat(d, axis=1).droplevel(0, axis=1) #already a dx
@@ -95,27 +98,85 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #=======================================================================
         # join dsc values
         #=======================================================================
-        if not dsc_df is None:
-            #append some levels
-            d = dict()
-            for k in dx1.columns.unique('method'):
-                d[k] = pd.concat({'dsc':dsc_df}, names=['layer'], axis=1)
-                
-            dsc_dx = pd.concat(d, names=['method'], axis=1)
-            
-            #check the expected indicies are equal
-            assert_index_equal(dsc_dx.columns.droplevel('layer'), 
-                               dx1.drop(1, axis=1, level='scale').columns.droplevel('layer').drop_duplicates())
-            
-            rdx = dx1.join(dsc_dx).sort_index(axis=1)
-            
-        else:
-            log.warning('no dsc_df')
-            rdx = dx1
+        #=======================================================================
+        # if not dsc_df is None:
+        #     #append some levels
+        #     d = dict()
+        #     for k in dx1.columns.unique('method'):
+        #         d[k] = pd.concat({'dsc':dsc_df}, names=['layer'], axis=1)
+        #         
+        #     dsc_dx = pd.concat(d, names=['method'], axis=1)
+        #     
+        #     #check the expected indicies are equal
+        #     assert_index_equal(dsc_dx.columns.droplevel('layer'), 
+        #                        dx1.drop(1, axis=1, level='scale').columns.droplevel('layer').drop_duplicates())
+        #     
+        #     rdx = dx1.join(dsc_dx).sort_index(axis=1)
+        #     
+        # else:
+        #     log.warning('no dsc_df')
+        #     rdx = dx1
+        #=======================================================================
             
  
         
+        return dx1
+    
+    def get_dsc_stats1(self, raw_dx, 
+                        ufunc_l=['mean', 'sum', 'count'],
+                        **kwargs):
+        """compute stats groupbed by dsc on a layer"""
+        
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
+        
+        if not np.array_equal(raw_dx.columns.names, ['layer', 'scale']):
+            raise IOError('bad columns: %s'%raw_dx.columns.names)
+        
+        res_d = dict()
+        for scale, gdx in raw_dx.groupby('scale', axis=1):
+            gdf = gdx.droplevel('scale', axis=1)
+            
+            #compute total
+            d = {sn:getattr(gdf.drop('dsc', axis=1, errors='ignore'), sn)() for sn in ufunc_l}
+            tdf = pd.concat(d, axis=1, names=['metric']).iloc[0, :].rename('full').to_frame().T
+            
+
+            #zonal
+            if 'dsc' in gdx.columns.unique('layer'):
+ 
+                d = {sn:getattr(gdf.groupby('dsc') , sn)() for sn in ufunc_l}
+                rdfi = pd.concat(d, axis=1, names=['metric']).droplevel('layer', axis=1)
+                
+                rdf1 = pd.concat([tdf, rdfi])
+                
+            else:
+                rdf1 = tdf
+                
+            #===================================================================
+            # wrap
+            #===================================================================
+            res_d[scale] = rdf1.astype({'count':int})
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        rdx = pd.concat(res_d, axis=1, names=['scale'])
+        
+         
+        # fill zeros 
+        for sn in rdx.columns.unique('metric'):
+            
+            if not sn=='mean':
+                idxi = idx[:, sn]
+                sdx = rdx.loc[:, idxi]
+                if sdx.isna().any().any():
+                    #print(sn) 
+                    rdx.loc[:, idxi] = sdx.fillna(0.0)
+                    
+        log.info('finished on %s'%str(rdx.shape))
         return rdx
+                
+                
     
     def get_dsc_stats(self, raw_dx, 
                       ufunc_l=['mean', 'sum', 'count'], 
@@ -130,6 +191,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         start = now()
         gcols = ('scale', 'method')
         res_d = dict()
+        res_d2 = dict()
         for i, (gkeys, gdx0) in enumerate(raw_dx.groupby(level=gcols, axis=1)):
             
             keys_d = dict(zip(gcols, gkeys))
@@ -144,17 +206,15 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
  
             
             d = {sn:getattr(gdf, sn)() for sn in ufunc_l}
-            fdx = pd.concat(d, axis=1, names=['stat']).stack().rename('full').to_frame(
-                ).T.reorder_levels(['layer', 'stat'], axis=1).sort_index(axis=1)
+            fdx = pd.concat(d, axis=1, names=['metric']).stack().rename('full').to_frame(
+                ).T.reorder_levels(['layer', 'metric'], axis=1).sort_index(axis=1)
                 
  
             
             #===================================================================
             # compute zonal
-            #===================================================================
-                
-            if 'dsc' in gdx0.columns.unique('layer'):
-            
+            #===================================================================                
+            if 'dsc' in gdx0.columns.unique('layer'):            
 
                 grouper = gdx0.droplevel(gcols, axis=1).groupby('dsc')            
      
@@ -189,7 +249,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
                 else:
                     d = {sn:getattr(grouper, sn)() for sn in ufunc_l}
                     
-                rdx1 = pd.concat(d, axis=1, names=['stat']).reorder_levels(['layer', 'stat'], axis=1)
+                rdx1 = pd.concat(d, axis=1, names=['metric']).reorder_levels(['layer', 'metric'], axis=1)
                 
                 #merge w/ full
                 rdx2 = pd.concat([rdx1, fdx]) 
@@ -204,6 +264,9 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             
             res_d[i] = rdx2
             
+ 
+                
+            
         #=======================================================================
         # wrap
         #=======================================================================
@@ -212,7 +275,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
  
         # fill zeros
  
-        for sn in rdx.columns.unique('stat'):
+        for sn in rdx.columns.unique('metric'):
             
             if not sn=='mean':
                 idxi = idx[:, :, :, sn]
@@ -225,7 +288,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
                 if sn=='count':
                     rdx.loc[:, idxi] = rdx.loc[:, idxi].astype(int)
  
-        rdx = rdx.reorder_levels(list(raw_dx.columns.names) + ['stat'], axis=1).sort_index(sort_remaining=True, axis=1)
+        rdx = rdx.reorder_levels(list(raw_dx.columns.names) + ['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
         
         log.info('finished on %s in %.2f secs'%(str(rdx.shape), (now()-start).total_seconds()))
         
