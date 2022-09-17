@@ -9,12 +9,12 @@ import copy
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
+from agg2.coms import cm_int_d
 
 #===============================================================================
 # globals
 #===============================================================================
-#integer maps for buildilng the mosaic
-cm_int_d = {'DD':11, 'WW':21, 'WP':31, 'DP':41}
+
 
 #stat dx labels (and values) order matters!
 index_names = ['scale', 'pixelArea', 'pixelLength']

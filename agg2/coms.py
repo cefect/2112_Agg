@@ -11,7 +11,11 @@ import matplotlib.pyplot as plt
 from hp.oop import Session, today_str
 from hp.plot import Plotr
 
+#integer maps for buildilng the mosaic
+cm_int_d = {'DD':11, 'WW':21, 'WP':31, 'DP':41}
+
 class AggBase(object):
+    cm_int_d=cm_int_d
     """placeholder"""
     pass
 

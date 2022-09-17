@@ -175,7 +175,7 @@ def ar_d(shape, dsc_l, layName):
 #===============================================================================
 # TESTS-------------
 #===============================================================================
- 
+
 @pytest.mark.parametrize('finv_fp', [proj_d['finv_fp']])
 @pytest.mark.parametrize('shape', [(10,10)], indirect=False)
 @pytest.mark.parametrize('bbox', [
@@ -187,7 +187,7 @@ def test_01_assetRsc(wrkr, cMask_pick_fp, finv_fp, bbox):
     
 
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dsc_l', [([1,2,5])])
 @pytest.mark.parametrize('layName', [
     #'wd',
@@ -203,10 +203,10 @@ def test_02_laySamp(wrkr, lay_pick_fp, finv_fp, bbox, layName):
                                 write=True,
                                 )
     
-    
+@pytest.mark.dev
 @pytest.mark.parametrize('proj_d', [proj_d])
 @pytest.mark.parametrize('shape', [(10,10)], indirect=False)
-def test_runExpo(proj_d, tmp_path, lay_pick_fp):
+def test_runExpo(proj_d, tmp_path, cMask_pick_fp):
     run_expo( wrk_dir=tmp_path, case_name='tCn', run_name='tRn', proj_d=proj_d,
               fp_d={'catMasks':cMask_pick_fp},
               )

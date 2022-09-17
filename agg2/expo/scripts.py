@@ -39,8 +39,11 @@ def now():
 
 class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
     
-    def get_rlays_samp_pts(self, rlay_fp_d, gdf, bbox=None, logger=None):
-        """compute  stats for assets on each raster"""
+    def get_rlays_samp_pts(self, rlay_fp_d, gdf, logger=None):
+        """compute  stats for assets on each raster
+        
+        consider splitting the raster files into pools
+        """
         #=======================================================================
         # defaults
         #=======================================================================
@@ -61,13 +64,10 @@ class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
  
             with rio.open(rlay_fp, mode='r') as ds:
                 #check consistency
-                assert ds.crs.to_epsg() == self.crs.to_epsg()
+                assert ds.crs.to_epsg() == self.crs.to_epsg() 
  
-                #ds.read(1)
- 
-                
-                res_d[scale] = [x[0] for x in ds.sample(coord_list, masked=False, indexes=1)]
-                
+                #sample the list
+                res_d[scale] = [x[0] for x in ds.sample(coord_list, masked=False, indexes=1)]                
                 nodata = ds.nodata
                 
         #=======================================================================
@@ -212,6 +212,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         
     def build_assetRsc(self, pick_fp, finv_fp,
                        bbox=None,
+                       centroids=True,
                         **kwargs):
         """join resampClass to each asset (one column per resolution)"""
         
@@ -276,15 +277,32 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         #=======================================================================
         # get downscales
         #=======================================================================
-        res_dx = self.get_assetRsc(cm_fp_d, gdf, 
-                                   bbox=bbox1, #asset bounds may go beyond raster
+        if centroids:
+            
+            rdf = self.get_rlays_samp_pts(cm_fp_d, gdf.set_geometry(gdf.centroid),
                                    logger=log)
+            
+
+            
+        else:
+            res_dx = self.get_assetRsc(cm_fp_d, gdf, 
+                                       bbox=bbox1, #asset bounds may go beyond raster
+                                       logger=log)
+            
+            """todo: need to collapse this down to one dsc column per scale"""
         
         #=======================================================================
         # write
         #=======================================================================
-        res_dx.to_pickle(ofp)
-        log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(res_dx.shape), ofp))
+        #replace with strings
+        rdf = rdf.replace({v:k for k,v in self.cm_int_d.items()})
+        
+        assert rdf.columns.name=='scale'
+        assert np.array_equal(rdf.columns.values, np.array(list(cm_fp_d.keys())))
+            
+        rdf.to_pickle(ofp)
+ 
+        log.info('finished in %.2f wrote %s to \n    %s'%((now()-start).total_seconds(), str(rdf.shape), ofp))
         
         
         return ofp
@@ -356,7 +374,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
  
             
             rdf = self.get_rlays_samp_pts(rlay_fp_d, gdf_raw.set_geometry(gdf_raw.centroid), 
-                                   bbox=bbox1, #asset bounds may go beyond raster
+ 
                                    logger=log)
         else:
             raise IOError('not implemented')
