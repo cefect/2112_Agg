@@ -6,9 +6,15 @@ Created on Sep. 10, 2022
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
+from pandas.testing import assert_index_equal
 import os, copy, datetime
 idx= pd.IndexSlice
+
+from definitions import max_cores
+from multiprocessing import Pool
+
 from agg2.haz.coms import coldx_d, cm_int_d
+from hp.pd import append_levels
  
 #===============================================================================
 # setup matplotlib----------
@@ -54,64 +60,12 @@ def now():
 
 
 class ExpoDASession(ExpoSession, Agg2DAComs):
-    cm_int_d=cm_int_d
+ 
     
-    def join_arsc(self,fp_lib,
-                         **kwargs):
-        """assemble resample class of assets
-        
-        this is used to tag assets to dsc for reporting.
-        can also compute stat counts from this
-        """
-        
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('arscJ',  subdir=True,ext='.pkl', **kwargs)
-        
-        #=======================================================================
-        # load the first
-        #=======================================================================
-        dx_raw = None
-        for method, d1 in fp_lib.items():
  
-            for dsource, fp in d1.items():
-                if dsource=='arsc':        
-                    dx_raw = pd.read_pickle(fp)
-                    """only need one of these"""
-                    break                
-        #=======================================================================
-        # check
-        #=======================================================================
-        assert not dx_raw is None
-        cbx = dx_raw.groupby(level='scale', axis=1).sum() ==1
-        
-        #=======================================================================
-        # if not cbx.all().all():
-        #     raise AssertionError('got %i/%i assets w/ multiple dsc'%(np.invert(cbx).sum().sum(), cbx.size))
-        #=======================================================================
-        
-        #=======================================================================
-        # convert to code
-        #=======================================================================
-        def get_hot(row):
-            return row
- 
-        d = dict()
-        for scale, gdx in dx_raw.astype(float).groupby(level='scale', axis=1):
-            d[scale] = gdx.droplevel(0, axis=1).idxmax(axis=1)
-            
-        rdf = pd.concat(d, axis=1)
-        
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        assert rdf.notna().all().all()        
- 
-        rdf.columns.name = 'scale'
-        return rdf
     
     def join_layer_samps(self,fp_lib,
+                         dsc_df=None,
                          **kwargs):
         """assemble resample class of assets
         
@@ -137,6 +91,158 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             
         #wrap
         dx1 =  pd.concat(res_d, axis=1, names=['method']).sort_index(axis=1)
+        
+        #=======================================================================
+        # join dsc values
+        #=======================================================================
+        if not dsc_df is None:
+            #append some levels
+            d = dict()
+            for k in dx1.columns.unique('method'):
+                d[k] = pd.concat({'dsc':dsc_df}, names=['layer'], axis=1)
+                
+            dsc_dx = pd.concat(d, names=['method'], axis=1)
+            
+            #check the expected indicies are equal
+            assert_index_equal(dsc_dx.columns.droplevel('layer'), 
+                               dx1.drop(1, axis=1, level='scale').columns.droplevel('layer').drop_duplicates())
+            
+            rdx = dx1.join(dsc_dx).sort_index(axis=1)
+            
+        else:
+            log.warning('no dsc_df')
+            rdx = dx1
+            
  
         
-        return dx1
+        return rdx
+    
+    def get_dsc_stats(self, raw_dx, 
+                      ufunc_l=['mean', 'sum', 'count'], 
+                      multi=False,
+                      **kwargs):
+        """calc major stats grouped by dsc"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
+ 
+        start = now()
+        gcols = ('scale', 'method')
+        res_d = dict()
+        for i, (gkeys, gdx0) in enumerate(raw_dx.groupby(level=gcols, axis=1)):
+            
+            keys_d = dict(zip(gcols, gkeys))
+            log.info('%i on %s'%(i+1, keys_d)) 
+            
+            #===================================================================
+            # compute total
+            #===================================================================
+            
+            
+            gdf = gdx0.droplevel(gcols, axis=1).drop('dsc', axis=1, errors='ignore')
+ 
+            
+            d = {sn:getattr(gdf, sn)() for sn in ufunc_l}
+            fdx = pd.concat(d, axis=1, names=['stat']).stack().rename('full').to_frame(
+                ).T.reorder_levels(['layer', 'stat'], axis=1).sort_index(axis=1)
+                
+ 
+            
+            #===================================================================
+            # compute zonal
+            #===================================================================
+                
+            if 'dsc' in gdx0.columns.unique('layer'):
+            
+
+                grouper = gdx0.droplevel(gcols, axis=1).groupby('dsc')            
+     
+                if multi:
+                    """this is way slower"""
+                    with Pool(3) as pool:
+                        sum_future = pool.apply_async(grouper.sum)
+                        sum_future.wait()
+                         
+                        mean_future = pool.apply_async(grouper.mean)
+                        mean_future.wait()
+                         
+                        count_future = pool.apply_async(grouper.count)
+                        count_future.wait()
+                         
+                    d = {'sum':sum_future.get(), 'mean':mean_future.get(), 'count':count_future.get()}
+                    
+                    #===============================================================
+                    # """this is the same"""
+                    # pool = Pool(3)
+                    # 
+                    # d = {
+                    #     'sum':pool.apply_async(grouper.sum).get(), 
+                    #      'mean':pool.apply_async(grouper.mean).get(),
+                    #       'count':pool.apply_async(grouper.count).get()}
+                    # 
+                    # pool.close()
+                    # pool.join()
+                    #===============================================================
+                    
+                    
+                else:
+                    d = {sn:getattr(grouper, sn)() for sn in ufunc_l}
+                    
+                rdx1 = pd.concat(d, axis=1, names=['stat']).reorder_levels(['layer', 'stat'], axis=1)
+                
+                #merge w/ full
+                rdx2 = pd.concat([rdx1, fdx]) 
+                
+            else:
+                rdx2 = fdx
+ 
+            #===================================================================
+            # wrap
+            #===================================================================                 
+            rdx2.columns = append_levels(rdx2.columns, keys_d)
+            
+            res_d[i] = rdx2
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        rdx = pd.concat(list(res_d.values()), axis=1)
+        
+ 
+        # fill zeros
+ 
+        for sn in rdx.columns.unique('stat'):
+            
+            if not sn=='mean':
+                idxi = idx[:, :, :, sn]
+                sdx = rdx.loc[:, idxi]
+                if sdx.isna().any().any():
+                    #print(sn) 
+                    rdx.loc[:, idxi] = sdx.fillna(0.0)
+                    
+                #fix count type
+                if sn=='count':
+                    rdx.loc[:, idxi] = rdx.loc[:, idxi].astype(int)
+ 
+        rdx = rdx.reorder_levels(list(raw_dx.columns.names) + ['stat'], axis=1).sort_index(sort_remaining=True, axis=1)
+        
+        log.info('finished on %s in %.2f secs'%(str(rdx.shape), (now()-start).total_seconds()))
+        
+        
+        return rdx
+    
+    
+    """
+    view(rdx.T)
+    """
+            
+ 
+ 
+    
+    
+    
+    
+    
+    
+    

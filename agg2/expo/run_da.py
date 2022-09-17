@@ -46,23 +46,27 @@ def run_plots(fp_lib,
         #=======================================================================
         # data prep
         #=======================================================================
-        #join the simulation results (and clean up indicides
-        lsamp_dx = ses.join_layer_samps(fp_lib, write=False)
+
         
-        #get the rsc for each asset and scale
-        dsc_df = ses.join_arsc(fp_lib, write=False)
+        #get the rsc for each asset and scale        
+        dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
+        
+        #join the simulation results (and clean up indicides
+        raw_dx = ses.join_layer_samps(fp_lib, write=False, dsc_df=dsc_df)
+        
  
         #=======================================================================
         # agg stats----------
         #=======================================================================
-        """TODO: join dsc and categorize
-        note we only  need to run the dsc once"""
-        adx = pd.concat([lsamp_dx.mean(axis=0).rename('mean'), lsamp_dx.mean(axis=0).rename('sum')], axis=1
-                        ).rename_axis('metric', axis=1).unstack(['method', 'layer']
-                        ).reorder_levels(['method', 'layer', 'metric'], axis=1).sort_index(axis=1)
+        sdx = ses.get_dsc_stats(raw_dx)   #compute zonal stats
+        
+        """
+        view(sdx1.T)
+        """
+        
                         
         #compute residual
-        adx1 = pd.concat({'samps':adx, 'resid':adx.subtract(adx.loc[1, :])}, axis=1, names=['base'])
+        sdx1 = pd.concat({'samps':sdx, 'resid':sdx.subtract(sdx.loc['full', :])}, axis=1, names=['base'])
         
         #residuals normalized
         ndx = adx1.loc[:, 'resid'].divide(adx1.loc[1, 'samps'])

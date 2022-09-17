@@ -3,7 +3,7 @@ Created on Mar. 25, 2022
 
 @author: cefect
 '''
-import os
+import os, multiprocessing
 proj_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef'
 src_dir = proj_dir
 src_name='agg'
@@ -117,3 +117,5 @@ root_dir=r'C:\LS\10_OUT\2112_Agg'
 wrk_dir=root_dir
 
 base_resolution=10
+
+max_cores = max(multiprocessing.cpu_count(), 8)
