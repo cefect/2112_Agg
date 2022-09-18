@@ -168,7 +168,7 @@ class Agg2DAComs(Plotr):
                                     #figsize_scaler=4,                                    
                                     constrained_layout=True,
                                     sharey='row',sharex='all',  
-                                    fig_id=0,**matrix_kwargs)
+                                    fig_id=0,logger=log, **matrix_kwargs)
  
         if not title is None:
             fig.suptitle(title)

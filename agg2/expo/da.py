@@ -95,28 +95,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #wrap
         dx1 =  pd.concat(res_d, axis=1, names=['method']).sort_index(axis=1)
         
-        #=======================================================================
-        # join dsc values
-        #=======================================================================
-        #=======================================================================
-        # if not dsc_df is None:
-        #     #append some levels
-        #     d = dict()
-        #     for k in dx1.columns.unique('method'):
-        #         d[k] = pd.concat({'dsc':dsc_df}, names=['layer'], axis=1)
-        #         
-        #     dsc_dx = pd.concat(d, names=['method'], axis=1)
-        #     
-        #     #check the expected indicies are equal
-        #     assert_index_equal(dsc_dx.columns.droplevel('layer'), 
-        #                        dx1.drop(1, axis=1, level='scale').columns.droplevel('layer').drop_duplicates())
-        #     
-        #     rdx = dx1.join(dsc_dx).sort_index(axis=1)
-        #     
-        # else:
-        #     log.warning('no dsc_df')
-        #     rdx = dx1
-        #=======================================================================
+ 
             
  
         
@@ -164,14 +143,16 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         
          
         # fill zeros 
-        for sn in rdx.columns.unique('metric'):
-            
-            if not sn=='mean':
-                idxi = idx[:, sn]
-                sdx = rdx.loc[:, idxi]
-                if sdx.isna().any().any():
-                    #print(sn) 
-                    rdx.loc[:, idxi] = sdx.fillna(0.0)
+        #=======================================================================
+        # for sn in rdx.columns.unique('metric'):
+        #     
+        #     if not sn=='mean':
+        #         idxi = idx[:, sn]
+        #         sdx = rdx.loc[:, idxi]
+        #         if sdx.isna().any().any():
+        #             #print(sn) 
+        #             rdx.loc[:, idxi] = sdx.fillna(0.0)
+        #=======================================================================
                     
         log.debug('finished on %s'%str(rdx.shape))
         return rdx
