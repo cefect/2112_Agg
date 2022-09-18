@@ -116,18 +116,27 @@ def run_plots(fp_lib,
         sdx5 = sdx4.stack('scale').unstack('dsc')
         
         log.info('constructed residuals w/ %s'%(str(sdx5.shape)))
-        #=======================================================================
-        # plot residuals
-        #=======================================================================
-        """ 
-        view(sdx5.loc[:, idx[:, 'direct', 'wse', 'mean', 'full']])        
- 
-        """
+        
         def get_stack(baseName):
             """consistent retrival by base"""            
             #just wd and wse mean (for now)        
             pdx1 = sdx5[baseName].loc[:, idx[:, :, 'mean', :]].droplevel('metric', axis=1) 
             return pdx1.stack(level=pdx1.columns.names).sort_index()
+        #=======================================================================
+        # plot residuals
+        #=======================================================================
+
+
+        
+        """ 
+        wd:direct?
+            seems like these should be flat... like the rasters
+            
+            the issue is the FalsePositives... I think we want to work with deltas
+        
+        view(sdx5.loc[:, idx[:, 'direct', 'wse', 'mean', 'full']])        
+ 
+        """
         
         serx = get_stack('s12R')        
         ses.plot_matrix_metric_method_var(serx,

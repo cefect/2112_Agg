@@ -3,7 +3,7 @@ Created on Aug. 28, 2022
 
 @author: cefect
 '''
-import os, pathlib
+import os, pathlib, pprint
 from definitions import proj_lib
 from hp.basic import get_dict_str, now
 import pandas as pd
@@ -71,21 +71,16 @@ def run_haz_agg2(method='direct',
         
         #=======================================================================
         # assemble vrts
-        #=======================================================================
- 
-        #vrt_d = ses.run_vrts(fp_d['catMasks'])  
- 
-        
+        #======================================================================= 
+        vrt_d = ses.run_vrts(fp_d['catMasks'])  
  
             
         #=======================================================================
         # build agg stats
         #=======================================================================
 
-        #=======================================================================
-        # stat_d['s2'] = ses.run_stats(fp_d['catMasks'])
-        # stat_d['s1'] = ses.run_stats_fine(fp_d['catMasks'])
-        #=======================================================================
+        stat_d['s2'] = ses.run_stats(fp_d['catMasks'])
+        stat_d['s1'] = ses.run_stats_fine(fp_d['catMasks'])
         
         #=======================================================================
         # build difference stats
@@ -98,9 +93,9 @@ def run_haz_agg2(method='direct',
         # wrap
         #=======================================================================
         log.info('finished w/ array picks \n%s'%get_dict_str(fp_d))
-        log.info('finished w/ stat picks \n%s'%get_dict_str(stat_d))
+        log.info('finished w/ stat picks \n%s'%pprint.pformat(stat_d, width=30, indent=3, compact=True, sort_dicts =False))
         out_dir = ses.out_dir
-    print('finished w/ %s'%(get_dict_str(fp_d)))
+    print('finished to %s'%out_dir)
 
     return fp_d, stat_d
 
@@ -157,7 +152,7 @@ if __name__ == "__main__":
     start = now()
  
     
-    SJ_r5_0909(method='direct',
+    SJ_r5_0909(method='filter',
                #================================================================
                # dsc_l=[1,  2**7],
                # run_name='t'
@@ -165,5 +160,4 @@ if __name__ == "__main__":
                )
  
  
-    print('finished in %.2f'%((now()-start).total_seconds())
- 
+    print('finished in %.2f'%((now()-start).total_seconds())) 

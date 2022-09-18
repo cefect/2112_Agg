@@ -213,6 +213,8 @@ class Agg2DAComs(Plotr):
                 if col_key == keys_all_d['col'][0]:
                     if row_key in ylab_d:
                         ax.set_ylabel(ylab_d[row_key])
+                    else:
+                        ax.set_ylabel(row_key)
                     
                     #set lims
                     if 'y' in ax_lims_d:

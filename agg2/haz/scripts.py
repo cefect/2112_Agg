@@ -659,7 +659,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                  #cols = ['dem', 'wse', 'wd', 'catMosaic'],
                  **kwargs):
         """this really isnt working well... should find a different format"""
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('vrt',  subdir=True, **kwargs)
+        log, tmp_dir, out_dir, ofp, layname0, write = self._func_setup('vrt',  subdir=True, **kwargs)
  
         """
         view(dxcol_raw)
@@ -678,7 +678,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             
             
             try:
-                ofpi = self.build_vrts(fp_d,ofp = os.path.join(out_dir, '%s_%i.vrt'%(layName,  len(fp_d))))
+                ofpi = self.build_vrts(fp_d,ofp = os.path.join(out_dir, '%s_%s_%i.vrt'%(layname0, layName,  len(fp_d))))
                 
                 log.info('    for \'%s\' compiled %i into a vrt: %s'%(layName, len(fp_d), os.path.basename(ofpi)))
                 

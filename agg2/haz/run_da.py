@@ -5,53 +5,74 @@ Created on Sep. 9, 2022
 '''
 import os, pathlib, math
 from definitions import proj_lib
-from hp.basic import get_dict_str
+from hp.basic import get_dict_str, today_str
 import pandas as pd
 idx = pd.IndexSlice
 
-def SJ_plots_0910(        
+def SJ_plots_0918(        
         fp_lib = {
             'filter':{
-                's2':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\filter\20220910\stats\SJ_r6_filter_0910_stats.pkl',
-                's1':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\filter\20220910\statsF\SJ_r6_filter_0910_statsF.pkl',
+                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\filter\\20220918\\stats\\SJ_r8_filter_0918_stats.pkl',
+                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\filter\\20220918\\statsF\\SJ_r8_filter_0918_statsF.pkl',
                 #'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
                 },
             'direct':{
-                's2': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\direct\20220910\stats\SJ_r6_direct_0910_stats.pkl',
-                's1': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\direct\20220910\statsF\SJ_r6_direct_0910_statsF.pkl',
+                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\direct\\20220918\\stats\\SJ_r8_direct_0918_stats.pkl',
+                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\direct\\20220918\\statsF\\SJ_r8_direct_0918_statsF.pkl'
                 #'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
                 
                 }
             }
         ):
-    return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
+    return run_haz_plots(fp_lib, proj_name='SJ', run_name='r8')
 
-def SJ_plots_0909(        
-        fp_lib = {
-            'filter':{
-                's2':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\stats\\SJ_r6_filter_0909_stats.pkl',
-                's1':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\statsF\\SJ_r6_filter_0909_statsF.pkl',
-                'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
-                },
-            'direct':{
-                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\stats\\SJ_r6_direct_0909_stats.pkl',
-                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\statsF\\SJ_r6_direct_0909_statsF.pkl',
-                'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
-                
-                }
-            }
-        ):
-    return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
+#===============================================================================
+# def SJ_plots_0910(        
+#         fp_lib = {
+#             'filter':{
+#                 's2':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\filter\20220910\stats\SJ_r6_filter_0910_stats.pkl',
+#                 's1':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\filter\20220910\statsF\SJ_r6_filter_0910_statsF.pkl',
+#                 #'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
+#                 },
+#             'direct':{
+#                 's2': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\direct\20220910\stats\SJ_r6_direct_0910_stats.pkl',
+#                 's1': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\direct\20220910\statsF\SJ_r6_direct_0910_statsF.pkl',
+#                 #'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
+#                 
+#                 }
+#             }
+#         ):
+#     return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
+#===============================================================================
 
-
-def SJ_plots_0830(
-        fp_d  = {
-            'direct':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_direct\20220908\stats\SJ_r4_direct_0908_stats.pkl',
-            'directF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\statsF\SJ_r4_direct_0908_statsF.pkl',
-            'filter':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_filter\20220908\stats\SJ_r4_filter_0908_stats.pkl', 
-            'filterF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\statsF\SJ_r4_filter_0908_statsF.pkl'           
-            }):
-    return run_haz_plots(fp_d)
+#===============================================================================
+# def SJ_plots_0909(        
+#         fp_lib = {
+#             'filter':{
+#                 's2':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\stats\\SJ_r6_filter_0909_stats.pkl',
+#                 's1':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\statsF\\SJ_r6_filter_0909_statsF.pkl',
+#                 'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
+#                 },
+#             'direct':{
+#                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\stats\\SJ_r6_direct_0909_stats.pkl',
+#                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\statsF\\SJ_r6_direct_0909_statsF.pkl',
+#                 'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
+#                 
+#                 }
+#             }
+#         ):
+#     return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
+# 
+# 
+# def SJ_plots_0830(
+#         fp_d  = {
+#             'direct':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_direct\20220908\stats\SJ_r4_direct_0908_stats.pkl',
+#             'directF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\statsF\SJ_r4_direct_0908_statsF.pkl',
+#             'filter':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_filter\20220908\stats\SJ_r4_filter_0908_stats.pkl', 
+#             'filterF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\statsF\SJ_r4_filter_0908_statsF.pkl'           
+#             }):
+#     return run_haz_plots(fp_d)
+#===============================================================================
 
 def run_haz_plots(fp_lib,
                   **kwargs):
@@ -191,77 +212,77 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         
         #=======================================================================
-        # with WSE mean
+        # with WSE mean. Figure 5: Bias from upscaling 
         #=======================================================================
         
-   #============================================================================
-   #      dxcol4 = dxcol1.loc[:, idx['s12N', :, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
-   #        
-   #      #stack into a series
-   #      serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
-   #                                     ).reindex(index=metrics_l, level='metric'
-   #                                      ).droplevel(['scale', 'pixelArea'])
-   #                                        
-   #      #concat layer and metric
-   #      """because for plotting we treat this as combined as 1 dimension"""
-   #      mcoln = 'layer_metric'
-   #      df = serx1.index.to_frame().reset_index(drop=True)
-   #      df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
-   # 
-   #      serx = pd.Series(serx1.values, index = pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
-   #        
-   #      #sort
-   #      m1_l = ['wd_mean', 'wse_mean', 'wd_posi_area', 'wd_vol']
-   #      serx = serx.reindex(index=m1_l, level=mcoln) #apply order
-   #        
-   #        
-   #      #plot
-   #      ses.plot_matrix_metric_method_var(serx,
-   #                                        map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'pixelLength'},
-   #                                        ylab_d={
-   #                                            'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
-   #                                            'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
-   #                                            'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-   #                                            'wse_mean':r'$\frac{\overline{WSE_{s2}}-\overline{WSE_{s1}}}{\overline{WSE_{s1}}}$', 
-   #                                            },
-   #                                        ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_wse.svg'),
-   #                                        matrix_kwargs = dict(figsize=(6.5,7.25)),
-   #                                        ax_lims_d = {
-   #                                            'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
-   #                                            }
-   #                                        )
-   #============================================================================
+        dxcol4 = dxcol1.loc[:, idx['s12N', :, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
+           
+        #stack into a series
+        serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
+                                       ).reindex(index=metrics_l, level='metric'
+                                        ).droplevel(['scale', 'pixelArea'])
+                                           
+        #concat layer and metric
+        """because for plotting we treat this as combined as 1 dimension"""
+        mcoln = 'layer_metric'
+        df = serx1.index.to_frame().reset_index(drop=True)
+        df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
+    
+        serx = pd.Series(serx1.values, index = pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
+           
+        #sort
+        m1_l = ['wd_mean', 'wse_mean', 'wd_posi_area', 'wd_vol']
+        serx = serx.reindex(index=m1_l, level=mcoln) #apply order
+           
+           
+        #plot
+        ses.plot_matrix_metric_method_var(serx,
+                                          map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                          ylab_d={
+                                              'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
+                                              'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
+                                              'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+                                              'wse_mean':r'$\frac{\overline{WSE_{s2}}-\overline{WSE_{s1}}}{\overline{WSE_{s1}}}$', 
+                                              },
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_wse.svg'),
+                                          matrix_kwargs = dict(figsize=(6.5,7.25), set_ax_title=False, add_subfigLabel=True),
+                                          ax_lims_d = {
+                                              'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+                                              }
+                                          )
         
         #=======================================================================
         # for presentation (WD and A)
         #=======================================================================
-        m_l = ['mean', 'posi_area']
-        dx1 = dxcol1.loc[:, idx['s12N', :, 'wd',:, m_l]
-                         ].droplevel(['base', 'layer'], axis=1).droplevel(('scale', 'pixelArea')
-                              ).drop('direct', level='method',axis=1)
-          
-        #stack into a series
-        serx = dx1.stack(level=dx1.columns.names).sort_index(sort_remaining=True
-                                       ).reindex(index=m_l, level='metric') 
-          
-          
-        #plot
-        ses.plot_matrix_metric_method_var(serx,
-                                          map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
-                                          ylab_d={
-                                            #'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
-                                            'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
-                                            'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-                                              },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_present.svg'),
-                                          matrix_kwargs = dict(figsize=(3,4), set_ax_title=False, add_subfigLabel=False),
-                                          ax_lims_d = {
-                                              'y':{'mean':(-1.5, 0.2),  'posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
-                                              },
-                                          output_fig_kwargs=dict(transparent=False, add_stamp=False),
-                                          legend_kwargs=dict(loc=3),
-                                          ax_title_d=dict(), #no axis titles
-                                          )
+        #=======================================================================
+        # m_l = ['mean', 'posi_area']
+        # dx1 = dxcol1.loc[:, idx['s12N', :, 'wd',:, m_l]
+        #                  ].droplevel(['base', 'layer'], axis=1).droplevel(('scale', 'pixelArea')
+        #                       ).drop('direct', level='method',axis=1)
+        #   
+        # #stack into a series
+        # serx = dx1.stack(level=dx1.columns.names).sort_index(sort_remaining=True
+        #                                ).reindex(index=m_l, level='metric') 
+        #   
+        #   
+        # #plot
+        # ses.plot_matrix_metric_method_var(serx,
+        #                                   map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
+        #                                   ylab_d={
+        #                                     #'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
+        #                                     'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
+        #                                     'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+        #                                       },
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_present.svg'),
+        #                                   matrix_kwargs = dict(figsize=(3,4), set_ax_title=False, add_subfigLabel=False),
+        #                                   ax_lims_d = {
+        #                                       'y':{'mean':(-1.5, 0.2),  'posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+        #                                       },
+        #                                   output_fig_kwargs=dict(transparent=False, add_stamp=False),
+        #                                   legend_kwargs=dict(loc=3),
+        #                                   ax_title_d=dict(), #no axis titles
+        #                                   )
+        #=======================================================================
         #=======================================================================
         # stackced areas ratios
         #=======================================================================
@@ -284,5 +305,5 @@ def run_haz_plots(fp_lib,
         
         
 if __name__ == "__main__":
-    SJ_plots_0910()
+    SJ_plots_0918()
         
