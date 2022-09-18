@@ -78,6 +78,10 @@ class Agg2DAComs(Plotr):
                 'full': '#000000'}
         }
     
+ 
+        
+ 
+    
     def plot_matrix_metric_method_var(self,
                                       serx,
                                       map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},

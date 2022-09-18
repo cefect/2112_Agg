@@ -173,7 +173,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
                     #print(sn) 
                     rdx.loc[:, idxi] = sdx.fillna(0.0)
                     
-        log.info('finished on %s'%str(rdx.shape))
+        log.debug('finished on %s'%str(rdx.shape))
         return rdx
                 
                 

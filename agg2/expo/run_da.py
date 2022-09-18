@@ -7,7 +7,7 @@ exposure data analysis
 '''
 import os, pathlib
 from definitions import proj_lib
-from hp.basic import get_dict_str
+from hp.basic import get_dict_str, today_str
 from hp.pd import append_levels, view
 import pandas as pd
 idx = pd.IndexSlice
@@ -27,7 +27,7 @@ def SJ_plots_0910(
                     'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
                     }
                 },
-        ):
+        run_name='r8'):
     return run_plots(fp_lib)
 
 def run_plots(fp_lib,
@@ -39,13 +39,15 @@ def run_plots(fp_lib,
     #===========================================================================
     # get base dir
     #=========================================================================== 
-    out_dir = pathlib.Path(os.path.dirname(fp_lib['filter']['catMasks'])).parents[3] #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+    out_dir = os.path.join(
+        pathlib.Path(os.path.dirname(fp_lib['filter']['catMasks'])).parents[3], #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+        'da', today_str)
     
     #===========================================================================
     # execute
     #===========================================================================
     with Session(out_dir=out_dir, **kwargs) as ses:
-        
+        log = ses.logger
         #=======================================================================
         # data prep
         #=======================================================================
@@ -76,7 +78,7 @@ def run_plots(fp_lib,
         sdx_s2 = pd.concat(d.values(), axis=1).reorder_levels(list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
          
         sdx1 = pd.concat({'s2':sdx_s2}, axis=1, names=['base'])
-        
+        log.info('built s2 zonal w/ %s'%(str(sdx1.shape)))
         #=======================================================================
         # s1 zonal
         #=======================================================================
@@ -95,12 +97,7 @@ def run_plots(fp_lib,
         sdx_s1 = pd.concat(d.values(), axis=1).reorder_levels(list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
         
         sdx2 = pd.concat([sdx1, pd.concat({'s1':sdx_s1}, axis=1, names=['base'])], axis=1)
-        """
-        view(sdx4.loc[:, idx[:, 'direct', 'wd', (1,8,32),'mean']].T)
-        """
-        #add zeros for dd
-        
-                        
+        log.info('built s1 zonal w/ %s'%(str(sdx2.shape)))       
         #=======================================================================
         # #compute residual
         #=======================================================================
@@ -111,30 +108,39 @@ def run_plots(fp_lib,
         #=======================================================================
         """ (s2-s1)/s1"""
         sdx4 = pd.concat([sdx3, pd.concat({'s12Rn':sdx3['s12R'].divide(sdx3['s1'])}, axis=1, names=['base'])], axis=1
-                         ).sort_index(sort_remaining=True, axis=1).fillna(0.0)
+                         ).sort_index(sort_remaining=True, axis=1)
         
         sdx4.index.name='dsc'
         
         #switch to hazard order
         sdx5 = sdx4.stack('scale').unstack('dsc')
+        
+        log.info('constructed residuals w/ %s'%(str(sdx5.shape)))
         #=======================================================================
-        # plot resid normd
+        # plot residuals
         #=======================================================================
-        """looks bad
+        """ 
+        view(sdx5.loc[:, idx[:, 'direct', 'wse', 'mean', 'full']])        
  
-        direct:WSE:full?
-        
-        view(sdx5.loc[:, idx[:, 'direct', 'wse', 'mean', 'full']])
-        
-        direct:wd:dp?
         """
-        #just wd and wse mean (for now)        
-        pdx1 = sdx5['s12R'].loc[:, idx[:, :, 'mean', :]].droplevel('metric', axis=1) #.join(sdx5['s12Rn'].loc[:, idx[:, 'wse', 'mean', :]])
-          
-        #stack into a series
-        serx = pdx1.stack(level=pdx1.columns.names).sort_index()
+        def get_stack(baseName):
+            """consistent retrival by base"""            
+            #just wd and wse mean (for now)        
+            pdx1 = sdx5[baseName].loc[:, idx[:, :, 'mean', :]].droplevel('metric', axis=1) 
+            return pdx1.stack(level=pdx1.columns.names).sort_index()
+        
+        serx = get_stack('s12R')        
+        ses.plot_matrix_metric_method_var(serx,
+                                          map_d = {'row':'layer','col':'method', 'color':'dsc', 'x':'scale'},
+                                          ylab_d={
  
- 
+                                              },
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_assets.svg'))
+        
+        #=======================================================================
+        # residuals normalized
+        #=======================================================================
+        serx = get_stack('s12Rn')        
         ses.plot_matrix_metric_method_var(serx,
                                           map_d = {'row':'layer','col':'method', 'color':'dsc', 'x':'scale'},
                                           ylab_d={
@@ -142,11 +148,7 @@ def run_plots(fp_lib,
                                             'wse':r'$\frac{\overline{WSE_{s2}}-\overline{WSE_{s1}}}{\overline{WSE_{s1}}}$', 
                                             #'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
                                               },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_assets2.svg'))
-        
- 
- 
-        
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_assets.svg'))
         #=======================================================================
         # stackced areas ratios
         #=======================================================================
