@@ -5,7 +5,7 @@ Created on Aug. 28, 2022
 '''
 import os, pathlib
 from definitions import proj_lib
-from hp.basic import get_dict_str
+from hp.basic import get_dict_str, now
 import pandas as pd
 idx = pd.IndexSlice
 
@@ -100,7 +100,7 @@ def run_haz_agg2(method='direct',
         log.info('finished w/ array picks \n%s'%get_dict_str(fp_d))
         log.info('finished w/ stat picks \n%s'%get_dict_str(stat_d))
         out_dir = ses.out_dir
-    print('finished to \n    %s'%out_dir)
+    print('finished w/ %s'%(get_dict_str(fp_d)))
 
     return fp_d, stat_d
 
@@ -154,6 +154,7 @@ def SJ_r5_0909(run_name='r8',
  
     
 if __name__ == "__main__": 
+    start = now()
  
     
     SJ_r5_0909(method='direct',
@@ -164,10 +165,5 @@ if __name__ == "__main__":
                )
  
  
- 
- 
-    
-    
-    
-    print('finished')
+    print('finished in %.2f'%((now()-start).total_seconds())
  

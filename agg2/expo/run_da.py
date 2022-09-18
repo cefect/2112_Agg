@@ -2,11 +2,13 @@
 Created on Sep. 10, 2022
 
 @author: cefect
+
+exposure data analysis
 '''
 import os, pathlib
 from definitions import proj_lib
 from hp.basic import get_dict_str
-from hp.pd import append_levels
+from hp.pd import append_levels, view
 import pandas as pd
 idx = pd.IndexSlice
 
@@ -14,9 +16,9 @@ def SJ_plots_0910(
         fp_lib = {
                 'direct':{
                     'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-                    #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220917\arsc\SJ_r7_direct_0917_arsc.pkl',
-                    #'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wd\SJ_r7_direct_0911_lsamp_wd.pkl',
-                    #'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wse\SJ_r7_direct_0911_lsamp_wse.pkl',
+                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
+                    'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
+                    'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
                     },
                 'filter':{
                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
@@ -32,7 +34,7 @@ def run_plots(fp_lib,
                   **kwargs):
     """construct figure from SJ downscale cat results"""
     from agg2.expo.da import ExpoDASession as Session
-    from hp.pd import view
+ 
     
     #===========================================================================
     # get base dir

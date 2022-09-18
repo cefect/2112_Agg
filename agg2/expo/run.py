@@ -5,7 +5,7 @@ Created on Sep. 6, 2022
 '''
 from definitions import proj_lib
 from pyproj.crs import CRS
-
+from hp.basic import get_dict_str, now
  
 
 
@@ -34,6 +34,8 @@ def run_expo(
         for layName in ['wd','wse']:
             if not layName in fp_d:
                 fp_d[layName] = ses.build_layerSamps(fp_d['catMasks'], finv_fp,  layName=layName,write=True,)
+                
+    print('finished w/ %s'%(get_dict_str(fp_d)))
             
  
             
@@ -46,9 +48,9 @@ def SJ_r6_0910(
         fp_lib = {
                 'direct':{
                     'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-                    #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220917\arsc\SJ_r7_direct_0917_arsc.pkl',
-                    #'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wd\SJ_r7_direct_0911_lsamp_wd.pkl',
-                    #'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wse\SJ_r7_direct_0911_lsamp_wse.pkl',
+                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
+                    'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
+                    'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
                     },
                 'filter':{
                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
@@ -61,9 +63,9 @@ def SJ_r6_0910(
     return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method,run_name='r8', **kwargs)
 
 if __name__ == "__main__":
- 
+    start=now()
     SJ_r6_0910(method='direct',
         #aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT03_0906.geojson',
         )
     
-    print('finished')
+    print('finished in %.2f'%((now()-start).total_seconds())

@@ -28,13 +28,13 @@ from hp.oop import Session
 from hp.gpd import GeoPandasWrkr, get_multi_intersection
 from hp.rio import load_array, RioWrkr, get_window, plot_rast, get_ds_attr
 from hp.pd import view
+from hp.basic import now
 #from hp.plot import plot_rast
  
 from agg2.haz.rsc.scripts import ResampClassifier
 from agg2.coms import Agg2Session
 
-def now():
-    return datetime.datetime.now()
+
 
 
 class ExpoWrkr(GeoPandasWrkr, ResampClassifier):
