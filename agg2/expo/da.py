@@ -104,7 +104,13 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
     def get_dsc_stats1(self, raw_dx, 
                         ufunc_l=['mean', 'sum', 'count'],
                         **kwargs):
-        """compute stats groupbed by dsc on a layer"""
+        """compute stats groupbed by dsc on a layer
+        
+        
+        WARNING: counts on residual data sets are pretty useless
+            because these count presence of real values
+            and there are only real values when both the baseline and the test are present
+        """
         
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
         
@@ -118,6 +124,8 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             #compute total
             d = {sn:getattr(gdf.drop('dsc', axis=1, errors='ignore'), sn)() for sn in ufunc_l}
             tdf = pd.concat(d, axis=1, names=['metric']).iloc[0, :].rename('full').to_frame().T
+            
+ 
             
 
             #zonal
@@ -134,7 +142,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             #===================================================================
             # wrap
             #===================================================================
-            res_d[scale] = rdf1.astype({'count':int})
+            res_d[scale] = rdf1
             
         #=======================================================================
         # wrap

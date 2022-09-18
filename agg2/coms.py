@@ -78,19 +78,15 @@ class Agg2DAComs(Plotr):
                 'full': '#000000'}
         }
     
- 
-        
- 
-    
     def plot_matrix_metric_method_var(self,
                                       serx,
-                                      map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
-                                      title=None, colorMap=None,color_d=None,
+                                      map_d={'row':'metric', 'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                      title=None, colorMap=None, color_d=None,
                                       ylab_d={'vol':'$V_{s2}$ (m3)', 'wd_mean':r'$WD_{s2}$ (m)', 'wse_area':'$A_{s2}$ (m2)'},
                                       ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
-                                      ax_lims_d = dict(),
+                                      ax_lims_d=dict(),
                                       xscale='linear',
-                                      matrix_kwargs = dict(figsize=(6.5,6), set_ax_title=False, add_subfigLabel=True),
+                                      matrix_kwargs=dict(figsize=(6.5, 6), set_ax_title=False, add_subfigLabel=True),
                                       plot_kwargs_lib={
                                           'full':{'marker':'x'},
                                           'DD':{'marker':'s', 'fillstyle':'none'},
@@ -98,7 +94,7 @@ class Agg2DAComs(Plotr):
                                           'WP':{'marker':'o', 'fillstyle':'top'},
                                           'DP':{'marker':'o', 'fillstyle':'bottom'},
                                           },
-                                      plot_kwargs={'linestyle':'solid', 'marker':'x', 'markersize':7, 'alpha':0.8}, 
+                                      plot_kwargs={'linestyle':'solid', 'marker':'x', 'markersize':7, 'alpha':0.8},
                                       output_fig_kwargs=dict(),
                                       legend_kwargs=dict(),
  

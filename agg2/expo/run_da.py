@@ -10,9 +10,12 @@ exposure data analysis
 import os, pathlib
 from definitions import proj_lib
 from hp.basic import get_dict_str, today_str
-from hp.pd import append_levels
+from hp.pd import append_levels, view
 import pandas as pd
+import numpy as np
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 idx = pd.IndexSlice
+import matplotlib.pyplot as plt
 
 def SJ_plots_0910(
         fp_lib = {
@@ -51,8 +54,8 @@ def run_plots(fp_lib,
     with Session(out_dir=out_dir, **kwargs) as ses:
         log = ses.logger
         
-        return
-        
+ 
+        pdc_kwargs = dict(axis=1, names=['base'])
         matrix_kwargs = dict(figsize=(10,10), set_ax_title=False, add_subfigLabel=False)
         
         #=======================================================================
@@ -64,39 +67,82 @@ def run_plots(fp_lib,
         dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
         
         #join the simulation results (and clean up indicides
-        samp_dx = ses.join_layer_samps(fp_lib)
+        samp_dx_raw = ses.join_layer_samps(fp_lib)
         
         """
         samp_dx.loc[:, idx['filter', 'wse', (1, 8)]].hist()
         """
         
-        wet_bx = ~samp_dx.loc[:, idx[:, 'wse', :]].isna().all(axis=1)
+        
+        
+        #=======================================================================
+        # compute exposures
+        #=======================================================================
+        wet_bx = ~samp_dx_raw.loc[:, idx[:, 'wse', :]].isna().all(axis=1)
+        wet_bxcol = samp_dx_raw.loc[:,idx[:, 'wse', :]].droplevel('layer', axis=1).notna().astype(int)
+        
+        #check false negatives
+        
+        wet_falseNegatives = (wet_bxcol.subtract(wet_bxcol.loc[:, idx[:, 1]].droplevel('scale', axis=1))==-1).sum()
+        if wet_falseNegatives.any():
+            log.info('got %i False Negative exposures\n%s'%(
+                wet_falseNegatives.sum(), wet_falseNegatives[wet_falseNegatives!=0]))
+        
+        #merge
+        samp_dx = pd.concat([samp_dx_raw, pd.concat({'expo':wet_bxcol}, axis=1 ,names=['layer']).swaplevel('layer', 'method', axis=1)], 
+                            axis=1).sort_index(axis=1, sort_remaining=True)
+            
+                          
+                            
+                            
+        """
+        view(samp_dx.head(100))
+        """
         #=======================================================================
         # GRANUALR-------
         #=======================================================================
-        """agg-stats are pretty nice for the rasters, where domains are consistent
-        but for assets, the number exposed varies so much it's more informative to work per-asset"""
+        """agg-stats compares stats between the base group to the upsampled group
+         
+        this is not great, as we want to attribute bias to regions
+        
+        
+            resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_samp, j=j_base]
+            
+            residN = resid/stat[i=dsc@j_samp, j=j_base]
+            
+        """
         
         kdx_s1 = samp_dx.loc[:, idx[:, :,1]].droplevel('scale', axis=1)#baseline values
         
         #add dummy level
-        pdc_kwargs = dict(axis=1, names=['base'])
+        
         kdx1 = pd.concat({'samps':samp_dx}, **pdc_kwargs)
         
         #=======================================================================
         # residuals
         #=======================================================================
-        kdx_resid = samp_dx.subtract(kdx_s1)
+        kdx_resid = samp_dx.subtract(kdx_s1).round(4)
         
         kdx2 = pd.concat([kdx1, pd.concat({'resid':kdx_resid}, **pdc_kwargs)], axis=1)
         
+        """
+        kdx2.columns.names
+
+        dx = kdx2.loc[:, idx[:, 'direct', 'wse', (1, 512)]].head(100).sort_index(axis=1)
+        view(dx)
+        """
+ 
         #=======================================================================
         # resid.normd
         #=======================================================================
-        """any 'inf' values here are false positives"""
-        kdx_rnorm = kdx_resid.divide(kdx_s1)
-        
-        kdx3 = pd.concat([kdx2, pd.concat({'residN':kdx_rnorm}, **pdc_kwargs)], axis=1)        
+        kdx3 = kdx2
+        """no... this corrupts the stats"""
+        #=======================================================================
+        # """any 'inf' values here are false positives"""
+        # kdx_rnorm = kdx_resid.divide(kdx_s1)
+        # 
+        # kdx3 = pd.concat([kdx2, pd.concat({'residN':kdx_rnorm}, **pdc_kwargs)], axis=1)        
+        #=======================================================================
         
         """        
         view(kdx3[wet_bx].loc[:, idx[:, 'direct', 'wd', (1, 512)]].head(100))
@@ -108,9 +154,10 @@ def run_plots(fp_lib,
         #=======================================================================
         """aggregating granulars by dsc zone
         'samples' base should be the same as aggregated stats below"""
-        def get_zonal_stats(gdx, gcols, gkeys):
+        def get_zonal_stats(gdx, gcols, gkeys, **kwargs):
             """help compute dsc stats then add some dummy levels"""
-            dxi = ses.get_dsc_stats1(gdx)   #compute zonal stats
+            dxi = ses.get_dsc_stats1(gdx, **kwargs)   #compute zonal stats            
+            
             dxi.columns = append_levels(dxi.columns, dict(zip(gcols, gkeys))) #add the levels back
             return dxi
             
@@ -118,47 +165,77 @@ def run_plots(fp_lib,
         gcols = ['method', 'layer', 'base']
  
         d = dict()
+        print(kdx3.columns.names)
         for i, (gkeys, gdx) in enumerate(kdx3.loc[:, idx[:, :, :, :]].groupby(level=gcols, axis=1)):
+            layName = gkeys[1]
             #merge gruoped data w/ dsc 
-            gdx_c = pd.concat({gkeys[1]:gdx.droplevel(gcols, axis=1), 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
+            gdx_c = pd.concat({layName:gdx.droplevel(gcols, axis=1), 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
             
-            d[i] = get_zonal_stats(gdx_c, gcols, gkeys)
+            #set stat
+            if layName == 'expo':
+                stat = 'sum'
+            else:
+                stat = 'mean'
+            
+            
+            d[i] = get_zonal_stats(gdx_c, gcols, gkeys, ufunc_l=[stat])
         
         #merge
         skdx1 = pd.concat(d.values(), axis=1).reorder_levels(['base'] + list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
         skdx1.index.name='dsc'
         
-        #switch to hazard order
+        """
+        view(skdx1['resid'].T)
+        """
+ 
+
+ 
+ 
+        #=======================================================================
+        # #switch to hazard order
+        #=======================================================================
         sdx = skdx1.stack('scale').unstack('dsc')
-        log.info('compiled granualr stats on dsc zones %s'%str(sdx.shape))
+        log.info('compiled granualr stats on dsc zones %s'%str(sdx.shape))        
+ 
+        
+        
         """
         view(sdx.T)
         """
         #=======================================================================
         # GRANUALR.PLOTS---------
         #=======================================================================
-        row = 'layer_metric'
+        row = 'layer'
         def get_stackG(baseName):
             """consistent retrival by base"""            
             
             dx1 = sdx[baseName]
             
-            dx2 = dx1.loc[:, idx[:, 'wd', 'mean', :]].join(
-                dx1.loc[:, idx[:, 'wse', ('mean', 'count'), :]])
-            
-            #concat columsn
-            mdf1 = dx2.columns.to_frame().reset_index(drop=True)
-            
-            mdf1[row] = mdf1['layer'].str.cat(mdf1['metric'], sep='_')
-            
-            dx2.columns = pd.MultiIndex.from_frame(mdf1.drop(columns=['layer', 'metric']))
+            """just 1 metric per layer now"""
+            dx2 = dx1.droplevel('metric', axis=1) 
+            #===================================================================
+            # dx2 = dx1.loc[:, idx[:, 'wd', 'mean', :]].join(
+            #     dx1.loc[:, idx[:, 'wse', ('mean', 'count'), :]])
+            # 
+            # #concat columsn
+            # mdf1 = dx2.columns.to_frame().reset_index(drop=True)
+            # 
+            # mdf1[row] = mdf1['layer'].str.cat(mdf1['metric'], sep='_')
+            # 
+            # dx2.columns = pd.MultiIndex.from_frame(mdf1.drop(columns=['layer', 'metric']))
+            #===================================================================
             
             """
             view(dx2.loc[:, idx[:, :, 'wse_count']].T)
             """
             
+            order_l = {
+                'layer_metric':['wse_count', 'wse_mean', 'wd_mean'],
+                'layer':['expo', 'wse', 'wd'],
+                }[row]
+            
             return dx2.stack(level=dx2.columns.names).sort_index().reindex(
-                index=['wse_count', 'wse_mean', 'wd_mean'], level=row) 
+                index=order_l, level=row) 
             
             #===================================================================
             # #just wd and wse mean (for now)        
@@ -177,23 +254,22 @@ def run_plots(fp_lib,
         can we plot just the wet assets?
 
         """
-        #=======================================================================
-        # baseName='samps'
-        # serx = get_stackG(baseName)        
-        # ses.plot_matrix_metric_method_var(serx, 
-        #                                   title='asset samples',matrix_kwargs=matrix_kwargs,
-        #                                   map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
-        #                                   ylab_d={'wd':'wd mean', 'wse':'wse mean'},
-        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_gran_%s.svg'%baseName))
-        #=======================================================================
+        baseName='samps'
+        serx = get_stackG(baseName)        
+        ses.plot_matrix_metric_method_var(serx, 
+                                          title='asset samples',matrix_kwargs=matrix_kwargs,
+                                          map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
+                                          ylab_d={'wd':'wd mean', 'wse':'wse mean', 'expo':'expo count'},
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_gran_%s.svg'%baseName))
         
         #=======================================================================
         # residuals
         #=======================================================================
         """
         wse_count?
-            why are these similar between the two?
-            why is the full so high?
+            filter
+                shouldn't full always be on top?
+                    pretty close... false negatives can move this around though?
             
         wse_mean:direct:DD
             why so squirly?
@@ -212,99 +288,108 @@ def run_plots(fp_lib,
         #=======================================================================
         # AGG----------
         #=======================================================================
-        log.info('\n\nAGGREGATED PLOTS\n\n')
-        #=======================================================================
-        # #compute s2 zonal
-        #=======================================================================
-        gcols = ['method', 'layer']
-        d = dict()
-        for i, (gkeys, gdx) in enumerate(samp_dx.groupby(level=gcols, axis=1)):
-            gdx_c = pd.concat({gkeys[1]:gdx.droplevel(gcols, axis=1), 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
-            d[i] = get_zonal_stats(gdx_c, gcols, gkeys)
-         
-        #merge
-        adx_s2 = pd.concat(d.values(), axis=1).reorder_levels(list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
-         
-        adx1 = pd.concat({'s2':adx_s2}, axis=1, names=['base'])
-        log.info('built s2 zonal w/ %s'%(str(adx1.shape)))
-        #=======================================================================
-        # s1 zonal
-        #=======================================================================
-        d = dict()
-        for i, (gkeys, gdx) in enumerate(samp_dx.groupby(level=gcols, axis=1)):
-            #always computing against the fine samples
-            gdx0 = pd.concat({res:gdx.droplevel(gcols, axis=1).iloc[:, 0] for res in gdx.columns.unique('scale')}, axis=1, names='scale')
- 
-
-            gdx_c = pd.concat({gkeys[1]:gdx0, 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
-            d[i] = get_zonal_stats(gdx_c, gcols, gkeys)
-        
-        #merge
-        adx_s1 = pd.concat(d.values(), axis=1).reorder_levels(list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
-        
-        adx2 = pd.concat([adx1, pd.concat({'s1':adx_s1}, axis=1, names=['base'])], axis=1)
-        log.info('built s1 zonal w/ %s'%(str(adx2.shape)))       
-        #=======================================================================
-        # #compute residual
-        #=======================================================================
-        adx3 = pd.concat([adx2, pd.concat({'s12R':adx_s2.subtract(adx_s1)}, axis=1, names=['base'])], axis=1)
-        
-        #=======================================================================
-        # resid normalized
-        #=======================================================================
-        """ (s2-s1)/s1"""
-        adx4 = pd.concat([adx3, pd.concat({'s12Rn':adx3['s12R'].divide(adx3['s1'])}, axis=1, names=['base'])], axis=1
-                         ).sort_index(sort_remaining=True, axis=1)
-        
-        adx4.index.name='dsc'
-        
-        #switch to hazard order
-        adx5 = adx4.stack('scale').unstack('dsc')
-        
-        log.info('constructed residuals w/ %s'%(str(adx5.shape)))
-        
-     
-
-        #=======================================================================
-        # AGG.PLOTS-------
-        #=======================================================================
+        """compute stats per resolution then compare.
+        not so useful because the regions change
         
         
-        def get_stackA(baseName):
-            """consistent retrival by base"""            
-            #just wd and wse mean (for now)        
-            plot_dx = adx5[baseName].loc[:, idx[:, :, 'mean', :]].droplevel('metric', axis=1) 
-            return plot_dx.stack(level=plot_dx.columns.names).sort_index() 
-        
-        #=======================================================================
-        # samples  
-        #=======================================================================
-        baseName='s2'
-        serx = get_stackA(baseName)        
-        ses.plot_matrix_metric_method_var(serx,
-                                          map_d = {'row':'layer','col':'method', 'color':'dsc', 'x':'scale'},
-                                          ylab_d={},
-                                          matrix_kwargs=matrix_kwargs,
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_assets_agg_%s.svg'%baseName))
-        #=======================================================================
-        # residuals
-        #=======================================================================        
-        """ 
-        wd:direct?
-            seems like these should be flat... like the rasters
-            
-            the issue is the FalsePositives... I think we want to work with deltas
-        
-        view(sdx5.loc[:, idx[:, 'direct', 'wse', 'mean', 'full']])        
- 
+        resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_base, j=j_base]
         """
-        baseName='s12R'
-        serx = get_stackA(baseName)        
-        ses.plot_matrix_metric_method_var(serx,
-                                          map_d = {'row':'layer','col':'method', 'color':'dsc', 'x':'scale'},
-                                          ylab_d={},
-                                          matrix_kwargs=matrix_kwargs,
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_assets_agg_%s.svg'%baseName))
+        
+#===============================================================================
+#         log.info('\n\nAGGREGATED PLOTS\n\n')
+#         #=======================================================================
+#         # #compute s2 zonal
+#         #=======================================================================
+#         gcols = ['method', 'layer']
+#         d = dict()
+#         for i, (gkeys, gdx) in enumerate(samp_dx.groupby(level=gcols, axis=1)):
+#             gdx_c = pd.concat({gkeys[1]:gdx.droplevel(gcols, axis=1), 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
+#             d[i] = get_zonal_stats(gdx_c, gcols, gkeys)
+#          
+#         #merge
+#         adx_s2 = pd.concat(d.values(), axis=1).reorder_levels(list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
+#          
+#         adx1 = pd.concat({'s2':adx_s2}, axis=1, names=['base'])
+#         log.info('built s2 zonal w/ %s'%(str(adx1.shape)))
+#         #=======================================================================
+#         # s1 zonal
+#         #=======================================================================
+#         d = dict()
+#         for i, (gkeys, gdx) in enumerate(samp_dx.groupby(level=gcols, axis=1)):
+#             #always computing against the fine samples
+#             gdx0 = pd.concat({res:gdx.droplevel(gcols, axis=1).iloc[:, 0] for res in gdx.columns.unique('scale')}, axis=1, names='scale')
+#  
+# 
+#             gdx_c = pd.concat({gkeys[1]:gdx0, 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
+#             d[i] = get_zonal_stats(gdx_c, gcols, gkeys)
+#         
+#         #merge
+#         adx_s1 = pd.concat(d.values(), axis=1).reorder_levels(list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
+#         
+#         adx2 = pd.concat([adx1, pd.concat({'s1':adx_s1}, axis=1, names=['base'])], axis=1)
+#         log.info('built s1 zonal w/ %s'%(str(adx2.shape)))       
+#         #=======================================================================
+#         # #compute residual
+#         #=======================================================================
+#         adx3 = pd.concat([adx2, pd.concat({'s12R':adx_s2.subtract(adx_s1)}, axis=1, names=['base'])], axis=1)
+#         
+#         #=======================================================================
+#         # resid normalized
+#         #=======================================================================
+#         """ (s2-s1)/s1"""
+#         adx4 = pd.concat([adx3, pd.concat({'s12Rn':adx3['s12R'].divide(adx3['s1'])}, axis=1, names=['base'])], axis=1
+#                          ).sort_index(sort_remaining=True, axis=1)
+#         
+#         adx4.index.name='dsc'
+#         
+#         #switch to hazard order
+#         adx5 = adx4.stack('scale').unstack('dsc')
+#         
+#         log.info('constructed residuals w/ %s'%(str(adx5.shape)))
+#         
+#      
+# 
+#         #=======================================================================
+#         # AGG.PLOTS-------
+#         #=======================================================================
+#         
+#         
+#         def get_stackA(baseName):
+#             """consistent retrival by base"""            
+#             #just wd and wse mean (for now)        
+#             plot_dx = adx5[baseName].loc[:, idx[:, :, 'mean', :]].droplevel('metric', axis=1) 
+#             return plot_dx.stack(level=plot_dx.columns.names).sort_index() 
+#         
+#         #=======================================================================
+#         # samples  
+#         #=======================================================================
+#         baseName='s2'
+#         serx = get_stackA(baseName)        
+#         ses.plot_matrix_metric_method_var(serx,
+#                                           map_d = {'row':'layer','col':'method', 'color':'dsc', 'x':'scale'},
+#                                           ylab_d={},
+#                                           matrix_kwargs=matrix_kwargs,
+#                                           ofp=os.path.join(ses.out_dir, 'metric_method_var_assets_agg_%s.svg'%baseName))
+#         #=======================================================================
+#         # residuals
+#         #=======================================================================        
+#         """ 
+#         wd:direct?
+#             seems like these should be flat... like the rasters
+#             
+#             the issue is the FalsePositives... I think we want to work with deltas
+#         
+#         view(sdx5.loc[:, idx[:, 'direct', 'wse', 'mean', 'full']])        
+#  
+#         """
+#         baseName='s12R'
+#         serx = get_stackA(baseName)        
+#         ses.plot_matrix_metric_method_var(serx,
+#                                           map_d = {'row':'layer','col':'method', 'color':'dsc', 'x':'scale'},
+#                                           ylab_d={},
+#                                           matrix_kwargs=matrix_kwargs,
+#                                           ofp=os.path.join(ses.out_dir, 'metric_method_var_assets_agg_%s.svg'%baseName))
+#===============================================================================
         
         #=======================================================================
         # residuals normalized
