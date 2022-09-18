@@ -17,14 +17,14 @@ import os, copy, datetime
 import geopandas as gpd
 import shapely.geometry as sgeo
 import rasterio as rio
-import rasterio.windows
+#import rasterio.windows
 
 from rasterstats import zonal_stats
-import rasterstats.utils
-import matplotlib.pyplot as plt
+#import rasterstats.utils
+#import matplotlib.pyplot as plt
 
 
-from hp.oop import Session
+#from hp.oop import Session
 from hp.gpd import GeoPandasWrkr, get_multi_intersection
 from hp.rio import load_array, RioWrkr, get_window, plot_rast, get_ds_attr
 from hp.pd import view

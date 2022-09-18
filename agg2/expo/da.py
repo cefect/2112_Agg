@@ -10,10 +10,10 @@ from pandas.testing import assert_index_equal
 import os, copy, datetime
 idx= pd.IndexSlice
 
-from definitions import max_cores
-from multiprocessing import Pool
+#from definitions import max_cores
+#from multiprocessing import Pool
 
-from agg2.haz.coms import coldx_d, cm_int_d
+#from agg2.haz.coms import coldx_d, cm_int_d
 from hp.pd import append_levels
  
 #===============================================================================

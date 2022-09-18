@@ -10,7 +10,7 @@ exposure data analysis
 import os, pathlib
 from definitions import proj_lib
 from hp.basic import get_dict_str, today_str
-from hp.pd import append_levels, view
+from hp.pd import append_levels
 import pandas as pd
 idx = pd.IndexSlice
 
@@ -30,7 +30,7 @@ def SJ_plots_0910(
                     }
                 },
         run_name='r8'):
-    return run_plots(fp_lib)
+    return run_plots(fp_lib, run_name=run_name)
 
 def run_plots(fp_lib,
                   **kwargs):
@@ -42,14 +42,16 @@ def run_plots(fp_lib,
     # get base dir
     #=========================================================================== 
     out_dir = os.path.join(
-        pathlib.Path(os.path.dirname(fp_lib['filter']['catMasks'])).parents[3], #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+        pathlib.Path(os.path.dirname(fp_lib['direct']['catMasks'])).parents[3], #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
         'da', today_str)
-    
+    print('out_dir:   %s'%out_dir)
     #===========================================================================
     # execute
     #===========================================================================
     with Session(out_dir=out_dir, **kwargs) as ses:
         log = ses.logger
+        
+        return
         
         matrix_kwargs = dict(figsize=(10,10), set_ax_title=False, add_subfigLabel=False)
         
