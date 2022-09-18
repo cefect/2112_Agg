@@ -124,7 +124,7 @@ def complete_pick_fp(tmp_path, dsc_l, shape):
     df = pd.DataFrame.from_dict(d).rename_axis('downscale')
     
     #clear out the first catMask
-    df.loc[dsc_l[0], 'catMosaic'] = np.nan
+    #df.loc[dsc_l[0], 'catMosaic'] = np.nan
     
     #move downscale to a column
     df = df.reset_index()
@@ -213,9 +213,18 @@ def get_ar_d(shape, dsc_l, layName):
     # random sample from these
     #===========================================================================
     res_d = dict()
-    for scale in dsc_l: 
+    for scale in dsc_l:
+        
+        #skip first catMosaic
+        if scale == dsc_l[0] and layName=='catMosaic':
+            res_d[scale] = np.nan
+            continue 
+        
         assert d1%scale==0, 'bad divisor: %i'%scale
-        si = tuple((np.array(shape)//scale).astype(int))           
+        si = tuple((np.array(shape)//scale).astype(int))
+        
+        
+                   
         res_d[scale] = np.random.choice(samp_ar, size=si)
         
         
