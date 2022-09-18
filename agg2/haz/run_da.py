@@ -93,7 +93,7 @@ def run_haz_plots(fp_lib,
     # execute
     #===========================================================================
     with Session(out_dir=out_dir, **kwargs) as ses:
-        
+ 
         #=======================================================================
         # data prep
         #=======================================================================
@@ -101,7 +101,12 @@ def run_haz_plots(fp_lib,
         dxcol_raw = ses.join_stats(fp_lib, write=False)
         
  
-        #add residuals  
+        #add residuals
+        """
+        both these bases are stats computed on teh same (dynamic) zones:
+            resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_samp, j=j_base]
+        
+        """  
         dxcol1 = dxcol_raw.join(pd.concat([dxcol_raw['s2']-dxcol_raw['s1']], names=['base'], keys=['s12'], axis=1)).copy()
         
         print({lvlName:i for i, lvlName in enumerate(dxcol1.columns.names)})
@@ -212,27 +217,67 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         
         #=======================================================================
-        # with WSE mean. Figure 5: Bias from upscaling 
+        # four metrics
         #=======================================================================
+        def cat_mdex(mdex, levels=['layer', 'metric']):
+            """concatnate two levels into one of an mdex"""
+            mcoln = '_'.join(levels)
+            df = mdex.to_frame().reset_index(drop=True)
+ 
+            df[mcoln] = df[levels[0]].str.cat(df[levels[1]], sep='_')
+            
+            return pd.MultiIndex.from_frame(df.drop(levels, axis=1)), mcoln
         
-        dxcol4 = dxcol1.loc[:, idx['s12N', :, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
-           
-        #stack into a series
-        serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
-                                       ).reindex(index=metrics_l, level='metric'
-                                        ).droplevel(['scale', 'pixelArea'])
-                                           
-        #concat layer and metric
-        """because for plotting we treat this as combined as 1 dimension"""
+        
         mcoln = 'layer_metric'
-        df = serx1.index.to_frame().reset_index(drop=True)
-        df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
-    
-        serx = pd.Series(serx1.values, index = pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
-           
-        #sort
         m1_l = ['wd_mean', 'wse_mean', 'wd_posi_area', 'wd_vol']
-        serx = serx.reindex(index=m1_l, level=mcoln) #apply order
+        def get_stack(baseName):
+            dxcol4 = dxcol1.loc[:, idx[baseName, :, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
+               
+            #stack into a series
+            serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
+                                           ).reindex(index=metrics_l, level='metric'
+                                            ).droplevel(['scale', 'pixelArea'])
+                                               
+            #concat layer and metric
+            """because for plotting we treat this as combined as 1 dimension"""
+            
+            df = serx1.index.to_frame().reset_index(drop=True)
+            df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
+        
+            serx = pd.Series(serx1.values, index = pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
+               
+            #sort
+            
+            return serx.reindex(index=m1_l, level=mcoln) #apply order
+        
+        #=======================================================================
+        # resid normed.  Figure 5: Bias from upscaling 
+        #=======================================================================
+        """
+        direct:
+            why is direct flat when s2 is changing so much?
+                because s1 and s2 are identical
+                remember... direct just takes the zonal average anyway
+                so the compute metric is the same as the stat
+                
+        wse:
+            dont want to normalize this one
+        """
+
+        #=======================================================================
+        # baseName = 's12N'
+        # serx = get_stack(baseName) 
+        #=======================================================================
+        """join wd with wse from different base"""
+        wd_dx = dxcol1.droplevel(['scale', 'pixelArea']).loc[:, idx['s12N', :, 'wd', :, metrics_l]]
+        
+        dxi = dxcol1.droplevel(['scale', 'pixelArea']).loc[:, idx['s12', :, 'wse', :, 'mean']
+                                                           ].join(wd_dx).droplevel('base', axis=1)
+                                                           
+        dxi.columns, mcoln = cat_mdex(dxi.columns)
+        
+        serx = dxi.stack(dxi.columns.names).reindex(index=m1_l, level=mcoln)
            
            
         #plot
@@ -242,14 +287,40 @@ def run_haz_plots(fp_lib,
                                               'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
                                               'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
                                               'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-                                              'wse_mean':r'$\frac{\overline{WSE_{s2}}-\overline{WSE_{s1}}}{\overline{WSE_{s1}}}$', 
+                                              'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$', 
                                               },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_wse.svg'),
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg'%('s12_s12N')),
                                           matrix_kwargs = dict(figsize=(6.5,7.25), set_ax_title=False, add_subfigLabel=True),
                                           ax_lims_d = {
-                                              'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+                                              'y':{'wd_mean':(-1.5, 0.2),  'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
+                                                   'wse_mean':(-1.0, 15.0),
+                                                   },
                                               }
                                           )
+        return
+        #=======================================================================
+        # raw raster stats
+        #=======================================================================
+        """
+        s1 methods:
+            these should be the same (masks are the same, baseline is the same)
+            
+        """
+        for baseName in ['s2', 's1', 's12']:
+            serx = get_stack(baseName)
+               
+               
+            #plot
+            ses.plot_matrix_metric_method_var(serx,
+                                              map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                              ylab_d={},
+                                              ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg'%baseName),
+                                              matrix_kwargs = dict(figsize=(6.5,7.25), set_ax_title=False, add_subfigLabel=True),
+                                              ax_lims_d = {
+                                                  #'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+                                                  }
+                                              )
+        
         
         #=======================================================================
         # for presentation (WD and A)

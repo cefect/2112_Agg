@@ -97,6 +97,7 @@ class Agg2DAComs(Plotr):
                                       plot_kwargs={'linestyle':'solid', 'marker':'x', 'markersize':7, 'alpha':0.8},
                                       output_fig_kwargs=dict(),
                                       legend_kwargs=dict(),
+                                      yfmt_func = lambda x,p:'%.2f'%x,
  
                                       **kwargs):
         
@@ -222,7 +223,7 @@ class Agg2DAComs(Plotr):
                             """
                     
                     #force 2decimal precision
-                    ax.get_yaxis().set_major_formatter(lambda x,p:'%.2f'%x)
+                    ax.get_yaxis().set_major_formatter(yfmt_func)
                     
                     #first row
                     if row_key==keys_all_d['row'][0]:

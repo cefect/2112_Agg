@@ -101,6 +101,30 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         
         return dx1
     
+    def get_dsc_stats2(self, raw_dx,
+                       ufunc_d = {'expo':'sum', 'wd':'mean', 'wse':'mean'},
+                       **kwargs):
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
+        
+        gcols = ['method', 'layer']
+        res_d = dict()
+        for i, (gkeys, gdx) in enumerate(raw_dx.groupby(level=gcols, axis=1)):
+            gkeys_d = dict(zip(gcols, gkeys))
+            stat = ufunc_d[gkeys_d['layer']]
+            
+            #get zonal stats            
+            grouper = gdx.groupby(level='dsc')            
+            sdx = getattr(grouper, stat)()
+            
+            #get total stat
+            sdx.loc['full', :] = getattr(gdx, stat)()
+            
+            res_d[i] = pd.concat({stat:sdx}, axis=1, names=['metric'])
+ 
+        return pd.concat(list(res_d.values()), axis=1).reorder_levels(list(raw_dx.columns.names) + ['metric'], axis=1)
+    
+ 
+    
     def get_dsc_stats1(self, raw_dx, 
                         ufunc_l=['mean', 'sum', 'count'],
                         **kwargs):
