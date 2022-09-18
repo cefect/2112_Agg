@@ -31,13 +31,9 @@ def run_expo(
         if not 'arsc' in fp_d:
             fp_d['arsc'] = ses.build_assetRsc(fp_d['catMasks'], finv_fp)
             
-        #=======================================================================
-        # for layName in [
-        #     'wd', 
-        #     'wse']:
-        #     if not layName in fp_d:
-        #         fp_d[layName] = ses.build_layerSamps(fp_d['catMasks'], finv_fp,  layName=layName,write=True,)
-        #=======================================================================
+        for layName in ['wd','wse']:
+            if not layName in fp_d:
+                fp_d[layName] = ses.build_layerSamps(fp_d['catMasks'], finv_fp,  layName=layName,write=True,)
             
  
             
@@ -49,10 +45,10 @@ def SJ_r6_0910(
         method='filter',
         fp_lib = {
                 'direct':{
-                     'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r7\\SJ\\direct\\20220910\\cMasks\\SJ_r7_direct_0910_cMasks.pkl',
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220917\arsc\SJ_r7_direct_0917_arsc.pkl',
-                    'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wd\SJ_r7_direct_0911_lsamp_wd.pkl',
-                    'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wse\SJ_r7_direct_0911_lsamp_wse.pkl',
+                    'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
+                    #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220917\arsc\SJ_r7_direct_0917_arsc.pkl',
+                    #'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wd\SJ_r7_direct_0911_lsamp_wd.pkl',
+                    #'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\direct\20220911\lsamp_wse\SJ_r7_direct_0911_lsamp_wse.pkl',
                     },
                 'filter':{
                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
@@ -62,7 +58,7 @@ def SJ_r6_0910(
                     }
                 },
         **kwargs):
-    return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method,run_name='r7', **kwargs)
+    return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method,run_name='r8', **kwargs)
 
 if __name__ == "__main__":
  
