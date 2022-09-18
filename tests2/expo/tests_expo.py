@@ -72,6 +72,10 @@ def wrkr(tmp_path,write,logger, test_name,
 #===============================================================================
 # ressampl class mask
 #===============================================================================
+
+ 
+
+
 @pytest.fixture(scope='function')
 def cMask_pick_fp(cMask_rlay_fp, tmp_path):
     """mimic output of run_catMasks"""
@@ -105,9 +109,45 @@ def cMask_ar(shape):
 #===============================================================================
 # data grids
 #===============================================================================
+@pytest.fixture(scope='function')  
+def complete_pick_fp(tmp_path, dsc_l, shape):
+    """construct teh complete pickle of each layers stack
+    equivalent to the expectations for 'catMasks'"""
+    
+    #build the resolution-filepath stack for each layer
+    d = dict()
+    for layName in ['wse', 'wd', 'catMosaic']:
+        ar_d = get_ar_d(shape, dsc_l, layName)
+        d[layName] = get_rlay_fp_d(ar_d, layName, tmp_path)
+        
+    
+    df = pd.DataFrame.from_dict(d).rename_axis('downscale')
+    
+    #clear out the first catMask
+    df.loc[dsc_l[0], 'catMosaic'] = np.nan
+    
+    #move downscale to a column
+    df = df.reset_index()
+    
+ 
+    
+ 
+    ofp = os.path.join(tmp_path, 'test_complete_%i.pkl'%len(df))
+    df.to_pickle(ofp)
+    
+    return ofp
+    
+@pytest.fixture(scope='function')
+@pytest.mark.parametrize('layName', ['wd'])
+def lay_pick_fp_wd(lay_pick_fp):
+    return lay_pick_fp
+    
 
 @pytest.fixture(scope='function')
 def lay_pick_fp(rlay_fp_d, layName, tmp_path):
+    return get_lay_pick_fp(rlay_fp_d, layName, tmp_path)
+    
+def get_lay_pick_fp(rlay_fp_d, layName, tmp_path):
     
     df = pd.Series(rlay_fp_d).rename(layName).to_frame().rename_axis('downscale').reset_index()
  
@@ -119,6 +159,9 @@ def lay_pick_fp(rlay_fp_d, layName, tmp_path):
 
 @pytest.fixture(scope='function')
 def rlay_fp_d(ar_d, layName, tmp_path):
+    return get_rlay_fp_d(ar_d, layName, tmp_path)
+    
+def get_rlay_fp_d(ar_d, layName, tmp_path):
     ofp_d = dict()
     for scale, ar_raw in ar_d.items():
         ofp = os.path.join(tmp_path, '%s_%03i.tif'%(layName, scale))
@@ -137,6 +180,9 @@ def rlay_fp_d(ar_d, layName, tmp_path):
 @pytest.fixture(scope='function')    
 def ar_d(shape, dsc_l, layName):
     """building some dummy grids for a set of scales"""
+    return get_ar_d(shape, dsc_l, layName)
+    
+def get_ar_d(shape, dsc_l, layName):
     assert dsc_l[0]==1
     d1 = shape[0]
     assert d1%dsc_l[-1]==0, 'bad divisor'
@@ -155,12 +201,17 @@ def ar_d(shape, dsc_l, layName):
             (np.round(np.random.random(s1)*20, 2).ravel(),
             np.full(s1, -9999).ravel())
             ).ravel()
+            
+    elif layName=='catMosaic':
+        samp_ar = np.array(list(cm_int_d.values()))
     
     else:
         raise IOError('not implemented')
     
  
-    
+    #===========================================================================
+    # random sample from these
+    #===========================================================================
     res_d = dict()
     for scale in dsc_l: 
         assert d1%scale==0, 'bad divisor: %i'%scale
@@ -205,10 +256,11 @@ def test_02_laySamp(wrkr, lay_pick_fp, finv_fp, bbox, layName):
     
 @pytest.mark.dev
 @pytest.mark.parametrize('proj_d', [proj_d])
+@pytest.mark.parametrize('dsc_l', [([1,2,5])])
 @pytest.mark.parametrize('shape', [(10,10)], indirect=False)
-def test_runExpo(proj_d, tmp_path, cMask_pick_fp):
+def test_runExpo(proj_d, tmp_path, complete_pick_fp):
     run_expo( wrk_dir=tmp_path, case_name='tCn', run_name='tRn', proj_d=proj_d,
-              fp_d={'catMasks':cMask_pick_fp},
+              fp_d={'catMasks':complete_pick_fp},
               )
     
  

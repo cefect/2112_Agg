@@ -35,7 +35,7 @@ idx= pd.IndexSlice
 #===============================================================================
 from hp.plot import plot_rast #for debugging
 
-import dask.array as da
+#import dask.array as da
 
 def now():
     return datetime.datetime.now()

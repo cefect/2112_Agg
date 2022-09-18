@@ -325,8 +325,10 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         #=======================================================================
         # load classification masks
         #=======================================================================
-        df_raw = pd.read_pickle(pick_fp).loc[:, ['downscale', layName]].set_index('downscale')
-        rlay_fp_d = df_raw.dropna().iloc[:,0].to_dict()  
+        df_raw = pd.read_pickle(pick_fp)
+        assert layName in df_raw.columns, 'requested layer \'%s\' is missing from the pick:\n    %s'%(layName, pick_fp)
+        df1 = df_raw.loc[:, ['downscale', layName]].set_index('downscale')
+        rlay_fp_d = df1.dropna().iloc[:,0].to_dict()  
  
         
         log.info('on %i \'%s\' layers'%(len(rlay_fp_d), layName))        

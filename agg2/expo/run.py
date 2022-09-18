@@ -68,4 +68,4 @@ if __name__ == "__main__":
         #aoi_fp=r'C:\LS\02_WORK\NRC\2112_Agg\04_CALC\hyd\SaintJohn\aoi\aoiT03_0906.geojson',
         )
     
-    print('finished in %.2f'%((now()-start).total_seconds())
+    print('finished in %.2f'%((now()-start).total_seconds()))
