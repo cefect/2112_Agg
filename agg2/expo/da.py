@@ -15,11 +15,12 @@ idx= pd.IndexSlice
 
 #from agg2.haz.coms import coldx_d, cm_int_d
 from hp.pd import append_levels
+from hp.basic import lib_iter
  
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
-  
+cm = 1/2.54
 import matplotlib
 #matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
 matplotlib.set_loglevel("info") #reduce logging level
@@ -61,7 +62,11 @@ def now():
 
 class ExpoDASession(ExpoSession, Agg2DAComs):
  
-    
+    def __init__(self,scen_name='expo_da',  **kwargs):
+ 
+ 
+ 
+        super().__init__(scen_name=scen_name,  **kwargs)
  
     
     def join_layer_samps(self,fp_lib,
@@ -124,200 +129,101 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         return pd.concat(list(res_d.values()), axis=1).reorder_levels(list(raw_dx.columns.names) + ['metric'], axis=1)
     
  
-    
-    def get_dsc_stats1(self, raw_dx, 
-                        ufunc_l=['mean', 'sum', 'count'],
-                        **kwargs):
-        """compute stats groupbed by dsc on a layer
+    def plot_grid_d(self, 
+                    data_lib,post_lib,
+                    title=None, colorMap=None, color_d=None,
+                    matrix_kwargs=dict(figsize=(17*cm, 19*cm) , set_ax_title=False, add_subfigLabel=True),
+                    plot_kwargs_lib={
+                                          'full':{'marker':'x'},
+                                          'DD':{'marker':'s', 'fillstyle':'none'},
+                                          'WW':{'marker':'o', 'fillstyle':'full'},
+                                          'WP':{'marker':'o', 'fillstyle':'top'},
+                                          'DP':{'marker':'o', 'fillstyle':'bottom'},
+                                          },
+                    plot_kwargs={'linestyle':'solid', 'marker':'x', 'markersize':7, 'alpha':0.8},
+                    output_fig_kwargs=dict(),
+                    **kwargs):
+        """grid plot from data in a dict. save post for caller"""
         
-        
-        WARNING: counts on residual data sets are pretty useless
-            because these count presence of real values
-            and there are only real values when both the baseline and the test are present
-        """
-        
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
-        
-        if not np.array_equal(raw_dx.columns.names, ['layer', 'scale']):
-            raise IOError('bad columns: %s'%raw_dx.columns.names)
-        
-        res_d = dict()
-        for scale, gdx in raw_dx.groupby('scale', axis=1):
-            gdf = gdx.droplevel('scale', axis=1)
-            
-            #compute total
-            d = {sn:getattr(gdf.drop('dsc', axis=1, errors='ignore'), sn)() for sn in ufunc_l}
-            tdf = pd.concat(d, axis=1, names=['metric']).iloc[0, :].rename('full').to_frame().T
-            
- 
-            
-
-            #zonal
-            if 'dsc' in gdx.columns.unique('layer'):
- 
-                d = {sn:getattr(gdf.groupby('dsc') , sn)() for sn in ufunc_l}
-                rdfi = pd.concat(d, axis=1, names=['metric']).droplevel('layer', axis=1)
-                
-                rdf1 = pd.concat([tdf, rdfi])
-                
-            else:
-                rdf1 = tdf
-                
-            #===================================================================
-            # wrap
-            #===================================================================
-            res_d[scale] = rdf1
-            
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        rdx = pd.concat(res_d, axis=1, names=['scale'])
-        
-         
-        # fill zeros 
-        #=======================================================================
-        # for sn in rdx.columns.unique('metric'):
-        #     
-        #     if not sn=='mean':
-        #         idxi = idx[:, sn]
-        #         sdx = rdx.loc[:, idxi]
-        #         if sdx.isna().any().any():
-        #             #print(sn) 
-        #             rdx.loc[:, idxi] = sdx.fillna(0.0)
-        #=======================================================================
-                    
-        log.debug('finished on %s'%str(rdx.shape))
-        return rdx
-                
-                
-    
-    def get_dsc_stats(self, raw_dx, 
-                      ufunc_l=['mean', 'sum', 'count'], 
-                      multi=False,
-                      **kwargs):
-        """calc major stats grouped by dsc"""
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
- 
-        start = now()
-        gcols = ('scale', 'method')
-        res_d = dict()
-        res_d2 = dict()
-        for i, (gkeys, gdx0) in enumerate(raw_dx.groupby(level=gcols, axis=1)):
-            
-            keys_d = dict(zip(gcols, gkeys))
-            log.info('%i on %s'%(i+1, keys_d)) 
-            
-            #===================================================================
-            # compute total
-            #===================================================================
-            
-            
-            gdf = gdx0.droplevel(gcols, axis=1).drop('dsc', axis=1, errors='ignore')
- 
-            
-            d = {sn:getattr(gdf, sn)() for sn in ufunc_l}
-            fdx = pd.concat(d, axis=1, names=['metric']).stack().rename('full').to_frame(
-                ).T.reorder_levels(['layer', 'metric'], axis=1).sort_index(axis=1)
-                
- 
-            
-            #===================================================================
-            # compute zonal
-            #===================================================================                
-            if 'dsc' in gdx0.columns.unique('layer'):            
-
-                grouper = gdx0.droplevel(gcols, axis=1).groupby('dsc')            
-     
-                if multi:
-                    """this is way slower"""
-                    with Pool(3) as pool:
-                        sum_future = pool.apply_async(grouper.sum)
-                        sum_future.wait()
-                         
-                        mean_future = pool.apply_async(grouper.mean)
-                        mean_future.wait()
-                         
-                        count_future = pool.apply_async(grouper.count)
-                        count_future.wait()
-                         
-                    d = {'sum':sum_future.get(), 'mean':mean_future.get(), 'count':count_future.get()}
-                    
-                    #===============================================================
-                    # """this is the same"""
-                    # pool = Pool(3)
-                    # 
-                    # d = {
-                    #     'sum':pool.apply_async(grouper.sum).get(), 
-                    #      'mean':pool.apply_async(grouper.mean).get(),
-                    #       'count':pool.apply_async(grouper.count).get()}
-                    # 
-                    # pool.close()
-                    # pool.join()
-                    #===============================================================
-                    
-                    
-                else:
-                    d = {sn:getattr(grouper, sn)() for sn in ufunc_l}
-                    
-                rdx1 = pd.concat(d, axis=1, names=['metric']).reorder_levels(['layer', 'metric'], axis=1)
-                
-                #merge w/ full
-                rdx2 = pd.concat([rdx1, fdx]) 
-                
+        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('plot_gd',  subdir=False,ext='.svg', **kwargs)
+        
+        #=======================================================================
+        # extract
+        #=======================================================================
+        # get first frame
+        df0 = next(iter(next(iter(data_lib.values())).values()))
+        
+        keys_all_d = {'row':list(data_lib.keys()),
+                      'col':list(next(iter(data_lib.values())).keys()),  # taking from first
+                      'color':df0.columns.values.tolist(),
+                      }
+        
+        # color
+        color_key = df0.columns.name
+        if color_d is None:
+            color_d = self._get_color_d(color_key, keys_all_d['color'], colorMap=colorMap, color_d=color_d)
+        
+        # plot kwargs
+        """here we populate with blank kwargs to ensure every series has some kwargs"""
+        if plot_kwargs_lib is None: plot_kwargs_lib = dict()
+        for k in keys_all_d['color']:
+            if not k in plot_kwargs_lib:
+                plot_kwargs_lib[k] = plot_kwargs
             else:
-                rdx2 = fdx
+                plot_kwargs_lib[k] = {**plot_kwargs, **plot_kwargs_lib[k]}  # respects precedent
+        
+        log.info('plotting\n    rows:%s\n    cols:%s' % (keys_all_d['row'], keys_all_d['col']))
+        #=======================================================================
+        # setup figure
+        #=======================================================================
+        plt.close('all')
+ 
+        fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'],
+                                    # figsize_scaler=4,                                    
+                                    constrained_layout=False,
+                                    sharey='row',sharex='all',  
+                                    fig_id=0,logger=log, **matrix_kwargs)
+ 
+        if not title is None:
+            fig.suptitle(title)
+            
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+
+        #loop over the nested dictionary
+        cnt=0
+        for row_key, col_key, df in lib_iter(data_lib):
  
             #===================================================================
-            # wrap
-            #===================================================================                 
-            rdx2.columns = append_levels(rdx2.columns, keys_d)
+            # defaults
+            #===================================================================
+            log.debug(f'    on {row_key}.{col_key} for {str(df.shape)}')
+            ax = ax_d[row_key][col_key]
             
-            res_d[i] = rdx2
+            #check
+            assert isinstance(df, pd.DataFrame)
+            assert isinstance(df.columns, pd.Index)
             
- 
-                
-            
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        rdx = pd.concat(list(res_d.values()), axis=1)
+            #===================================================================
+            # plot each series (diff colors)
+            #===================================================================
+            for col_lab, col in df.items():
+                ax.plot(col.index, col.values, color=color_d[col_lab],label=col_lab,**plot_kwargs_lib[col_lab])
+            cnt+=1
         
+        log.info('built %i plots'%cnt)
  
-        # fill zeros
- 
-        for sn in rdx.columns.unique('metric'):
             
-            if not sn=='mean':
-                idxi = idx[:, :, :, sn]
-                sdx = rdx.loc[:, idxi]
-                if sdx.isna().any().any():
-                    #print(sn) 
-                    rdx.loc[:, idxi] = sdx.fillna(0.0)
-                    
-                #fix count type
-                if sn=='count':
-                    rdx.loc[:, idxi] = rdx.loc[:, idxi].astype(int)
- 
-        rdx = rdx.reorder_levels(list(raw_dx.columns.names) + ['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
         
-        log.info('finished on %s in %.2f secs'%(str(rdx.shape), (now()-start).total_seconds()))
+        return ax_d, keys_all_d
+    
+    
         
-        
-        return rdx
-    
-    
-    """
-    view(rdx.T)
-    """
-            
- 
- 
-    
-    
-    
+
     
     
     
