@@ -75,6 +75,7 @@ def SJ_plots_0918(
 #===============================================================================
 
 def run_haz_plots(fp_lib,
+                  write=True,
                   **kwargs):
     """construct figure from SJ downscale cat results"""
     from agg2.haz.da import UpsampleDASession as Session
@@ -93,9 +94,17 @@ def run_haz_plots(fp_lib,
     # execute
     #===========================================================================
     with Session(out_dir=out_dir, **kwargs) as ses:
- 
+        """for haz, working with aggregated zonal stats.
+            these are computed on the aggregated (s2) data with UpsampleSession.run_stats()
+            and on the raw/fine (s1) data with UpsampleSession.run_stats_fine()
+            
+        we did write some functions to compute the differences (run_errs())
+            but as we're not using any metrics which require this (e.g., RMSE)
+            and these functions are quite slow... we stopped using this.
+        """
+        log = ses.logger
         #=======================================================================
-        # data prep
+        # data prep---------
         #=======================================================================
         #join the simulation results (and clean up indicides
         dxcol_raw = ses.join_stats(fp_lib, write=False)
@@ -135,9 +144,19 @@ def run_haz_plots(fp_lib,
         metrics_l = ['mean', 'posi_area', 'vol']
         
  
+        #=======================================================================
+        # write
+        #=======================================================================
+        if write:
+            
+            ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_aggStats_dx.pkl')
+            dxcol1.to_pickle(ofp)
+            
+            log.info(f'wrote {str(dxcol1.shape)} to \n    {ofp}')
         
- 
-        
+        #=======================================================================
+        # AGG ZONAL PLOTS---------
+        #=======================================================================
         #=======================================================================
         # lines on residuals (s12)
         #=======================================================================

@@ -32,10 +32,12 @@ def SJ_plots_0910(
                     'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
                     }
                 },
+        #see haz.run_da
+        haz_da_fp = r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\da\20220919\SJ_r8_haz_da_0919_aggStats_dx.pkl',
         run_name='r8'):
-    return run_plots(fp_lib, run_name=run_name)
+    return run_plots(fp_lib, run_name=run_name, haz_da_fp=haz_da_fp)
 
-def run_plots(fp_lib,
+def run_plots(fp_lib,haz_da_fp=None,
                   **kwargs):
     """construct figure from SJ downscale cat results"""
     from agg2.expo.da import ExpoDASession as Session
@@ -64,31 +66,24 @@ def run_plots(fp_lib,
         #=======================================================================
         # data prep
         #=======================================================================
-
         
-        #get the rsc for each asset and scale        
+        # get the rsc for each asset and scale        
         dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
         
-        #join the simulation results (and clean up indicides
+        # join the simulation results (and clean up indicides
         samp_dx_raw = ses.join_layer_samps(fp_lib)
         
         """
         samp_dx.loc[:, idx['filter', 'wse', (1, 8)]].hist()
         """
         
-
-        
-        
-        
-        
         #=======================================================================
         # compute exposures
         #=======================================================================
-        wet_bx = ~samp_dx_raw.loc[:, idx[:, 'wse', :]].isna().all(axis=1)
-        wet_bxcol = samp_dx_raw.loc[:,idx[:, 'wse', :]].droplevel('layer', axis=1).notna().astype(int)
+        wet_bx = ~samp_dx_raw.loc[:, idx[:, 'wse',:]].isna().all(axis=1)
+        wet_bxcol = samp_dx_raw.loc[:, idx[:, 'wse',:]].droplevel('layer', axis=1).notna().astype(int)
         
-        #check false negatives
-        
+        #check false negatives        
         wet_falseNegatives = (wet_bxcol.subtract(wet_bxcol.loc[:, idx[:, 1]].droplevel('scale', axis=1))==-1).sum()
         if wet_falseNegatives.any():
             log.info('got %i False Negative exposures\n%s'%(
@@ -102,7 +97,10 @@ def run_plots(fp_lib,
         #=======================================================================
         # GRANULAR (raster style)-------
         #=======================================================================
-        """s2 is computed against the matching samples
+        """
+        unlike Haz, we are computing the stats during data analysis
+        
+        s2 is computed against the matching samples
         s1 is computed against the baseline samples"""
         
         samp_base_dx = samp_dx.loc[:, idx[:, :, 1]].droplevel('scale', axis=1)
@@ -197,6 +195,8 @@ def run_plots(fp_lib,
             might help figure out why the raster averages are the same
             
         normalizing doesn't seem so useful here
+        
+        plot TP/FP?
  
         """
         #=======================================================================
@@ -213,238 +213,250 @@ def run_plots(fp_lib,
         #=======================================================================
         # s12
         #=======================================================================
-        baseName='s12'
-        serx = get_stackG(baseName)        
-        ses.plot_matrix_metric_method_var(serx, 
-                                          #title=baseName,
- 
-                                          map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
-                                          ylab_d={
-                                              'wd':r'$\overline{WSH_{s2}}-\overline{WSH_{s1}}$', 
-                                              'wse':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$', 
-                                              'expo':r'$\sum WET_{s2} - \sum WET_{s1}$'},
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_asset_gran_%s.svg'%baseName),
-                                          matrix_kwargs = dict(figsize=(6.5,6.75), set_ax_title=False, add_subfigLabel=True),
-                                          ax_lims_d = {'y':{
-                                              'wd':(-0.2,3.0), 'wse':(-1, 10.0), #'expo':(-10, 4000)
-                                              }},
-                                          yfmt_func= lambda x,p:'%.1f'%x,
-                                          legend_kwargs=dict(loc=7)
-                                          )
+ #==============================================================================
+ #        baseName='s12'
+ #        serx = get_stackG(baseName)        
+ #        ses.plot_matrix_metric_method_var(serx, 
+ #                                          #title=baseName,
+ # 
+ #                                          map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
+ #                                          ylab_d={
+ #                                              'wd':r'$\overline{WSH_{s2}}-\overline{WSH_{s1}}$', 
+ #                                              'wse':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$', 
+ #                                              'expo':r'$\sum WET_{s2} - \sum WET_{s1}$'},
+ #                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_asset_gran_%s.svg'%baseName),
+ #                                          matrix_kwargs = dict(figsize=(6.5,6.75), set_ax_title=False, add_subfigLabel=True),
+ #                                          ax_lims_d = {'y':{
+ #                                              'wd':(-0.2,3.0), 'wse':(-1, 10.0), #'expo':(-10, 4000)
+ #                                              }},
+ #                                          yfmt_func= lambda x,p:'%.1f'%x,
+ #                                          legend_kwargs=dict(loc=7)
+ #                                          )
+ #==============================================================================
+        
+        #=======================================================================
+        # combined w/ raster----
+        #=======================================================================
+        if not haz_da_fp is None:
+            haz_dx = pd.read_pickle(haz_da_fp)
         
  
         return
-        #=======================================================================
-        # residuals
-        #=======================================================================
-        """
-        wse_count?
-            filter
-                shouldn't full always be on top?
-                    pretty close... false negatives can move this around though?
-             
-        wse_mean:direct:DD
-            why so squirly?
-        """
-         
-        baseName='resid'
-        serx = get_stackG(baseName)        
-        ses.plot_matrix_metric_method_var(serx,
-                                          title='asset sample residuals',matrix_kwargs=matrix_kwargs,
-                                          map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
-                                          ylab_d={'wd':'wd mean resid', 'wse':'wse mean resid'},
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_gran_%s.svg'%baseName))
-        #=======================================================================
-        # GRANUALR-------
-        #=======================================================================
-        """agg-stats compares stats between the base group to the upsampled group
-         
-        this is not great, as we want to attribute bias to regions
-        
-        
-            resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_samp, j=j_base]
-            
-            residN = resid/stat[i=dsc@j_samp, j=j_base]
-            
-        """
-        
-        kdx_s1 = samp_dx.loc[:, idx[:, :,1]].droplevel('scale', axis=1)#baseline values
-        
-        #add dummy level
-        
-        kdx1 = pd.concat({'samps':samp_dx}, **pdc_kwargs)
-        
-        #=======================================================================
-        # residuals
-        #=======================================================================
-        kdx_resid = samp_dx.subtract(kdx_s1).round(4)
-        
-        kdx2 = pd.concat([kdx1, pd.concat({'resid':kdx_resid}, **pdc_kwargs)], axis=1)
-        
-        """
-        kdx2.columns.names
-
-        dx = kdx2.loc[:, idx[:, 'direct', 'wse', (1, 512)]].head(100).sort_index(axis=1)
-        view(dx)
-        """
- 
-        #=======================================================================
-        # resid.normd
-        #=======================================================================
-        kdx3 = kdx2
-        """no... this corrupts the stats"""
-        #=======================================================================
-        # """any 'inf' values here are false positives"""
-        # kdx_rnorm = kdx_resid.divide(kdx_s1)
-        # 
-        # kdx3 = pd.concat([kdx2, pd.concat({'residN':kdx_rnorm}, **pdc_kwargs)], axis=1)        
-        #=======================================================================
-        
-        """        
-        view(kdx3[wet_bx].loc[:, idx[:, 'direct', 'wd', (1, 512)]].head(100))
-        """
-        log.info('compiled granular samples %s for %s'%(str(kdx3.shape), kdx3.columns.unique('base').tolist()))
-        
-        #=======================================================================
-        # zonal stats
-        #=======================================================================
-        """aggregating granulars by dsc zone
-        'samples' base should be the same as aggregated stats below"""
-        def get_zonal_stats(gdx, gcols, gkeys, **kwargs):
-            """help compute dsc stats then add some dummy levels"""
-            dxi = ses.get_dsc_stats1(gdx, **kwargs)   #compute zonal stats            
-            
-            dxi.columns = append_levels(dxi.columns, dict(zip(gcols, gkeys))) #add the levels back
-            return dxi
-            
-        
-        gcols = ['method', 'layer', 'base']
- 
-        d = dict()
-        print(kdx3.columns.names)
-        for i, (gkeys, gdx) in enumerate(kdx3.loc[:, idx[:, :, :, :]].groupby(level=gcols, axis=1)):
-            layName = gkeys[1]
-            #merge gruoped data w/ dsc 
-            gdx_c = pd.concat({layName:gdx.droplevel(gcols, axis=1), 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
-            
-            #set stat
-            if layName == 'expo':
-                stat = 'sum'
-            else:
-                stat = 'mean'
-            
-            
-            d[i] = get_zonal_stats(gdx_c, gcols, gkeys, ufunc_l=[stat])
-        
-        #merge
-        skdx1 = pd.concat(d.values(), axis=1).reorder_levels(['base'] + list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
-        skdx1.index.name='dsc'
-        
-        """
-        view(skdx1['resid'].T)
-        """
- 
-        #=======================================================================
-        # #switch to hazard order
-        #=======================================================================
-        sdx = skdx1.stack('scale').unstack('dsc')
-        log.info('compiled granualr stats on dsc zones %s'%str(sdx.shape))        
- 
-        
-        
-        """
-        view(sdx.T)
-        """
-        #=======================================================================
-        # GRANUALR.PLOTS---------
-        #=======================================================================
-        row = 'layer'
-        def get_stackG(baseName):
-            """consistent retrival by base"""            
-            
-            dx1 = sdx[baseName]
-            
-            """just 1 metric per layer now"""
-            dx2 = dx1.droplevel('metric', axis=1) 
-            #===================================================================
-            # dx2 = dx1.loc[:, idx[:, 'wd', 'mean', :]].join(
-            #     dx1.loc[:, idx[:, 'wse', ('mean', 'count'), :]])
-            # 
-            # #concat columsn
-            # mdf1 = dx2.columns.to_frame().reset_index(drop=True)
-            # 
-            # mdf1[row] = mdf1['layer'].str.cat(mdf1['metric'], sep='_')
-            # 
-            # dx2.columns = pd.MultiIndex.from_frame(mdf1.drop(columns=['layer', 'metric']))
-            #===================================================================
-            
-            """
-            view(dx2.loc[:, idx[:, :, 'wse_count']].T)
-            """
-            
-            order_l = {
-                'layer_metric':['wse_count', 'wse_mean', 'wd_mean'],
-                'layer':['wd', 'wse', 'expo'],
-                }[row]
-            
-            return dx2.stack(level=dx2.columns.names).sort_index().reindex(
-                index=order_l, level=row) 
-            
-            #===================================================================
-            # #just wd and wse mean (for now)        
-            # plot_dx = sdx[baseName].loc[:, idx[:, :, 'mean', :]].droplevel('metric', axis=1) 
-            # return plot_dx.stack(level=plot_dx.columns.names).sort_index() 
-            #===================================================================
-        
-        
-        #=======================================================================
-        # samps
-        #=======================================================================
-        """how does this treat the changing demonminator?
-            stats consider the full population at each resolution
-            
-        direct:wd
-            why are asset samples going up but the rasters are flat?
-                rasters are flat by definition
-                WW: as se aggregate, only the deepest exposures remain
-                
-                
-             
-         
-        can we plot just the wet assets?
-            might help figure out why the raster averages are the same
- 
-        """
-        baseName='samps'
-        serx = get_stackG(baseName)        
-        ses.plot_matrix_metric_method_var(serx, 
-                                          title='asset samples',matrix_kwargs=matrix_kwargs,
-                                          map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
-                                          ylab_d={'wd':'wd mean', 'wse':'wse mean', 'expo':'expo count'},
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_gran_%s.svg'%baseName))
-        
-        return
-         
-        #=======================================================================
-        # residuals
-        #=======================================================================
-        """
-        wse_count?
-            filter
-                shouldn't full always be on top?
-                    pretty close... false negatives can move this around though?
-             
-        wse_mean:direct:DD
-            why so squirly?
-        """
-         
-        baseName='resid'
-        serx = get_stackG(baseName)        
-        ses.plot_matrix_metric_method_var(serx,
-                                          title='asset sample residuals',matrix_kwargs=matrix_kwargs,
-                                          map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
-                                          ylab_d={'wd':'wd mean resid', 'wse':'wse mean resid'},
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_gran_%s.svg'%baseName))
+#===============================================================================
+#         #=======================================================================
+#         # residuals
+#         #=======================================================================
+#         """
+#         wse_count?
+#             filter
+#                 shouldn't full always be on top?
+#                     pretty close... false negatives can move this around though?
+#              
+#         wse_mean:direct:DD
+#             why so squirly?
+#         """
+#          
+#         baseName='resid'
+#         serx = get_stackG(baseName)        
+#         ses.plot_matrix_metric_method_var(serx,
+#                                           title='asset sample residuals',matrix_kwargs=matrix_kwargs,
+#                                           map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
+#                                           ylab_d={'wd':'wd mean resid', 'wse':'wse mean resid'},
+#                                           ofp=os.path.join(ses.out_dir, 'metric_method_var_gran_%s.svg'%baseName))
+#         #=======================================================================
+#         # GRANUALR-------
+#         #=======================================================================
+#         """agg-stats compares stats between the base group to the upsampled group
+#          
+#         this is not great, as we want to attribute bias to regions
+#         
+#         
+#             resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_samp, j=j_base]
+#             
+#             residN = resid/stat[i=dsc@j_samp, j=j_base]
+#             
+#         """
+#         
+#         kdx_s1 = samp_dx.loc[:, idx[:, :,1]].droplevel('scale', axis=1)#baseline values
+#         
+#         #add dummy level
+#         
+#         kdx1 = pd.concat({'samps':samp_dx}, **pdc_kwargs)
+#         
+#         #=======================================================================
+#         # residuals
+#         #=======================================================================
+#         kdx_resid = samp_dx.subtract(kdx_s1).round(4)
+#         
+#         kdx2 = pd.concat([kdx1, pd.concat({'resid':kdx_resid}, **pdc_kwargs)], axis=1)
+#         
+#         """
+#         kdx2.columns.names
+# 
+#         dx = kdx2.loc[:, idx[:, 'direct', 'wse', (1, 512)]].head(100).sort_index(axis=1)
+#         view(dx)
+#         """
+#  
+#         #=======================================================================
+#         # resid.normd
+#         #=======================================================================
+#         kdx3 = kdx2
+#         """no... this corrupts the stats"""
+#         #=======================================================================
+#         # """any 'inf' values here are false positives"""
+#         # kdx_rnorm = kdx_resid.divide(kdx_s1)
+#         # 
+#         # kdx3 = pd.concat([kdx2, pd.concat({'residN':kdx_rnorm}, **pdc_kwargs)], axis=1)        
+#         #=======================================================================
+#         
+#         """        
+#         view(kdx3[wet_bx].loc[:, idx[:, 'direct', 'wd', (1, 512)]].head(100))
+#         """
+#         log.info('compiled granular samples %s for %s'%(str(kdx3.shape), kdx3.columns.unique('base').tolist()))
+#         
+#         #=======================================================================
+#         # zonal stats
+#         #=======================================================================
+#         """aggregating granulars by dsc zone
+#         'samples' base should be the same as aggregated stats below"""
+#         def get_zonal_stats(gdx, gcols, gkeys, **kwargs):
+#             """help compute dsc stats then add some dummy levels"""
+#             dxi = ses.get_dsc_stats1(gdx, **kwargs)   #compute zonal stats            
+#             
+#             dxi.columns = append_levels(dxi.columns, dict(zip(gcols, gkeys))) #add the levels back
+#             return dxi
+#             
+#         
+#         gcols = ['method', 'layer', 'base']
+#  
+#         d = dict()
+#         print(kdx3.columns.names)
+#         for i, (gkeys, gdx) in enumerate(kdx3.loc[:, idx[:, :, :, :]].groupby(level=gcols, axis=1)):
+#             layName = gkeys[1]
+#             #merge gruoped data w/ dsc 
+#             gdx_c = pd.concat({layName:gdx.droplevel(gcols, axis=1), 'dsc':dsc_df}, axis=1, names=['layer']).sort_index(sort_remaining=True, axis=1)
+#             
+#             #set stat
+#             if layName == 'expo':
+#                 stat = 'sum'
+#             else:
+#                 stat = 'mean'
+#             
+#             
+#             d[i] = get_zonal_stats(gdx_c, gcols, gkeys, ufunc_l=[stat])
+#         
+#         #merge
+#         skdx1 = pd.concat(d.values(), axis=1).reorder_levels(['base'] + list(samp_dx.columns.names)+['metric'], axis=1).sort_index(sort_remaining=True, axis=1)
+#         skdx1.index.name='dsc'
+#         
+#         """
+#         view(skdx1['resid'].T)
+#         """
+#  
+#         #=======================================================================
+#         # #switch to hazard order
+#         #=======================================================================
+#         sdx = skdx1.stack('scale').unstack('dsc')
+#         log.info('compiled granualr stats on dsc zones %s'%str(sdx.shape))        
+#  
+#         
+#         
+#         """
+#         view(sdx.T)
+#         """
+#         #=======================================================================
+#         # GRANUALR.PLOTS---------
+#         #=======================================================================
+#         row = 'layer'
+#         def get_stackG(baseName):
+#             """consistent retrival by base"""            
+#             
+#             dx1 = sdx[baseName]
+#             
+#             """just 1 metric per layer now"""
+#             dx2 = dx1.droplevel('metric', axis=1) 
+#             #===================================================================
+#             # dx2 = dx1.loc[:, idx[:, 'wd', 'mean', :]].join(
+#             #     dx1.loc[:, idx[:, 'wse', ('mean', 'count'), :]])
+#             # 
+#             # #concat columsn
+#             # mdf1 = dx2.columns.to_frame().reset_index(drop=True)
+#             # 
+#             # mdf1[row] = mdf1['layer'].str.cat(mdf1['metric'], sep='_')
+#             # 
+#             # dx2.columns = pd.MultiIndex.from_frame(mdf1.drop(columns=['layer', 'metric']))
+#             #===================================================================
+#             
+#             """
+#             view(dx2.loc[:, idx[:, :, 'wse_count']].T)
+#             """
+#             
+#             order_l = {
+#                 'layer_metric':['wse_count', 'wse_mean', 'wd_mean'],
+#                 'layer':['wd', 'wse', 'expo'],
+#                 }[row]
+#             
+#             return dx2.stack(level=dx2.columns.names).sort_index().reindex(
+#                 index=order_l, level=row) 
+#             
+#             #===================================================================
+#             # #just wd and wse mean (for now)        
+#             # plot_dx = sdx[baseName].loc[:, idx[:, :, 'mean', :]].droplevel('metric', axis=1) 
+#             # return plot_dx.stack(level=plot_dx.columns.names).sort_index() 
+#             #===================================================================
+#         
+#         
+#         #=======================================================================
+#         # samps
+#         #=======================================================================
+#         """how does this treat the changing demonminator?
+#             stats consider the full population at each resolution
+#             
+#         direct:wd
+#             why are asset samples going up but the rasters are flat?
+#                 rasters are flat by definition
+#                 WW: as se aggregate, only the deepest exposures remain
+#                 
+#                 
+#              
+#          
+#         can we plot just the wet assets?
+#             might help figure out why the raster averages are the same
+#             
+#         plot TP and FPs?
+#  
+#         """
+#         baseName='samps'
+#         serx = get_stackG(baseName)        
+#         ses.plot_matrix_metric_method_var(serx, 
+#                                           title='asset samples',matrix_kwargs=matrix_kwargs,
+#                                           map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
+#                                           ylab_d={'wd':'wd mean', 'wse':'wse mean', 'expo':'expo count'},
+#                                           ofp=os.path.join(ses.out_dir, 'metric_method_var_gran_%s.svg'%baseName))
+#         
+#         return
+#          
+#         #=======================================================================
+#         # residuals
+#         #=======================================================================
+#         """
+#         wse_count?
+#             filter
+#                 shouldn't full always be on top?
+#                     pretty close... false negatives can move this around though?
+#              
+#         wse_mean:direct:DD
+#             why so squirly?
+#         """
+#          
+#         baseName='resid'
+#         serx = get_stackG(baseName)        
+#         ses.plot_matrix_metric_method_var(serx,
+#                                           title='asset sample residuals',matrix_kwargs=matrix_kwargs,
+#                                           map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
+#                                           ylab_d={'wd':'wd mean resid', 'wse':'wse mean resid'},
+#                                           ofp=os.path.join(ses.out_dir, 'metric_method_var_gran_%s.svg'%baseName))
+#===============================================================================
         
         
         #=======================================================================

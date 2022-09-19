@@ -54,7 +54,11 @@ def now():
 class UpsampleDASession(Agg2DAComs, UpsampleSession):
     """dataanalysis of downsampling"""
 
-    
+    def __init__(self,  obj_name='ups', **kwargs):
+ 
+ 
+ 
+        super().__init__(obj_name=obj_name, **kwargs)
  
         
     def join_stats(self,fp_lib, **kwargs):

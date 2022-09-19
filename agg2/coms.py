@@ -78,6 +78,14 @@ class Agg2DAComs(Plotr):
                 'full': '#000000'}
         }
     
+    def __init__(self,  scen_name=None, **kwargs):
+ 
+        if scen_name is None:
+            scen_name='haz_da'
+ 
+        super().__init__(scen_name=scen_name, **kwargs)
+ 
+    
     def plot_matrix_metric_method_var(self,
                                       serx,
                                       map_d={'row':'metric', 'col':'method', 'color':'dsc', 'x':'pixelLength'},

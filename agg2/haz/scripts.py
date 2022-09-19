@@ -363,10 +363,10 @@ class RasterArrayStats(AggBase):
 class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     """tools for experimenting with downsample sets"""
     
-    def __init__(self,method='direct', **kwargs):
+    def __init__(self,method='direct', scen_name=None, obj_name='haz',**kwargs):
  
-        
-        super().__init__(obj_name='haz',scen_name=method, **kwargs)
+        if scen_name is None: scen_name=method
+        super().__init__(obj_name=obj_name,scen_name=scen_name, **kwargs)
         self.method=method
         
  
@@ -869,12 +869,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     # STATS-------
     #===========================================================================
-
-
-
-
-
-
+ 
     def run_stats(self, pick_fp, 
  
                  layName_l = ['wse', 'wd'],
