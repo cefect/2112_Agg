@@ -174,9 +174,9 @@ if __name__ == "__main__":
     start = now()
  
     
-    SJ_r9_0921(method='filter',
-                dsc_l=[1,  2**7],
-                run_name='t'
+    SJ_r9_0921(method='direct',
+                #dsc_l=[1,  2**7],
+                #run_name='t'
                )
  
  

@@ -1482,7 +1482,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # wrap
         #=======================================================================
         dx.to_pickle(ofp)
-        log.info(f'wrote {str(dx.shape)} to \n    {ofp}')
+        log.info(f'wrote xls {str(dx.shape)} to \n    {ofp}')
         
         if write:
             ofp1 = os.path.join(out_dir, f'{layname}_{len(dx)}_stats.xls')
