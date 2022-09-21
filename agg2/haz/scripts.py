@@ -1192,17 +1192,17 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         use xarray and parallelize the delta?
         """
         
+
+        
+        log, tmp_dir, _, _, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
+        start = now()
+        
         if out_dir is None:
             out_dir = os.path.join(self.out_dir, 'diffs', layName)
         
         if not os.path.exists(out_dir):os.makedirs(out_dir)
         
-        log, tmp_dir, _, ofp, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
-        start = now()
-        
-        
- 
-        
+        ofp = os.path.join(out_dir, f'{layname}_{layName}.pkl')
         #=======================================================================
         # load
         #=======================================================================
@@ -1278,7 +1278,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             assert not np.all(res_ar.mask)
         
             if write:
-                res_d[scale] = self.write_array(res_ar, ofp=os.path.join(out_dir, '%s_diff_%03i.tif'%(layName, scale)), 
+                res_d[scale] = self.write_array(res_ar, 
+                                                ofp=os.path.join(out_dir, '%s_diff_%03i.tif'%(layName, scale)), 
                                             logger=log.getChild(f'{scale}'), masked=True)
             else:
                 res_d[scale] = np.nan 

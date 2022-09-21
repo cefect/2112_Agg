@@ -211,7 +211,7 @@ def test_04_statsFine(wrkr, pick_fp):
     'wse']) 
 def test_05_diffs(wrkr, lay_pick_fp, layName):
     res_fp = wrkr.run_diffs(lay_pick_fp, layName=layName,write=True,
-                           out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data\diffs')
+                           out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data\diffs', layName)
                            )
 
     
