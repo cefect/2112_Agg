@@ -447,8 +447,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # assemble meta
         #=======================================================================
  
-        meta_df = pd.DataFrame.from_dict(res_lib).T.reset_index(drop=False).rename(columns={'index':'downscale'})
-        meta_df['downscale'] =meta_df['downscale'].astype(int)  #already int
+        meta_df = pd.DataFrame.from_dict(res_lib).T.rename_axis('scale')
+ 
         #write the meta
         meta_df.to_pickle(ofp)
         log.info('wrote %s meta to \n    %s'%(str(meta_df.shape), ofp))
@@ -666,11 +666,11 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         self.out_dir
         meta_df.columns
         """
-        dxcol_raw = pd.read_pickle(pick_fp).set_index('downscale')
-        log.info('compiling vrt from %s'%os.path.basename(pick_fp)) 
+        df = pd.read_pickle(pick_fp)
+        log.info('compiling \'%s\' vrt from %s'%(layname0, os.path.basename(pick_fp))) 
         res_d = dict()
         
-        for layName, col in dxcol_raw.items():  
+        for layName, col in df.items():  
             if not layName in coldx_d['layer']:
                 continue
             #if not layName=='wse': continue 
@@ -773,11 +773,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         res_d=dict()
         meta_lib = dict()
         ofp_d = dict()
-        for i, row in dsmp_df.iterrows():
-            #===================================================================
-            # extract
-            #===================================================================
-            downscale = row['downscale']
+        for i, (downscale, row) in enumerate(dsmp_df.iterrows()):
+ 
             
             #===================================================================
             # defaults
@@ -796,7 +793,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 #===============================================================
                 dem_fp, wse_fp = row['dem'], row['wse']
  
-                dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp, reso_max=int(dsmp_df.iloc[-1, 0]),**skwargs)
+                dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp, reso_max=int(dsmp_df.index[-1]),**skwargs)
                 
                 dem_ar = load_array(dem_ds, masked=True)        
                 assert_dem_ar(dem_ar, masked=True)         
@@ -852,11 +849,11 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         dx = pd.concat({k:pd.DataFrame.from_dict(v) for k,v in meta_lib.items()})
  
         #just the sum
-        meta_df = dx.loc[idx[:, 'sum'], :].droplevel(1).astype(int)
+        meta_df = dx.loc[idx[:, 'sum'], :].droplevel(1).astype(int).rename_axis(dsmp_df.index.name)
         
-        meta_df = dsmp_df.join(meta_df, on='downscale') 
+        #meta_df = dsmp_df.join(meta_df, on='scale') 
  
-        meta_df = meta_df.join(pd.Series(ofp_d).rename('catMosaic'), on='downscale')
+        meta_df = meta_df.join(pd.Series(ofp_d).rename('fp'), on=dsmp_df.index.name)
             
         #=======================================================================
         # write meta
@@ -870,7 +867,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     # STATS-------
     #===========================================================================
  
-    def run_stats(self, pick_fp, 
+    def run_stats(self, agg_fp, cm_fp,
  
                  layName_l = ['wse', 'wd'],
  
@@ -885,16 +882,14 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('stats',  subdir=True,ext='.pkl', **kwargs)
  
-        df, start = self._rstats_init(pick_fp, layName_l, log)
+        df, start = self._rstats_init(agg_fp, cm_fp, layName_l, log)
         
         res_lib, meta_d =dict(), dict()
         #=======================================================================
-        # compute for each downscale
-        #=======================================================================
- 
-        
-        for i, row in df.iterrows():
-            log.info('computing for downscale=%i'%i)
+        # compute for each scale
+        #=======================================================================        
+        for i, (scale, row) in enumerate(df.iterrows()):
+            log.info(f'    {i+1}/{len(df)} on scale={scale}')
  
             #the complete mask
             with rio.open(row['wd'], mode='r') as ds:
@@ -907,7 +902,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
  
             fkwargs = dict(pixelArea=pixelArea)
             #build other masks
-            if i>1:
+            if i>0:
                 cm_ar = load_array(row['catMosaic']) 
                 assert cm_ar.shape==shape
                 
@@ -946,8 +941,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             """
             view(res_dx)
             """
-            res_lib[i] = pd.concat(res_d1, axis=1, names=['layer', 'dsc'])
-            meta_d[i] = {'pixelArea':pixelArea, 'pixelLength':pixelLength}                    
+            res_lib[scale] = pd.concat(res_d1, axis=1, names=['layer', 'dsc'])
+            meta_d[scale] = {'pixelArea':pixelArea, 'pixelLength':pixelLength}                    
  
             
         #=======================================================================
@@ -1164,17 +1159,22 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
  
 
 
-    def _rstats_init(self, pick_fp, layName_l, log):
+    def _rstats_init(self, agg_fp, cm_fp, layName_l, log):
         """init for rstat funcs"""
         start = now()
         icoln = 'downscale'
         self._build_statFuncs()
-    #=======================================================================
-    # load data
-    #=======================================================================
-        df_raw = pd.read_pickle(pick_fp)
-    #slice to specfied columns
-        df = df_raw.loc[:, df_raw.columns.isin(layName_l + [icoln ,'catMosaic'])].set_index(icoln)
+        
+        #=======================================================================
+        # load data
+        #=======================================================================
+        #run_agg
+        df_raw = pd.read_pickle(agg_fp).loc[:, layName_l]
+        
+        
+        #join data from catMasks
+        df = df_raw.join(pd.read_pickle(cm_fp))
+ 
  
         log.info('computing stats on %s' % str(df.shape))
         return df, start
@@ -1190,18 +1190,19 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
         start = now()
         
+        layName_l = ['wse', 'wd']
         #=======================================================================
         # load paths
         #=======================================================================
-        df_raw = pd.read_pickle(pick_fp).set_index('downscale')
+        df_raw = pd.read_pickle(pick_fp).loc[:, layName_l]
  
         #=======================================================================
         # loop and build diffs for each layer
         #=======================================================================
         res_d = dict()
-        for layName in ['wse', 'wd']:
+        for layName, col in df_raw.items():
             
-            fp_d = df_raw[layName].to_dict()
+            fp_d = col.to_dict()
         
             #===================================================================
             # run
@@ -1219,6 +1220,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
         
         log.info('finished on %s in %.2f secs'%(str(res_dx.shape), (now()-start).total_seconds()))
+        
+        return ofp
     
     
     def get_diffs(self,fp_d, 
@@ -1380,9 +1383,10 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #layers
         df = pd.read_pickle(pick_fp).loc[:, idx[layName_l, 'diff_fp']].droplevel('subdata', axis=1)
         
-        #masks
-        if not cm_pick_fp is None:
-            df = df.join(pd.read_pickle(cm_pick_fp).set_index('downscale')['catMosaic'])
+        #catMasks
+        cm_ser = pd.read_pickle(cm_pick_fp)['catMosaic']
+        
+        df = df.join(cm_ser)
             
         assert df.isna().sum().sum()==1
         

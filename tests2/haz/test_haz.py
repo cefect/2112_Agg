@@ -5,7 +5,7 @@ unit tests for downsample v2
 from hp.np import dropna
 from hp.rio import RioWrkr, write_array, load_array, get_stats
 from numpy import array, dtype
-from tests2.conftest import compare_dicts, src_dir, get_abs, crs, proj_d
+from tests2.conftest import compare_dicts, src_dir, get_abs, crs, proj_d, get_ar_d, get_rlay_fp_d
 import numpy as np
 import pandas as pd
 import pytest, copy, os, random
@@ -20,7 +20,7 @@ xfail = pytest.mark.xfail
 #===============================================================================
 # helpers and globals------
 #===============================================================================
- 
+dsc_l_global = [1,2*1,2*2]
 prec=5
  
 #for test data
@@ -81,6 +81,44 @@ def wrkr(tmp_path,write,logger, test_name,
         assert len(ses.compiled_fp_d)==0
         assert len(ses.ofp_d)==0
         yield ses
+        
+@pytest.fixture(scope='function')
+def agg_pick_fp(dsc_l, tmp_path):
+    """simulate run_agg"""
+    fp_lib, ar_lib = dict(), dict()
+    
+    #===========================================================================
+    # build arrays
+    #===========================================================================
+    
+    #build terrain and WD
+    for layName in ['wd', 'dem']:
+        ar_lib[layName] = get_ar_d(dsc_l, layName)
+ 
+        
+    #build wse
+    d = dict()
+ 
+    for i, wd_ar in ar_lib['wd'].items():
+        dem_ar = ar_lib['dem'][i]        
+        d[i] = get_wse_filtered(dem_ar+wd_ar, dem_ar, nodata=-9999)
+    
+    ar_lib['wse'] = d
+    #===========================================================================
+    # #build pickels
+    #===========================================================================
+    for layName, ar_d in ar_lib.items():
+        fp_lib[layName] = get_rlay_fp_d(ar_d, layName, tmp_path)
+    #===========================================================================
+    # wrap
+    #===========================================================================
+    df = pd.DataFrame.from_dict(fp_lib).rename_axis('scale')
+    
+    ofp = os.path.join(tmp_path, 'test_agg_%i.pkl' % len(df))
+    df.to_pickle(ofp)
+    
+    return ofp
+    
 
 #===============================================================================
 # UNIT TESTS--------
@@ -147,7 +185,7 @@ def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
                  )
     
     #validate
-    df = pd.read_pickle(pick_fp).set_index('downscale')
+    df = pd.read_pickle(pick_fp)
     
     #loop and make sure each layer has matching properties
     first=True
@@ -170,44 +208,37 @@ def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
                 
  
                 
-    
-    
-    
-    
-agg_fp = os.path.join(src_dir, r'tests2\haz\data\agg_filter\dsTest_test01_0908_agg_filter.pkl')
-
-
-
-@pytest.mark.parametrize('pick_fp', [
-    agg_fp,
-     #os.path.join(src_dir, r'tests2\haz\data\filter\dsTest_test00_0828_haz_dsmp.pkl'),
-     ])
-def test_02_dsc(wrkr, pick_fp):
-    res_fp = wrkr.run_catMasks(pick_fp, write=True,
+ 
+@pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
+def test_02_dsc(wrkr, agg_pick_fp):
+    res_fp = wrkr.run_catMasks(agg_pick_fp, write=True,
                                #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                                )
     
 
-cmasks_fp = os.path.join(src_dir, r'tests2\haz\data\cMasks\dsTest_test02_0908_cMasks.pkl')
+ 
 
 
-@pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
-def test_03_stats(wrkr, pick_fp):
-    res_fp = wrkr.run_stats(pick_fp, write=True)
+
+@pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
+def test_03_stats(wrkr, agg_pick_fp, cm_pick_fp):
+    res_fp = wrkr.run_stats(agg_pick_fp, cm_pick_fp, write=True)
     assert_stat_check(res_fp)
 
 
 
-@pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
-def test_04_statsFine(wrkr, pick_fp):
-    res_fp = wrkr.run_stats_fine(pick_fp, write=True)
-    assert_stat_check(res_fp)
+#===============================================================================
+# @pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
+# def test_04_statsFine(wrkr, pick_fp):
+#     res_fp = wrkr.run_stats_fine(pick_fp, write=True)
+#     assert_stat_check(res_fp)
+#===============================================================================
 
  
 
-@pytest.mark.parametrize('dsc_l', [([1,2*1,2*2])]) 
-def test_05_diffs(wrkr, complete_pick_fp):
-    res_fp = wrkr.run_diffs(complete_pick_fp,write=True,
+@pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
+def test_05_diffs(wrkr, agg_pick_fp):
+    res_fp = wrkr.run_diffs(agg_pick_fp,write=True,
                            out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
 
@@ -215,10 +246,10 @@ def test_05_diffs(wrkr, complete_pick_fp):
 diffs_pick_fp = os.path.join(src_dir, 'tests2\haz\data\diffs\SJ_test05_direct_0921_diffs.pkl') 
     
 @pytest.mark.dev
-@pytest.mark.parametrize('dsc_l', [([1,2*1,2*2])], indirect=False) 
+@pytest.mark.parametrize('dsc_l', [(dsc_l_global)], indirect=False) 
 @pytest.mark.parametrize('pick_fp', [diffs_pick_fp]) 
-def test_06_diff_stats(wrkr, pick_fp, lay_pick_fp_cm):
-    res_fp = wrkr.run_diff_stats(pick_fp, lay_pick_fp_cm, write=True,
+def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
+    res_fp = wrkr.run_diff_stats(pick_fp, cm_pick_fp, write=True,
                            #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
     assert_stat_check(res_fp)
@@ -228,14 +259,8 @@ def test_06_diff_stats(wrkr, pick_fp, lay_pick_fp_cm):
 # INTEGRATIOn tests ------------
 #===============================================================================
 
- 
 
-
- 
-    
-
-
-@pytest.mark.parametrize('dsc_l', [([1,2,4])])
+@pytest.mark.parametrize('dsc_l', [(dsc_l_global)])
 @pytest.mark.parametrize('method', [
     'direct', 
     'filter',

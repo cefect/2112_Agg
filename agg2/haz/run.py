@@ -48,51 +48,54 @@ def run_haz_agg2(method='direct',
         stat_d = dict()
         log = ses.logger
         #=======================================================================
-        # build category masks
+        # build aggregated layers
         #=======================================================================
         """todo: add something similar for the layers"""
-        if not 'catMasks' in fp_d:
-            fp1 = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
- 
-            fp_d['catMasks'] = ses.run_catMasks(fp1)
-            
+        if not 'agg' in fp_d:
+            fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
             ses._clear()
-        
-
-        
+ 
         #=======================================================================
         # build difference grids
         #=======================================================================
+        if not 'diffs' in fp_d:
+            fp_d['diffs'] = ses.run_diffs(fp_d['agg'])
+            ses._clear()
+            
         #=======================================================================
-        # if not 'err' in fp_d:
-        #     fp_d['err'] = ses.run_errs(fp_d['catMasks'])
+        # category masks
         #=======================================================================
+        if not 'catMasks' in fp_d:
+            fp_d['catMasks'] = ses.run_catMasks(fp_d['agg'])            
+            ses._clear()
             
         
         #=======================================================================
         # assemble vrts
-        #======================================================================= 
-        vrt_d = ses.run_vrts(fp_d['catMasks'])  
+        #=======================================================================
+        for k, v in fp_d.items(): 
+            vrt_d = ses.run_vrts(v, layname=k, logger=log.getChild(k))  
  
             
         #=======================================================================
         # build agg stats
         #=======================================================================
 
-        stat_d['s2'] = ses.run_stats(fp_d['catMasks'])
-        stat_d['s1'] = ses.run_stats_fine(fp_d['catMasks'])
+        stat_d['s2'] = ses.run_stats(fp_d['agg'], fp_d['catMasks'])
+        stat_d['s1'] = ses.run_stats_fine(fp_d['agg'], fp_d['catMasks'])
         
         #=======================================================================
         # build difference stats
         #=======================================================================
-        if 'err' in fp_d:
-            stat_d['diff'] =ses.run_errStats(fp_d['err'])
+        if 'diffs' in fp_d:
+            stat_d['diffs'] =ses.run_errStats(fp_d['diffs'])
         
 
         #=======================================================================
         # wrap
         #=======================================================================
-        log.info('finished w/ array picks \n%s'%get_dict_str(fp_d))
+        
+        log.info('finished w/ array picks \n%s'%pprint.pformat(fp_d, width=10, indent=3, compact=True, sort_dicts =False))
         log.info('finished w/ stat picks \n%s'%pprint.pformat(stat_d, width=30, indent=3, compact=True, sort_dicts =False))
         out_dir = ses.out_dir
     print('finished to %s'%out_dir)
@@ -107,20 +110,22 @@ def build_vrt(pick_fp = None,**kwargs):
         ses.run_vrts(pick_fp)
         
 
-def SJ_r5_0909(run_name='r8',
-        method='direct',
-        fp_lib = {
-                'direct':{
-                    'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-                    #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
-                    },
-                'filter':{
-                    'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-                    #'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
-                    }
-                },
-        **kwargs):
-    return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name=run_name, **kwargs)
+#===============================================================================
+# def SJ_r5_0909(run_name='r8',
+#         method='direct',
+#         fp_lib = {
+#                 'direct':{
+#                     'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
+#                     #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
+#                     },
+#                 'filter':{
+#                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+#                     #'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
+#                     }
+#                 },
+#         **kwargs):
+#     return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name=run_name, **kwargs)
+#===============================================================================
  
     
 #===============================================================================
@@ -146,13 +151,27 @@ def SJ_r5_0909(run_name='r8',
 
         
 
- 
-    
+def SJ_r9_0921(run_name='r9',
+        method='direct',
+        fp_lib = {
+                'direct':{
+                    'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
+                    #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
+                    },
+                'filter':{
+                    'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+                    #'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
+                    }
+                },
+        **kwargs):
+    return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name=run_name, **kwargs)
+
+
 if __name__ == "__main__": 
     start = now()
  
     
-    SJ_r5_0909(method='filter',
+    SJ_r9_0921(method='filter',
                #================================================================
                # dsc_l=[1,  2**7],
                # run_name='t'

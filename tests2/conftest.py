@@ -93,23 +93,17 @@ def complete_pick_fp(tmp_path, dsc_l):
     for layName in ['wse', 'wd', 'catMosaic']:
         ar_d = get_ar_d(dsc_l, layName)
         d[layName] = get_rlay_fp_d(ar_d, layName, tmp_path)
-        
     
     df = pd.DataFrame.from_dict(d).rename_axis('downscale')
     
-    #clear out the first catMask
-    #df.loc[dsc_l[0], 'catMosaic'] = np.nan
-    
-    #move downscale to a column
+    # move downscale to a column
     df = df.reset_index()
-    
  
-    
- 
-    ofp = os.path.join(tmp_path, 'test_complete_%i.pkl'%len(df))
+    ofp = os.path.join(tmp_path, 'test_complete_%i.pkl' % len(df))
     df.to_pickle(ofp)
     
     return ofp
+
     
 @pytest.fixture(scope='function')
 @pytest.mark.parametrize('layName', ['wd'])
@@ -117,7 +111,7 @@ def lay_pick_fp_wd(lay_pick_fp):
     return lay_pick_fp
 
 @pytest.fixture(scope='function')
-def lay_pick_fp_cm(dsc_l, tmp_path):
+def cm_pick_fp(dsc_l, tmp_path):
     """couldnt get this to work nicely with parameterized fixtures"""
     layName = 'catMosaic'
     return  get_lay_pick_fp_full(layName,dsc_l, tmp_path)
@@ -129,7 +123,7 @@ def lay_pick_fp(rlay_fp_d, layName, tmp_path):
     
 def get_lay_pick_fp(rlay_fp_d, layName, tmp_path):
     
-    df = pd.Series(rlay_fp_d).rename(layName).to_frame().rename_axis('downscale').reset_index()
+    df = pd.Series(rlay_fp_d).rename(layName).to_frame().rename_axis('scale')
  
     ofp = os.path.join(tmp_path, 't%s_%i.pkl'%(layName, len(df)))
     df.to_pickle(ofp)
@@ -260,6 +254,9 @@ def get_ar(layName,
             
     elif layName=='catMosaic': 
         samp_ar = np.array(list(cm_int_d.values()))
+        
+    elif layName=='dem':
+        samp_ar = np.round(np.random.random(shape)*5, 2).ravel()
     
     else:
         raise IOError('not implemented')

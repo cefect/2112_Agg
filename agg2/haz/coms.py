@@ -35,10 +35,10 @@ def get_rand_ar(shape, scale=10):
     
     return dem_ar, wse_ar
 
-def get_wse_filtered(wse_raw_ar, dem_ar):
+def get_wse_filtered(wse_raw_ar, dem_ar, nodata=np.nan):
     """mask out negative WSE values"""
     wse_ar = wse_raw_ar.copy()
-    np.place(wse_ar, wse_raw_ar<=dem_ar, np.nan)
+    np.place(wse_ar, wse_raw_ar<=dem_ar, nodata)
     
     return wse_ar
 
