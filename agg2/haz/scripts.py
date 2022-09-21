@@ -1350,13 +1350,22 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
  
 
 
-    def run_diff_stats(self,pick_fp, **kwargs):
-        """compute stats from diff rasters
+    def run_diff_stats(self,pick_fp, cm_pick_fp=None, **kwargs):
+        """compute stats from diff rasters filtered by each cat mask
         
         
         Notes
         -----------
         These are all at the base resolution
+        
+        speedups?
+            4 cat masks
+            2 layers
+            ~6 resolutions
+            
+            
+            distribute to 8 workers: unique cat-mask + layer combinations?
+        
         """
         #=======================================================================
         # defaults
@@ -1365,18 +1374,24 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         start = now()
         layName_l = ['wse', 'wd']
         
-        dxcol = pd.read_pickle(pick_fp).loc[:, idx[layName_l, 'diff_fp']].droplevel()
-        confusion_l = ['FN', 'FP', 'TN', 'TP']
-        """
-        view(dxcol)
-        """
+        #=======================================================================
+        # load data
+        #=======================================================================
+        #layers
+        df = pd.read_pickle(pick_fp).loc[:, idx[layName_l, 'diff_fp']].droplevel('subdata', axis=1)
+        
+        #masks
+        if not cm_pick_fp is None:
+            df = df.join(pd.read_pickle(cm_pick_fp).set_index('downscale')['catMosaic'])
+            
+        assert df.isna().sum().sum()==1
         
         #===================================================================
         # loop on each scale
         #===================================================================
         res_lib, meta_d=dict(), dict()
-        for i, (scale, serx) in enumerate(dxcol.iterrows()):
-            log.info('    %i/%i scale=%i'%(i+1, len(dxcol), scale))
+        for i, (scale, ser) in enumerate(df.iterrows()):
+            log.info('    %i/%i scale=%i'%(i+1, len(df), scale))
             
             
             #===================================================================
@@ -1385,7 +1400,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #the complete mask
             if i==0:
                 """just using the ds of the raw wse for shape"""
-                with rio.open(serx['wse']['fp'], mode='r') as ds:
+                with rio.open(ser['wse'], mode='r') as ds:
                     shapeF = ds.shape                    
                     meta_d[scale] = get_pixel_info(ds)
  
@@ -1393,7 +1408,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 
             #build other masks
             else: 
-                with rio.open(serx['catMosaic']['fp'], mode='r') as ds:
+                with rio.open(ser['catMosaic'], mode='r') as ds:
                     cm_ar = ds.read(1, out_shape=shapeF, resampling=Resampling.nearest, masked=False) #downscale
                     meta_d[scale] = get_pixel_info(ds)
                     
@@ -1404,15 +1419,15 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             # loop on each layer
             #=======================================================================
             res_d = dict()
-            for layName, gserx in serx.drop('catMosaic').groupby('layer'):
-                row = gserx.droplevel('layer')
+            for layName, fp in ser.drop('catMosaic').items():
+ 
                 log.debug('on \'%s\''%layName)
 
                     
                 #===============================================================
                 # compute metrics
                 #===============================================================
-                with rio.open(row['err_fp'], mode='r') as ds:                    
+                with rio.open(fp, mode='r') as ds:                    
                     if i==0:
                         rd1 = {'all':{'count':ds.width*ds.height, 'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}}
 
@@ -1423,11 +1438,6 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                         rd1 = self.get_maskd_func(mask_d, ar, func, log.getChild('%i.%s'%(i, layName)))
                     
  
-                #===============================================================
-                # add confusion
-                #===============================================================
-                #rd1.update(row.loc[confusion_l].to_dict())
-                
                 #===============================================================
                 # wrap layer
                 #===============================================================

@@ -204,7 +204,7 @@ def test_04_statsFine(wrkr, pick_fp):
     assert_stat_check(res_fp)
 
  
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dsc_l', [([1,2*1,2*2])]) 
 def test_05_diffs(wrkr, complete_pick_fp):
     res_fp = wrkr.run_diffs(complete_pick_fp,write=True,
@@ -214,11 +214,12 @@ def test_05_diffs(wrkr, complete_pick_fp):
     
 diffs_pick_fp = os.path.join(src_dir, 'tests2\haz\data\diffs\SJ_test05_direct_0921_diffs.pkl') 
     
-
+@pytest.mark.dev
+@pytest.mark.parametrize('dsc_l', [([1,2*1,2*2])], indirect=False) 
 @pytest.mark.parametrize('pick_fp', [diffs_pick_fp]) 
-def test_06_errStats(wrkr, pick_fp):
-    res_fp = wrkr.run_diff_stats(pick_fp, write=True,
-                           out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+def test_06_diff_stats(wrkr, pick_fp, lay_pick_fp_cm):
+    res_fp = wrkr.run_diff_stats(pick_fp, lay_pick_fp_cm, write=True,
+                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
     assert_stat_check(res_fp)
     

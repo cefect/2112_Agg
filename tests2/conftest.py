@@ -115,6 +115,12 @@ def complete_pick_fp(tmp_path, dsc_l):
 @pytest.mark.parametrize('layName', ['wd'])
 def lay_pick_fp_wd(lay_pick_fp):
     return lay_pick_fp
+
+@pytest.fixture(scope='function')
+def lay_pick_fp_cm(dsc_l, tmp_path):
+    """couldnt get this to work nicely with parameterized fixtures"""
+    layName = 'catMosaic'
+    return  get_lay_pick_fp_full(layName,dsc_l, tmp_path)
     
 
 @pytest.fixture(scope='function')
@@ -129,6 +135,12 @@ def get_lay_pick_fp(rlay_fp_d, layName, tmp_path):
     df.to_pickle(ofp)
     
     return ofp
+
+def get_lay_pick_fp_full(layName,dsc_l, tmp_path):
+    ar_d = get_ar_d(dsc_l, layName)
+    rlay_fp_d = get_rlay_fp_d(ar_d, layName, tmp_path)
+    
+    return get_lay_pick_fp(rlay_fp_d, layName, tmp_path)
 
 
 @pytest.fixture(scope='function')

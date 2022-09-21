@@ -23,7 +23,7 @@ coldx_d = {
     'layer':['dem', 'wse', 'wd', 'catMosaic', 'diff'],
 
     'dsc':list(cm_int_d.keys())+['all'],
-    'metric':['mean', 'posi_area', 'post_count', 'pre_count', 'vol'],
+    'metric':['mean', 'posi_area', 'post_count', 'pre_count', 'vol', 'RMSE', 'sum', 'meanErr', 'meanAbsErr', 'count'],
     }
     
  
