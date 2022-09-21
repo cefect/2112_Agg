@@ -1182,8 +1182,39 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     # ERRORS-------
     #===========================================================================
-    def run_diffs(self,pick_fp,layName='wse',
-                  out_dir=None,
+    def run_diffs(self,
+                  pick_fp,
+                  **kwargs):
+        
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
+        
+ 
+        #=======================================================================
+        # loop and build diffs for each layer
+        #=======================================================================
+        res_d=dict()
+        for layName in ['wse', 'wd']:
+            df_raw = pd.read_pickle(pick_fp).set_index('downscale')
+            fp_d = df_raw[layName].to_dict()
+            
+ 
+        
+            #===================================================================
+            # run
+            #===================================================================
+            res_d[layName] = self.get_diffs(fp_d, out_dir=os.path.join(out_dir, layName),
+                                            layname=layName, logger=log.getChild(layName))
+            
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        res_dx = pd.concat(res_d, axis=1, names=['layer'])
+        res_dx.to_pickle(ofp)
+    
+    
+    def get_diffs(self,fp_d, 
+ 
                    **kwargs):
         """build difference grids for each layer
         
@@ -1194,20 +1225,14 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
 
         
-        log, tmp_dir, _, _, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, _, layname, write = self._func_setup('g',  subdir=True,ext='.pkl', **kwargs)
         start = now()
         
-        if out_dir is None:
-            out_dir = os.path.join(self.out_dir, 'diffs', layName)
-        
-        if not os.path.exists(out_dir):os.makedirs(out_dir)
-        
-        ofp = os.path.join(out_dir, f'{layname}_{layName}.pkl')
+
         #=======================================================================
         # load
         #=======================================================================
-        df_raw = pd.read_pickle(pick_fp).set_index('downscale')
-        fp_d = df_raw[layName].to_dict()
+
         
         log.info('on %i'%len(fp_d))
  
@@ -1215,7 +1240,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # baseline
         #===================================================================
         base_fp = fp_d[1]
-        log.info('for \'%s\' from %s'%(layName, os.path.basename(base_fp)))
+        log.info('from %s'%(os.path.basename(base_fp)))
         
  
         #===================================================================
@@ -1238,7 +1263,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #===================================================================
         res_d, res_cm_d = dict(), dict()
         for i, (scale, fp) in enumerate(fp_d.items()):
-            log.info('    %i/%i scale=%i from %s'%(i+1, len(df_raw), scale, os.path.basename(fp)))
+            log.info('    %i/%i scale=%i from %s'%(i+1, len(fp_d), scale, os.path.basename(fp)))
         
             #===============================================================
             # vs. base (no error)
@@ -1279,7 +1304,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
             if write:
                 res_d[scale] = self.write_array(res_ar, 
-                                                ofp=os.path.join(out_dir, '%s_diff_%03i.tif'%(layName, scale)), 
+                                                ofp=os.path.join(out_dir, '%s_diff_%03i.tif'%(layname, scale)), 
                                             logger=log.getChild(f'{scale}'), masked=True)
             else:
                 res_d[scale] = np.nan 
@@ -1299,16 +1324,16 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # #write
         #=======================================================================
-        res_df.to_pickle(ofp)
         
-        log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_df.shape), (now()-start).total_seconds(), ofp))
         
-        return ofp
+        log.info('finished on %s in %.2f secs'%(str(res_df.shape), (now()-start).total_seconds()))
+        
+        return res_df
     
  
 
 
-    def run_diffstats(self,pick_fp, **kwargs):
+    def run_diff_stats(self,pick_fp, **kwargs):
         """compute stats from diff rasters
         
         
@@ -1317,7 +1342,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         These are all at the base resolution
         """
         
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('errStats',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffStats',  subdir=True,ext='.pkl', **kwargs)
         start = now()
         
         dxcol = pd.read_pickle(pick_fp).loc[:, idx[('catMosaic', 'wse'), :]]
