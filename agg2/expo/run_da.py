@@ -7,7 +7,7 @@ exposure data analysis
 '''
  
 
-import os, pathlib, itertools
+import os, pathlib, itertools, logging, sys
 from definitions import proj_lib
 from hp.basic import get_dict_str, today_str, lib_iter
 from hp.pd import append_levels, view
@@ -18,6 +18,14 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 idx = pd.IndexSlice
 import matplotlib.pyplot as plt
 import matplotlib
+
+
+logging.basicConfig(
+                #filename='xCurve.log', #basicConfig can only do file or stream
+                force=True, #overwrite root handlers
+                stream=sys.stdout, #send to stdout (supports colors)
+                level=logging.INFO, #lowest level to display
+                )
 
 def SJ_plots_0910(
         fp_lib = {
@@ -38,7 +46,7 @@ def SJ_plots_0910(
         run_name='r8'):
     return run_plots(fp_lib, run_name=run_name)
 
-def run_plots(fp_lib,write=True, **kwargs):
+def run_plots(fp_lib,write=False, **kwargs):
     """construct figure from SJ expo results"""
     from agg2.expo.da import ExpoDASession as Session
  
@@ -53,7 +61,7 @@ def run_plots(fp_lib,write=True, **kwargs):
     #===========================================================================
     # execute
     #===========================================================================
-    with Session(out_dir=out_dir, **kwargs) as ses:
+    with Session(out_dir=out_dir, logger=logging.getLogger('run_da'), **kwargs) as ses:
         log = ses.logger
         
  
@@ -162,7 +170,7 @@ def run_plots(fp_lib,write=True, **kwargs):
             
             log.info(f'wrote {str(sdx3.shape)} to \n    {ofp}')
         
-        return 
+ 
         #=======================================================================
         # GRANULAR.PLOT---------
         #=======================================================================
@@ -242,7 +250,7 @@ def run_plots(fp_lib,write=True, **kwargs):
                                           legend_kwargs=dict(loc=7)
                                           )
         
- 
+        return
 #===============================================================================
 #         #=======================================================================
 #         # residuals
@@ -631,12 +639,12 @@ def run_plots_combine(fp_lib,**kwargs):
     #===========================================================================
     # get base dir
     #=========================================================================== 
-    out_dir = os.path.join(pathlib.Path(os.path.dirname(fp_lib['exp'])).parents[3],'da', today_str)
+    out_dir = os.path.join(pathlib.Path(os.path.dirname(fp_lib['exp'])).parents[1],'da', 'expo',today_str)
     print('out_dir:   %s'%out_dir)
     #===========================================================================
     # execute
     #===========================================================================
-    with Session(out_dir=out_dir, **kwargs) as ses:
+    with Session(out_dir=out_dir,logger=logging.getLogger('run_da'),  **kwargs) as ses:
         log = ses.logger 
         
         #=======================================================================
@@ -691,17 +699,7 @@ def run_plots_combine(fp_lib,**kwargs):
         idx_d = dict()
         post_lib=dict()
         
-        """
-        view(mdex.to_frame().reset_index(drop=True).drop_duplicates())
-        """
  
-        """
-        ['phase', 'base', 'method', 'layer', 'metric', 'dsc']
-        view(dx1.loc[:, idx['haz', :, 'direct', 'wd', :, 'full']])
-        
-        view(dx1.loc[:, idx[phase, :, method, 'expo', :, 'full']])
-        """
-        
         
         def set_row(method, phase):
             coln = f'{method}_{phase}'
@@ -719,8 +717,7 @@ def run_plots_combine(fp_lib,**kwargs):
         idx_d[coln]['wd_bias'] =    idx[phase, 's12N', method,'wd', 'mean', :]
         idx_d[coln]['wse_error'] =  idx[phase, 's12', method,'wse', 'mean', :]
         idx_d[coln]['exp_area'] =   idx[phase, ea_base, method,'wd', 'posi_area', :]
-        idx_d[coln]['vol'] =        idx[phase, 's12N', method,'wd', 'vol', :]
-        
+        idx_d[coln]['vol'] =        idx[phase, 's12N', method,'wd', 'vol', :]        
  
         #=======================================================================
         # direct_exp
@@ -784,9 +781,19 @@ def run_plots_combine(fp_lib,**kwargs):
         #===================================================================
         # plot------
         #===================================================================
+        """such a custom plot no use in writing a function
+        
+        WSH:direct
+            why is fulldomain flat but exposed increasing?
+                full: computes the same metric for reporting as for aggregating. averaging is commutative
+                exposed: 
+        
+        TODO:
+        
+        """
         ax_d, keys_all_d = ses.plot_grid_d(data_lib, post_lib)
  
-        """such a custom plot no use in writing a function"""
+        
         
         ylab_d={
               'wd_bias':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
@@ -803,7 +810,7 @@ def run_plots_combine(fp_lib,**kwargs):
             }
         
         ax_ylims_d = {
-              'wd_bias':(-5,40), 
+              'wd_bias':(-2,10), 
               'wse_error':(-1,15), 
               #'exp_area':(-1,20),
               'vol':(-0.2, .01),
@@ -870,5 +877,5 @@ def run_plots_combine(fp_lib,**kwargs):
  
         
 if __name__ == "__main__":
-    #SJ_plots_0910()
-    SJ_combine_plots_0919()
+    SJ_plots_0910()
+    #SJ_combine_plots_0919()

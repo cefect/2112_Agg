@@ -88,7 +88,7 @@ def run_haz_plots(fp_lib,
     
     out_dir = os.path.join(
         pathlib.Path(os.path.dirname(fp_lib['filter']['s2'])).parents[3], #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
-        'da', today_str)
+        'da','haz', today_str)
     
     #===========================================================================
     # execute

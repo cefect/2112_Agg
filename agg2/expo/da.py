@@ -3,11 +3,12 @@ Created on Sep. 10, 2022
 
 @author: cefect
 '''
+import os, copy, datetime, logging
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
 from pandas.testing import assert_index_equal
-import os, copy, datetime
+
 idx= pd.IndexSlice
 
 #from definitions import max_cores
@@ -66,7 +67,8 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
  
  
  
-        super().__init__(scen_name=scen_name,  **kwargs)
+        super().__init__(scen_name=scen_name, logfile_duplicate=False,
+                          **kwargs)
  
     
     def join_layer_samps(self,fp_lib,
@@ -132,7 +134,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
     def plot_grid_d(self, 
                     data_lib,post_lib,
                     title=None, colorMap=None, color_d=None,
-                    matrix_kwargs=dict(figsize=(17*cm, 19*cm) , set_ax_title=False, add_subfigLabel=True),
+                    matrix_kwargs=dict(figsize=(17*cm, 18*cm) , set_ax_title=False, add_subfigLabel=True),
                     plot_kwargs_lib={
                                           'full':{'marker':'x'},
                                           'DD':{'marker':'s', 'fillstyle':'none'},
