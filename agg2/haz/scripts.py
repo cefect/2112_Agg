@@ -1184,6 +1184,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     def run_diffs(self,
                   pick_fp,
+                  confusion=False,
                   **kwargs):
         
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
@@ -1208,7 +1209,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             res_d[layName] = self.get_diffs(fp_d, out_dir=os.path.join(out_dir, layName),
                                             layname=layName, logger=log.getChild(layName),
                                             dry_val={'wse':-9999, 'wd':0.0}[layName],
-                                            )
+                                            confusion=confusion)
             
         #=======================================================================
         # wrap
@@ -1223,8 +1224,9 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     def get_diffs(self,fp_d, 
                   write=True,
                   dry_val=-9999,
+                  confusion=False,
                    **kwargs):
-        """build difference grids for each layer
+        """build difference grids for each layer respecting dry masks
         
         
         TODO:
@@ -1244,22 +1246,33 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #===================================================================
         base_fp = fp_d[1]
         log.info('from %s' % (os.path.basename(base_fp)))
+        
+        def read_ds(ds, **kwargs):
+            """custom nodata loading"""
+            ar_raw = ds.read(1, masked=True, **kwargs) 
+            
+            #apply the custom mask
+            if ds.nodata!=dry_val:
+                ar = ma.masked_array(ar_raw.data, mask = ar_raw.data==dry_val, fill_value=-9999)
+            else:
+                ar = ar_raw
+                
+            return ar
  
         #===================================================================
         # #load baseline
         #===================================================================
         with rio.open(base_fp, mode='r') as ds: 
             assert ds.res[0] == 1
-            base_ar = ds.read(1, masked=True)
-            assert base_ar.mask.shape == base_ar.shape
-            #===============================================================
-            # ds.read(1)
-            # np.all(ds.read_masks(1)==255)
-            #===============================================================
+            base_ar = read_ds(ds) 
             self._base_inherit(ds=ds)
             
+        #handle non-native nulls
+        """for consistency, treating wd=0 as null for the difference calcs"""
+
+            
+        assert base_ar.mask.shape == base_ar.shape        #get the exposure mask
         wets = ~base_ar.mask
-        
         #===================================================================
         # loop on reso
         #===================================================================
@@ -1282,7 +1295,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             else:
                 #get disagg
                 with rio.open(fp, mode='r') as ds:
-                    fine_ar = ds.read(1, out_shape=base_ar.shape, resampling=Resampling.nearest, masked=True)
+                    fine_ar = read_ds(ds, out_shape=base_ar.shape, resampling=Resampling.nearest) 
  
                     assert fine_ar.shape==base_ar.shape
                     
@@ -1293,20 +1306,15 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #===================================================================
             # confusion
             #===================================================================
-            """positive = wet"""
-            if dry_val ==-9999:
-                """
-                wets.sum()
-                """
+            if confusion:
+                """positive = wet"""
                 cm_ar = confusion_matrix(wets.ravel(), ~fine_ar.mask.ravel(),labels=[False, True]).ravel()
+     
+     
+                res_cm_d[scale] =  pd.Series(cm_ar,index = ['TN', 'FP', 'FN', 'TP'])
+                
             else:
-                """
-                (base_ar.data!=0).sum()
-                """
-                cm_ar = confusion_matrix((base_ar.data!=dry_val).ravel(), (fine_ar.data!=dry_val).ravel(),
-                                         labels=[False, True]).ravel()
- 
-            cm_ser = pd.Series(cm_ar,index = ['TN', 'FP', 'FN', 'TP'])
+                res_cm_d[scale] = pd.Series()
             #===============================================================
             # write
             #===============================================================
@@ -1321,10 +1329,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             else:
                 res_d[scale] = np.nan 
             
-            #===============================================================
-            # wrap scale
-            #===============================================================
-            res_cm_d[scale] = cm_ser
+ 
             
         #===================================================================
         # wrap  
