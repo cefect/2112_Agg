@@ -1214,7 +1214,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # wrap
         #=======================================================================
-        res_dx = pd.concat(res_d, axis=1, names=['layer'])
+        res_dx = pd.concat(res_d, axis=1, names=['layer']).rename_axis(df_raw.index.name)
         res_dx.to_pickle(ofp)
         
         
@@ -1335,7 +1335,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # wrap  
         #===================================================================
         
-        res_df = pd.concat(res_cm_d, axis=1).T.join(pd.Series(res_d).rename('diff_fp'))
+        res_df = pd.concat(res_cm_d, axis=1).T.join(pd.Series(res_d).rename('diff_fp')).rename_axis('subdata', axis=1)
             
  
         #=======================================================================
@@ -1358,11 +1358,14 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         -----------
         These are all at the base resolution
         """
-        
+        #=======================================================================
+        # defaults
+        #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffStats',  subdir=True,ext='.pkl', **kwargs)
         start = now()
+        layName_l = ['wse', 'wd']
         
-        dxcol = pd.read_pickle(pick_fp).loc[:, idx[('catMosaic', 'wse'), :]]
+        dxcol = pd.read_pickle(pick_fp).loc[:, idx[layName_l, 'diff_fp']].droplevel()
         confusion_l = ['FN', 'FP', 'TN', 'TP']
         """
         view(dxcol)
