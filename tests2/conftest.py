@@ -114,7 +114,20 @@ def lay_pick_fp_wd(lay_pick_fp):
 def cm_pick_fp(dsc_l, tmp_path):
     """couldnt get this to work nicely with parameterized fixtures"""
     layName = 'catMosaic'
-    return  get_lay_pick_fp_full(layName,dsc_l, tmp_path)
+    
+    ar_d = get_ar_d(dsc_l, layName)
+    rlay_fp_d = get_rlay_fp_d(ar_d, layName, tmp_path)
+    
+    df = pd.Series(rlay_fp_d).rename('fp').to_frame().rename_axis('scale')
+    
+    #add thes emetric columns
+    for coln in ['DD', 'WW', 'WP', 'DP']:
+        df[coln] = np.nan
+ 
+    ofp = os.path.join(tmp_path, 't%s_%i.pkl'%(layName, len(df)))
+    df.to_pickle(ofp)
+    
+    return ofp
     
 
 @pytest.fixture(scope='function')

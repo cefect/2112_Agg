@@ -140,19 +140,21 @@ def test_00_runDsmp(wrkr, dsc_l,method,
                   #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data', method).
                   )
 
-
-@pytest.mark.parametrize('reso_iters', [3, 10])
-def test_00_dscList(wrkr, reso_iters):
-    
-    #build with function
-    res_l = wrkr.get_dscList(reso_iters=reso_iters)
-    
-    #===========================================================================
-    # #validate
-    #===========================================================================
-    assert isinstance(res_l, list)
-    assert len(res_l)==reso_iters
-    assert res_l[0]==1
+#===============================================================================
+# 
+# @pytest.mark.parametrize('reso_iters', [3, 10])
+# def test_00_dscList(wrkr, reso_iters):
+#     
+#     #build with function
+#     res_l = wrkr.get_dscList(reso_iters=reso_iters)
+#     
+#     #===========================================================================
+#     # #validate
+#     #===========================================================================
+#     assert isinstance(res_l, list)
+#     assert len(res_l)==reso_iters
+#     assert res_l[0]==1
+#===============================================================================
 
  
 
@@ -161,7 +163,7 @@ def test_00_dscList(wrkr, reso_iters):
     ])
 @pytest.mark.parametrize('method', [
     'direct', 
-    #'filter',
+    'filter',
     ])
 @pytest.mark.parametrize('dsc_l', [([1,2])])
 def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
@@ -175,10 +177,10 @@ def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     ])
 @pytest.mark.parametrize('method', [
     'direct', 
-    #'filter',
+    'filter',
     ])
 @pytest.mark.parametrize('dsc_l', [([1,2])])
-def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
+def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method, agg_pick_fp):
     """wrapper for build_dset"""
     pick_fp = wrkr.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True,
                  #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
@@ -205,20 +207,34 @@ def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
                 
                 if layName=='wse':
                     ds.read(1, masked=True)
+                    
+    #check against test fixture
+    df_fix = pd.read_pickle(agg_pick_fp)
+    
+    assert set(df_fix.columns).symmetric_difference(df.columns)==set()
+    assert set(df_fix.index).symmetric_difference(df.index)==set()
                 
  
                 
- 
+
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
-def test_02_dsc(wrkr, agg_pick_fp):
+def test_02_dsc(wrkr, agg_pick_fp, cm_pick_fp):
     res_fp = wrkr.run_catMasks(agg_pick_fp, write=True,
                                #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                                )
     
-
- 
-
-
+    #===========================================================================
+    # validate
+    #===========================================================================
+    df = pd.read_pickle(res_fp)
+    """
+    df.columns
+    """
+    #check against test fixture
+    df_fix = pd.read_pickle(cm_pick_fp)
+    
+    assert set(df_fix.columns).symmetric_difference(df.columns)==set()
+    assert set(df_fix.index).symmetric_difference(df.index)==set()
 
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
 def test_03_stats(wrkr, agg_pick_fp, cm_pick_fp):
@@ -227,30 +243,29 @@ def test_03_stats(wrkr, agg_pick_fp, cm_pick_fp):
 
 
 
-#===============================================================================
-# @pytest.mark.parametrize('pick_fp', [cmasks_fp]) 
-# def test_04_statsFine(wrkr, pick_fp):
-#     res_fp = wrkr.run_stats_fine(pick_fp, write=True)
-#     assert_stat_check(res_fp)
-#===============================================================================
+@pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
+def test_04_statsFine(wrkr,agg_pick_fp, cm_pick_fp):
+    res_fp = wrkr.run_stats_fine(agg_pick_fp, cm_pick_fp, write=True)
+    assert_stat_check(res_fp)
 
  
 
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
 def test_05_diffs(wrkr, agg_pick_fp):
     res_fp = wrkr.run_diffs(agg_pick_fp,write=True,
-                           out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
 
     
 diffs_pick_fp = os.path.join(src_dir, 'tests2\haz\data\diffs\SJ_test05_direct_0921_diffs.pkl') 
     
-@pytest.mark.dev
+
+
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)], indirect=False) 
 @pytest.mark.parametrize('pick_fp', [diffs_pick_fp]) 
 def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
     res_fp = wrkr.run_diff_stats(pick_fp, cm_pick_fp, write=True,
-                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+ 
                            )
     assert_stat_check(res_fp)
     
@@ -259,7 +274,7 @@ def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
 # INTEGRATIOn tests ------------
 #===============================================================================
 
-
+@pytest.mark.dev
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)])
 @pytest.mark.parametrize('method', [
     'direct', 

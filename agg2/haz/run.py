@@ -88,7 +88,7 @@ def run_haz_agg2(method='direct',
         # build difference stats
         #=======================================================================
         if 'diffs' in fp_d:
-            stat_d['diffs'] =ses.run_errStats(fp_d['diffs'])
+            stat_d['diffs'] =ses.run_diff_stats(fp_d['diffs'], fp_d['catMasks'])
         
 
         #=======================================================================

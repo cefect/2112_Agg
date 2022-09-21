@@ -954,7 +954,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         return ofp
     
  
-    def run_stats_fine(self, pick_fp, 
+    def run_stats_fine(self, agg_fp, cm_fp, 
  
                  layName_l = ['wse', 'wd'],
  
@@ -968,7 +968,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('statsF',  subdir=True,ext='.pkl', **kwargs)
  
-        df, start = self._rstats_init(pick_fp, layName_l, log)
+        df, start = self._rstats_init(agg_fp, cm_fp, layName_l, log)
         
         meta_d =dict()
         
@@ -1173,7 +1173,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
         
         #join data from catMasks
-        df = df_raw.join(pd.read_pickle(cm_fp))
+        cm_ser = pd.read_pickle(cm_fp)['fp'].rename('catMosaic')
+        df = df_raw.join(cm_ser)
  
  
         log.info('computing stats on %s' % str(df.shape))
@@ -1353,7 +1354,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
  
 
 
-    def run_diff_stats(self,pick_fp, cm_pick_fp=None, **kwargs):
+    def run_diff_stats(self,pick_fp, cm_pick_fp, **kwargs):
         """compute stats from diff rasters filtered by each cat mask
         
         
@@ -1384,7 +1385,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         df = pd.read_pickle(pick_fp).loc[:, idx[layName_l, 'diff_fp']].droplevel('subdata', axis=1)
         
         #catMasks
-        cm_ser = pd.read_pickle(cm_pick_fp)['catMosaic']
+        cm_ser = pd.read_pickle(cm_pick_fp)['fp'].rename('catMosaic')
         
         df = df.join(cm_ser)
             
