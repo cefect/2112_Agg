@@ -84,14 +84,14 @@ def get_abs(relative_fp):
 # data grids--------
 #===============================================================================
 @pytest.fixture(scope='function')  
-def complete_pick_fp(tmp_path, dsc_l, shape):
+def complete_pick_fp(tmp_path, dsc_l):
     """construct teh complete pickle of each layers stack
     equivalent to the expectations for 'catMasks'"""
     
     #build the resolution-filepath stack for each layer
     d = dict()
     for layName in ['wse', 'wd', 'catMosaic']:
-        ar_d = get_ar_d(shape, dsc_l, layName)
+        ar_d = get_ar_d(dsc_l, layName)
         d[layName] = get_rlay_fp_d(ar_d, layName, tmp_path)
         
     

@@ -1187,34 +1187,42 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                   **kwargs):
         
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
+        start = now()
         
+        #=======================================================================
+        # load paths
+        #=======================================================================
+        df_raw = pd.read_pickle(pick_fp).set_index('downscale')
  
         #=======================================================================
         # loop and build diffs for each layer
         #=======================================================================
-        res_d=dict()
+        res_d = dict()
         for layName in ['wse', 'wd']:
-            df_raw = pd.read_pickle(pick_fp).set_index('downscale')
-            fp_d = df_raw[layName].to_dict()
             
- 
+            fp_d = df_raw[layName].to_dict()
         
             #===================================================================
             # run
             #===================================================================
             res_d[layName] = self.get_diffs(fp_d, out_dir=os.path.join(out_dir, layName),
-                                            layname=layName, logger=log.getChild(layName))
-            
+                                            layname=layName, logger=log.getChild(layName),
+                                            dry_val={'wse':-9999, 'wd':0.0}[layName],
+                                            )
             
         #=======================================================================
         # wrap
         #=======================================================================
         res_dx = pd.concat(res_d, axis=1, names=['layer'])
         res_dx.to_pickle(ofp)
+        
+        
+        log.info('finished on %s in %.2f secs'%(str(res_dx.shape), (now()-start).total_seconds()))
     
     
     def get_diffs(self,fp_d, 
- 
+                  write=True,
+                  dry_val=-9999,
                    **kwargs):
         """build difference grids for each layer
         
@@ -1223,33 +1231,27 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         use xarray and parallelize the delta?
         """
         
-
-        
-        log, tmp_dir, out_dir, _, layname, write = self._func_setup('g',  subdir=True,ext='.pkl', **kwargs)
-        start = now()
-        
+        log, tmp_dir, out_dir, _, layname, write = self._func_setup('g', subdir=False, ext='.pkl',write=write, **kwargs)
 
         #=======================================================================
         # load
         #=======================================================================
-
         
-        log.info('on %i'%len(fp_d))
+        log.info('on %i' % len(fp_d))
  
         #===================================================================
         # baseline
         #===================================================================
         base_fp = fp_d[1]
-        log.info('from %s'%(os.path.basename(base_fp)))
-        
+        log.info('from %s' % (os.path.basename(base_fp)))
  
         #===================================================================
         # #load baseline
         #===================================================================
         with rio.open(base_fp, mode='r') as ds: 
-            assert ds.res[0]==1
+            assert ds.res[0] == 1
             base_ar = ds.read(1, masked=True)
-            assert base_ar.mask.shape==base_ar.shape
+            assert base_ar.mask.shape == base_ar.shape
             #===============================================================
             # ds.read(1)
             # np.all(ds.read_masks(1)==255)
@@ -1291,10 +1293,20 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #===================================================================
             # confusion
             #===================================================================
+            """positive = wet"""
+            if dry_val ==-9999:
+                """
+                wets.sum()
+                """
+                cm_ar = confusion_matrix(wets.ravel(), ~fine_ar.mask.ravel(),labels=[False, True]).ravel()
+            else:
+                """
+                (base_ar.data!=0).sum()
+                """
+                cm_ar = confusion_matrix((base_ar.data!=dry_val).ravel(), (fine_ar.data!=dry_val).ravel(),
+                                         labels=[False, True]).ravel()
  
-            cm_ser = pd.Series(
-                confusion_matrix(wets.ravel(), ~fine_ar.mask.ravel(), labels=[False, True]).ravel(),
-                index = ['TN', 'FN', 'FP', 'TP'])
+            cm_ser = pd.Series(cm_ar,index = ['TN', 'FP', 'FN', 'TP'])
             #===============================================================
             # write
             #===============================================================
@@ -1325,8 +1337,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # #write
         #=======================================================================
         
+        log.debug('finshed on %s'%str(res_df.shape))
         
-        log.info('finished on %s in %.2f secs'%(str(res_df.shape), (now()-start).total_seconds()))
         
         return res_df
     
