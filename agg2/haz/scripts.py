@@ -1465,6 +1465,35 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
         return ofp
     
+    def concat_stats(self, fp_d, **kwargs):
+        """quick combining and writing of stat pickls"""
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cstat',  subdir=True,ext='.pkl', **kwargs)
+        
+        #=======================================================================
+        # concat all the picks
+        #=======================================================================
+        d = dict()
+        for base, fp in fp_d.items():
+            d[base] = pd.read_pickle(fp)
+        
+        dx = pd.concat(d, axis=1, names=['base'])
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        dx.to_pickle(ofp)
+        log.info(f'wrote {str(dx.shape)} to \n    {ofp}')
+        
+        if write:
+            ofp1 = os.path.join(out_dir, f'{layname}_{len(dx)}_stats.xls')
+            with pd.ExcelWriter(ofp1) as writer:       
+                dx.to_excel(writer, sheet_name='stats', index=True, header=True)
+                
+            log.info(f'wrote {str(dx.shape)} to \n    {ofp1}')
+                
+        return ofp
+            
+    
 
             
 def get_pixel_info(ds):

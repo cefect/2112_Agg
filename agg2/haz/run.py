@@ -90,6 +90,7 @@ def run_haz_agg2(method='direct',
         if 'diffs' in fp_d:
             stat_d['diffs'] =ses.run_diff_stats(fp_d['diffs'], fp_d['catMasks'])
         
+        ses.concat_stats(stat_d)
 
         #=======================================================================
         # wrap
@@ -98,6 +99,8 @@ def run_haz_agg2(method='direct',
         log.info('finished w/ array picks \n%s'%pprint.pformat(fp_d, width=10, indent=3, compact=True, sort_dicts =False))
         log.info('finished w/ stat picks \n%s'%pprint.pformat(stat_d, width=30, indent=3, compact=True, sort_dicts =False))
         out_dir = ses.out_dir
+        
+        
     print('finished to %s'%out_dir)
 
     return fp_d, stat_d
@@ -155,11 +158,11 @@ def SJ_r9_0921(run_name='r9',
         method='direct',
         fp_lib = {
                 'direct':{
-                    'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
+                    #'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
                     #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
                     },
                 'filter':{
-                    'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+                    #'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
                     #'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
                     }
                 },
@@ -172,10 +175,8 @@ if __name__ == "__main__":
  
     
     SJ_r9_0921(method='filter',
-               #================================================================
-               # dsc_l=[1,  2**7],
-               # run_name='t'
-               #================================================================
+                dsc_l=[1,  2**7],
+                run_name='t'
                )
  
  
