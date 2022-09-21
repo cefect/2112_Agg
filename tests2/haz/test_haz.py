@@ -207,11 +207,11 @@ def test_04_statsFine(wrkr, pick_fp):
 @pytest.mark.dev
 @pytest.mark.parametrize('dsc_l', [([1,2*1,2*2])])
 @pytest.mark.parametrize('layName', [
-    #'wd',
+    'wd',
     'wse']) 
 def test_05_diffs(wrkr, lay_pick_fp, layName):
     res_fp = wrkr.run_diffs(lay_pick_fp, layName=layName,write=True,
-                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                           out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data\diffs')
                            )
 
     
