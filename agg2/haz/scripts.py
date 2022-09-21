@@ -14,7 +14,7 @@ from rasterio.enums import Resampling
 #import scipy.ndimage
 
 from osgeo import gdal
-
+from sklearn.metrics import confusion_matrix
  
 
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
@@ -1182,163 +1182,132 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     # ERRORS-------
     #===========================================================================
-    def run_errs(self,pick_fp, **kwargs):
-        """build difference grids for each layer"""
+    def run_diffs(self,pick_fp,layName='wse',
+                  out_dir=None,
+                   **kwargs):
+        """build difference grids for each layer
         
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('errs',  subdir=True,ext='.pkl', **kwargs)
+        
+        TODO:
+        use xarray and parallelize the delta?
+        """
+        
+        if out_dir is None:
+            out_dir = os.path.join(self.out_dir, 'diffs', layName)
+        
+        if not os.path.exists(out_dir):os.makedirs(out_dir)
+        
+        log, tmp_dir, _, ofp, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
         start = now()
+        
+        
+ 
+        
         #=======================================================================
         # load
         #=======================================================================
         df_raw = pd.read_pickle(pick_fp).set_index('downscale')
+        fp_d = df_raw[layName].to_dict()
         
-        log.info('on %i'%len(df_raw))
-        #=======================================================================
-        # loop on each layer
-        #=======================================================================
-        res_lib = dict()
-        for layName in ['wse']:
-            #===================================================================
-            # defaults
-            #===================================================================
-            fp = df_raw.loc[1, layName]
-            log.info('for \'%s\' from %s'%(layName, os.path.basename(fp)))
+        log.info('on %i'%len(fp_d))
+ 
+        #===================================================================
+        # baseline
+        #===================================================================
+        base_fp = fp_d[1]
+        log.info('for \'%s\' from %s'%(layName, os.path.basename(base_fp)))
+        
+ 
+        #===================================================================
+        # #load baseline
+        #===================================================================
+        with rio.open(base_fp, mode='r') as ds: 
+            assert ds.res[0]==1
+            base_ar = ds.read(1, masked=True)
+            assert base_ar.mask.shape==base_ar.shape
+            #===============================================================
+            # ds.read(1)
+            # np.all(ds.read_masks(1)==255)
+            #===============================================================
+            self._base_inherit(ds=ds)
             
-            res_cm_d, res_d = dict(), dict()
-            #===================================================================
-            # #load baseline
-            #===================================================================
-            with rio.open(fp, mode='r') as ds: 
-                assert ds.res[0]==1
-                base_ar = ds.read(1, masked=True)
-                assert base_ar.mask.shape==base_ar.shape
-                #===============================================================
-                # ds.read(1)
-                # np.all(ds.read_masks(1)==255)
-                #===============================================================
-                self._base_inherit(ds=ds)
+        wets = ~base_ar.mask
+        
+        #===================================================================
+        # loop on reso
+        #===================================================================
+        res_d, res_cm_d = dict(), dict()
+        for i, (scale, fp) in enumerate(fp_d.items()):
+            log.info('    %i/%i scale=%i from %s'%(i+1, len(df_raw), scale, os.path.basename(fp)))
+        
+            #===============================================================
+            # vs. base (no error)
+            #===============================================================
+            if i==0: 
+                res_ar = ma.masked_array(np.full(base_ar.shape, 0), mask=base_ar.mask, fill_value=-9999)
+                
+                fine_ar = base_ar #for cofusion
+ 
+                
+            #===============================================================
+            # vs. an  upscale
+            #===============================================================
+            else:
+                #get disagg
+                with rio.open(fp, mode='r') as ds:
+                    fine_ar = ds.read(1, out_shape=base_ar.shape, resampling=Resampling.nearest, masked=True)
+ 
+                    assert fine_ar.shape==base_ar.shape
+                    
+                #compute errors
+                res_ar = fine_ar - base_ar
+ 
                 
             #===================================================================
-            # loop on reso
-            #===================================================================
-            for i, (scale, fp) in enumerate(df_raw[layName].items()):
-                log.info('    %i/%i scale=%i from %s'%(i+1, len(df_raw), scale, os.path.basename(fp)))
- 
-                #===============================================================
-                # vs. base (no error)
-                #===============================================================
-                if i==0: 
-                    res_ar = ma.masked_where(base_ar.mask, np.full(base_ar.shape, 0)) #same mask as base w/ some zeros
-                    wets = ~base_ar.mask
-                    cm_ser = pd.Series(
-                        {'TP':wets.sum(), 'FP':0, 'TN':base_ar.size-wets.sum(), 'FN':0},
-                        dtype=int)
-                    
-                #===============================================================
-                # vs. an  upscale
-                #===============================================================
-                else:
-                    #get disagg
-                    with rio.open(fp, mode='r') as ds:
-                        fine_ar = ds.read(1, out_shape=base_ar.shape, resampling=Resampling.nearest, masked=True)
-                        """
-                        plot_rast(res_ar)
-                        """
-                        #resample load
-                        #=======================================================
-                        # resamp_kwargs = dict(out_shape=base_ar.shape, resampling=Resampling.nearest)
-                        # fine_raw_ar = ds.read(1, **resamp_kwargs)                        
-                        # fine_mask = ds.read_masks(1,**resamp_kwargs)
-                        # 
-                        # #handle nulls
-                        # fine_ar = np.where(fine_mask==0,  ds.nodata, fine_raw_ar).astype(np.float32)
-                        #=======================================================
-                        #=======================================================
-                        # coarse_ar = load_array(ds) 
-                        # fine_ar = scipy.ndimage.zoom(coarse_ar, scale, order=0, mode='reflect',   grid_mode=True)
-                        #=======================================================
-                        assert fine_ar.shape==base_ar.shape
-                        
-                    #compute errors
-                    res_ar = fine_ar - base_ar
-                    
-                    #compute null confusion
-                    """separate function for this?"""
-                    cm_df = get_confusion(base_ar.mask, fine_ar.mask, names=['fine', 'base'])                    
-                    cm_ser = cm_df.set_index('codes')['counts']
-                    
-                    log.info('    calcd: %s'%cm_ser.to_dict())
-                    
-
-                #===============================================================
-                # write
-                #===============================================================
-                assert isinstance(res_ar, ma.MaskedArray)
-                assert not np.all(np.isnan(res_ar))
-                assert not np.all(res_ar.mask)
- 
-                od = os.path.join(out_dir, layName)
-                if not os.path.exists(od):os.makedirs(od)
-                res_d[scale] = self.write_array(res_ar, ofp=os.path.join(od, '%s_err_%03i.tif'%(layName, scale)), 
-                                                logger=log, masked=True)
-                
-                #===============================================================
-                # wrap scale
-                #===============================================================
-                res_cm_d[scale] = cm_ser
-                
-            #===================================================================
-            # wrap lyaer
+            # confusion
             #===================================================================
  
-            res_lib[layName] = pd.concat(res_cm_d, axis=1).T.join(pd.Series(res_d).rename('err_fp'))
- 
+            cm_ser = pd.Series(
+                confusion_matrix(wets.ravel(), ~fine_ar.mask.ravel(), labels=[False, True]).ravel(),
+                index = ['TN', 'FN', 'FP', 'TP'])
+            #===============================================================
+            # write
+            #===============================================================
+            assert isinstance(res_ar, ma.MaskedArray)
+            assert not np.any(np.isnan(res_ar))
+            assert not np.all(res_ar.mask)
+        
+            if write:
+                res_d[scale] = self.write_array(res_ar, ofp=os.path.join(out_dir, '%s_diff_%03i.tif'%(layName, scale)), 
+                                            logger=log.getChild(f'{scale}'), masked=True)
+            else:
+                res_d[scale] = np.nan 
             
+            #===============================================================
+            # wrap scale
+            #===============================================================
+            res_cm_d[scale] = cm_ser
             
-        #=======================================================================
-        # wrap on all
-        #=======================================================================
-        """as we are adding a nother level, need to do some re-organizing of the inputs"""
-        #collect
-        res_dx1 = pd.concat(res_lib,axis=1, names=['layer', 'val'])
-        res_dx1.index.name=df_raw.index.name
+        #===================================================================
+        # wrap  
+        #===================================================================
         
-        #join with input filepaths
-        res_dx = pd.concat({'fp':df_raw.loc[:, ['dem', 'wse', 'wd', 'catMosaic']]}, axis=1, names=['val', 'layer']
-                           ).swaplevel(axis=1).join(res_dx1).sort_index(axis=1)
-        
-       
-        
-        #join the dsc
-        res_dx = res_dx.join(pd.concat({'catMosaic':df_raw.loc[:, ['DD', 'WW', 'WP', 'DP']]}, axis=1, names=['layer', 'val'])).sort_index(axis=1)
+        res_df = pd.concat(res_cm_d, axis=1).T.join(pd.Series(res_d).rename('diff_fp'))
+            
  
-        """
- 
-        view(res_dx)
-        view(pd.concat(res_lib,axis=1))
-        """
         #=======================================================================
         # #write
         #=======================================================================
-        res_dx.to_pickle(ofp)
+        res_df.to_pickle(ofp)
         
-        log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
+        log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_df.shape), (now()-start).total_seconds(), ofp))
         
         return ofp
     
-    
-
-        """
-        view(res_dx)
-        np.isnan(base_ar).sum()
-        view(cm_dx.unstack())
-        """
-        
-        
+ 
 
 
-
-    def run_errStats(self,pick_fp, **kwargs):
+    def run_diffstats(self,pick_fp, **kwargs):
         """compute stats from diff rasters
         
         
