@@ -11,8 +11,8 @@ idx = pd.IndexSlice
 import faulthandler
 faulthandler.enable()
 
-def SJ_haz_r9_0922(
-        fp_lib={
+res_fp_lib = {
+    'r9':{
             'filter':{  
                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
@@ -22,8 +22,13 @@ def SJ_haz_r9_0922(
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
                 'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\diffStats\\SJ_r9_direct_0921_diffStats.pkl'}
             }
-        ):
-    return run_haz_plots(fp_lib, proj_name='SJ', run_name='r9')
+    }
+
+def SJ_haz_r9_0922(
+        run_name='r9'
+        ):    
+    
+    return run_haz_plots(res_fp_lib[run_name], proj_name='SJ', run_name=run_name)
 
 #===============================================================================
 # def SJ_plots_0918(        
