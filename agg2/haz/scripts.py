@@ -20,7 +20,7 @@ from sklearn.metrics import confusion_matrix
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
     assert_ds_attribute_match
 from hp.basic import get_dict_str
-from hp.pd import view
+from hp.pd import view, append_levels
 from hp.sklearn import get_confusion
 
 from agg2.coms import Agg2Session, AggBase
@@ -1070,7 +1070,18 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
 
 
     def get_maskd_func(self, mask_d, ar_raw, func, log, **kwargs):
-        """apply each mask to the array then feed the result to the function"""
+        """apply each mask to the array then feed the result to the function
+        
+        
+        Returns
+        -------
+        pre_count: int
+            initial count of unmasked values on each mask
+            
+        post_count: int
+            unmasked values after applying the mask (joining of data mask and filter mask)
+            
+        """
         
         log.debug('    on %s w/ %i masks'%(str(ar_raw.shape), len(mask_d)))
         res_lib = dict()
@@ -1185,7 +1196,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     def run_diffs(self,
                   pick_fp,
-                  confusion=False,
+                  confusion=True,
                   **kwargs):
         
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
@@ -1220,7 +1231,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         res_dx.to_pickle(ofp)
         
         
-        log.info('finished on %s in %.2f secs'%(str(res_dx.shape), (now()-start).total_seconds()))
+        log.info('finished on %s in %.2f secs wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
         
         return ofp
     
@@ -1369,6 +1380,11 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             
             
             distribute to 8 workers: unique cat-mask + layer combinations?
+            
+        calculating too many stats here. really only care about
+            wd vol diff
+            wd and wse mean diff
+            
         
         """
         #=======================================================================
@@ -1382,12 +1398,13 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # load data
         #=======================================================================
         #layers
-        df = pd.read_pickle(pick_fp).loc[:, idx[layName_l, 'diff_fp']].droplevel('subdata', axis=1)
+        df_raw = pd.read_pickle(pick_fp)
+        
+        df = df_raw.loc[:, idx[layName_l, 'diff_fp']].droplevel('subdata', axis=1)
         
         #catMasks
-        cm_ser = pd.read_pickle(cm_pick_fp)['fp'].rename('catMosaic')
-        
-        df = df.join(cm_ser)
+        cm_df = pd.read_pickle(cm_pick_fp)        
+        df = df.join(cm_df['fp'].rename('catMosaic'))
             
         assert df.isna().sum().sum()==1
         
@@ -1459,7 +1476,31 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         view(res_dx)
         """
         
-        res_dx = self._rstats_wrap(res_lib, meta_d, ofp) 
+        
+        res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()        
+        
+        #add confusion
+        cm_dx = df_raw.drop('diff_fp', axis=1, level=1)
+        cm_dx.columns.set_names('metric', level=1, inplace=True)
+        #cm_dx = cm_df.drop('fp', axis=1).rename_axis('metric', axis=1)
+        
+ 
+        res_dx = res_dx.join(
+            pd.concat({'all':cm_dx}, names=['dsc'], axis=1)
+            )
+        
+ 
+        #sort and clean
+        res_dx = res_dx.sort_index(axis=1, sort_remaining=True).dropna(axis=1, how='all')
+        
+ 
+        #checks
+        assert not res_dx.isna().all().all()
+        assert_dx_names(res_dx)
+        
+        #write
+        res_dx.to_pickle(ofp)        
+  
         
         log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
         

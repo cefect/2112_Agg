@@ -10,7 +10,18 @@ import pandas as pd
 idx = pd.IndexSlice
 
 
-
+res_fp_lib = {'r9':
+              {
+                'direct':{  
+                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
+                    'diffs': r'C:\LS\10_IO\2112_Agg\outs\agg2\r9\SJ\direct\20220922\diffs\SJ_r9_direct_0922_diffs.pkl',
+                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\cMasks\\SJ_r9_direct_0921_cMasks.pkl'
+                    },
+                'filter':{  
+                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
+                    'diffs': r'C:\LS\10_IO\2112_Agg\outs\agg2\r9\SJ\filter\20220922\diffs\SJ_r9_filter_0922_diffs.pkl',
+                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\cMasks\\SJ_r9_filter_0921_cMasks.pkl'
+                }}}
         
 
 def run_haz_agg2(method='direct',
@@ -61,7 +72,7 @@ def run_haz_agg2(method='direct',
         if not 'diffs' in fp_d:
             fp_d['diffs'] = ses.run_diffs(fp_d['agg'])
             ses._clear()
-            
+           
         #=======================================================================
         # category masks
         #=======================================================================
@@ -80,9 +91,11 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # build agg stats
         #=======================================================================
-
-        stat_d['s2'] = ses.run_stats(fp_d['agg'], fp_d['catMasks'])
-        stat_d['s1'] = ses.run_stats_fine(fp_d['agg'], fp_d['catMasks'])
+        #=======================================================================
+        # if 'agg' in fp_d:
+        #     stat_d['s2'] = ses.run_stats(fp_d['agg'], fp_d['catMasks'])
+        #     stat_d['s1'] = ses.run_stats_fine(fp_d['agg'], fp_d['catMasks'])
+        #=======================================================================
         
         #=======================================================================
         # build difference stats
@@ -155,22 +168,8 @@ def build_vrt(pick_fp = None,**kwargs):
 
 
 
-def SJ_r9_0921(run_name='r9',
-        method='direct',
-        fp_lib = {
-                'direct':{  
-                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
-                    'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\diffs\\SJ_r9_direct_0921_diffs.pkl',
-                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\cMasks\\SJ_r9_direct_0921_cMasks.pkl'
-                    },
-                'filter':{  
-                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
-                    'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\diffs\\SJ_r9_filter_0921_diffs.pkl',
-                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\cMasks\\SJ_r9_filter_0921_cMasks.pkl'
-                }
-                },
-        **kwargs):
-    return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name=run_name, **kwargs)
+def SJ_r9_0921(run_name='r9',method='direct',**kwargs):
+    return run_haz_agg2(case_name='SJ', fp_d = res_fp_lib[run_name][method], method=method, run_name=run_name, **kwargs)
 
 
 if __name__ == "__main__": 

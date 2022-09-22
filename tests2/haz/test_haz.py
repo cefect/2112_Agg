@@ -256,11 +256,11 @@ def test_05_diffs(wrkr, agg_pick_fp):
                            #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                            )
 
-    
-diffs_pick_fp = os.path.join(src_dir, 'tests2\haz\data\diffs\SJ_test05_direct_0921_diffs.pkl') 
+
+diffs_pick_fp = os.path.join(src_dir, 'tests2\haz\data\diffs\SJ_test05_direct_0922_diffs.pkl') 
     
 
-
+@pytest.mark.dev 
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)], indirect=False) 
 @pytest.mark.parametrize('pick_fp', [diffs_pick_fp]) 
 def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
@@ -274,7 +274,7 @@ def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
 # INTEGRATIOn tests ------------
 #===============================================================================
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)])
 @pytest.mark.parametrize('method', [
     'direct', 
