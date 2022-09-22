@@ -142,6 +142,9 @@ class Agg2DAComs(Plotr):
         #=======================================================================
         # extract data
         #=======================================================================
+        assert len(serx)>0
+        assert serx.notna().any().any()
+        
         map_d = {k:map_d[k] for k in ['row', 'col', 'color', 'x']} #ensure order on map
         
         """leaving data order passed by theuser"""
@@ -149,6 +152,10 @@ class Agg2DAComs(Plotr):
         
         mdex = serx.index
         keys_all_d = {k:mdex.unique(v).tolist() for k,v in map_d.items()} #order matters
+        
+        #check the keys
+        for k,v in keys_all_d.items():
+            assert len(v)>0, k
         
         if color_d is None:
             color_d = self._get_color_d(map_d['color'], keys_all_d['color'], colorMap=colorMap, color_d=color_d)

@@ -121,8 +121,12 @@ def cm_pick_fp(dsc_l, tmp_path):
     df = pd.Series(rlay_fp_d).rename('fp').to_frame().rename_axis('scale')
     
     #add thes emetric columns
-    for coln in ['DD', 'WW', 'WP', 'DP']:
-        df[coln] = np.nan
+    coln_l = ['DD', 'WW', 'WP', 'DP']
+    confusion_df = pd.DataFrame((np.random.random((len(df),len(coln_l) ))*ar_d[dsc_l[1]].size).astype(int),
+        index = df.index, columns = coln_l,dtype=int)
+    
+    df = df.join(confusion_df)
+ 
  
     ofp = os.path.join(tmp_path, 't%s_%i.pkl'%(layName, len(df)))
     df.to_pickle(ofp)

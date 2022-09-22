@@ -121,7 +121,8 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         
         return rdxcol
     
-    def get_s12N(self,dx_raw,
+    def get_normd(self,dx_raw,
+                 to_be_normd='s12',
                  ):
         
         """probably some way to do this natively w/ panda (transform?)
@@ -133,13 +134,20 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         base_dxcol = dx_raw.loc[1, idx['s1', 'direct',:, 'full',:]].droplevel((0, 1, 3), axis=1).reset_index(drop=True)  # baseline values
         
         d = dict()
-        for layName, gdx in dx_raw['s12'].groupby('layer', axis=1):
+        for layName, gdx in dx_raw[to_be_normd].groupby('layer', axis=1):
             base_ser = base_dxcol[layName].iloc[0,:]
             d[layName] = gdx.droplevel('layer', axis=1).divide(base_ser, axis=1, level='metric')
             
+            """
+            view(gdx.droplevel('layer', axis=1))
+            """
+            
         #concat and promote
         div_dxcol = pd.concat(d, axis=1, names=['layer'])
-        return pd.concat([div_dxcol], names=['base'], keys=['s12N'], axis=1).reorder_levels(dx_raw.columns.names, axis=1)
+        
+        
+        
+        return pd.concat([div_dxcol], names=['base'], keys=[f'{to_be_normd}N'], axis=1).reorder_levels(dx_raw.columns.names, axis=1)
     
         """
         view(rdxcol)

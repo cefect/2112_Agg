@@ -3,26 +3,36 @@ Created on Sep. 9, 2022
 
 @author: cefect
 '''
-import os, pathlib, math
+import faulthandler
+faulthandler.enable()
+
+import os, pathlib, math, pprint
 from definitions import proj_lib
 from hp.basic import get_dict_str, today_str
 import pandas as pd
 idx = pd.IndexSlice
-import faulthandler
-faulthandler.enable()
+
+from agg2.haz.run import res_fp_lib as haz_res_fp_lib
+
 
 res_fp_lib = {
     'r9':{
             'filter':{  
                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
-                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\diffStats\\SJ_r9_filter_0921_diffStats.pkl'},
+                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\diffStats\\SJ_r9_filter_0921_diffStats.pkl',
+                },
             'direct':{  
                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\stats\\SJ_r9_direct_0921_stats.pkl',
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
                 'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\diffStats\\SJ_r9_direct_0921_diffStats.pkl'}
             }
     }
+
+#attach catMasks from hazard results
+for run_name in res_fp_lib.keys():
+    #for method in res_fp_lib[run_name].keys():
+    res_fp_lib[run_name]['catMasks'] = haz_res_fp_lib[run_name]['direct']['catMasks']
 
 def SJ_haz_r9_0922(
         run_name='r9'
@@ -127,12 +137,17 @@ def run_haz_plots(fp_lib,
         """
         log = ses.logger
         #=======================================================================
-        # data prep---------
+        # DATA PREP---------
         #=======================================================================
+        catMasks_fp =fp_lib.pop('catMasks')
         # join the simulation results (and clean up indicides
         dxcol_raw = ses.join_stats(fp_lib, write=False)
+        
+        
+        #add TP/FP
+        pd.read_pickle(catMasks_fp)
  
-        # add residuals
+        # add aggregated residuals
         """
         both these bases are stats computed on teh same (dynamic) zones:
             resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_samp, j=j_base]
@@ -149,16 +164,46 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         # #add residuals normalized        
         #=======================================================================
+        #baseline mean
+        base_ser = dx1a['s1']['direct'].loc[:, idx[:, 'full', 'mean']].droplevel(['dsc', 'metric'], axis=1).iloc[0, :].rename('base')
  
-        s12N_dx = ses.get_s12N(dx1a)
+        s12N_dx = ses.get_normd(dx1a, to_be_normd='s12')
         
-        dx2 = dx1a.join(s12N_dx)
+        
+        #=======================================================================
+        # cleanup diffs
+        #=======================================================================
+        #drop some useless fields
+        diff_dx1 = dx1a['diffs'].drop(['pre_count', 'post_count'], axis=1, level='metric').fillna(0.0)
+        
+        #normalize
+        """only these metrics make sense to normalize on the diffs
+        view(diff_dx1)
+        view(diffN_dx)
+        """
+        diffN_dx = diff_dx1.loc[:, idx[:, 'wd', :, ('meanAbsErr', 'meanErr')]].divide(base_ser, axis=1, level='layer')
+        
+        diff_dx2 = pd.concat({'diffs':diff_dx1, 'diffsN':diffN_dx}, axis=1, names=['base'])
+ 
+        
+        #=======================================================================
+        # DATA PREP WRAP----------
+        #=======================================================================
+        dx2 = pd.concat([dx1a.drop('diffs', axis=1),s12N_dx, 
+                         diff_dx2 
+                         ], axis=1).sort_index(axis=1)
+        """
+        view(dx2.T)
+        view(dx2['diffs'].T)
+        """
  
         #print(dx2.columns.get_level_values('metric').unique().tolist())
         metrics_l = ['mean', 'posi_area', 'vol']
         
- 
- 
+        mdex = dx2.columns
+        names_d = {name:mdex.unique(name).to_list() for name in mdex.names}
+        
+        log.info('assembled w/ \n%s'%pprint.pformat(names_d, width=10, indent=3, compact=True, sort_dicts =False))
         #=======================================================================
         # write
         #=======================================================================
@@ -170,6 +215,18 @@ def run_haz_plots(fp_lib,
         #     
         #     log.info(f'wrote {str(dx1.shape)} to \n    {ofp}')
         #=======================================================================
+        
+        #=======================================================================
+        # HELPERS------
+        #=======================================================================
+        def cat_mdex(mdex, levels=['layer', 'metric']):
+            """concatnate two levels into one of an mdex"""
+            mcoln = '_'.join(levels)
+            df = mdex.to_frame().reset_index(drop=True)
+ 
+            df[mcoln] = df[levels[0]].str.cat(df[levels[1]], sep='_')
+            
+            return pd.MultiIndex.from_frame(df.drop(levels, axis=1)), mcoln
         
         #=======================================================================
         # AGG ZONAL PLOTS---------
@@ -216,72 +273,83 @@ def run_haz_plots(fp_lib,
         #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd.svg'))
         #=======================================================================
         
-        #=======================================================================
-        # with wse RMSE
-        #=======================================================================
-        # join the differences
-        #=======================================================================
-        # metric2 = 'meanErr'
-        # lab_d = {
-        #     'meanErr':r'$\overline{WSE_{s2,i} - WSE_{s1,i}}$',
-        #     #'meanErr':r'$\frac{\sum_{i}^{N_{12}} WSE_{s2,i} - WSE_{s1,i}}{N_{12}}$',
-        #     }
-        # 
-        # 
-        # 
-        # dxcol4 = dxcol3.join(dx1.loc[:, idx['diff', :, 'wse',:, metric2]].droplevel(['base', 'layer'], axis=1)) 
-        # 
-        # serx = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
-        #                                ).reindex(index=metrics_l+[metric2], level='metric'
-        #                                 ).droplevel(['scale', 'pixelArea'])
-        #                                 
-        #                                 
-        # ses.plot_matrix_metric_method_var(serx,
-        #                                   map_d = {'row':'metric','col':'method', 'color':'dsc', 'x':'pixelLength'},
-        #                                   ylab_d={
-        #                                       'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
-        #                                       'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
-        #                                       'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-        #                                       metric2:lab_d[metric2]},
-        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_%s.svg'%metric2),
-        #                                   matrix_kwargs = dict(figsize=(6.5,7.25))
-        #                                   )
-        #=======================================================================
+ 
         
         #=======================================================================
         # four metrics
         #=======================================================================
-        def cat_mdex(mdex, levels=['layer', 'metric']):
-            """concatnate two levels into one of an mdex"""
-            mcoln = '_'.join(levels)
-            df = mdex.to_frame().reset_index(drop=True)
- 
-            df[mcoln] = df[levels[0]].str.cat(df[levels[1]], sep='_')
-            
-            return pd.MultiIndex.from_frame(df.drop(levels, axis=1)), mcoln
+
         
         mcoln = 'layer_metric'
         m1_l = ['wd_mean', 'wse_mean', 'wd_posi_area', 'wd_vol']
 
-        def get_stack(baseName):
-            dxcol4 = dx2.loc[:, idx[baseName,:, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
+        def get_stack(baseName, 
+                      metrics_l=['mean', 'posi_area', 'vol'],
+                      metrics_cat_l=None,
+                      ):
+            """common collection of data stack
+             
+             Parameters
+            -----------
+            metrics_cat_l: list
+                post concat order
+            """
+            
+            dxi = dx2[baseName]
+            #check all the metrics are there
+            assert set(metrics_l).difference(dxi.columns.unique('metric'))==set(), f'requested metrics no present on {baseName}'
+            
+            dxi1 = dxi.loc[:, idx[:, ('wd', 'wse'),:, metrics_l]]
+            
+            assert not dxi1.isna().all().all()
+            
+            
+            dxi1.columns, mcoln = cat_mdex(dxi1.columns) #cat layer and metric
+            
+            
+            if not metrics_cat_l is None:
+                assert set(dxi1.columns.unique('layer_metric')).symmetric_difference(m1_l)==set(), 'metric list mismatch'
+            else:
+                metrics_cat_l = dxi1.columns.unique('layer_metric').tolist()
                
             # stack into a series
-            serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
-                                           ).reindex(index=metrics_l, level='metric'
+            serx = dxi1.stack(level=dxi1.columns.names).sort_index(sort_remaining=True
+                                           ).reindex(index=metrics_cat_l, level=mcoln
                                             ).droplevel(['scale', 'pixelArea'])
-                                               
-            # concat layer and metric
-            """because for plotting we treat this as combined as 1 dimension"""
-            
-            df = serx1.index.to_frame().reset_index(drop=True)
-            df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
+            assert len(serx)>0
+ 
+                                            
+
+            return serx, mcoln
+ 
         
-            serx = pd.Series(serx1.values, index=pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
-               
-            # sort
-            
-            return serx.reindex(index=m1_l, level=mcoln)  # apply order
+        #=======================================================================
+        # single-base raster stats
+        #=======================================================================
+        """
+        s1 methods:
+            these should be the same (masks are the same, baseline is the same)
+             
+        """
+        #=======================================================================
+        # for baseName in [
+        #     's2', 's1', 's12', 
+        #     #'diffs','diffsN', #these are granular
+        #     ]:
+        #     log.info(f'plotting {baseName} \n\n')
+        #     serx = get_stack(baseName)
+        #         
+        #     # plot
+        #     ses.plot_matrix_metric_method_var(serx,
+        #                                       map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
+        #                                       ylab_d={},
+        #                                       ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % baseName),
+        #                                       matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
+        #                                       ax_lims_d={
+        #                                           # 'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+        #                                           }
+        #                                       )
+        #=======================================================================
         
         #=======================================================================
         # resid normed.  Figure 5: Bias from upscaling 
@@ -302,56 +370,38 @@ def run_haz_plots(fp_lib,
         # baseName = 's12N'
         # serx = get_stack(baseName) 
         #=======================================================================
-        """join wd with wse from different base"""
-        wd_dx = dx2.droplevel(['scale', 'pixelArea']).loc[:, idx['s12N',:, 'wd',:, metrics_l]]
-        
-        dxi = dx2.droplevel(['scale', 'pixelArea']).loc[:, idx['s12',:, 'wse',:, 'mean']
-                                                           ].join(wd_dx).droplevel('base', axis=1)
-                                                           
-        dxi.columns, mcoln = cat_mdex(dxi.columns) #cat layer and metric
-        
-        serx = dxi.stack(dxi.columns.names).reindex(index=m1_l, level=mcoln) 
-           
-        # plot
-        ses.plot_matrix_metric_method_var(serx,
-                                          map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
-                                          ylab_d={
-                                              'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
-                                              'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$',
-                                              'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-                                              'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
-                                              },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('s12_s12N')),
-                                          matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
-                                          ax_lims_d={
-                                              'y':{'wd_mean':(-1.5, 0.2), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
-                                                   'wse_mean':(-1.0, 15.0),
-                                                   },
-                                              }
-                                          )
-        
-        return
         #=======================================================================
-        # raw raster stats
+        # """join wd with wse from different base"""
+        # wd_dx = dx2.droplevel(['scale', 'pixelArea']).loc[:, idx['s12N',:, 'wd',:, metrics_l]]
+        #  
+        # dxi = dx2.droplevel(['scale', 'pixelArea']).loc[:, idx['s12',:, 'wse',:, 'mean']
+        #                                                    ].join(wd_dx).droplevel('base', axis=1)
+        #                                                     
+        # dxi.columns, mcoln = cat_mdex(dxi.columns) #cat layer and metric
+        #  
+        # serx = dxi.stack(dxi.columns.names).reindex(index=m1_l, level=mcoln) 
+        #     
+        # # plot
+        # ses.plot_matrix_metric_method_var(serx,
+        #                                   map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
+        #                                   ylab_d={
+        #                                       'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
+        #                                       'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$',
+        #                                       'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+        #                                       'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
+        #                                       },
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('s12_s12N')),
+        #                                   matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
+        #                                   ax_lims_d={
+        #                                       'y':{'wd_mean':(-1.5, 0.2), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
+        #                                            'wse_mean':(-1.0, 15.0),
+        #                                            },
+        #                                       }
+        #                                   )
         #=======================================================================
-        """
-        s1 methods:
-            these should be the same (masks are the same, baseline is the same)
-            
-        """
-        for baseName in ['s2', 's1', 's12']:
-            serx = get_stack(baseName)
-               
-            # plot
-            ses.plot_matrix_metric_method_var(serx,
-                                              map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
-                                              ylab_d={},
-                                              ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % baseName),
-                                              matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
-                                              ax_lims_d={
-                                                  # 'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
-                                                  }
-                                              )
+        
+ 
+
         
         #=======================================================================
         # for presentation (WD and A)
@@ -385,6 +435,36 @@ def run_haz_plots(fp_lib,
         #                                   ax_title_d=dict(), #no axis titles
         #                                   )
         #=======================================================================
+        #=======================================================================
+        # GRANULAR ZONAL---------
+        #=======================================================================
+        #=======================================================================
+        # single-base raster stats
+        #=======================================================================
+        """
+        s1 methods:
+            these should be the same (masks are the same, baseline is the same)
+             
+        """
+        dx2['diffs'].columns.unique('metric').to_list()
+        for baseName in [
+            #'diffs',
+           'diffsN', #these are granular
+            ]:
+            log.info(f'\n\nplotting {baseName} \n\n')
+            serx, mcoln = get_stack(baseName, metrics_l=['meanErr'])
+                
+            # plot
+            ses.plot_matrix_metric_method_var(serx,
+                                              map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                              ylab_d={},
+                                              ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % baseName),
+                                              matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
+                                              ax_lims_d={
+                                                  # 'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+                                                  }
+                                              )
+        
         #=======================================================================
         # stackced areas ratios
         #=======================================================================
