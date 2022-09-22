@@ -91,11 +91,9 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # build agg stats
         #=======================================================================
-        #=======================================================================
-        # if 'agg' in fp_d:
-        #     stat_d['s2'] = ses.run_stats(fp_d['agg'], fp_d['catMasks'])
-        #     stat_d['s1'] = ses.run_stats_fine(fp_d['agg'], fp_d['catMasks'])
-        #=======================================================================
+        if 'agg' in fp_d:
+            stat_d['s2'] = ses.run_stats(fp_d['agg'], fp_d['catMasks'])
+            stat_d['s1'] = ses.run_stats_fine(fp_d['agg'], fp_d['catMasks'])
         
         #=======================================================================
         # build difference stats

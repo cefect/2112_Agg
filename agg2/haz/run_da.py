@@ -20,19 +20,17 @@ res_fp_lib = {
             'filter':{  
                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
-                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\diffStats\\SJ_r9_filter_0921_diffStats.pkl',
+                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220922\\diffStats\\SJ_r9_filter_0922_diffStats.pkl',
                 },
             'direct':{  
                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\stats\\SJ_r9_direct_0921_stats.pkl',
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
-                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\diffStats\\SJ_r9_direct_0921_diffStats.pkl'}
+                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220922\\diffStats\\SJ_r9_direct_0922_diffStats.pkl'
+                }
             }
     }
 
-#attach catMasks from hazard results
-for run_name in res_fp_lib.keys():
-    #for method in res_fp_lib[run_name].keys():
-    res_fp_lib[run_name]['catMasks'] = haz_res_fp_lib[run_name]['direct']['catMasks']
+ 
 
 def SJ_haz_r9_0922(
         run_name='r9'
@@ -139,13 +137,11 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         # DATA PREP---------
         #=======================================================================
-        catMasks_fp =fp_lib.pop('catMasks')
+ 
         # join the simulation results (and clean up indicides
         dxcol_raw = ses.join_stats(fp_lib, write=False)
         
-        
-        #add TP/FP
-        pd.read_pickle(catMasks_fp)
+ 
  
         # add aggregated residuals
         """
@@ -442,20 +438,27 @@ def run_haz_plots(fp_lib,
         # single-base raster stats
         #=======================================================================
         """
-        s1 methods:
-            these should be the same (masks are the same, baseline is the same)
+        diffs
+            direct
+                wd_meanErr:
+                    why so different from Agg?
+                    
+                    the routine (and the agg stat) are
+                    
+        need to plot populations... 
+ 
              
         """
-        dx2['diffs'].columns.unique('metric').to_list()
+        #dx2['diffs'].columns.unique('metric').to_list()
         for baseName in [
-            #'diffs',
+            'diffs',
            'diffsN', #these are granular
             ]:
             log.info(f'\n\nplotting {baseName} \n\n')
-            serx, mcoln = get_stack(baseName, metrics_l=['meanErr'])
+            serx, mcoln = get_stack(baseName, metrics_l=['meanErr', 'meanAbsErr'])
                 
             # plot
-            ses.plot_matrix_metric_method_var(serx,
+            ses.plot_matrix_metric_method_var(serx,title=baseName,
                                               map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
                                               ylab_d={},
                                               ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % baseName),
