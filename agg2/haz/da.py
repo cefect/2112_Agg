@@ -68,67 +68,25 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         #=======================================================================
         # preckec
         #=======================================================================
-        for k1,d in fp_lib.items():
+        for k1, d in fp_lib.items():
             for k2, fp in d.items():
-                assert os.path.exists(fp), '%s.%s'%(k1, k2)
+                assert os.path.exists(fp), '%s.%s' % (k1, k2)
         
         #=======================================================================
         # loop and join
         #=======================================================================
         res_lib = dict()
-        for k1,fp_d in fp_lib.items():
+        for k1, fp_d in fp_lib.items():
             res_d = dict() 
             for k2, fp in fp_d.items():
                 
                 dxcol_raw = pd.read_pickle(fp)            
-                log.info('for %s.%s loading %s'%(k1, k2, str(dxcol_raw.shape)))
+                log.info('for %s.%s loading %s' % (k1, k2, str(dxcol_raw.shape)))
                 
-                #check
-                assert_dx_names(dxcol_raw, msg='%s.%s'%(k1, k2))
+                # check
+                assert_dx_names(dxcol_raw, msg='%s.%s' % (k1, k2))
                 
                 res_d[k2] = dxcol_raw
- 
-                #===============================================================
-                # #drop excess levels
-                #===============================================================
-                #===============================================================
-                # if len(dxcol_raw.index.names)>1:
-                #     #retrieve hte meta info
-                #     meta_df = dxcol_raw.index.to_frame().reset_index(drop=True).set_index('scale').sort_index(axis=0)
-                #       
-                #     #remove from index
-                #     dxcol = dxcol_raw.droplevel((1,2))
-                # else:
-                #     dxcol = dxcol_raw
-                #===============================================================
-                    
-                
-                #===============================================================
-                # #append levels
-                #===============================================================
-                #===============================================================
-                # dx1 = pd.concat({k1:pd.concat({k2:dxcol}, names=['metricLevel'], axis=1)},
-                #           names=['method'], axis=1)
-                # 
-                # #===============================================================
-                # # add a dummy for missings
-                # #===============================================================
-                # miss_l = set(rdx.columns.names).symmetric
-                # #===============================================================
-                # # start
-                # #===============================================================
-                # if rdx is None:
-                #     rdx = dx1.copy()
-                #     continue
-                # 
-                # try:
-                #     rdx = rdx.join(dx1)
-                # except Exception as e:
-                #     """
-                #     view(dx1)
-                #     """
-                #     raise IndexError('failed to join %s.%s. w/ \n    %s'%(k1, k2, e))
-                #===============================================================
         
             #===================================================================
             # wrap reference
@@ -138,14 +96,8 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         #=======================================================================
         # #concat
         #=======================================================================
-        rdxcol = pd.concat(res_lib, axis=1,  names=['method']
+        rdxcol = pd.concat(res_lib, axis=1, names=['method']
                    ).swaplevel('base', 'method', axis=1).sort_index(axis=1).sort_index(axis=0)
- 
-        
- 
-                               
-        
-
         
         #=======================================================================
         # #relabel all
@@ -158,18 +110,36 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         # write
         #=======================================================================
         if write:
-            with pd.ExcelWriter(ofp, engine='xlsxwriter') as writer:       
+            with pd.ExcelWriter(ofp, engine='xlsxwriter') as writer: 
                 rdxcol.to_excel(writer, sheet_name='stats', index=True, header=True)
-            log.info('wrote %s to \n    %s'%(str(rdxcol.shape), ofp))
+            log.info('wrote %s to \n    %s' % (str(rdxcol.shape), ofp))
         #=======================================================================
         # wrap
         #=======================================================================
         metric_l = rdxcol.columns.get_level_values('metric').unique().to_list()
-        log.info('finished on %s w/ %i metrics \n    %s'%(str(rdxcol.shape), len(metric_l), metric_l))
-        
-
+        log.info('finished on %s w/ %i metrics \n    %s' % (str(rdxcol.shape), len(metric_l), metric_l))
         
         return rdxcol
+    
+    def get_s12N(self,dx_raw,
+                 ):
+        
+        """probably some way to do this natively w/ panda (transform?)
+        but couldnt figure out how to divide across 2 levels
+        
+        made a functio nto workaround the access violation
+        """
+        
+        base_dxcol = dx_raw.loc[1, idx['s1', 'direct',:, 'full',:]].droplevel((0, 1, 3), axis=1).reset_index(drop=True)  # baseline values
+        
+        d = dict()
+        for layName, gdx in dx_raw['s12'].groupby('layer', axis=1):
+            base_ser = base_dxcol[layName].iloc[0,:]
+            d[layName] = gdx.droplevel('layer', axis=1).divide(base_ser, axis=1, level='metric')
+            
+        #concat and promote
+        div_dxcol = pd.concat(d, axis=1, names=['layer'])
+        return pd.concat([div_dxcol], names=['base'], keys=['s12N'], axis=1).reorder_levels(dx_raw.columns.names, axis=1)
     
         """
         view(rdxcol)

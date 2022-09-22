@@ -8,10 +8,11 @@ from definitions import proj_lib
 from hp.basic import get_dict_str, today_str
 import pandas as pd
 idx = pd.IndexSlice
+import faulthandler
+faulthandler.enable()
 
-
-def SJ_haz_r9_0922(        
-        fp_lib = {
+def SJ_haz_r9_0922(
+        fp_lib={
             'filter':{  
                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
@@ -91,6 +92,7 @@ def SJ_haz_r9_0922(
 #     return run_haz_plots(fp_d)
 #===============================================================================
 
+
 def run_haz_plots(fp_lib,
                   write=True,
                   **kwargs):
@@ -101,75 +103,68 @@ def run_haz_plots(fp_lib,
     #===========================================================================
     # get base dir
     #=========================================================================== 
- 
     
     out_dir = os.path.join(
-        pathlib.Path(os.path.dirname(fp_lib['filter']['s2'])).parents[3], #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
-        'da','haz', today_str)
+        pathlib.Path(os.path.dirname(fp_lib['filter']['s2'])).parents[3],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+        'da', 'haz', today_str)
     
     #===========================================================================
     # execute
     #===========================================================================
     with Session(out_dir=out_dir, **kwargs) as ses:
         """for haz, working with aggregated zonal stats.
-            these are computed on the aggregated (s2) data with UpsampleSession.run_stats()
-            and on the raw/fine (s1) data with UpsampleSession.run_stats_fine()
+            these are computed on:
+                aggregated (s2) data with UpsampleSession.run_stats()
+                raw/fine (s1) data with UpsampleSession.run_stats_fine()
+                local diff (s2-s1) with UpsampleSession.run_diff_stats()
             
-        we did write some functions to compute the differences (run_errs())
-            but as we're not using any metrics which require this (e.g., RMSE)
-            and these functions are quite slow... we stopped using this.
+ 
         """
         log = ses.logger
         #=======================================================================
         # data prep---------
         #=======================================================================
-        #join the simulation results (and clean up indicides
+        # join the simulation results (and clean up indicides
         dxcol_raw = ses.join_stats(fp_lib, write=False)
-        
  
-        #add residuals
+        # add residuals
         """
         both these bases are stats computed on teh same (dynamic) zones:
             resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_samp, j=j_base]
         
-        """  
-        dxcol1 = dxcol_raw.join(pd.concat([dxcol_raw['s2']-dxcol_raw['s1']], names=['base'], keys=['s12'], axis=1)).copy()
+        """
         
-        print({lvlName:i for i, lvlName in enumerate(dxcol1.columns.names)})
+        """Windows fatal exception: access violation
+        but only when I assign this to a variable used below?
+        """  
+        dx1a = dxcol_raw.join(pd.concat([dxcol_raw['s2'] - dxcol_raw['s1']], names=['base'], keys=['s12'], axis=1))
+        
+        #print({lvlName:i for i, lvlName in enumerate(dx1.columns.names)})
         
         #=======================================================================
         # #add residuals normalized        
         #=======================================================================
-        """probably some way to do this natively w/ panda (transform?)
-        but couldnt figure out how to divide across 2 levels
-        """
-        base_dxcol = dxcol1.loc[1, idx['s1', 'direct',:,'full', :]].droplevel((0,1,3), axis=1).reset_index(drop=True) #baseline values
+ 
+        s12N_dx = ses.get_s12N(dx1a)
         
-        d = dict()
-        for layName, gdx in dxcol1['s12'].groupby('layer', axis=1):
-            base_ser = base_dxcol[layName].iloc[0,:]
-            d[layName] = gdx.droplevel('layer',axis=1).divide(base_ser, axis=1, level='metric')
-        div_dxcol = pd.concat(d, axis=1, names=['layer'])
+        dx2 = dx1a.join(s12N_dx)
  
-        
-        dxcol1 = dxcol1.join(
-            pd.concat([div_dxcol], names=['base'], keys=['s12N'], axis=1).reorder_levels(dxcol1.columns.names, axis=1)
-            )
- 
- 
-        print(dxcol1.columns.get_level_values('metric').unique().tolist())
+        #print(dx2.columns.get_level_values('metric').unique().tolist())
         metrics_l = ['mean', 'posi_area', 'vol']
         
+ 
  
         #=======================================================================
         # write
         #=======================================================================
-        if write:
-            
-            ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_aggStats_dx.pkl')
-            dxcol1.to_pickle(ofp)
-            
-            log.info(f'wrote {str(dxcol1.shape)} to \n    {ofp}')
+        #=======================================================================
+        # if write:
+        #     
+        #     ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_aggStats_dx.pkl')
+        #     dx1.to_pickle(ofp)
+        #     
+        #     log.info(f'wrote {str(dx1.shape)} to \n    {ofp}')
+        #=======================================================================
         
         #=======================================================================
         # AGG ZONAL PLOTS---------
@@ -179,11 +174,9 @@ def run_haz_plots(fp_lib,
         #=======================================================================
  
         #=======================================================================
-        # dxcol3 = dxcol1.loc[:, idx['s12', :, :, coln_l]].droplevel(0, axis=1)
+        # dxcol3 = dx1.loc[:, idx['s12', :, :, coln_l]].droplevel(0, axis=1)
         # serx = dxcol3.unstack().reindex(index=coln_l, level=2) 
         #=======================================================================
-        
-
         
         #=======================================================================
         # ses.plot_matrix_metric_method_var(serx,
@@ -195,13 +188,12 @@ def run_haz_plots(fp_lib,
         #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid.svg'))
         #=======================================================================
         
-        
         #=======================================================================
         # lines on residuals NORMALIZED (s12N)
         #=======================================================================
  #==============================================================================
  #        #just water depth and the metrics
- #        dxcol3 = dxcol1.loc[:, idx['s12N', :, 'wd',:, metrics_l]].droplevel(['base', 'layer'], axis=1)
+ #        dxcol3 = dx1.loc[:, idx['s12N', :, 'wd',:, metrics_l]].droplevel(['base', 'layer'], axis=1)
  # 
  #        #stack into a series
  #        serx = dxcol3.stack(level=dxcol3.columns.names).sort_index(sort_remaining=True
@@ -219,11 +211,10 @@ def run_haz_plots(fp_lib,
         #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd.svg'))
         #=======================================================================
         
-        
         #=======================================================================
         # with wse RMSE
         #=======================================================================
-        #join the differences
+        # join the differences
         #=======================================================================
         # metric2 = 'meanErr'
         # lab_d = {
@@ -233,7 +224,7 @@ def run_haz_plots(fp_lib,
         # 
         # 
         # 
-        # dxcol4 = dxcol3.join(dxcol1.loc[:, idx['diff', :, 'wse',:, metric2]].droplevel(['base', 'layer'], axis=1)) 
+        # dxcol4 = dxcol3.join(dx1.loc[:, idx['diff', :, 'wse',:, metric2]].droplevel(['base', 'layer'], axis=1)) 
         # 
         # serx = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
         #                                ).reindex(index=metrics_l+[metric2], level='metric'
@@ -264,32 +255,33 @@ def run_haz_plots(fp_lib,
             
             return pd.MultiIndex.from_frame(df.drop(levels, axis=1)), mcoln
         
-        
         mcoln = 'layer_metric'
         m1_l = ['wd_mean', 'wse_mean', 'wd_posi_area', 'wd_vol']
+
         def get_stack(baseName):
-            dxcol4 = dxcol1.loc[:, idx[baseName, :, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
+            dxcol4 = dx2.loc[:, idx[baseName,:, ('wd', 'wse'),:, metrics_l]].droplevel('base', axis=1)
                
-            #stack into a series
+            # stack into a series
             serx1 = dxcol4.stack(level=dxcol4.columns.names).sort_index(sort_remaining=True
                                            ).reindex(index=metrics_l, level='metric'
                                             ).droplevel(['scale', 'pixelArea'])
                                                
-            #concat layer and metric
+            # concat layer and metric
             """because for plotting we treat this as combined as 1 dimension"""
             
             df = serx1.index.to_frame().reset_index(drop=True)
             df[mcoln] = df['layer'].str.cat(df['metric'], sep='_')
         
-            serx = pd.Series(serx1.values, index = pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
+            serx = pd.Series(serx1.values, index=pd.MultiIndex.from_frame(df.drop(['layer', 'metric'], axis=1)))
                
-            #sort
+            # sort
             
-            return serx.reindex(index=m1_l, level=mcoln) #apply order
+            return serx.reindex(index=m1_l, level=mcoln)  # apply order
         
         #=======================================================================
         # resid normed.  Figure 5: Bias from upscaling 
         #=======================================================================
+
         """
         direct:
             why is direct flat when s2 is changing so much?
@@ -306,33 +298,33 @@ def run_haz_plots(fp_lib,
         # serx = get_stack(baseName) 
         #=======================================================================
         """join wd with wse from different base"""
-        wd_dx = dxcol1.droplevel(['scale', 'pixelArea']).loc[:, idx['s12N', :, 'wd', :, metrics_l]]
+        wd_dx = dx2.droplevel(['scale', 'pixelArea']).loc[:, idx['s12N',:, 'wd',:, metrics_l]]
         
-        dxi = dxcol1.droplevel(['scale', 'pixelArea']).loc[:, idx['s12', :, 'wse', :, 'mean']
+        dxi = dx2.droplevel(['scale', 'pixelArea']).loc[:, idx['s12',:, 'wse',:, 'mean']
                                                            ].join(wd_dx).droplevel('base', axis=1)
                                                            
-        dxi.columns, mcoln = cat_mdex(dxi.columns)
+        dxi.columns, mcoln = cat_mdex(dxi.columns) #cat layer and metric
         
-        serx = dxi.stack(dxi.columns.names).reindex(index=m1_l, level=mcoln)
+        serx = dxi.stack(dxi.columns.names).reindex(index=m1_l, level=mcoln) 
            
-           
-        #plot
+        # plot
         ses.plot_matrix_metric_method_var(serx,
-                                          map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                          map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
                                           ylab_d={
-                                              'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
-                                              'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
+                                              'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
+                                              'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$',
                                               'wd_posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-                                              'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$', 
+                                              'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
                                               },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg'%('s12_s12N')),
-                                          matrix_kwargs = dict(figsize=(6.5,7.25), set_ax_title=False, add_subfigLabel=True),
-                                          ax_lims_d = {
-                                              'y':{'wd_mean':(-1.5, 0.2),  'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('s12_s12N')),
+                                          matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
+                                          ax_lims_d={
+                                              'y':{'wd_mean':(-1.5, 0.2), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
                                                    'wse_mean':(-1.0, 15.0),
                                                    },
                                               }
                                           )
+        
         return
         #=======================================================================
         # raw raster stats
@@ -345,25 +337,23 @@ def run_haz_plots(fp_lib,
         for baseName in ['s2', 's1', 's12']:
             serx = get_stack(baseName)
                
-               
-            #plot
+            # plot
             ses.plot_matrix_metric_method_var(serx,
-                                              map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                              map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
                                               ylab_d={},
-                                              ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg'%baseName),
-                                              matrix_kwargs = dict(figsize=(6.5,7.25), set_ax_title=False, add_subfigLabel=True),
-                                              ax_lims_d = {
-                                                  #'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
+                                              ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % baseName),
+                                              matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
+                                              ax_lims_d={
+                                                  # 'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wd_posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
                                                   }
                                               )
-        
         
         #=======================================================================
         # for presentation (WD and A)
         #=======================================================================
         #=======================================================================
         # m_l = ['mean', 'posi_area']
-        # dx1 = dxcol1.loc[:, idx['s12N', :, 'wd',:, m_l]
+        # dx1 = dx1.loc[:, idx['s12N', :, 'wd',:, m_l]
         #                  ].droplevel(['base', 'layer'], axis=1).droplevel(('scale', 'pixelArea')
         #                       ).drop('direct', level='method',axis=1)
         #   
@@ -412,5 +402,5 @@ def run_haz_plots(fp_lib,
         
         
 if __name__ == "__main__":
-    SJ_plots_0918()
+    SJ_haz_r9_0922()
         
