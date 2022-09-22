@@ -9,22 +9,39 @@ from hp.basic import get_dict_str, today_str
 import pandas as pd
 idx = pd.IndexSlice
 
-def SJ_plots_0918(        
+
+def SJ_haz_r9_0922(        
         fp_lib = {
-            'filter':{
-                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\filter\\20220918\\stats\\SJ_r8_filter_0918_stats.pkl',
-                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\filter\\20220918\\statsF\\SJ_r8_filter_0918_statsF.pkl',
-                #'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
-                },
-            'direct':{
-                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\direct\\20220918\\stats\\SJ_r8_direct_0918_stats.pkl',
-                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\direct\\20220918\\statsF\\SJ_r8_direct_0918_statsF.pkl'
-                #'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
-                
-                }
+            'filter':{  
+                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
+                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
+                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\diffStats\\SJ_r9_filter_0921_diffStats.pkl'},
+            'direct':{  
+                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\stats\\SJ_r9_direct_0921_stats.pkl',
+                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
+                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\diffStats\\SJ_r9_direct_0921_diffStats.pkl'}
             }
         ):
-    return run_haz_plots(fp_lib, proj_name='SJ', run_name='r8')
+    return run_haz_plots(fp_lib, proj_name='SJ', run_name='r9')
+
+#===============================================================================
+# def SJ_plots_0918(        
+#         fp_lib = {
+#             'filter':{
+#                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\filter\\20220918\\stats\\SJ_r8_filter_0918_stats.pkl',
+#                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\filter\\20220918\\statsF\\SJ_r8_filter_0918_statsF.pkl',
+#                 #'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
+#                 },
+#             'direct':{
+#                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\direct\\20220918\\stats\\SJ_r8_direct_0918_stats.pkl',
+#                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\direct\\20220918\\statsF\\SJ_r8_direct_0918_statsF.pkl'
+#                 #'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
+#                 
+#                 }
+#             }
+#         ):
+#     return run_haz_plots(fp_lib, proj_name='SJ', run_name='r8')
+#===============================================================================
 
 #===============================================================================
 # def SJ_plots_0910(        

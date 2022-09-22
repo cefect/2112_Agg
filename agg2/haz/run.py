@@ -152,19 +152,22 @@ def build_vrt(pick_fp = None,**kwargs):
 #     return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r7', **kwargs)
 #===============================================================================
 
-        
+
+
 
 def SJ_r9_0921(run_name='r9',
         method='direct',
         fp_lib = {
-                'direct':{
-                    #'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-                    #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
+                'direct':{  
+                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
+                    'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\diffs\\SJ_r9_direct_0921_diffs.pkl',
+                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\cMasks\\SJ_r9_direct_0921_cMasks.pkl'
                     },
-                'filter':{
-                    #'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-                    #'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
-                    }
+                'filter':{  
+                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
+                    'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\diffs\\SJ_r9_filter_0921_diffs.pkl',
+                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\cMasks\\SJ_r9_filter_0921_cMasks.pkl'
+                }
                 },
         **kwargs):
     return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name=run_name, **kwargs)

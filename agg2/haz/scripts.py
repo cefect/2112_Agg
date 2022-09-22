@@ -1467,7 +1467,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     
     def concat_stats(self, fp_d, **kwargs):
         """quick combining and writing of stat pickls"""
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cstat',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('_smry',  subdir=True,ext='.pkl', **kwargs)
         
         #=======================================================================
         # concat all the picks
