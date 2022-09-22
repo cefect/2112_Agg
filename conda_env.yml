@@ -14,6 +14,8 @@ dependencies:
   - brotlipy=0.7.0=py310he2412df_1004
   - bzip2=1.0.8=h8ffe710_4
   - ca-certificates=2022.9.14=h5b45459_0
+  - cached-property=1.5.2=hd8ed1ab_1
+  - cached_property=1.5.2=pyha770c72_1
   - cairo=1.16.0=hd694305_1013
   - certifi=2022.9.14=pyhd8ed1ab_0
   - cffi=1.15.1=py310hcbf9ad4_0
@@ -51,6 +53,8 @@ dependencies:
   - geos=3.11.0=h39d44d4_0
   - geotiff=1.7.1=h714bc5f_3
   - gettext=0.19.8.1=ha2e2712_1008
+  - h5netcdf=1.0.2=pyhd8ed1ab_0
+  - h5py=3.7.0=nompi_py310h425bae0_101
   - hdf4=4.2.15=h0e5069d_4
   - hdf5=1.12.2=nompi_h57737ce_100
   - heapdict=1.0.1=py_0
