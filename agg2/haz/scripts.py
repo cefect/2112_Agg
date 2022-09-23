@@ -19,7 +19,8 @@ from sklearn.metrics import confusion_matrix
 import rioxarray
 import xarray as xr
 from dask.diagnostics import ProgressBar
-from dask.distributed import Client
+ 
+import dask
  
 
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
@@ -1669,29 +1670,128 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             # loop on each layer
             #===================================================================
             for layName in layName_l:
-                self.get_pTP(ds[layName], logger=log.getChild(layName))
+                self.get_pTP(ds[layName], logger=log.getChild(layName), layname=layName, out_dir=out_dir)
                 
-    def get_pTP(self, xar, **kwargs):
-        """get the s1_expo_cnt/s2_expo_cnt fraction for each scale"""
+    def get_pTP(self, xar,crs=None, **kwargs):
+        """get the s1_expo_cnt/s2_expo_cnt fraction for each scale
+        
+        variable shapes... dont want to collapse into DataArray
+        
+        could write a tiff or 1 dim netcdf for each?
+        
+        opted to compute the stat directly 
+        
+        """
+        #=======================================================================
+        # defautls
+        #=======================================================================
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('gpTP', **kwargs)
-        """
-        xar.chunks
-        xar.load()
-        xar['scale']
-        """
-        #convert to boolean
-        stack_xar1 = np.isnan(xar)
+        if crs is None: crs=self.crs
+ 
+        #convert to boolean (True=exposed)
+        stack_xar1 = np.invert(np.isnan(xar))
         
         #=======================================================================
-        # loop on each scale
+        # get baseline values
         #=======================================================================
-        for i, scale in enumerate(xar['scale'].values):
+        ofp_d = dict()
+        delay_ofp_l = list()
+        d = dict()
+        scale_l = xar['scale'].values.tolist()
+        for i, scale in enumerate(scale_l):
+            log.info(f'    {i+1}/{len(scale_l)}')
             if i==0:        
                 #get the baseline
                 base_xar = stack_xar1.isel(scale=0)
+ 
+            #===================================================================
+            # compute the fine exposures (at s2)
+            #===================================================================
+            s1_expo_xar_s2 = base_xar.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').sum()
             
-            #blocked sum
+            #update the scal
+            def clean(xar): 
+                xar = xar.reset_coords(names=['scale'], drop=True)
+                xar.attrs['scale'] = scale
+                return xar
+            
+            s1_expo_xar_s2 = clean(s1_expo_xar_s2)
+            
+            assert (base_xar.shape[1]//scale, base_xar.shape[2]//scale) ==s1_expo_xar_s2.shape[1:]
+            
+            #===================================================================
+            #retrieve coarse exposures
+            #===================================================================
+            #decimate
+            s2_expo_xar_s1 = stack_xar1.sel(scale=scale)
+            
+            s2_expo_xar_s2 = clean(s2_expo_xar_s1.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2))
+            
+ 
+            #===================================================================
+            # compute ratio
+            #===================================================================
+            s12_expo_xar_s2 = s1_expo_xar_s2/s2_expo_xar_s2
+            
+            #===================================================================
+            # output
+            #===================================================================
+            if write:
+                ofpi = os.path.join(out_dir, f's12expoFrac_{layname}_{scale:03d}.tif')
+                #s12_expo_xar_s2.compute()
+                
+                s12_expo_xar_s2.rio.write_crs(crs, inplace=True)
+                
+                delay_ofp_l.append(
+                    s12_expo_xar_s2.rio.to_raster(ofpi, compute=False, lock=None, crs=crs, nodata=-9999)
+                    )
+                
+                ofp_d[scale] = ofpi
+                
+            #===================================================================
+            # zonal stat
+            #===================================================================
             raise IOError('stopped here')
+            
+            """
+            s12_expo_xar_s2.plot()
+            """
+ 
+            
+ 
+            
+        #concat
+        """"""
+        log.info(f'writing {len(delay_ofp_l)} files to disk')
+        with ProgressBar():
+            #res_xar = xr.merge(d.values()).compute()
+            dask.compute(*delay_ofp_l)
+        
+        return 
+            #res_xar = xr.concat(d.values(),  pd.Index(d.keys(), name='scale', dtype=int)).compute()
+        print('yay')
+
+        
+            
+        
+        """
+        df = pd.DataFrame(d[scale].values[0])
+        df = pd.DataFrame(res_xar.isel(scale=1).values[0])
+        view(df.head(100))
+        plot_rast(res_xar.isel(scale=1).values[0])
+        res_xar.plot(col='scale')
+        coarse_xar.plot()
+        
+        d[1].plot()
+        """
+            
+        
+            
+            
+                
+ 
+ 
+ 
         
         
  
