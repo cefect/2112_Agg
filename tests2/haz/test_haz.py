@@ -273,6 +273,17 @@ def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
                            )
     assert_stat_check(res_fp)
     
+
+
+@pytest.mark.dev 
+@pytest.mark.parametrize('dsc_l', [(dsc_l_global)])
+@pytest.mark.parametrize('layName', ['wse'])  
+def test_07_pTP(wrkr, rlay_fp_d):
+    """too complicated to build the netCDF from scratch
+    and we need to be careful with memory handling"""
+    nc_fp = wrkr.build_downscaled_agg_xarray(rlay_fp_d)
+    
+    wrkr.run_pTP(nc_fp)
     
 #===============================================================================
 # INTEGRATIOn tests ------------

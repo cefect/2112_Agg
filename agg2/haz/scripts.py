@@ -18,6 +18,8 @@ from sklearn.metrics import confusion_matrix
 
 import rioxarray
 import xarray as xr
+from dask.diagnostics import ProgressBar
+from dask.distributed import Client
  
 
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
@@ -768,68 +770,104 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         return ofp
     
     
-    def build_downscaled_agg_xarray(self, fp_d, **kwargs):
-        """compile an aggregated stack (downsampled) into an xarray"""
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('aggXar',subdir=False, ext='.nc', **kwargs)
-        start = now()
-        #create the sink datasource
+    def build_downscaled_agg_xarray(self, fp_df, 
+                                    layName_l=['wse'], **kwargs):
+        """compile an aggregated stack (downsampled) into an xarray
         
-        d = dict()
-        for i, (scale, fp) in enumerate(fp_d.items()):
-            #get base values for downsampling
-            if i==0:
-                with rio.open(fp, model='r') as ds:
-                    base_shape = ds.shape
-                    base_res = ds.res[0]
-                    
-                rio_open_kwargs = dict(shape=base_shape, resampling=Resampling.nearest)
+        seems to be only 1 cpu and maxing out the memory
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        
+        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('aggXR',subdir=True, ext='.nc', **kwargs)
+        start = now()
  
-            #===================================================================
-            # #load datasource
-            #===================================================================
-            xds = rioxarray.open_rasterio(fp,masked=True)            
-            
-            assert scale ==xds.rio.resolution()[0]
- 
-            log.debug(f'for scale = {scale} loaded {xds.dtype.name} raster {xds.shape}  w/\n' +
-                     f'    crs {xds.rio.crs} nodata {xds.rio.nodata} and bounds {xds.rio.bounds()}\n' +
-                     f'    from {fp}')
-            
-            #===================================================================
-            # resample
-            #===================================================================
-            if not i==0:
-                xds1 = xds.rio.reproject(xds.rio.crs, **rio_open_kwargs)
-                #xds.close()
-            else:
-                xds1 = xds
+        
+        #=======================================================================
+        # loop and load
+        #=======================================================================
+        log.info('loading %s to xarrayDS'%(str(fp_df.shape)))
+        res_lib = dict()
+        cnt=0
+        for layName, row in fp_df.items():
+            if not layName in layName_l: continue
+            d = dict()
+            for i, (scale, fp) in enumerate(row.to_dict().items()):
+                log.info(f'    {i+1}/{len(fp_df)} on {layName} from {fp}')
+                #get base values for downsampling
+                if i==0:
+                    with rio.open(fp, model='r') as ds:
+                        base_shape = ds.shape
+                        base_res = ds.res[0]
+                        
+                    rio_open_kwargs = dict(shape=base_shape, resampling=Resampling.nearest)
+     
+                #===================================================================
+                # #load datasource
+                #===================================================================
+                xda = rioxarray.open_rasterio(fp,masked=True)            
                 
-            #===================================================================
-            # wrap
-            #===================================================================
-            assert xds1.rio.shape == base_shape
-            assert xds1.rio.resolution()[0] == base_res
+                assert scale ==xda.rio.resolution()[0]
+     
+                log.debug(f'for scale = {scale} loaded {xda.dtype.name} raster {xda.shape}  w/\n' +
+                         f'    crs {xda.rio.crs} nodata {xda.rio.nodata} and bounds {xda.rio.bounds()}\n' +
+                         f'    from {fp}')
+                
+                #===================================================================
+                # resample
+                #===================================================================
+                if not i==0:
+                    xda1 = xda.rio.reproject(xda.rio.crs, **rio_open_kwargs)
+                    xda.close() #not sure this makes a difference
+                else:
+                    xda1 = xda
+                    
+                #===================================================================
+                # wrap
+                #===================================================================
+                assert xda1.rio.shape == base_shape
+                assert xda1.rio.resolution()[0] == base_res
+                
+                d[scale] = xda1
+                cnt+=1
             
-            d[scale] = xds1
+            log.info(f'concat {layName}')
+            res_lib[layName] = xr.concat(d.values(), pd.Index(d.keys(), name='scale', dtype=int))
             
         #=======================================================================
         # #merge
         #=======================================================================
         #join datasets together on a new axis
-        xds_res = xr.concat(d.values(), pd.Index(d.keys(), name='scale', dtype=int))
+ 
         
         """    
         xds_res.plot(col='scale')
         """
+        #promote to dataset
+        log.info('converting %i to dataset'%cnt)
+        xds_res = xr.Dataset(res_lib)
         
+        #add metadata
+        for attn in ['today_str', 'run_name', 'proj_name']:
+            xds_res.attrs[attn] = getattr(self, attn)
+ 
         
+ 
         #=======================================================================
         # write
         #=======================================================================
         """export_grid_mapping?"""
-        xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=True)
+        delayed_obj = xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
+        
+        with ProgressBar():
+            results = delayed_obj.compute()
  
-        log.info('finished in %.2f secs and wrote %s to \n    %s'%((now()-start).total_seconds(), str(xds_res.shape), ofp))
+        log.info(f'finished in {(now()-start).total_seconds():.2f} secs w/ {xds_res.dims}'+
+                 f'\n    coors: {list(xds_res.coords)}'+
+                 f'\n    data_vars: {list(xds_res.data_vars)}'+
+                 f'\n    {ofp}')
         
         return ofp
             
@@ -1616,8 +1654,50 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 
         return ofp
     
-    def run_pTP(self, nc_fp, **kwargs):
+    def run_pTP(self, nc_fp,layName_l=['wse'], **kwargs):
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('pTP',  subdir=True,ext='.pkl', **kwargs)
+        
+        log.info('from %s'%nc_fp)
+        with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto' ) as ds:
+ 
+            log.info(f'loaded dims {list(ds.dims)}'+
+                     f'\n    {list(ds.coords)}'+
+                     f'\n    {list(ds.data_vars)}' +
+                     f'\n    chunks:{ds.chunks}')
+ 
+            #===================================================================
+            # loop on each layer
+            #===================================================================
+            for layName in layName_l:
+                self.get_pTP(ds[layName], logger=log.getChild(layName))
+                
+    def get_pTP(self, xar, **kwargs):
+        """get the s1_expo_cnt/s2_expo_cnt fraction for each scale"""
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('gpTP', **kwargs)
+        """
+        xar.chunks
+        xar.load()
+        xar['scale']
+        """
+        #convert to boolean
+        stack_xar1 = np.isnan(xar)
+        
+        #=======================================================================
+        # loop on each scale
+        #=======================================================================
+        for i, scale in enumerate(xar['scale'].values):
+            if i==0:        
+                #get the baseline
+                base_xar = stack_xar1.isel(scale=0)
+            
+            #blocked sum
+            raise IOError('stopped here')
+        
+        
+ 
+ 
+            
+ 
             
     
 

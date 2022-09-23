@@ -15,6 +15,7 @@ res_fp_lib = {'r9':
               {
                 'direct':{  
                     'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
+                    'aggXR':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r9\SJ\direct\20220923\aggXR\SJ_r9_direct_0923_aggXR.nc',
                     'diffs': r'C:\LS\10_IO\2112_Agg\outs\agg2\r9\SJ\direct\20220922\diffs\SJ_r9_direct_0922_diffs.pkl',
                     'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\cMasks\\SJ_r9_direct_0921_cMasks.pkl'
                     },
@@ -67,16 +68,16 @@ def run_haz_agg2(method='direct',
             fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
             ses._clear()
             
-        fp_d['agg_xr'] = dict()
-        for layName in ['wse']:
-            fp_d['agg_xr'][layName] = ses.build_downscaled_agg_xarray(pd.read_pickle(fp_d['agg'])[layName].to_dict())
  
-        
+        if not 'aggXR' in fp_d:
+            fp_d['aggXR'] = ses.build_downscaled_agg_xarray(pd.read_pickle(fp_d['agg']))
+ 
+ 
         #=======================================================================
         # prob of TP per cell
         #=======================================================================
-        ses.run_pTP(fp_d['agg_xr']['wse'])
-        
+        ses.run_pTP(fp_d['aggXR'])
+        return
         #=======================================================================
         # build difference grids
         #=======================================================================
