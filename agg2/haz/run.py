@@ -6,6 +6,7 @@ Created on Aug. 28, 2022
 import os, pathlib, pprint
 from definitions import proj_lib
 from hp.basic import get_dict_str, now
+import shapely.geometry as sgeo
 import pandas as pd
 idx = pd.IndexSlice
 
@@ -65,7 +66,17 @@ def run_haz_agg2(method='direct',
         if not 'agg' in fp_d:
             fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
             ses._clear()
+            
+        fp_d['agg_xr'] = dict()
+        for layName in ['wse']:
+            fp_d['agg_xr'][layName] = ses.build_downscaled_agg_xarray(pd.read_pickle(fp_d['agg'])[layName].to_dict())
  
+        
+        #=======================================================================
+        # prob of TP per cell
+        #=======================================================================
+        ses.run_pTP(fp_d['agg_xr']['wse'])
+        
         #=======================================================================
         # build difference grids
         #=======================================================================
@@ -170,14 +181,22 @@ def SJ_r9_0921(run_name='r9',method='direct',**kwargs):
     return run_haz_agg2(case_name='SJ', fp_d = res_fp_lib[run_name][method], method=method, run_name=run_name, **kwargs)
 
 
+def SJ_dev(run_name='t',method='direct',**kwargs):
+    return run_haz_agg2(case_name='SJ', fp_d = {}, method=method, run_name=run_name, 
+                        dsc_l=[1,  2**3, 2**4],
+                        bbox = sgeo.box(2492040.000, 7436320.000, 2492950.000, 7437130.000),
+                        **kwargs)
+
 if __name__ == "__main__": 
     start = now()
  
-    
-    SJ_r9_0921(method='direct',
-                #dsc_l=[1,  2**7],
-                #run_name='t'
-               )
+    SJ_dev()
+    #===========================================================================
+    # SJ_r9_0921(method='direct',
+    #             #dsc_l=[1,  2**7],
+    #             #run_name='t'
+    #            )
+    #===========================================================================
  
  
     print('finished in %.2f'%((now()-start).total_seconds())) 

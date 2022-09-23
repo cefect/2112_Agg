@@ -15,6 +15,9 @@ from rasterio.enums import Resampling
 
 from osgeo import gdal
 from sklearn.metrics import confusion_matrix
+
+import rioxarray
+import xarray as xr
  
 
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
@@ -27,13 +30,12 @@ from agg2.coms import Agg2Session, AggBase
 from agg2.haz.rsc.scripts import ResampClassifier
 from agg2.haz.coms import assert_dem_ar, assert_wse_ar, assert_dx_names, index_names, coldx_d
 idx= pd.IndexSlice
+
 #from skimage.transform import downscale_local_mean
 #debugging rasters
-#===============================================================================
-# from hp.plot import plot_rast
-# import matplotlib.pyplot as plt
-#===============================================================================
-from hp.plot import plot_rast #for debugging
+from hp.plot import plot_rast
+import matplotlib.pyplot as plt
+ 
 
 #import dask.array as da
 
@@ -380,6 +382,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                  dscList_kwargs = dict(reso_iters=5),
                  
                  method=None,
+                 bbox=None,
  
                  **kwargs):
         """build downsample set
@@ -401,10 +404,11 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # defaults
         #=======================================================================
         if method is None: method=self.method
+        if bbox is None: bbox=self.bbox
         start = now()
         #if out_dir is None: out_dir=os.path.join(self.out_dir, method)
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg',  ext='.pkl', subdir=True, **kwargs)
-        skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
+        skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write, bbox=bbox)
         
         log.info('for %i upscales using \'%s\' from \n    DEM:  %s\n    WSE:  %s'%(
             len(dsc_l),method, os.path.basename(demR_fp), os.path.basename(wseR_fp)))
@@ -424,7 +428,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # check divisibility
         #=======================================================================
         max_downscale = dsc_l[-1]
-        if not is_divisible(demR_fp, max_downscale):
+        if (not is_divisible(demR_fp, max_downscale)) or (not bbox is None):
             log.warning('uneven division w/ %i... clipping'%max_downscale)
             
             dem_fp = self.build_crop(demR_fp, divisor=max_downscale, **skwargs)
@@ -489,8 +493,10 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         log.info('got %i: %s'%(len(l), l))
         return l
     
-    def build_crop(self, raw_fp, new_shape=None, divisor=None, **kwargs):
+    def build_crop(self, raw_fp, new_shape=None, divisor=None, bbox=None, **kwargs):
         """build a cropped raster which achieves even division
+        
+        anchors to top left
         
         Parameters
         ----------
@@ -498,12 +504,18 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
         divisor: int, optional
             for computing the nearest whole division
+            
+            
+        Note
+        ---------
+        writing again to file hrere is not ideal
         """
         #=======================================================================
         # defaults
         #=======================================================================
         rawName = os.path.basename(raw_fp).replace('.tif', '')[:6]
         log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('crops%s'%rawName,  **kwargs)
+ 
         
         assert isinstance(divisor, int)
         
@@ -513,23 +525,50 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             
             """
             raw_ds.read(1)
+            raw_ds.shape
             """
+ 
             #=======================================================================
             # precheck
             #=======================================================================
-            assert not is_divisible(raw_ds, divisor), 'no need to crop'            
- 
+            assert not is_divisible(raw_ds, divisor), 'no need to crop'
+            
+            #===================================================================
+            # get starting window
+            #===================================================================
+            if not bbox is None:
+                window1 = rio.windows.from_bounds(*bbox.bounds, transform=raw_ds.transform)
+            else:
+                window1 = rio.windows.from_bounds(*raw_ds.bounds, transform=raw_ds.transform)
+                            
+            #get the equivalent shape
+            window1_shape = tuple(map(int,(window1.width, window1.height)))#num_rows, num_cols
+            
+             
+            
+            for k in window1_shape:
+                assert k/divisor>=2
             #===================================================================
             # compute new_shape
             #===================================================================
             if new_shape is None: 
-                new_shape = tuple([(d//divisor)*divisor for d in raw_ds.shape])
+                new_shape = tuple([(d//divisor)*divisor for d in window1_shape])
                 
+            #===================================================================
+            # build new window
+            #===================================================================
+            #rio.windows.crop(window1, new_shape[0], new_shape[1])
+            #window1.crop(10, 10)
+            #window2 = window1.crop(new_shape[1], new_shape[0])
+            window2 = rio.windows.Window(window1.col_off, window1.row_off, *new_shape)
+                
+            #===================================================================
+            # write to file
+            #===================================================================
             log.info('cropping %s to %s for even divison by %i'%(
                 raw_ds.shape, new_shape, divisor))
             
-            self.crop(rio.windows.Window(0,0, new_shape[1], new_shape[0]), dataset=raw_ds,
-                      ofp=ofp, logger=log)
+            self.crop(window2, dataset=raw_ds,ofp=ofp, logger=log)
             
         return ofp
 
@@ -727,30 +766,73 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
 
         
         return ofp
+    
+    
+    def build_downscaled_agg_xarray(self, fp_d, **kwargs):
+        """compile an aggregated stack (downsampled) into an xarray"""
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('aggXar',subdir=False, ext='.nc', **kwargs)
+        start = now()
+        #create the sink datasource
+        
+        d = dict()
+        for i, (scale, fp) in enumerate(fp_d.items()):
+            #get base values for downsampling
+            if i==0:
+                with rio.open(fp, model='r') as ds:
+                    base_shape = ds.shape
+                    base_res = ds.res[0]
+                    
+                rio_open_kwargs = dict(shape=base_shape, resampling=Resampling.nearest)
  
- #==============================================================================
- #    def build_upscales(self,
- #                       fp_d = dict(),
- #                       upscale=1,out_dir=None,
- #                       **kwargs):
- #        """construct a set of upscaled rasters"""
- #        #=======================================================================
- #        # defaults
- #        #=======================================================================
- # 
- #        log, tmp_dir, _, ofp, layname, write = self._func_setup('upsacle',  **kwargs)
- #        if out_dir is None: out_dir=os.path.join(self.out_dir, 'upscale', '%03i'%upscale)
- #        os.makedirs(out_dir)
- #        
- #        log.info('upscale=%i on %i'%(upscale, len(fp_d)))
- #        
- #        res_d = dict()
- #        for k, fp in fp_d.items():
- #            res_d[k] = resample(fp, os.path.join(out_dir, '%s_x%03i.tif'%(k, upscale)), scale=upscale)
- #        
- #        log.info('wrote %i to %s'%(len(res_d), out_dir))
- #        return res_d
- #==============================================================================
+            #===================================================================
+            # #load datasource
+            #===================================================================
+            xds = rioxarray.open_rasterio(fp,masked=True)            
+            
+            assert scale ==xds.rio.resolution()[0]
+ 
+            log.debug(f'for scale = {scale} loaded {xds.dtype.name} raster {xds.shape}  w/\n' +
+                     f'    crs {xds.rio.crs} nodata {xds.rio.nodata} and bounds {xds.rio.bounds()}\n' +
+                     f'    from {fp}')
+            
+            #===================================================================
+            # resample
+            #===================================================================
+            if not i==0:
+                xds1 = xds.rio.reproject(xds.rio.crs, **rio_open_kwargs)
+                #xds.close()
+            else:
+                xds1 = xds
+                
+            #===================================================================
+            # wrap
+            #===================================================================
+            assert xds1.rio.shape == base_shape
+            assert xds1.rio.resolution()[0] == base_res
+            
+            d[scale] = xds1
+            
+        #=======================================================================
+        # #merge
+        #=======================================================================
+        #join datasets together on a new axis
+        xds_res = xr.concat(d.values(), pd.Index(d.keys(), name='scale', dtype=int))
+        
+        """    
+        xds_res.plot(col='scale')
+        """
+        
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        """export_grid_mapping?"""
+        xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=True)
+ 
+        log.info('finished in %.2f secs and wrote %s to \n    %s'%((now()-start).total_seconds(), str(xds_res.shape), ofp))
+        
+        return ofp
+            
     
     #===========================================================================
     # CASE MASKS---------
@@ -1533,6 +1615,9 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             log.info(f'wrote {str(dx.shape)} to \n    {ofp1}')
                 
         return ofp
+    
+    def run_pTP(self, nc_fp, **kwargs):
+        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('pTP',  subdir=True,ext='.pkl', **kwargs)
             
     
 
