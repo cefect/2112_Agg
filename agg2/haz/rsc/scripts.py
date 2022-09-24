@@ -379,6 +379,10 @@ class ResampClassifier(RioWrkr):
         -------
         cm_d, dict
             four masks from build_cat_masks {category label: np.ndarray}
+            
+        Notes
+        --------
+        could speed this up with xarray's coarsen
         
         """
         

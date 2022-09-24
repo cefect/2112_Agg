@@ -20,6 +20,8 @@ class AggBase(object):
     pass
 
 class Agg2Session(Session):
+    
+    idxn = 'scale' #main index name
  
     def __init__(self,
                  case_name='SJ',

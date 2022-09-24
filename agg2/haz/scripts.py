@@ -872,53 +872,64 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     # CASE MASKS---------
     #===========================================================================
-    def run_catMasks(self, demR_fp, wseR_fp,
+    def run_catMasks(self, dem_fp, wse_fp,dsc_l=None,
+ 
                     **kwargs):
-        """build the dsmp cat mask for each reso iter"""
+        """build the dsmp cat mask for each reso iter
+        
+        Parametrs
+        ---------
+        demR_fp: str
+            filepath to pre-clipped DEM raster
+            
+            
+        Notes
+        ---------
+        no need to window as here we load the pre-processed rasters
+        """
         
         #=======================================================================
         # defaults
         #=======================================================================
         start = now()
+        idxn = self.idxn
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cMasks',subdir=True, ext='.pkl', **kwargs)
+        if dsc_l is None: dsc_l=self.dsc_l
+ 
         
-        dsmp_df = pd.read_pickle(pick_fp) #resuls from downsample
         
+        #=======================================================================
+        # load base layers-----
+        #=======================================================================
+        #=======================================================================
+        # dem
+        #=======================================================================
+        dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp) 
+        
+        dem_ar = load_array(dem_ds, masked=True)        
+        assert_dem_ar(dem_ar, masked=True)         
+        
+        wse_ar = load_array(wse_ds, masked=True)
+        assert_wse_ar(wse_ar, masked=True)
+ 
+        wse_ds.close()
         #=======================================================================
         # build for each
         #=======================================================================
+        log.info(f'on {len(dsc_l)-1} from a base shape of {dem_ar.shape}')
         res_d=dict()
         meta_lib = dict()
         ofp_d = dict()
-        for i, (downscale, row) in enumerate(dsmp_df.iterrows()):
- 
-            
+        for i, scale in enumerate(dsc_l): 
+            if i==0: #no catmasks on the baseline                
+                continue           
             #===================================================================
             # defaults
             #===================================================================
-            iname = '%03d'%downscale
+            iname = '%03d'%scale
             skwargs = dict(out_dir=tmp_dir, logger=log.getChild(iname), tmp_dir=tmp_dir)
-            #===================================================================
-            # base/first
-            #===================================================================
-            """categorization is always applied on the fine scale"""
-            if i==0:
-                assert downscale==1
-                
-                #===============================================================
-                # load the base layers
-                #===============================================================
-                dem_fp, wse_fp = row['dem'], row['wse']
  
-                dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp, reso_max=int(dsmp_df.index[-1]),**skwargs)
-                
-                dem_ar = load_array(dem_ds, masked=True)        
-                assert_dem_ar(dem_ar, masked=True)         
-                
-                wse_ar = load_array(wse_ds, masked=True)
-                assert_wse_ar(wse_ar, masked=True)
-                
-                continue
+
  
             """
             wse_ds.read(1, masked=True)
@@ -934,8 +945,9 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #===================================================================
             # classify
             #===================================================================
-            log.info('(%i/%i) downscale=%i building downsamp cat masks'%(i+1, len(dsmp_df), downscale)) 
-            with ResampClassifier(session=self, downscale = downscale,  **skwargs) as wrkr:
+            """build the cat mask at s2"""
+            log.info('    (%i/%i) aggscale=%i'%(i+1, len(dsc_l), scale)) 
+            with ResampClassifier(session=self, aggscale = scale,  **skwargs) as wrkr:
                 #build each mask
                 cm_d = wrkr.get_catMasks2(wse_ar=wse_ar, dem_ar=dem_ar)
                 
@@ -946,18 +958,29 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 stats_d = wrkr.get_catMasksStats(cm_d)
                 
                 #update
-                res_d[downscale], meta_lib[downscale] = cm_ar, stats_d
+                res_d[scale], meta_lib[scale] = cm_ar, stats_d
+                
+            #===================================================================
+            # check
+            #===================================================================
+            assert tuple([v/scale for v in dem_ar.shape])==cm_ar.shape
                 
             #===================================================================
             # write
             #===================================================================
-            #new transform
-            transform = dem_ds.transform * dem_ds.transform.scale(
-                        (dem_ds.width / cm_ar.shape[-1]),
-                        (dem_ds.height / cm_ar.shape[-2])
-                    )
-                    
-            ofp_d[downscale] = self.write_array(cm_ar, logger=log,ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%downscale), transform=transform)
+            if write:
+                #new transform
+                transform_i = dem_ds.transform * dem_ds.transform.scale(
+                            (dem_ds.width / cm_ar.shape[-1]),
+                            (dem_ds.height / cm_ar.shape[-2])
+                        )
+                        
+                ofp_d[scale] = self.write_array(cm_ar, logger=log,ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%scale), transform=transform_i)
+                
+            #===================================================================
+            # xarray
+            #===================================================================
+            
                 
         log.info('finished building %i dsc mask mosaics'%len(res_d))
         #=======================================================================
@@ -966,16 +989,15 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         dx = pd.concat({k:pd.DataFrame.from_dict(v) for k,v in meta_lib.items()})
  
         #just the sum
-        meta_df = dx.loc[idx[:, 'sum'], :].droplevel(1).astype(int).rename_axis(dsmp_df.index.name)
-        
-        #meta_df = dsmp_df.join(meta_df, on='scale') 
- 
-        meta_df = meta_df.join(pd.Series(ofp_d).rename('fp'), on=dsmp_df.index.name)
+        meta_df = dx.loc[idx[:, 'sum'], :].droplevel(1).astype(int).rename_axis(idxn)
+
+        meta_df = meta_df.join(pd.Series(ofp_d).rename('fp'), on=idxn)
             
         #=======================================================================
         # write meta
         #=======================================================================
         meta_df.to_pickle(ofp)
+        dem_ds.close()
         log.info('finished in %.2f secs and wrote %s to \n    %s'%((now()-start).total_seconds(), str(meta_df.shape), ofp))
         
         return ofp

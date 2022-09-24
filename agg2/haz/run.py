@@ -68,6 +68,14 @@ def run_haz_agg2(method='direct',
             fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
             ses._clear()
             
+        
+        #pre-processed base rasters
+        base_fp_d = pd.read_pickle(fp_d['agg']).iloc[0, :].to_dict()
+        
+        if not 'catMasks' in fp_d:            
+            fp_d['catMasks'] = ses.run_catMasks(base_fp_d['dem'], base_fp_d['wse'])            
+            ses._clear()
+            
  
         if not 'aggXR' in fp_d:
             fp_d['aggXR'] = ses.build_downscaled_agg_xarray(pd.read_pickle(fp_d['agg']))
@@ -88,9 +96,7 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # category masks
         #=======================================================================
-        if not 'catMasks' in fp_d:
-            fp_d['catMasks'] = ses.run_catMasks(fp_d['agg'])            
-            ses._clear()
+
             
         
         #=======================================================================

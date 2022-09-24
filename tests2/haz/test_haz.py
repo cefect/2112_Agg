@@ -48,8 +48,9 @@ def dem_fp(dem_ar, tmp_path):
  
 
 @pytest.fixture(scope='function')
-def wse_ar(shape):
-    return get_ar('wse', shape)
+def wse_ar(shape, dem_ar):
+    wd_ar = get_ar('wse', shape)    
+    return get_wse_filtered(dem_ar+wd_ar, dem_ar, nodata=-9999)
 
 @pytest.fixture(scope='function')
 def wse_fp(wse_ar, tmp_path): 
