@@ -83,7 +83,7 @@ def wrkr(tmp_path,write,logger, test_name,
         yield ses
         
 @pytest.fixture(scope='function')
-def agg_pick_fp(dsc_l, tmp_path):
+def agg_pick_df(dsc_l, tmp_path):
     """simulate run_agg"""
     fp_lib, ar_lib = dict(), dict()
     
@@ -112,10 +112,14 @@ def agg_pick_fp(dsc_l, tmp_path):
     #===========================================================================
     # wrap
     #===========================================================================
-    df = pd.DataFrame.from_dict(fp_lib).rename_axis('scale')
+    return pd.DataFrame.from_dict(fp_lib).rename_axis('scale')
     
-    ofp = os.path.join(tmp_path, 'test_agg_%i.pkl' % len(df))
-    df.to_pickle(ofp)
+@pytest.fixture(scope='function')
+def agg_pick_fp(agg_pick_df, tmp_path):
+ 
+    
+    ofp = os.path.join(tmp_path, 'test_agg_%i.pkl' % len(agg_pick_df))
+    agg_pick_df.to_pickle(ofp)
     
     return ofp
     
@@ -214,13 +218,13 @@ def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method, agg_pick
     assert set(df_fix.columns).symmetric_difference(df.columns)==set()
     assert set(df_fix.index).symmetric_difference(df.index)==set()
                 
-@pytest.mark.dev 
-@pytest.mark.parametrize('dsc_l', [(dsc_l_global)])
-@pytest.mark.parametrize('layName', ['wse'])  
-def test_01b_dsc_agg_x(wrkr, rlay_fp_d):
-    wrkr.build_downscaled_agg_xarray(rlay_fp_d)
+ 
+@pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
+def test_01b_dsc_agg_x(wrkr, agg_pick_df):
+    """this is redundant w/ test_07_pTP"""
+    wrkr.build_downscaled_agg_xarray(agg_pick_df)
           
-
+@pytest.mark.dev 
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
 def test_02_dsc(wrkr, agg_pick_fp, cm_pick_fp):
     res_fp = wrkr.run_catMasks(agg_pick_fp, write=True,
@@ -261,7 +265,7 @@ def test_05_diffs(wrkr, agg_pick_fp):
                            )
 
 
-diffs_pick_fp = os.path.join(src_dir, 'tests2\haz\data\diffs\SJ_test05_direct_0922_diffs.pkl') 
+diffs_pick_fp = os.path.join(src_dir, r'tests2\haz\data\diffs\SJ_test05_direct_0922_diffs.pkl') 
     
 
 
@@ -275,15 +279,14 @@ def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
     
 
 
-@pytest.mark.dev 
+
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)])
-@pytest.mark.parametrize('layName', ['wse'])  
-def test_07_pTP(wrkr, rlay_fp_d):
+def test_07_pTP(wrkr, agg_pick_df, cm_pick_fp):
     """too complicated to build the netCDF from scratch
     and we need to be careful with memory handling"""
-    nc_fp = wrkr.build_downscaled_agg_xarray(rlay_fp_d)
+    nc_fp = wrkr.build_downscaled_agg_xarray(agg_pick_df)
     
-    wrkr.run_pTP(nc_fp)
+    wrkr.run_pTP(nc_fp, cm_pick_fp)
     
 #===============================================================================
 # INTEGRATIOn tests ------------
