@@ -1956,133 +1956,7 @@ class UpsampleSessionXR(UpsampleSession):
         log.info(f'wrote {len(fp_l)} to file in {(now()-start).total_seconds():.2f}\n    {ofp}')
         return ofp
             
-    def run_statsXR(self, xr_fp, 
-                    base='s2', 
-                    **kwargs):
-        """compute stats from the xarray stack"""
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        start = now()
-        idxn=self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsXR',  subdir=False,ext='.pkl', **kwargs)
-        agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True)
-        
-        #=======================================================================
-        # open and calc
-        #=======================================================================        
-        with xr.open_dataset(xr_fp, engine='netcdf4',chunks='auto', decode_coords="all") as ds:
-            assert ds.rio.crs == self.crs
-            scale_l = ds[self.idxn].values.tolist()
-            log.info(f'loaded {ds.dims} from {os.path.basename(xr_fp)}' + 
-                 f'\n    coors: {list(ds.coords)}' + 
-                 f'\n    data_vars: {list(ds.data_vars)}' + 
-                 f'\n    crs:{ds.rio.crs}' + 
-                 f'\n    scales:{scale_l}'
-                 )
-            
-            # remove spatial data
-            
-            ds1 = ds.reset_coords(names='spatial_ref', drop=True) 
-            #===================================================================
-            # loop on each layer
-            #===================================================================
-            res_d = dict()
-            for layName, func in {
-                'wse':self._get_wse_statsXR,
-                'wd':self._get_wd_statsXR,
-                'wse_diff':self._get_diff_statsXR,
-                'wd_diff':self._get_diff_statsXR,
-                }.items():
-                
-                #skips
-                if base=='s1':
-                    if not layName in ['wse', 'wd']:continue
-                #===============================================================
-                # setup
-                #===============================================================
-                d = dict()
-                
-                if base=='s2':
-                    lay_ds = ds1[layName]
-                else:
-                    #replace the raw onto all scales to match the syntax
-                    base_dxr = ds1[layName].isel(scale=0).reset_coords(names=idxn, drop=True)
-                    dx_d = {k:base_dxr for k in scale_l}
-                    lay_ds = xr.concat(dx_d.values(), pd.Index(dx_d.keys(), name=idxn, dtype=int))
-                    
-                
-                def add_calc(name, ds_i):
-                    stat_d = func(ds_i, agg_kwargs=agg_kwargs)
-                    d[name] = xr.concat(stat_d.values(), pd.Index(stat_d.keys(), name='metric', dtype=str))
-                
-                #===============================================================
-                # full
-                #===============================================================
-                add_calc('full', lay_ds)
-                
-                #===============================================================
-                # loop on each catmask
-                #=============================================================== 
-                for dsc, dsc_int in self.cm_int_d.items():
-                    """NOTE: this computes against the full stack.. 
-                    but the scale=1 values dont have a CatMask"""
-                                        
-                    # get this boolean
-                    mask_ds = ds1['catMask'] == dsc_int
-     
-                    # mask the data 
-                    lay_mask_ds = lay_ds.where(mask_ds, other=np.nan)  # .plot(col='scale')
- 
-                    # compute the stats
-                    add_calc(dsc, lay_mask_ds)
-                    
-                    """
-                    
-                    ds1['catMask'].plot(col='scale')
-                    
-                    mask_ds.sum(**agg_kwargs).values #catmask values
-                    
-                    #real values per scale
-                    np.invert(np.isnan(lay_mask_ds)).sum(**agg_kwargs).values 
-                    
-                    d[dsc].values #rows:metrics, cols:scales
-                    """
-                
-                    
-                #===============================================================
-                # #wrap layer
-                #===============================================================
-                log.info(f'finished {layName} w/ {len(d)}')
-                
-                res_d[layName] = xr.concat(d.values(), pd.Index(d.keys(), name='dsc', dtype=str))
-            
-            #===================================================================
-            # wrap
-            #===================================================================
-            res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='layer', dtype=str))
-                
-            with ProgressBar():
-                res_dxr.compute()
-                
-            #get a frame
-            res_dx = res_dxr.to_dataframe()
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        # clean up a bit
-        res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1)
-        """
-        view(res_dx1)
-        """
-        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f}')
-        #=======================================================================
-        # res_dx1.to_pickle(ofp)
-        # 
-        # log.info(f'finished and wrote {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
-        #=======================================================================
-        
-        return res_dx1
+
     
  
     def run_diffsXR(self,
@@ -2143,8 +2017,135 @@ class UpsampleSessionXR(UpsampleSession):
         
         return ofp
  
+    def run_statsXR(self, ds, 
+                    base='s2', 
+                    **kwargs):
+        """compute stats from the xarray stack"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        start = now()
+        idxn=self.idxn
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsXR',  subdir=False,ext='.pkl', **kwargs)
+        agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
             
+        scale_l = ds[self.idxn].values.tolist()
+
+        
+        # remove spatial data
+        
+        ds1 = ds.reset_coords(names='spatial_ref', drop=True) 
+        #===================================================================
+        # loop on each layer
+        #===================================================================
+        res_d = dict()
+        for layName, func in {
+            'wse':self._get_wse_statsXR,
+            'wd':self._get_wd_statsXR,
+            'wse_diff':self._get_diff_statsXR,
+            'wd_diff':self._get_diff_statsXR,
+            }.items():
+                
+            #skips
+            if base=='s1':
+                if not layName in ['wse', 'wd']:continue
+            #===============================================================
+            # setup
+            #===============================================================
+            d = dict()
+            
+            if base=='s2':
+                lay_ds = ds1[layName]
+            else:
+                #replace the raw onto all scales to match the syntax
+                base_dxr = ds1[layName].isel(scale=0).reset_coords(names=idxn, drop=True)
+                dx_d = {k:base_dxr for k in scale_l}
+                lay_ds = xr.concat(dx_d.values(), pd.Index(dx_d.keys(), name=idxn, dtype=int))
+                
+            
+            def add_calc(name, ds_i):
+                stat_d = func(ds_i, agg_kwargs=agg_kwargs)
+                d[name] = xr.concat(stat_d.values(), pd.Index(stat_d.keys(), name='metric', dtype=str))
+            
+            #===============================================================
+            # full
+            #===============================================================
+            add_calc('full', lay_ds)
+            
+            #===============================================================
+            # loop on each catmask
+            #=============================================================== 
+            for dsc, dsc_int in self.cm_int_d.items():
+                """NOTE: this computes against the full stack.. 
+                but the scale=1 values dont have a CatMask"""
+                                    
+                # get this boolean
+                mask_ds = ds1['catMask'] == dsc_int
+            
+                # mask the data 
+                lay_mask_ds = lay_ds.where(mask_ds, other=np.nan)  # .plot(col='scale')
+            
+                # compute the stats
+                add_calc(dsc, lay_mask_ds)
+                
+                """
+                
+                ds1['catMask'].plot(col='scale')
+                
+                mask_ds.sum(**agg_kwargs).values #catmask values
+                
+                #real values per scale
+                np.invert(np.isnan(lay_mask_ds)).sum(**agg_kwargs).values 
+                
+                d[dsc].values #rows:metrics, cols:scales
+                """
+                
+                    
+            #===============================================================
+            # #wrap layer
+            #===============================================================
+            log.info(f'finished {layName} w/ {len(d)}')
+            
+            res_d[layName] = xr.concat(d.values(), pd.Index(d.keys(), name='dsc', dtype=str))
+            
+        #===================================================================
+        # wrap
+        #===================================================================
+        res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='layer', dtype=str))
+            
+        with ProgressBar():
+            res_dxr.compute()
+            
+        #get a frame
+        res_dx = res_dxr.to_dataframe()
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        # clean up a bit
+        res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1)
+        """
+        view(res_dx1)
+        """
+        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f}')
+        #=======================================================================
+        # res_dx1.to_pickle(ofp)
+        # 
+        # log.info(f'finished and wrote {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
+        #=======================================================================
+        
+        return res_dx1
     
+    def run_TP_XR(self, ds, 
+ 
+                    **kwargs):
+        """compute stats from the xarray stack"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        start = now()
+        idxn=self.idxn
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsXR',  subdir=False,ext='.pkl', **kwargs)
+        agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
 
             
 def get_pixel_info(ds):

@@ -198,16 +198,36 @@ def run_haz_stats(xr_fp,
     with Session(case_name=case_name,crs=crs, nodata=-9999, out_dir=out_dir, **kwargs) as ses: 
         log = ses.logger
         
-        d = dict()
-        for base in ['s2', 's1']:
-            d[base] = ses.run_statsXR(xr_fp, base=base, logger=log.getChild(base))
-        
-        rdx = pd.concat(d, axis=1, names=['base'])
-        
-        ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
-        rdx.to_pickle(ofp)
-        
-        log.info(f'wrote {str(rdx.shape)} to \n    {ofp}')
+        with xr.open_dataset(xr_fp, engine='netcdf4',chunks='auto', decode_coords="all") as ds:
+            scale_l = ds[ses.idxn].values.tolist()
+            log.info(f'loaded {ds.dims} from {os.path.basename(xr_fp)}' + 
+                 f'\n    coors: {list(ds.coords)}' + 
+                 f'\n    data_vars: {list(ds.data_vars)}' + 
+                 f'\n    crs:{ds.rio.crs}' + 
+                 f'\n    scales:{scale_l}'
+                 )
+            assert ds.rio.crs == ses.crs
+            #=======================================================================
+            # compute special stats
+            #=======================================================================
+            #ses.run_TP(ds)
+            
+            #=======================================================================
+            # get basic stats
+            #=======================================================================
+            d = dict()
+            for base in ['s2', 's1']:
+                d[base] = ses.run_statsXR(ds, base=base, logger=log.getChild(base))
+            
+            rdx = pd.concat(d, axis=1, names=['base'])
+            """
+            view(rdx.T)
+            """
+            
+            ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
+            rdx.to_pickle(ofp)
+            
+            log.info(f'wrote {str(rdx.shape)} to \n    {ofp}')
         
  
             
