@@ -226,12 +226,12 @@ def test_01_runAgg(dem_fp,wse_fp, wrkr, dsc_l, method, agg_pick_fp):
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
 def test_01b_dsc_agg_x(wrkr, agg_pick_df):
     """this is redundant w/ test_07_pTP"""
-    wrkr.build_downscaled_agg_xarray(agg_pick_df)
+    wrkr.build_downscaled_aggXR(agg_pick_df)
           
 @pytest.mark.dev 
 @pytest.mark.parametrize('shape', [shape_base])
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
-def test_02_dsc(wrkr,dem_fp,wse_fp, dsc_l, cm_pick_fp):
+def test_02_catMasks(wrkr,dem_fp,wse_fp, dsc_l, cm_pick_fp):
     res_fp = wrkr.run_catMasks(dem_fp, wse_fp, dsc_l=dsc_l, write=True,
                                #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                                )

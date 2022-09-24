@@ -78,7 +78,7 @@ def run_haz_agg2(method='direct',
             
  
         if not 'aggXR' in fp_d:
-            fp_d['aggXR'] = ses.build_downscaled_agg_xarray(pd.read_pickle(fp_d['agg']))
+            fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
  
  
         #=======================================================================

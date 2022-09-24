@@ -767,7 +767,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         return ofp
     
     
-    def build_downscaled_agg_xarray(self, fp_df, 
+    def build_downscaled_aggXR(self, fp_df, 
                                     layName_l=['wse'], **kwargs):
         """compile an aggregated stack (downsampled) into an xarray
         
