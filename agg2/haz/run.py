@@ -76,7 +76,7 @@ def run_haz_agg2(method='direct',
     #===========================================================================
     # run model
     #===========================================================================
-    from agg2.haz.scripts import UpsampleSession as Session    
+    from agg2.haz.scripts import UpsampleSessionXR as Session    
     #execute
     with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, dsc_l=dsc_l, **kwargs) as ses:
         stat_d = dict()
