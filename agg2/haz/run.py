@@ -76,7 +76,7 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # prob of TP per cell
         #=======================================================================
-        ses.run_pTP(fp_d['aggXR'])
+        ses.run_pTP(fp_d['aggXR'], write=False)
         return
         #=======================================================================
         # build difference grids
@@ -97,7 +97,7 @@ def run_haz_agg2(method='direct',
         # assemble vrts
         #=======================================================================
         for k, v in fp_d.items(): 
-            vrt_d = ses.run_vrts(v, layname=k, logger=log.getChild(k))  
+            vrt_d = ses.run_vrts(v, resname=k, logger=log.getChild(k))  
  
             
         #=======================================================================

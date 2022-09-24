@@ -83,7 +83,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('lsampsK',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('lsampsK',  subdir=True,ext='.pkl', **kwargs)
         
         res_d = dict()
         for method, d1 in fp_lib.items():
@@ -111,7 +111,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
     def get_dsc_stats2(self, raw_dx,
                        ufunc_d = {'expo':'sum', 'wd':'mean', 'wse':'mean'},
                        **kwargs):
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
         
         gcols = ['method', 'layer']
         res_d = dict()

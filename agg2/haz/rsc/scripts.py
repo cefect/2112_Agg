@@ -76,7 +76,7 @@ class ResampClassifier(RioWrkr):
         # defaults
         #=======================================================================
         rawName = os.path.basename(raw_fp).replace('.tif', '')[:6]
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('crops%s'%rawName,  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('crops%s'%rawName,  **kwargs)
         
         assert isinstance(divisor, int)
         
@@ -133,7 +133,7 @@ class ResampClassifier(RioWrkr):
         #=======================================================================
         rawName = os.path.basename(raw_fp).replace('.tif', '')[:6]
         
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('coarse%s'%rawName,  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('coarse%s'%rawName,  **kwargs)
         
         if downscale is None: downscale=self.downscale
         #=======================================================================
@@ -187,7 +187,7 @@ class ResampClassifier(RioWrkr):
         this is a bit too simple...
         """
         
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('delta',  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('delta',  **kwargs)
         
         
         with RioWrkr(rlay_ref_fp=dem_fp, session=self) as wrkr:
@@ -246,7 +246,7 @@ class ResampClassifier(RioWrkr):
         #=======================================================================
         # defautls
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cm',  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cm',  **kwargs)
         if downscale is None: downscale=self.downscale
         
         assert isinstance(downscale, int)
@@ -385,7 +385,7 @@ class ResampClassifier(RioWrkr):
         #=======================================================================
         # defautls
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cm',  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cm',  **kwargs)
         if downscale is None: downscale=self.downscale
         
         assert isinstance(downscale, int)
@@ -611,7 +611,7 @@ class ResampClassifierSession(ResampClassifier, Session):
         #=======================================================================
         if downscale is None: downscale=self.downscale
         start = datetime.datetime.now()
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dsc_%03i'%downscale,  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('dsc_%03i'%downscale,  **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
         
@@ -674,7 +674,7 @@ class ResampClassifierSession(ResampClassifier, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmask',  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cmask',  **kwargs)
         if downscale is None: downscale=self.downscale
  
         #=======================================================================
@@ -712,7 +712,7 @@ class ResampClassifierSession(ResampClassifier, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cmMosaic',  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cmMosaic',  **kwargs)
         res_ar = self.get_catMosaic(cm_d, cm_int_d=cm_int_d)
         
  

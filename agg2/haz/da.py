@@ -63,7 +63,7 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         
     def join_stats(self,fp_lib, **kwargs):
         """merge results from run_stats for different methodss and clean up the data"""
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('jstats',  subdir=False,ext='.xls', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('jstats',  subdir=False,ext='.xls', **kwargs)
         
         #=======================================================================
         # preckec

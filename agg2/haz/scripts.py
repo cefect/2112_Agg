@@ -81,7 +81,7 @@ class UpsampleChild(ResampClassifier, AggBase):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, _, layname, write = self._func_setup('direct',  **kwargs)
+        log, tmp_dir, out_dir, _, resname, write = self._func_setup('direct',  **kwargs)
         if downscale is None: downscale=self.downscale
         start = now()
         #=======================================================================
@@ -132,7 +132,7 @@ class UpsampleChild(ResampClassifier, AggBase):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, _, layname, write = self._func_setup('filter',  **kwargs)
+        log, tmp_dir, out_dir, _, resname, write = self._func_setup('filter',  **kwargs)
         if downscale is None: downscale=self.downscale
         start = now()
         """
@@ -410,7 +410,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         if bbox is None: bbox=self.bbox
         start = now()
         #if out_dir is None: out_dir=os.path.join(self.out_dir, method)
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('agg',  ext='.pkl', subdir=True, **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('agg',  ext='.pkl', subdir=True, **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write, bbox=bbox)
         
         log.info('for %i upscales using \'%s\' from \n    DEM:  %s\n    WSE:  %s'%(
@@ -488,7 +488,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('dscList',  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('dscList',  **kwargs)
         
         l = [1]
         for i in range(reso_iters-1):
@@ -517,7 +517,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # defaults
         #=======================================================================
         rawName = os.path.basename(raw_fp).replace('.tif', '')[:6]
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('crops%s'%rawName,  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('crops%s'%rawName,  **kwargs)
  
         
         assert isinstance(divisor, int)
@@ -619,7 +619,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # defaults
         #=======================================================================
         start = now()
-        log, tmp_dir, _, ofp, layname, write = self._func_setup('dsmp',  **kwargs)
+        log, tmp_dir, _, ofp, resname, write = self._func_setup('dsmp',  **kwargs)
         
         skwargs = dict(logger=log, write=write)
         
@@ -701,7 +701,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                  #cols = ['dem', 'wse', 'wd', 'catMosaic'],
                  **kwargs):
         """this really isnt working well... should find a different format"""
-        log, tmp_dir, out_dir, ofp, layname0, write = self._func_setup('vrt',  subdir=True, **kwargs)
+        log, tmp_dir, out_dir, ofp, resname0, write = self._func_setup('vrt',  subdir=True, **kwargs)
  
         """
         view(dxcol_raw)
@@ -709,7 +709,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         meta_df.columns
         """
         df = pd.read_pickle(pick_fp)
-        log.info('compiling \'%s\' vrt from %s'%(layname0, os.path.basename(pick_fp))) 
+        log.info('compiling \'%s\' vrt from %s'%(resname0, os.path.basename(pick_fp))) 
         res_d = dict()
         
         for layName, col in df.items():  
@@ -720,7 +720,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             
             
             try:
-                ofpi = self.build_vrts(fp_d,ofp = os.path.join(out_dir, '%s_%s_%i.vrt'%(layname0, layName,  len(fp_d))))
+                ofpi = self.build_vrts(fp_d,ofp = os.path.join(out_dir, '%s_%s_%i.vrt'%(resname0, layName,  len(fp_d))))
                 
                 log.info('    for \'%s\' compiled %i into a vrt: %s'%(layName, len(fp_d), os.path.basename(ofpi)))
                 
@@ -747,7 +747,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     def build_vrts(self,fp_d,ofp):
         """build vrts of the results for nice animations"""
  
-        #log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('b', subdir=False, **kwargs)
+        #log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('b', subdir=False, **kwargs)
  
         """
         help(gdal.BuildVRT)
@@ -884,7 +884,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # defaults
         #=======================================================================
         start = now()
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('cMasks',subdir=True, ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cMasks',subdir=True, ext='.pkl', **kwargs)
         
         dsmp_df = pd.read_pickle(pick_fp) #resuls from downsample
         
@@ -1001,7 +1001,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('stats',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('stats',  subdir=True,ext='.pkl', **kwargs)
  
         df, start = self._rstats_init(agg_fp, cm_fp, layName_l, log)
         
@@ -1087,7 +1087,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('statsF',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsF',  subdir=True,ext='.pkl', **kwargs)
  
         df, start = self._rstats_init(agg_fp, cm_fp, layName_l, log)
         
@@ -1320,7 +1320,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                   confusion=True,
                   **kwargs):
         
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('diffs',  subdir=True,ext='.pkl', **kwargs)
         start = now()
         
         layName_l = ['wse', 'wd']
@@ -1341,7 +1341,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             # run
             #===================================================================
             res_d[layName] = self.get_diffs(fp_d, out_dir=os.path.join(out_dir, layName),
-                                            layname=layName, logger=log.getChild(layName),
+                                            resname=layName, logger=log.getChild(layName),
                                             dry_val={'wse':-9999, 'wd':0.0}[layName],
                                             confusion=confusion)
             
@@ -1369,7 +1369,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         use xarray and parallelize the delta?
         """
         
-        log, tmp_dir, out_dir, _, layname, write = self._func_setup('g', subdir=False, ext='.pkl',write=write, **kwargs)
+        log, tmp_dir, out_dir, _, resname, write = self._func_setup('g', subdir=False, ext='.pkl',write=write, **kwargs)
 
         #=======================================================================
         # load
@@ -1460,7 +1460,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         
             if write:
                 res_d[scale] = self.write_array(res_ar, 
-                                                ofp=os.path.join(out_dir, '%s_diff_%03i.tif'%(layname, scale)), 
+                                                ofp=os.path.join(out_dir, '%s_diff_%03i.tif'%(resname, scale)), 
                                             logger=log.getChild(f'{scale}'), masked=True)
             else:
                 res_d[scale] = np.nan 
@@ -1511,7 +1511,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('diffStats',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('diffStats',  subdir=True,ext='.pkl', **kwargs)
         start = now()
         layName_l = ['wse', 'wd']
         
@@ -1629,7 +1629,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     
     def concat_stats(self, fp_d, **kwargs):
         """quick combining and writing of stat pickls"""
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('_smry',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('_smry',  subdir=True,ext='.pkl', **kwargs)
         
         #=======================================================================
         # concat all the picks
@@ -1647,7 +1647,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         log.info(f'wrote xls {str(dx.shape)} to \n    {ofp}')
         
         if write:
-            ofp1 = os.path.join(out_dir, f'{layname}_{len(dx)}_stats.xls')
+            ofp1 = os.path.join(out_dir, f'{resname}_{len(dx)}_stats.xls')
             with pd.ExcelWriter(ofp1) as writer:       
                 dx.to_excel(writer, sheet_name='stats', index=True, header=True)
                 
@@ -1656,7 +1656,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         return ofp
     
     def run_pTP(self, nc_fp,layName_l=['wse'], **kwargs):
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('pTP',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('pTP',  subdir=True,ext='.pkl', **kwargs)
         
         log.info('from %s'%nc_fp)
         with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto' ) as ds:
@@ -1670,7 +1670,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             # loop on each layer
             #===================================================================
             for layName in layName_l:
-                self.get_pTP(ds[layName], logger=log.getChild(layName), layname=layName, out_dir=out_dir)
+                self.get_pTP(ds[layName], logger=log.getChild(layName), resname=layName, out_dir=out_dir, write=write)
                 
     def get_pTP(self, xar,crs=None, **kwargs):
         """get the s1_expo_cnt/s2_expo_cnt fraction for each scale
@@ -1685,7 +1685,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # defautls
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('gpTP', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('gpTP', **kwargs)
         if crs is None: crs=self.crs
  
         #convert to boolean (True=exposed)
@@ -1737,11 +1737,11 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             # output
             #===================================================================
             if write:
-                ofpi = os.path.join(out_dir, f's12expoFrac_{layname}_{scale:03d}.tif')
-                #s12_expo_xar_s2.compute()
+                ofpi = os.path.join(out_dir, f's12expoFrac_{resname}_{scale:03d}.tif')
                 
                 s12_expo_xar_s2.rio.write_crs(crs, inplace=True)
                 
+                #append to the que
                 delay_ofp_l.append(
                     s12_expo_xar_s2.rio.to_raster(ofpi, compute=False, lock=None, crs=crs, nodata=-9999)
                     )

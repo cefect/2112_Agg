@@ -218,7 +218,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
                         **kwargs):
         """join resampClass to each asset (one column per resolution)"""
         
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('arsc',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('arsc',  subdir=True,ext='.pkl', **kwargs)
         
         if bbox is None: bbox=self.bbox
         start=now()
@@ -319,7 +319,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
                         **kwargs):
         """join grid values to each asset (one column per resolution)"""
         start=now()
-        log, tmp_dir, out_dir, ofp, layname, write = self._func_setup('lsamp_%s'%layName,  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('lsamp_%s'%layName,  subdir=True,ext='.pkl', **kwargs)
         
         if bbox is None: bbox=self.bbox
         if prec is None: prec=self.prec
@@ -399,7 +399,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         #=======================================================================
         if write:
             rdf.columns = rdf.columns.astype(str)
-            ofpi = os.path.join(out_dir, layname+'.gpkg')
+            ofpi = os.path.join(out_dir, resname+'.gpkg')
             gdf_raw.join(rdf.astype(np.float32)).to_file(ofpi, driver='GPKG', index=False, engine='fiona')
             
             log.info('wrote  to \n    %s'%(ofpi))
