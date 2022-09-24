@@ -2017,6 +2017,51 @@ class UpsampleSessionXR(UpsampleSession):
         
         return ofp
  
+
+    def _cm_stat_calc(self, cm_ds, lay_ds, func, agg_kwargs={}):
+        
+        
+        d = dict()
+        def add_calc(name, ds_i):
+            stat_d = func(ds_i, agg_kwargs=agg_kwargs)
+            d[name] = xr.concat(stat_d.values(), pd.Index(stat_d.keys(), name='metric', dtype=str))
+                
+        #===============================================================
+        # full
+        #===============================================================
+        add_calc('full', lay_ds)
+        #===============================================================
+        # loop on each catmask
+        #===============================================================
+        for dsc, dsc_int in self.cm_int_d.items():
+            """NOTE: this computes against the full stack.. 
+    
+            but the scale=1 values dont have a CatMask"""
+            # get this boolean
+            mask_ds = cm_ds == dsc_int
+            # mask the data
+            lay_mask_ds = lay_ds.where(mask_ds, other=np.nan) # .plot(col='scale')
+            # compute the stats
+            add_calc(dsc, lay_mask_ds)
+
+ 
+        return xr.concat(d.values(), pd.Index(d.keys(), name='dsc', dtype=str))
+    
+        """ 
+            ds1['catMask'].plot(col='scale')            
+        
+            mask_ds.sum(**agg_kwargs).values #catmask values            
+        
+            #real values per scale
+        
+            np.invert(np.isnan(lay_mask_ds)).sum(**agg_kwargs).values 
+        
+            
+        
+            d[dsc].values #rows:metrics, cols:scales
+        
+            """
+
     def run_statsXR(self, ds, 
                     base='s2', 
                     **kwargs):
@@ -2052,7 +2097,7 @@ class UpsampleSessionXR(UpsampleSession):
             #===============================================================
             # setup
             #===============================================================
-            d = dict()
+            
             
             if base=='s2':
                 lay_ds = ds1[layName]
@@ -2062,51 +2107,13 @@ class UpsampleSessionXR(UpsampleSession):
                 dx_d = {k:base_dxr for k in scale_l}
                 lay_ds = xr.concat(dx_d.values(), pd.Index(dx_d.keys(), name=idxn, dtype=int))
                 
+            #===================================================================
+            # compute the stat on the masks
+            #===================================================================
+            res_d[layName] = self._cm_stat_calc(ds1['catMask'], lay_ds, func, agg_kwargs=agg_kwargs)
             
-            def add_calc(name, ds_i):
-                stat_d = func(ds_i, agg_kwargs=agg_kwargs)
-                d[name] = xr.concat(stat_d.values(), pd.Index(stat_d.keys(), name='metric', dtype=str))
-            
-            #===============================================================
-            # full
-            #===============================================================
-            add_calc('full', lay_ds)
-            
-            #===============================================================
-            # loop on each catmask
-            #=============================================================== 
-            for dsc, dsc_int in self.cm_int_d.items():
-                """NOTE: this computes against the full stack.. 
-                but the scale=1 values dont have a CatMask"""
-                                    
-                # get this boolean
-                mask_ds = ds1['catMask'] == dsc_int
-            
-                # mask the data 
-                lay_mask_ds = lay_ds.where(mask_ds, other=np.nan)  # .plot(col='scale')
-            
-                # compute the stats
-                add_calc(dsc, lay_mask_ds)
-                
-                """
-                
-                ds1['catMask'].plot(col='scale')
-                
-                mask_ds.sum(**agg_kwargs).values #catmask values
-                
-                #real values per scale
-                np.invert(np.isnan(lay_mask_ds)).sum(**agg_kwargs).values 
-                
-                d[dsc].values #rows:metrics, cols:scales
-                """
-                
-                    
-            #===============================================================
-            # #wrap layer
-            #===============================================================
-            log.info(f'finished {layName} w/ {len(d)}')
-            
-            res_d[layName] = xr.concat(d.values(), pd.Index(d.keys(), name='dsc', dtype=str))
+            log.info(f'finished {layName} w/ {len(res_d[layName])}')
+ 
             
         #===================================================================
         # wrap
@@ -2144,11 +2151,71 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         start = now()
         idxn=self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsXR',  subdir=False,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('tpXR',  subdir=False,ext='.pkl', **kwargs)
         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
-
+        scale_l = ds[idxn].values.tolist()
+        
+        lay_ds = ds['wse'].reset_coords(names='spatial_ref', drop=True) 
+        
+        base_xar = lay_ds.isel(scale=0)
+        
+        #=======================================================================
+        # loop and compute exposures on each
+        #=======================================================================
+        for i, scale in enumerate(scale_l):
+            if i==0:continue
+            log.info(f'    {i+1}/{len(scale_l)}')
+            
+            #===================================================================
+            # compute the fine exposures (at s2)
+            #===================================================================
+            s1_expo_xar_s2 = base_xar.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').sum()
+            
+            #update the scal
+            def clean(xar): 
+                xar = xar.reset_coords(names=['scale'], drop=True)
+                xar.attrs['scale'] = scale
+                return xar
+            
+            s1_expo_xar_s2 = clean(s1_expo_xar_s2)
+            
+            assert (base_xar.shape[1]//scale, base_xar.shape[2]//scale) ==s1_expo_xar_s2.shape[1:]
+            
+            #===================================================================
+            #retrieve coarse exposures
+            #===================================================================
+            #decimate and scale
+            s2_expo_xar_s2 = clean(lay_ds.sel(scale=scale).coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2))
+            
+            """
+            s1_expo_xar_s2.plot()
+            s2_expo_xar_s2.plot()
+            s12_expo_xar_s2.plot()
+            """
+ 
+            #===================================================================
+            # compute ratio
+            #===================================================================
+            s12_expo_xar_s2 = s1_expo_xar_s2/s2_expo_xar_s2
+            
+            
             
 def get_pixel_info(ds):
     return {'pixelArea':ds.res[0]*ds.res[1], 'pixelLength':ds.res[0]}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
     
