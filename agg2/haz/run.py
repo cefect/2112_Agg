@@ -3,12 +3,21 @@ Created on Aug. 28, 2022
 
 @author: cefect
 '''
-import os, pathlib, pprint
+import os, pathlib, pprint, webbrowser
 from definitions import proj_lib
-from hp.basic import get_dict_str, now
+from hp.basic import get_dict_str, now, today_str
 import shapely.geometry as sgeo
+import numpy as np
 import pandas as pd
 idx = pd.IndexSlice
+from dask.distributed import Client
+from rasterio.crs import CRS
+import xarray as xr
+import rioxarray
+from dask.diagnostics import ProgressBar 
+import dask
+
+from hp.pd import view
 
 
 res_fp_lib = {'r9':
@@ -23,7 +32,19 @@ res_fp_lib = {'r9':
                     'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
                     'diffs': r'C:\LS\10_IO\2112_Agg\outs\agg2\r9\SJ\filter\20220922\diffs\SJ_r9_filter_0922_diffs.pkl',
                     'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\cMasks\\SJ_r9_filter_0921_cMasks.pkl'
-                }}}
+                }},
+            'r10':
+              {
+                'direct':{  
+                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
+ 
+                    },
+                'filter':{  
+                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
+ 
+                }
+                
+                }}
         
 
 def run_haz_agg2(method='direct',
@@ -41,7 +62,7 @@ def run_haz_agg2(method='direct',
  
     
 
-    from rasterio.crs import CRS
+    
     
     #===========================================================================
     # extract parametesr
@@ -72,33 +93,45 @@ def run_haz_agg2(method='direct',
         #pre-processed base rasters
         base_fp_d = pd.read_pickle(fp_d['agg']).iloc[0, :].to_dict()
         
-        if not 'catMasks' in fp_d:            
-            fp_d['catMasks'] = ses.run_catMasks(base_fp_d['dem'], base_fp_d['wse'])            
-            ses._clear()
-            
  
         if not 'aggXR' in fp_d:
             fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
+            
+            
+            
+        #=======================================================================
+        # build difference grids
+        #=======================================================================
+        #=======================================================================
+        # if not 'diffs' in fp_d:
+        #     fp_d['diffs'] = ses.run_diffs(fp_d['agg'])
+        #     ses._clear()
+        #=======================================================================
+        if not 'diffXR' in fp_d:
+            fp_d['diffXR'] = ses.run_diffsXR(fp_d['aggXR'])
+            
+            
+        #=======================================================================
+        # category masks
+        #=======================================================================
+        if not ('catMasks' in fp_d) or not ('cmXR' in fp_d):            
+            fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasks(base_fp_d['dem'], base_fp_d['wse'], write_tif=False)            
+            ses._clear()
+            
+            
+
  
- 
+        
+        if not 'XR' in fp_d:
+            fp_d['XR'] = ses.run_merge_XR([fp_d[k] for k in ['diffXR', 'cmXR', 'aggXR']]) 
+            
+        return 
         #=======================================================================
         # prob of TP per cell
         #=======================================================================
         #ses.run_pTP(fp_d['aggXR'], fp_d['catMasks'], write=False)
  
-        #=======================================================================
-        # build difference grids
-        #=======================================================================
-        if not 'diffs' in fp_d:
-            fp_d['diffs'] = ses.run_diffs(fp_d['agg'])
-            ses._clear()
-           
-        #=======================================================================
-        # category masks
-        #=======================================================================
-
-            
-        
+ 
         #=======================================================================
         # assemble vrts
         #=======================================================================
@@ -135,7 +168,47 @@ def run_haz_agg2(method='direct',
 
     return fp_d, stat_d
 
+def run_haz_stats(xr_fp,
+                  proj_d=None,
+                  case_name='SJ',
+                 **kwargs):
+    """hazard/raster stat compute from xarray"""
  
+    
+    #===========================================================================
+    # extract parametesr
+    #===========================================================================
+    #project data   
+    if proj_d is None: 
+        proj_d = proj_lib[case_name] 
+ 
+    crs = CRS.from_epsg(proj_d['EPSG'])
+    
+    
+    
+    #===========================================================================
+    # run model
+    #===========================================================================
+    from agg2.haz.scripts import UpsampleSession as Session
+    
+    out_dir = os.path.join(
+            pathlib.Path(os.path.dirname(xr_fp)).parents[3],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+                    'hstats', today_str)
+    #execute
+    with Session(case_name=case_name,crs=crs, nodata=-9999, out_dir=out_dir, **kwargs) as ses: 
+        log = ses.logger
+        
+        ses.run_statsXR(xr_fp)
+        
+ 
+            
+            
+        
+        
+        
+        
+        
+        
 def build_vrt(pick_fp = None,**kwargs):
     
     from agg2.haz.scripts import UpsampleSession as Session
@@ -185,7 +258,7 @@ def build_vrt(pick_fp = None,**kwargs):
 
 
 
-def SJ_r9_0921(run_name='r9',method='direct',**kwargs):
+def SJ_run(run_name='r9',method='direct',**kwargs):
     return run_haz_agg2(case_name='SJ', fp_d = res_fp_lib[run_name][method], method=method, run_name=run_name, **kwargs)
 
 
@@ -197,14 +270,24 @@ def SJ_dev(run_name='t',method='direct',**kwargs):
 
 if __name__ == "__main__": 
     start = now()
- 
-    SJ_dev()
     #===========================================================================
-    # SJ_r9_0921(method='direct',
-    #             #dsc_l=[1,  2**7],
-    #             #run_name='t'
+    # with Client(threads_per_worker=4, n_workers=1) as client:
+    #     
+    #     print(f' running dask client {client.dashboard_link}')
+    #     #webbrowser.open(client.dashboard_link)
+    #===========================================================================
+        
+    #===========================================================================
+    # SJ_dev()
+    # SJ_run(method='direct',
+    #             #dsc_l=[1,2**5,  2**7],
+    #             run_name='r10'
     #            )
     #===========================================================================
+    
+    run_haz_stats(
+        r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220924\mXR\SJ_t_direct_0924_mXR.nc'
+        )
  
  
     print('finished in %.2f'%((now()-start).total_seconds())) 

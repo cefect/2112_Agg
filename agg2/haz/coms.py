@@ -10,6 +10,7 @@ import numpy as np
 import numpy.ma as ma
 import pandas as pd
 from agg2.coms import cm_int_d
+import xarray as xr
 
 #===============================================================================
 # globals
@@ -140,7 +141,18 @@ def assert_dx_names(dx, msg=''):
     
     #dx.columns.get_level_values(''
     
+def assert_xda(xda, msg=''):
+    """index name expectations"""
+    if not __debug__: # true if Python was not started with an -O option
+        return
+ 
+    __tracebackhide__ = True
     
+    assert isinstance(xda, xr.DataArray)
+    
+    #assert np.isnan(xda.values).any()
+    assert len(xda.values.shape)==4 #scale, band, x, y
+    assert xda.dims==('scale', 'band', 'y', 'x')
     
     
     

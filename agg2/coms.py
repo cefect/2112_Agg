@@ -60,6 +60,7 @@ class Agg2Session(Session):
                          **kwargs)
         
         self.scen_name=scen_name
+        self.case_name=case_name
 
         
 

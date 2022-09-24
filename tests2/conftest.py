@@ -21,7 +21,7 @@ from agg2.haz.coms import cm_int_d
 """need something that is cleanly divisible, 
 but still manageable at resolution=1
 """
-bbox_base = sgeo.box(0, 0, 2**4, 2**4)
+bbox_base = sgeo.box(0, 0, 2**3, 2**4)
 shape_base = tuple(map(int, (bbox_base.bounds[2], bbox_base.bounds[3])))
 #bbox_base = sgeo.box(0, 0, 100, 100)
 crs=CRS.from_user_input(2953)

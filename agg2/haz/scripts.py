@@ -24,14 +24,14 @@ import dask
  
 
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
-    assert_ds_attribute_match
+    assert_ds_attribute_match, get_xy_coords
 from hp.basic import get_dict_str
 from hp.pd import view, append_levels
 from hp.sklearn import get_confusion
 
 from agg2.coms import Agg2Session, AggBase
 from agg2.haz.rsc.scripts import ResampClassifier
-from agg2.haz.coms import assert_dem_ar, assert_wse_ar, assert_dx_names, index_names, coldx_d
+from agg2.haz.coms import assert_dem_ar, assert_wse_ar, assert_dx_names, index_names, coldx_d, assert_xda
 idx= pd.IndexSlice
 
 #from skimage.transform import downscale_local_mean
@@ -274,6 +274,28 @@ class RasterArrayStats(AggBase):
         
         assert_wse_ar(mar, masked=True)
         return {'mean': mar.mean()}
+    
+    def _get_wse_statsXR(self, xda,
+                         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True),
+                         ):
+        
+        #check expectations
+        assert_xda(xda)        
+        assert np.isnan(xda.values).any()
+ 
+        
+        return {            
+            'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
+            'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
+                }
+    
+    """
+    xda.mean(dim=self.idxn).values.shape
+    xda.mean().values
+    np.isnan(xda.values).all()
+    xda.notna()
+    xda.mean(dim=('band', 'y', 'x'), skipna=False).values
+    """
  
     
 
@@ -297,6 +319,20 @@ class RasterArrayStats(AggBase):
         res_d['vol'] = mar.sum() * pixelArea
         
         return res_d
+    
+    def _get_wd_statsXR(self, xda,
+                         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True),
+                         ):
+        
+        #check expectations
+        assert_xda(xda)
+        
+        return {
+            
+            'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
+            'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
+            'sum':xda.sum(**agg_kwargs)
+                }
 
     def _get_depth_stats_dask(self, mar, pixelArea=None):
  
@@ -342,6 +378,22 @@ class RasterArrayStats(AggBase):
         res_d['meanAbsErr'] = np.abs(ar).sum() / rcnt
         res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
         return res_d
+    
+    def _get_diff_statsXR(self, xda,
+                         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True),
+                         ):
+        
+        #check expectations
+        assert_xda(xda) 
+        
+        return {            
+            'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
+            'mean_abs':np.abs(xda).mean(**agg_kwargs), #compute mean for each scale 
+            'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
+            'RMSE':np.sqrt(
+                np.square(xda).sum(**agg_kwargs)
+                )
+                }
     
     def _get_diff_stats_dask(self, ar, **kwargs):
         """compute stats on difference grids.
@@ -768,7 +820,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     
     
     def build_downscaled_aggXR(self, fp_df, 
-                                    layName_l=['wse'], **kwargs):
+                                    layName_l=['wse', 'wd'], **kwargs):
         """compile an aggregated stack (downsampled) into an xarray
         
         seems to be only 1 cpu and maxing out the memory
@@ -798,6 +850,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                     with rio.open(fp, model='r') as ds:
                         base_shape = ds.shape
                         base_res = ds.res[0]
+                        crs = ds.crs
                         
                     rio_open_kwargs = dict(shape=base_shape, resampling=Resampling.nearest)
      
@@ -846,6 +899,10 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         log.info('converting %i to dataset'%cnt)
         xds_res = xr.Dataset(res_lib)
         
+        xds_res.rio.write_crs(crs.to_string(), inplace=True).rio.write_coordinate_system(inplace=True)
+        
+        assert xds_res.rio.crs==crs
+        
         #add metadata
         for attn in ['today_str', 'run_name', 'proj_name']:
             xds_res.attrs[attn] = getattr(self, attn)
@@ -867,13 +924,54 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                  f'\n    {ofp}')
         
         return ofp
+    
+    def run_merge_XR(self, fp_l, **kwargs):
+        """merge the catMosaic and layer datasets"""
+        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('mXR',subdir=True, ext='.nc', **kwargs)
+        idxn = self.idxn
+        start = now()
+        assert isinstance(fp_l, list)
+        
+        log.info(f'opening and combining {len(fp_l)}\n' + '\n    '.join(fp_l))
+        
+        """
+        xr.open_dataset(fp1)
+        xr.open_dataset(fp2)
+        """
+        
+        with xr.open_mfdataset(fp_l, parallel=True,  engine='netcdf4',
+                               data_vars='minimal', coords=idxn, combine="by_coords",
+                               decode_coords="all",
+                               ) as ds:
+            
+            log.info(f'loaded {ds.dims}'+
+                 f'\n    coors: {list(ds.coords)}'+
+                 f'\n    data_vars: {list(ds.data_vars)}'+
+                 f'\n    crs:{ds.rio.crs}'
+                 )
+            
+            for attn in ['today_str', 'run_name', 'proj_name', 'case_name', 'scen_name']:
+                ds.attrs[attn] = getattr(self, attn)
+                
+            ds.attrs['fname'] = 'run_merge_XR'
+ 
+            o = ds.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
+        
+            with ProgressBar():
+                _ = o.compute()
+                
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info(f'wrote {len(fp_l)} to file in {(now()-start).total_seconds():.2f}\n    {ofp}')
+        return ofp
             
     
     #===========================================================================
     # CASE MASKS---------
     #===========================================================================
     def run_catMasks(self, dem_fp, wse_fp,dsc_l=None,
- 
+                     write_tif=False,
                     **kwargs):
         """build the dsmp cat mask for each reso iter
         
@@ -907,6 +1005,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp)
         rtransform = dem_ds.transform
         rshape = dem_ds.shape
+        
+        log.info(f'')
         dem_ds.close() 
         
         #dem_ar = load_array(dem_ds, masked=True)        
@@ -924,7 +1024,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # build for each
         #=======================================================================
-        log.info(f'on {len(dsc_l)-1} from a base shape of {rshape}')
+        log.info(f'on {len(dsc_l)-1} from a base shape of {rshape} height: {dem_ds.height} width: {dem_ds.width}')
         res_d=dict()
         meta_lib = dict()
         ofp_d = dict()
@@ -965,12 +1065,18 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             # write
             #===================================================================
             #new transform
-            transform_i = rtransform * rtransform.scale(
-                            (rshape[-1] / cm_ar.shape[-1]),
-                            (rshape[-2] / cm_ar.shape[-2])
-                        )
+ 
+            
+            transform_i = rtransform * rtransform.scale(scale)
+            
+            #===================================================================
+            # transform_i = dem_ds.transform * dem_ds.transform.scale(
+            #                     (dem_ds.width / cm_ar.shape[-1]),
+            #                     (dem_ds.height / cm_ar.shape[-2])
+            #                 )
+            #===================================================================
                 
-            if write:                        
+            if write_tif:                        
                 ofp_d[scale] = self.write_array(cm_ar, logger=log,ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%scale), transform=transform_i)
                 
             #===================================================================
@@ -980,14 +1086,17 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #xarray from geotiff
             xda_test = rioxarray.open_rasterio(ofp_d[scale],masked=True)
             xda_test['x'].values
+ 
             """
+ 
             
             #calculate the sptial dimensions
-            xs, ys = rio.transform.xy(transform_i, np.arange(cm_ar.shape[0]), np.arange(cm_ar.shape[1]))             
+            x_ar, y_ar = get_xy_coords(transform_i, cm_ar.shape)
+ 
             
             #build a RasterArray
             xda = xr.DataArray(np.array([cm_ar]), 
-                               coords={'band':[1],  'y':ys, 'x':xs} #order is important
+                               coords={'band':[1],  'y':y_ar, 'x':x_ar} #order is important
                                #coords = [[1],  ys, xs,], dims=["band",  'y', 'x']
                                #).rio.write_transform(transform_i
                                ).rio.write_nodata(dem_xda.rio.nodata, inplace=True
@@ -999,20 +1108,21 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #downscale to match the raw
             res_d[scale] = xda.rio.reproject_match(dem_xda, resampling=Resampling.nearest) 
                         
-        log.info('finished building %i dsc mask mosaics'%len(res_d))
+        log.info('finished building %i dsc mask mosaics. writing to \n    %s'%(len(res_d), ofp))
         
         #=======================================================================
         # concat
         #=======================================================================
         xda_cat = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='scale', dtype=int))
-        xds_res = xr.Dataset({'catMask':xda_cat})
+        xds_res = xr.Dataset({'catMask':xda_cat}).rio.set_crs(dem_xda.rio.crs, inplace=True)
         
         """    
         xda_cat.plot(col='scale')
         """
-        
+        o = xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
         with ProgressBar():
-            xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=True)
+            o.compute()
+            
         
         #=======================================================================
         # #assemble meta
@@ -1022,7 +1132,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #just the sum
         meta_df = dx.loc[idx[:, 'sum'], :].droplevel(1).astype(int).rename_axis(idxn)
 
-        meta_df = meta_df.join(pd.Series(ofp_d).rename('fp'), on=idxn)
+        meta_df = meta_df.join(pd.Series(ofp_d, dtype=str).rename('fp'), on=idxn)
             
         #=======================================================================
         # write meta
@@ -1037,6 +1147,118 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     # STATS-------
     #===========================================================================
+    def run_statsXR(self, xr_fp, **kwargs):
+        """compute stats from the xarray stack"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        start = now()
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsXR',  subdir=False,ext='.pkl', **kwargs)
+        agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True)
+        
+        #=======================================================================
+        # open and calc
+        #=======================================================================        
+        with xr.open_dataset(xr_fp, engine='netcdf4',chunks='auto', decode_coords="all") as ds:
+            assert ds.rio.crs ==self.crs
+            scale_l = ds[self.idxn].values.tolist()
+            log.info(f'loaded {ds.dims} from {os.path.basename(xr_fp)}'+
+                 f'\n    coors: {list(ds.coords)}'+
+                 f'\n    data_vars: {list(ds.data_vars)}'+
+                 f'\n    crs:{ds.rio.crs}'+
+                 f'\n    scales:{scale_l}'
+                 )
+            
+            
+            
+            #remove spatial data
+            
+            ds1 = ds.reset_coords(names='spatial_ref', drop=True) 
+            #===================================================================
+            # loop on each layer
+            #===================================================================
+            res_d = dict()
+            for layName, func in {
+                'wse':self._get_wse_statsXR,
+                'wd':self._get_wd_statsXR,
+                'wse_diff':self._get_diff_statsXR,
+                'wd_diff':self._get_diff_statsXR,
+                }.items():
+                #===============================================================
+                # setup
+                #===============================================================
+                d = dict()
+                lay_ds = ds1[layName]
+                
+                def add_calc(name, ds_i):
+                    stat_d = func(ds_i, agg_kwargs=agg_kwargs)
+                    d[name] = xr.concat(stat_d.values(), pd.Index(stat_d.keys(), name='metric', dtype=str))
+                
+                #===============================================================
+                # full
+                #===============================================================
+                add_calc('full', lay_ds)
+                
+                #===============================================================
+                # loop on each catmask
+                #===============================================================
+                
+ 
+                for dsc, dsc_int in self.cm_int_d.items():
+                    """NOTE: this computes against the full stack.. 
+                    but the scale=1 values dont have a CatMask"""
+                                        
+                    #get this boolean
+                    mask_ds = ds1['catMask']==dsc_int
+     
+                    #mask the data 
+                    lay_mask_ds = lay_ds.where(mask_ds, other=np.nan) #.plot(col='scale')
+ 
+                    #compute the stats
+                    add_calc(dsc, lay_mask_ds)
+                    
+                    """
+                    mask_ds.sum(**agg_kwargs).values #catmask values
+                    
+                    #real values per scale
+                    np.invert(np.isnan(lay_mask_ds)).sum(**agg_kwargs).values 
+                    
+                    d[dsc].values #rows:metrics, cols:scales
+                    """
+ 
+                    
+                #===============================================================
+                # #wrap layer
+                #===============================================================
+                log.info(f'finished {layName} w/ {len(d)}')
+                
+                res_d[layName] = xr.concat(d.values(), pd.Index(d.keys(), name='dsc', dtype=str))
+            
+            #===================================================================
+            # wrap
+            #===================================================================
+            res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='layer', dtype=str))
+                
+            with ProgressBar():
+                res_dxr.compute()
+                
+            #get a frame
+            res_dx = res_dxr.to_dataframe()
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        #clean up a bit
+        res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1)
+        """
+        view(res_dx1)
+        """
+        
+        
+        res_dx1.to_pickle(ofp)
+        
+        log.info(f'finished and wrote {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
+        
+        return ofp
  
     def run_stats(self, agg_fp, cm_fp,
  
@@ -1365,6 +1587,67 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     # ERRORS-------
     #===========================================================================
+    def run_diffsXR(self,
+                  nc_fp,
+ 
+                  crs=None,
+                  **kwargs):
+        
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('diffsXR',  subdir=True,ext='.nc', **kwargs)
+        start = now()
+        idxn = self.idxn
+        crs=self.crs
+        #=======================================================================
+        # open the dataset from disk
+        #=======================================================================
+        with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto', decode_coords="all") as xds:
+            scale_l = xds['scale'].values.tolist()
+            log.info(f'loaded w/ \n    data_vars:{list(xds.keys())}\n    scales:{scale_l} \n    {nc_fp}')
+            
+            assert xds.rio.crs==crs
+            #===================================================================
+            # loop and compute delta for each
+            #===================================================================
+            res_d = dict()
+            for i, scale in enumerate(scale_l):
+                log.info(f'    {i+1}/{len(scale_l)} scale={scale}')
+                
+                #compute the difference
+                xds1 = xds.isel(scale=i) - xds.isel(scale=0)                
+                
+                if idxn in xds1.coords:
+                    xds1 = xds1.reset_coords(names=idxn, drop=True)
+                
+                res_d[scale] = xds1
+                
+            #===================================================================
+            # merge
+            #===================================================================
+ 
+            """these are datasets"""
+            res_xds = xr.concat(res_d.values(),pd.Index(res_d.keys(), name=idxn, dtype=int)
+                                ).rename({k:f'{k}_diff' for k in xds1.data_vars})
+                                
+            #===================================================================
+            # write
+            #===================================================================
+            log.info(f'writing {list(res_xds.keys())} to \n    {ofp}')
+            o = res_xds.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)        
+            with ProgressBar():
+                _ = o.compute()
+                
+        log.info(f'finished in {(now()-start).total_seconds()}')
+        
+        return ofp
+                
+        
+            
+            
+ 
+            
+ 
+        
+        
     def run_diffs(self,
                   pick_fp,
                   confusion=True,
@@ -1722,7 +2005,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         # execute on the dataset
         #=======================================================================
         log.info('from %s'%nc_fp)
-        with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto' ) as ds:
+        with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto' ,decode_coords="all") as ds:
  
             log.info(f'loaded dims {list(ds.dims)}'+
                      f'\n    {list(ds.coords)}'+
