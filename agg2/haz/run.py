@@ -189,7 +189,7 @@ def run_haz_stats(xr_fp,
     #===========================================================================
     # run model
     #===========================================================================
-    from agg2.haz.scripts import UpsampleSession as Session
+    from agg2.haz.scripts import UpsampleSessionXR as Session
     
     out_dir = os.path.join(
             pathlib.Path(os.path.dirname(xr_fp)).parents[3],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
@@ -198,7 +198,16 @@ def run_haz_stats(xr_fp,
     with Session(case_name=case_name,crs=crs, nodata=-9999, out_dir=out_dir, **kwargs) as ses: 
         log = ses.logger
         
-        ses.run_statsXR(xr_fp)
+        d = dict()
+        for base in ['s2', 's1']:
+            d[base] = ses.run_statsXR(xr_fp, base=base, logger=log.getChild(base))
+        
+        rdx = pd.concat(d, axis=1, names=['base'])
+        
+        ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
+        rdx.to_pickle(ofp)
+        
+        log.info(f'wrote {str(rdx.shape)} to \n    {ofp}')
         
  
             
@@ -277,8 +286,7 @@ if __name__ == "__main__":
     #     #webbrowser.open(client.dashboard_link)
     #===========================================================================
         
-    #===========================================================================
-    # SJ_dev()
+    #SJ_dev()
     # SJ_run(method='direct',
     #             #dsc_l=[1,2**5,  2**7],
     #             run_name='r10'

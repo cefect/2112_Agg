@@ -1956,12 +1956,15 @@ class UpsampleSessionXR(UpsampleSession):
         log.info(f'wrote {len(fp_l)} to file in {(now()-start).total_seconds():.2f}\n    {ofp}')
         return ofp
             
-    def run_statsXR(self, xr_fp, **kwargs):
+    def run_statsXR(self, xr_fp, 
+                    base='s2', 
+                    **kwargs):
         """compute stats from the xarray stack"""
         #=======================================================================
         # defaults
         #=======================================================================
         start = now()
+        idxn=self.idxn
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsXR',  subdir=False,ext='.pkl', **kwargs)
         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True)
         
@@ -1969,18 +1972,16 @@ class UpsampleSessionXR(UpsampleSession):
         # open and calc
         #=======================================================================        
         with xr.open_dataset(xr_fp, engine='netcdf4',chunks='auto', decode_coords="all") as ds:
-            assert ds.rio.crs ==self.crs
+            assert ds.rio.crs == self.crs
             scale_l = ds[self.idxn].values.tolist()
-            log.info(f'loaded {ds.dims} from {os.path.basename(xr_fp)}'+
-                 f'\n    coors: {list(ds.coords)}'+
-                 f'\n    data_vars: {list(ds.data_vars)}'+
-                 f'\n    crs:{ds.rio.crs}'+
+            log.info(f'loaded {ds.dims} from {os.path.basename(xr_fp)}' + 
+                 f'\n    coors: {list(ds.coords)}' + 
+                 f'\n    data_vars: {list(ds.data_vars)}' + 
+                 f'\n    crs:{ds.rio.crs}' + 
                  f'\n    scales:{scale_l}'
                  )
             
-            
-            
-            #remove spatial data
+            # remove spatial data
             
             ds1 = ds.reset_coords(names='spatial_ref', drop=True) 
             #===================================================================
@@ -1993,11 +1994,23 @@ class UpsampleSessionXR(UpsampleSession):
                 'wse_diff':self._get_diff_statsXR,
                 'wd_diff':self._get_diff_statsXR,
                 }.items():
+                
+                #skips
+                if base=='s1':
+                    if not layName in ['wse', 'wd']:continue
                 #===============================================================
                 # setup
                 #===============================================================
                 d = dict()
-                lay_ds = ds1[layName]
+                
+                if base=='s2':
+                    lay_ds = ds1[layName]
+                else:
+                    #replace the raw onto all scales to match the syntax
+                    base_dxr = ds1[layName].isel(scale=0).reset_coords(names=idxn, drop=True)
+                    dx_d = {k:base_dxr for k in scale_l}
+                    lay_ds = xr.concat(dx_d.values(), pd.Index(dx_d.keys(), name=idxn, dtype=int))
+                    
                 
                 def add_calc(name, ds_i):
                     stat_d = func(ds_i, agg_kwargs=agg_kwargs)
@@ -2010,23 +2023,24 @@ class UpsampleSessionXR(UpsampleSession):
                 
                 #===============================================================
                 # loop on each catmask
-                #===============================================================
-                
- 
+                #=============================================================== 
                 for dsc, dsc_int in self.cm_int_d.items():
                     """NOTE: this computes against the full stack.. 
                     but the scale=1 values dont have a CatMask"""
                                         
-                    #get this boolean
-                    mask_ds = ds1['catMask']==dsc_int
+                    # get this boolean
+                    mask_ds = ds1['catMask'] == dsc_int
      
-                    #mask the data 
-                    lay_mask_ds = lay_ds.where(mask_ds, other=np.nan) #.plot(col='scale')
+                    # mask the data 
+                    lay_mask_ds = lay_ds.where(mask_ds, other=np.nan)  # .plot(col='scale')
  
-                    #compute the stats
+                    # compute the stats
                     add_calc(dsc, lay_mask_ds)
                     
                     """
+                    
+                    ds1['catMask'].plot(col='scale')
+                    
                     mask_ds.sum(**agg_kwargs).values #catmask values
                     
                     #real values per scale
@@ -2034,7 +2048,7 @@ class UpsampleSessionXR(UpsampleSession):
                     
                     d[dsc].values #rows:metrics, cols:scales
                     """
- 
+                
                     
                 #===============================================================
                 # #wrap layer
@@ -2056,21 +2070,21 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         # wrap
         #=======================================================================
-        #clean up a bit
+        # clean up a bit
         res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1)
         """
         view(res_dx1)
         """
+        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f}')
+        #=======================================================================
+        # res_dx1.to_pickle(ofp)
+        # 
+        # log.info(f'finished and wrote {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
+        #=======================================================================
         
-        
-        res_dx1.to_pickle(ofp)
-        
-        log.info(f'finished and wrote {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
-        
-        return ofp
+        return res_dx1
+    
  
- 
-        
     def run_diffsXR(self,
                   nc_fp,
  
@@ -2092,12 +2106,13 @@ class UpsampleSessionXR(UpsampleSession):
             #===================================================================
             # loop and compute delta for each
             #===================================================================
+            base_xds = xds.isel(scale=0)
             res_d = dict()
             for i, scale in enumerate(scale_l):
                 log.info(f'    {i+1}/{len(scale_l)} scale={scale}')
                 
-                #compute the difference
-                xds1 = xds.isel(scale=i) - xds.isel(scale=0)                
+                #compute the difference (with the base mask
+                xds1 = xds.isel(scale=i).where(np.invert(np.isnan(base_xds))) - base_xds                
                 
                 if idxn in xds1.coords:
                     xds1 = xds1.reset_coords(names=idxn, drop=True)
@@ -2111,6 +2126,10 @@ class UpsampleSessionXR(UpsampleSession):
             """these are datasets"""
             res_xds = xr.concat(res_d.values(),pd.Index(res_d.keys(), name=idxn, dtype=int)
                                 ).rename({k:f'{k}_diff' for k in xds1.data_vars})
+                                
+            """
+            res_xds['wse_diff'].plot(col='scale')
+            """
                                 
             #===================================================================
             # write
