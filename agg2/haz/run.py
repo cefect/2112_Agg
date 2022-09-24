@@ -57,7 +57,7 @@ def run_haz_agg2(method='direct',
     #===========================================================================
     from agg2.haz.scripts import UpsampleSession as Session    
     #execute
-    with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, **kwargs) as ses:
+    with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, dsc_l=dsc_l, **kwargs) as ses:
         stat_d = dict()
         log = ses.logger
         #=======================================================================
@@ -65,7 +65,7 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         """todo: add something similar for the layers"""
         if not 'agg' in fp_d:
-            fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l)
+            fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method)
             ses._clear()
             
         
@@ -84,8 +84,8 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # prob of TP per cell
         #=======================================================================
-        ses.run_pTP(fp_d['aggXR'], write=False)
-        return
+        #ses.run_pTP(fp_d['aggXR'], fp_d['catMasks'], write=False)
+ 
         #=======================================================================
         # build difference grids
         #=======================================================================
@@ -102,7 +102,8 @@ def run_haz_agg2(method='direct',
         #=======================================================================
         # assemble vrts
         #=======================================================================
-        for k, v in fp_d.items(): 
+        for k, v in fp_d.items():
+            if not v.endswith('.pkl'): continue 
             vrt_d = ses.run_vrts(v, resname=k, logger=log.getChild(k))  
  
             
@@ -119,7 +120,7 @@ def run_haz_agg2(method='direct',
         if 'diffs' in fp_d:
             stat_d['diffs'] =ses.run_diff_stats(fp_d['diffs'], fp_d['catMasks'])
         
-        ses.concat_stats(stat_d)
+        ses.concat_stats(stat_d, write=False)
 
         #=======================================================================
         # wrap

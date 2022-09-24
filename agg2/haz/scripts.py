@@ -69,7 +69,7 @@ class UpsampleChild(ResampClassifier, AggBase):
     def agg_direct(self,
                          ds_d,
                          resampleAlg='average',
-                         downscale=None,
+                         aggscale=None,
                          **kwargs):
         """direct aggregation of DEM and WD. WSE is recomputed
         
@@ -82,16 +82,16 @@ class UpsampleChild(ResampClassifier, AggBase):
         # defaults
         #=======================================================================
         log, tmp_dir, out_dir, _, resname, write = self._func_setup('direct',  **kwargs)
-        if downscale is None: downscale=self.downscale
+        if aggscale is None: aggscale=self.aggscale
         start = now()
         #=======================================================================
         # downscale DEM an WD each
         #=======================================================================
-        log.info('downscale=%i on %s'%(downscale, list(ds_d.keys())))
+        log.info('aggscale=%i on %s'%(aggscale, list(ds_d.keys())))
         res_d, ar_d = dict(), dict()
         for k, raw_ds in ds_d.items():
             if k=='wse':continue
-            ds1 = self.resample(dataset=raw_ds, resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/downscale)
+            ds1 = self.resample(dataset=raw_ds, resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/aggscale)
             
             #load array (for wse calc)
             ar_d[k] = ds1.read(1, masked=False)
@@ -125,7 +125,7 @@ class UpsampleChild(ResampClassifier, AggBase):
     def agg_filter(self,
                          ds_d,
                          resampleAlg='average',
-                         downscale=None,
+                         aggscale=None,
                          **kwargs):
         """fitlered agg of DEM and WSE. WD is recomputed."""
         
@@ -133,7 +133,7 @@ class UpsampleChild(ResampClassifier, AggBase):
         # defaults
         #=======================================================================
         log, tmp_dir, out_dir, _, resname, write = self._func_setup('filter',  **kwargs)
-        if downscale is None: downscale=self.downscale
+        if aggscale is None: aggscale=self.aggscale
         start = now()
         """
         
@@ -143,15 +143,15 @@ class UpsampleChild(ResampClassifier, AggBase):
         #=======================================================================
         # downscale dem and wse
         #=======================================================================
-        log.info('downscale=%i on %s'%(downscale, list(ds_d.keys())))
+        log.info('aggscale=%i on %s'%(aggscale, list(ds_d.keys())))
  
-        wse_ds1 = self.resample(dataset=ds_d['wse'], resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/downscale)
+        wse_ds1 = self.resample(dataset=ds_d['wse'], resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/aggscale)
 
         wse_ar1 = load_array(wse_ds1).astype(np.float32)
         
         wse_ds1.close() #dont need this anymore
             
-        dem_ds1 = self.resample(dataset=ds_d['dem'], resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/downscale)
+        dem_ds1 = self.resample(dataset=ds_d['dem'], resampling=getattr(rio.enums.Resampling, resampleAlg), scale=1/aggscale)
         dem_ar1 = load_array(dem_ds1).astype(np.float32)
         
         self._base_inherit(ds=dem_ds1) #set class defaults from this
@@ -429,12 +429,12 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # check divisibility
         #=======================================================================
-        max_downscale = dsc_l[-1]
-        if (not is_divisible(demR_fp, max_downscale)) or (not bbox is None):
-            log.warning('uneven division w/ %i... clipping' % max_downscale)
+        max_aggscale = dsc_l[-1]
+        if (not is_divisible(demR_fp, max_aggscale)) or (not bbox is None):
+            log.warning('uneven division w/ %i... clipping' % max_aggscale)
             
-            dem_fp = self.build_crop(demR_fp, divisor=max_downscale, **skwargs)
-            wse_fp = self.build_crop(wseR_fp, divisor=max_downscale, **skwargs)
+            dem_fp = self.build_crop(demR_fp, divisor=max_aggscale, **skwargs)
+            wse_fp = self.build_crop(wseR_fp, divisor=max_aggscale, **skwargs)
             
         else:
             dem_fp, wse_fp = demR_fp, wseR_fp
@@ -463,7 +463,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                            reso_iters=3,
  
                            **kwargs):
-        """get a fibonaci like sequence for downscale multipliers
+        """get a fibonaci like sequence for aggscale multipliers
         (NOT resolution)
         
         Parameters
@@ -476,7 +476,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         Returns
         -------
         dsc_l: list
-            sequence of ints for downscale. first is 1
+            sequence of ints for aggscale. first is 1
             NOTE: every entry must be a divisor of the last entry (for cropping)
         
         """
@@ -655,10 +655,10 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
  
         res_lib=dict()
-        for i, downscale in enumerate(dsc_l):
-            log.info('    (%i/%i) reso=%i'%(i, len(dsc_l), downscale))
+        for i, aggscale in enumerate(dsc_l):
+            log.info('    (%i/%i) reso=%i'%(i, len(dsc_l), aggscale))
             
-            with UpsampleChild(session=self,downscale=downscale, 
+            with UpsampleChild(session=self,aggscale=aggscale, 
                                  crs=self.crs, nodata=self.nodata,transform=self.transform,
                                  compress=compress, out_dir=out_dir) as wrkr:
  
@@ -667,17 +667,17 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 #===================================================================
                 """writing raw for consistency"""
                 if i==0:
-                    assert downscale==1
-                    res_lib[downscale] = wrkr.write_dataset_d(base_ar_d, logger=log) 
+                    assert aggscale==1
+                    res_lib[aggscale] = wrkr.write_dataset_d(base_ar_d, logger=log) 
                     continue
                 
                 #===============================================================
-                # downscale
+                # aggscale
                 #===============================================================
                 if method=='direct':
-                    res_lib[downscale] = wrkr.agg_direct(base_ds_d,resampleAlg=resampleAlg, **skwargs)
+                    res_lib[aggscale] = wrkr.agg_direct(base_ds_d,resampleAlg=resampleAlg, **skwargs)
                 elif method=='filter':
-                    res_lib[downscale] = wrkr.agg_filter(base_ds_d,resampleAlg=resampleAlg, **skwargs)
+                    res_lib[aggscale] = wrkr.agg_filter(base_ds_d,resampleAlg=resampleAlg, **skwargs)
                 else:
                     raise IOError('not implemented')
  
@@ -980,6 +980,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #===================================================================
             # xarray
             #===================================================================
+            
             
                 
         log.info('finished building %i dsc mask mosaics'%len(res_d))
@@ -1312,7 +1313,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     def _rstats_init(self, agg_fp, cm_fp, layName_l, log):
         """init for rstat funcs"""
         start = now()
-        icoln = 'downscale'
+ 
         self._build_statFuncs()
         
         #=======================================================================
@@ -1614,34 +1615,36 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         """
         view(res_dx)
         """
-        
+ 
         
         res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()        
         
-        #add confusion
+        # add confusion
         cm_dx = df_raw.drop('diff_fp', axis=1, level=1)
         cm_dx.columns.set_names('metric', level=1, inplace=True)
-        #cm_dx = cm_df.drop('fp', axis=1).rename_axis('metric', axis=1)
-        
+        # cm_dx = cm_df.drop('fp', axis=1).rename_axis('metric', axis=1)
  
         res_dx = res_dx.join(
-            pd.concat({'all':cm_dx}, names=['dsc'], axis=1)
+            pd.concat({'all':cm_dx}, names=['dsc'], axis=1).reorder_levels(res_dx.columns.names, axis=1)
             )
-        
  
-        #sort and clean
+        # sort and clean
         res_dx = res_dx.sort_index(axis=1, sort_remaining=True).dropna(axis=1, how='all')
         
+        #append pixel info to index
+        """to conform with other stats objects"""
+        mindex = pd.MultiIndex.from_frame(
+                res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale'))
+        res_dx.index = mindex
  
-        #checks
+        # checks
         assert not res_dx.isna().all().all()
         assert_dx_names(res_dx)
         
-        #write
+        # write
         res_dx.to_pickle(ofp)        
-  
         
-        log.info('finished on %s in %.2f secs and wrote to\n    %s'%(str(res_dx.shape), (now()-start).total_seconds(), ofp))
+        log.info('finished on %s in %.2f secs and wrote to\n    %s' % (str(res_dx.shape), (now() - start).total_seconds(), ofp))
         
         return ofp
     
@@ -1654,7 +1657,10 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         d = dict()
         for base, fp in fp_d.items():
+            if not fp.endswith('.pkl'): continue 
             d[base] = pd.read_pickle(fp)
+ 
+            assert_dx_names(d[base], msg=base)
         
         dx = pd.concat(d, axis=1, names=['base'])
         

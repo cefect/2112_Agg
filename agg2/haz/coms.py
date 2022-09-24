@@ -23,7 +23,7 @@ coldx_d = {
     'layer':['dem', 'wse', 'wd', 'catMosaic', 'diff'],
 
     'dsc':list(cm_int_d.keys())+['all'],
-    'metric':['mean', 'posi_area', 'post_count', 'pre_count', 'vol', 'RMSE', 'sum', 'meanErr', 'meanAbsErr', 'count'],
+    'metric':['mean', 'posi_area', 'post_count', 'pre_count', 'vol', 'RMSE', 'sum', 'meanErr', 'meanAbsErr', 'count', 'TP', 'FP', 'FN', 'TN'],
     }
     
  
@@ -133,7 +133,7 @@ def assert_dx_names(dx, msg=''):
     mdex = dx.columns
     
     for name in mdex.names:
-        miss_l = set(mdex.get_level_values(name)).difference(coldx_d[name])
+        miss_l = set(mdex.unique(name)).difference(coldx_d[name])
         assert len(miss_l)==0, 'on %s got %i unrecognized values: %s\n'%(
             name, len(miss_l), miss_l)+msg
  
