@@ -5,7 +5,9 @@ unit tests for downsample v2
 from hp.np import dropna
 from hp.rio import RioWrkr, write_array, load_array, get_stats
 from numpy import array, dtype
-from tests2.conftest import compare_dicts, src_dir, get_abs, crs, proj_d, get_ar_d, get_rlay_fp_d
+from tests2.conftest import compare_dicts, src_dir, get_abs, crs, proj_d, get_ar_d, \
+    get_rlay_fp_d, get_ar_source, shape_base, get_ar
+    
 import numpy as np
 import pandas as pd
 import pytest, copy, os, random
@@ -37,15 +39,21 @@ def assert_stat_check(fp, msg=''):
 # FIXTURES-----
 #===============================================================================
 @pytest.fixture(scope='function')
+def dem_ar(shape):
+    return get_ar('dem', shape)
+    
+@pytest.fixture(scope='function')
 def dem_fp(dem_ar, tmp_path):
-    if dem_ar is None:
-        return None
-    return write_array(dem_ar, os.path.join(tmp_path, 'dem.tif'), **output_kwargs)
+    return write_array(dem_ar, os.path.join(tmp_path, f'demR_{dem_ar.shape[0]}.tif'), **output_kwargs)
  
 
 @pytest.fixture(scope='function')
+def wse_ar(shape):
+    return get_ar('wse', shape)
+
+@pytest.fixture(scope='function')
 def wse_fp(wse_ar, tmp_path): 
-    return write_array(wse_ar, os.path.join(tmp_path, 'wse.tif'), **output_kwargs)
+    return write_array(wse_ar, os.path.join(tmp_path, f'wseR_{wse_ar.shape[0]}.tif'), **output_kwargs)
 
 @pytest.fixture(scope='function')
 def wrkr(tmp_path,write,logger, test_name, 
@@ -136,8 +144,7 @@ def agg_pick_fp(agg_pick_df, tmp_path):
     'direct', 
     'filter'])
 def test_00_runDsmp(wrkr, dsc_l,method,
-                    dem_fp,dem_ar,wse_fp, wse_ar,
-                    ):
+                    dem_fp,wse_fp):
     
     wrkr.run_agg(dem_fp, wse_fp,  dsc_l=dsc_l,
                   #write=True,
@@ -174,17 +181,13 @@ def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
     wrkr.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method)
 
 
-
-
-@pytest.mark.parametrize('dem_ar, wse_ar', [
-    get_rand_ar((8*2,8*2))
-    ])
+@pytest.mark.parametrize('shape', [shape_base])
 @pytest.mark.parametrize('method', [
     'direct', 
     'filter',
     ])
 @pytest.mark.parametrize('dsc_l', [([1,2])])
-def test_01_runAgg(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method, agg_pick_fp):
+def test_01_runAgg(dem_fp,wse_fp, wrkr, dsc_l, method, agg_pick_fp):
     """wrapper for build_dset"""
     pick_fp = wrkr.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True,
                  #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
@@ -225,9 +228,10 @@ def test_01b_dsc_agg_x(wrkr, agg_pick_df):
     wrkr.build_downscaled_agg_xarray(agg_pick_df)
           
 @pytest.mark.dev 
+@pytest.mark.parametrize('shape', [shape_base])
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
-def test_02_dsc(wrkr, agg_pick_fp, cm_pick_fp):
-    res_fp = wrkr.run_catMasks(agg_pick_fp, write=True,
+def test_02_dsc(wrkr,dem_fp,wse_fp, dsc_l, cm_pick_fp):
+    res_fp = wrkr.run_catMasks(dem_fp, wse_fp, dsc_l=dsc_l, write=True,
                                #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                                )
     

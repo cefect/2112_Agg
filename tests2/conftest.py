@@ -214,7 +214,7 @@ def get_ar_d(dsc_l, layName, shape=None):
     #===========================================================================
     # build base
     #===========================================================================
-    samp_ar =get_ar(layName)
+    samp_ar =get_ar_source(layName)
     
  
     #===========================================================================
@@ -240,7 +240,10 @@ def get_ar_d(dsc_l, layName, shape=None):
         assert isinstance(v, np.ndarray), k"""
     return res_d
 
-def get_ar(layName, 
+def get_ar(layName, shape):
+    return np.random.choice(get_ar_source(layName), size=shape)   
+
+def get_ar_source(layName, 
            shape=(10,10),
            ):
     """get a 1D source array to sample from

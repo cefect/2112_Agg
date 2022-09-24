@@ -76,35 +76,37 @@ def wrkr(tmp_path,write,logger, test_name,
  
 
 
-@pytest.fixture(scope='function')
-def cMask_pick_fp(cMask_rlay_fp, tmp_path):
-    """mimic output of run_catMasks"""
-    df = pd.DataFrame.from_dict(
-        {'downscale':[1,2],'catMosaic':[np.nan, cMask_rlay_fp],}
-        )
-    ofp = os.path.join(tmp_path, 'test_cMasks_%i.pkl'%len(df))
-    df.to_pickle(ofp)
-    
-    return ofp
- 
-
-@pytest.fixture(scope='function')
-def cMask_rlay_fp(cMask_ar, tmp_path):
-    ofp = os.path.join(tmp_path, 'cMask_%i.tif'%cMask_ar.size)
-    
-    width, height = cMask_ar.shape
-    
-    write_array(cMask_ar, ofp, crs=crs,
-                 transform=rio.transform.from_bounds(*bbox_base.bounds,width, height),  
-                 masked=False)
-    
-    return ofp
- 
-    
- 
-@pytest.fixture(scope='function')    
-def cMask_ar(shape):
-    return np.random.choice(np.array(list(cm_int_d.values())), size=shape)
+#===============================================================================
+# @pytest.fixture(scope='function')
+# def cMask_pick_fp(cMask_rlay_fp, tmp_path):
+#     """mimic output of run_catMasks"""
+#     df = pd.DataFrame.from_dict(
+#         {'downscale':[1,2],'catMosaic':[np.nan, cMask_rlay_fp],}
+#         )
+#     ofp = os.path.join(tmp_path, 'test_cMasks_%i.pkl'%len(df))
+#     df.to_pickle(ofp)
+#     
+#     return ofp
+#  
+# 
+# @pytest.fixture(scope='function')
+# def cMask_rlay_fp(cMask_ar, tmp_path):
+#     ofp = os.path.join(tmp_path, 'cMask_%i.tif'%cMask_ar.size)
+#     
+#     width, height = cMask_ar.shape
+#     
+#     write_array(cMask_ar, ofp, crs=crs,
+#                  transform=rio.transform.from_bounds(*bbox_base.bounds,width, height),  
+#                  masked=False)
+#     
+#     return ofp
+#  
+#     
+#  
+# @pytest.fixture(scope='function')    
+# def cMask_ar(shape):
+#     return np.random.choice(np.array(list(cm_int_d.values())), size=shape)
+#===============================================================================
 
 
 
