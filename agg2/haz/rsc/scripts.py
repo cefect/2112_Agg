@@ -399,7 +399,7 @@ class ResampClassifier(RioWrkr):
         #===================================================================
  
             
-        assert_dem_ar(dem_ar, masked=True)            
+        assert_dem_ar(dem_ar, masked=False)            
         assert_wse_ar(wse_ar, masked=True)
         
         #=======================================================================

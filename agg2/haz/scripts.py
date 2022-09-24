@@ -893,7 +893,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         start = now()
         idxn = self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cMasks',subdir=True, ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cMasks',subdir=True, ext='.cf', **kwargs)
         if dsc_l is None: dsc_l=self.dsc_l
  
         
@@ -904,19 +904,27 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # dem
         #=======================================================================
-        dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp) 
+        dem_ds, wse_ds = self._load_datasets(dem_fp, wse_fp)
+        rtransform = dem_ds.transform
+        rshape = dem_ds.shape
+        dem_ds.close() 
         
-        dem_ar = load_array(dem_ds, masked=True)        
-        assert_dem_ar(dem_ar, masked=True)         
+        #dem_ar = load_array(dem_ds, masked=True)        
+                
         
         wse_ar = load_array(wse_ds, masked=True)
         assert_wse_ar(wse_ar, masked=True)
  
         wse_ds.close()
+        
+        #load the dem as an xarray
+        dem_xda = rioxarray.open_rasterio(dem_fp,  masked=False)
+        assert_dem_ar(dem_xda.values, masked=False)
+ 
         #=======================================================================
         # build for each
         #=======================================================================
-        log.info(f'on {len(dsc_l)-1} from a base shape of {dem_ar.shape}')
+        log.info(f'on {len(dsc_l)-1} from a base shape of {rshape}')
         res_d=dict()
         meta_lib = dict()
         ofp_d = dict()
@@ -927,21 +935,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             # defaults
             #===================================================================
             iname = '%03d'%scale
-            skwargs = dict(out_dir=tmp_dir, logger=log.getChild(iname), tmp_dir=tmp_dir)
+            skwargs = dict(out_dir=tmp_dir, logger=log.getChild(iname), tmp_dir=tmp_dir) 
  
-
- 
-            """
-            wse_ds.read(1, masked=True)
-            dem_ar = load_array(dem_ds)
-            assert_dem_ar(dem_ar)
-            
-            wse_ar = load_array(wse_ds)
-            assert_wse_ar(wse_ar)
-                
-            plot_rast(dem_ar)
-            plot_rast(wse_ar, cmap='Blues')
-            """
             #===================================================================
             # classify
             #===================================================================
@@ -949,7 +944,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             log.info('    (%i/%i) aggscale=%i'%(i+1, len(dsc_l), scale)) 
             with ResampClassifier(session=self, aggscale = scale,  **skwargs) as wrkr:
                 #build each mask
-                cm_d = wrkr.get_catMasks2(wse_ar=wse_ar, dem_ar=dem_ar)
+                cm_d = wrkr.get_catMasks2(wse_ar=wse_ar, dem_ar=dem_xda.values[0])
                 
                 #build the mosaic
                 cm_ar = wrkr.get_catMosaic(cm_d)
@@ -958,32 +953,67 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 stats_d = wrkr.get_catMasksStats(cm_d)
                 
                 #update
-                res_d[scale], meta_lib[scale] = cm_ar, stats_d
+                #res_d[scale], meta_lib[scale] = cm_ar, stats_d
+                meta_lib[scale] = stats_d
                 
             #===================================================================
             # check
             #===================================================================
-            assert tuple([v/scale for v in dem_ar.shape])==cm_ar.shape
+            assert tuple([v/scale for v in rshape])==cm_ar.shape
                 
             #===================================================================
             # write
             #===================================================================
-            if write:
-                #new transform
-                transform_i = dem_ds.transform * dem_ds.transform.scale(
-                            (dem_ds.width / cm_ar.shape[-1]),
-                            (dem_ds.height / cm_ar.shape[-2])
+            #new transform
+            transform_i = rtransform * rtransform.scale(
+                            (rshape[-1] / cm_ar.shape[-1]),
+                            (rshape[-2] / cm_ar.shape[-2])
                         )
-                        
+                
+            if write:                        
                 ofp_d[scale] = self.write_array(cm_ar, logger=log,ofp=os.path.join(out_dir, 'catMosaic_%03i.tif'%scale), transform=transform_i)
                 
             #===================================================================
-            # xarray
+            # xarrayd
             #===================================================================
+            """
+            #xarray from geotiff
+            xda_test = rioxarray.open_rasterio(ofp_d[scale],masked=True)
+            xda_test['x'].values
+            """
             
+            #calculate the sptial dimensions
+            xs, ys = rio.transform.xy(transform_i, np.arange(cm_ar.shape[0]), np.arange(cm_ar.shape[1]))             
             
-                
+            #build a RasterArray
+            xda = xr.DataArray(np.array([cm_ar]), 
+                               coords={'band':[1],  'y':ys, 'x':xs} #order is important
+                               #coords = [[1],  ys, xs,], dims=["band",  'y', 'x']
+                               #).rio.write_transform(transform_i
+                               ).rio.write_nodata(dem_xda.rio.nodata, inplace=True
+                              ).rio.set_crs(dem_xda.rio.crs, inplace=True)
+                              
+ 
+            assert xda.rio.transform() == transform_i
+            
+            #downscale to match the raw
+            res_d[scale] = xda.rio.reproject_match(dem_xda, resampling=Resampling.nearest) 
+                        
         log.info('finished building %i dsc mask mosaics'%len(res_d))
+        
+        #=======================================================================
+        # concat
+        #=======================================================================
+        xda_cat = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='scale', dtype=int))
+        xds_res = xr.Dataset({'catMask':xda_cat})
+        
+        """    
+        xda_cat.plot(col='scale')
+        """
+        
+        with ProgressBar():
+            xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=True)
+        
         #=======================================================================
         # #assemble meta
         #=======================================================================
@@ -996,12 +1026,13 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             
         #=======================================================================
         # write meta
-        #=======================================================================
-        meta_df.to_pickle(ofp)
-        dem_ds.close()
+        #=======================================================================\
+        ofp1 = os.path.join(out_dir, f'{resname}_meta.pkl')
+        meta_df.to_pickle(ofp1)
+ 
         log.info('finished in %.2f secs and wrote %s to \n    %s'%((now()-start).total_seconds(), str(meta_df.shape), ofp))
         
-        return ofp
+        return ofp, ofp1
 
     #===========================================================================
     # STATS-------

@@ -228,18 +228,21 @@ def test_01b_dsc_agg_x(wrkr, agg_pick_df):
     """this is redundant w/ test_07_pTP"""
     wrkr.build_downscaled_aggXR(agg_pick_df)
           
+          
+          
 @pytest.mark.dev 
 @pytest.mark.parametrize('shape', [shape_base])
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
-def test_02_catMasks(wrkr,dem_fp,wse_fp, dsc_l, cm_pick_fp):
-    res_fp = wrkr.run_catMasks(dem_fp, wse_fp, dsc_l=dsc_l, write=True,
+@pytest.mark.parametrize('write', [True, False]) 
+def test_02_catMasks(wrkr,dem_fp,wse_fp, dsc_l, cm_pick_fp, write):
+    cf_fp, meta_fp = wrkr.run_catMasks(dem_fp, wse_fp, dsc_l=dsc_l, write=write,
                                #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                                )
     
     #===========================================================================
     # validate
     #===========================================================================
-    df = pd.read_pickle(res_fp)
+    df = pd.read_pickle(meta_fp)
     """
     df.columns
     """
