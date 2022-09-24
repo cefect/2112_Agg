@@ -264,6 +264,25 @@ class RasterArrayStats(AggBase):
         assert len(miss_l)==0, miss_l
         
         self.statFunc_d = d
+        
+        
+    #===========================================================================
+    # TP----
+    #===========================================================================
+    def _get_TP_statsXR(self, xda,
+                         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True),
+                         ):
+        
+        #check expectations
+        assert_xda(xda)        
+ 
+ 
+        
+        return {            
+            'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
+            'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
+            'max':xda.mean(**agg_kwargs), #compute mean for each scale 
+                }
             
         
         
@@ -2062,6 +2081,22 @@ class UpsampleSessionXR(UpsampleSession):
         
             """
 
+
+    def _statXR_wrap(self, res_d, log, start):
+        res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='layer', dtype=str))
+        with ProgressBar():
+            res_dxr.compute()
+    #get a frame
+        res_dx = res_dxr.to_dataframe()
+    #=======================================================================
+    # wrap
+    #=======================================================================
+    # clean up a bit
+        res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1)
+ 
+        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f}')
+        return res_dx1
+
     def run_statsXR(self, ds, 
                     base='s2', 
                     **kwargs):
@@ -2118,34 +2153,21 @@ class UpsampleSessionXR(UpsampleSession):
         #===================================================================
         # wrap
         #===================================================================
-        res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='layer', dtype=str))
-            
-        with ProgressBar():
-            res_dxr.compute()
-            
-        #get a frame
-        res_dx = res_dxr.to_dataframe()
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        # clean up a bit
-        res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1)
-        """
-        view(res_dx1)
-        """
-        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f}')
-        #=======================================================================
-        # res_dx1.to_pickle(ofp)
-        # 
-        # log.info(f'finished and wrote {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
-        #=======================================================================
+ 
         
-        return res_dx1
+        return self._statXR_wrap(res_d, log, start)
     
     def run_TP_XR(self, ds, 
  
                     **kwargs):
-        """compute stats from the xarray stack"""
+        """compute TP ratio from xr stack
+        
+        
+        
+        here we compute a new stack and get the zonal stats
+        because the new stack has variable resolution
+        
+        """
         #=======================================================================
         # defaults
         #=======================================================================
@@ -2155,13 +2177,27 @@ class UpsampleSessionXR(UpsampleSession):
         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
         scale_l = ds[idxn].values.tolist()
         
+        
+        #=======================================================================
+        # prep data
+        #=======================================================================
         lay_ds = ds['wse'].reset_coords(names='spatial_ref', drop=True) 
+        cm_ds = ds['catMask'].reset_coords(names='spatial_ref', drop=True) 
         
         base_xar = lay_ds.isel(scale=0)
+        
+        def get_stats(xar):
+            stat_d= {
+                    'mean':xar.mean(**agg_kwargs)                    
+                    }
+            
+            return xr.concat(stat_d.values(), pd.Index(stat_d.keys(), name='metric', dtype=str))
         
         #=======================================================================
         # loop and compute exposures on each
         #=======================================================================
+        log.info(f'calculating s1/s2 expo TP w/ :{scale_l}')
+        res_d = dict()
         for i, scale in enumerate(scale_l):
             if i==0:continue
             log.info(f'    {i+1}/{len(scale_l)}')
@@ -2197,6 +2233,69 @@ class UpsampleSessionXR(UpsampleSession):
             # compute ratio
             #===================================================================
             s12_expo_xar_s2 = s1_expo_xar_s2/s2_expo_xar_s2
+            
+            #=======================================================================
+            # get stats on each mask------
+            #=======================================================================
+            """beacuse of variable resolutions cant use the same function"""
+            #s2  mask
+            cm_s2 = clean(cm_ds.sel(scale=scale).coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max())
+            
+            
+            #===============================================================
+            # loop on each catmask
+            #===============================================================
+            d=dict()
+            
+            d['full'] = get_stats(s12_expo_xar_s2)
+            
+            for dsc, dsc_int in self.cm_int_d.items():
+                """NOTE: this computes against the full stack.. 
+        
+                but the scale=1 values dont have a CatMask"""
+                # get this boolean
+                mask_dar = cm_s2 == dsc_int
+                # mask the data
+                s12_expo_maskd = s12_expo_xar_s2.where(mask_dar, other=np.nan) # .plot(col='scale')
+                
+                """
+                s12_expo_maskd.plot()
+                """
+                # compute the stats
+ 
+                d[dsc] = get_stats(s12_expo_maskd)
+                
+            #===================================================================
+            # wrap scale
+            #===================================================================
+            res_d[scale] = xr.concat(d.values(), pd.Index(d.keys(), name='dsc', dtype=str))
+            log.info(f'finished scale={scale} w/ {res_d[scale].dims}')
+            
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='scale', dtype=int))
+        with ProgressBar():
+            res_dxr.compute()
+            #get a frame
+        res_dx = res_dxr.to_dataframe()
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        # clean up a bit
+        res_dx1 = res_dx.unstack(['dsc', 'metric'])
+        
+        res_dx1.columns.set_names(['layer', 'dsc', 'metric'], inplace=True)
+        
+        #res_dx1.loc[1, :] = np.nan
+ 
+        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f}')
+        return res_dx1.sort_index()
+                
+                
+ 
+ 
             
             
             

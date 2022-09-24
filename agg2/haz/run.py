@@ -207,19 +207,21 @@ def run_haz_stats(xr_fp,
                  f'\n    scales:{scale_l}'
                  )
             assert ds.rio.crs == ses.crs
+            
+            d = dict()
             #=======================================================================
             # compute special stats
             #=======================================================================
-            #ses.run_TP_XR(ds)
+            d['s12_TP'] = ses.run_TP_XR(ds) 
             
             #=======================================================================
             # get basic stats
             #=======================================================================
-            d = dict()
+            
             for base in ['s2', 's1']:
                 d[base] = ses.run_statsXR(ds, base=base, logger=log.getChild(base))
             
-            rdx = pd.concat(d, axis=1, names=['base'])
+            rdx = pd.concat(d, axis=1, names=['base'], sort=True)
             """
             view(rdx.T)
             """
