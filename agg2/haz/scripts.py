@@ -368,11 +368,14 @@ class RasterArrayStats(AggBase):
 class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     """tools for experimenting with downsample sets"""
     
-    def __init__(self,method='direct', scen_name=None, obj_name='haz',**kwargs):
+    def __init__(self,method='direct', scen_name=None, obj_name='haz',
+                 dsc_l=None,
+                 **kwargs):
  
         if scen_name is None: scen_name=method
         super().__init__(obj_name=obj_name,scen_name=scen_name, **kwargs)
         self.method=method
+        self.dsc_l=dsc_l
         
  
         
@@ -382,7 +385,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     def run_agg(self,demR_fp, wseR_fp,
  
                  dsc_l=None,
-                 dscList_kwargs = dict(reso_iters=5),
+ 
                  
                  method=None,
                  bbox=None,
@@ -406,20 +409,16 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         # defaults
         #=======================================================================
-        if method is None: method=self.method
-        if bbox is None: bbox=self.bbox
+        if method is None: method = self.method
+        if bbox is None: bbox = self.bbox
+        if dsc_l is None: dsc_l = self.dsc_l
         start = now()
-        #if out_dir is None: out_dir=os.path.join(self.out_dir, method)
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('agg',  ext='.pkl', subdir=True, **kwargs)
+        # if out_dir is None: out_dir=os.path.join(self.out_dir, method)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('agg', ext='.pkl', subdir=True, **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write, bbox=bbox)
         
-        log.info('for %i upscales using \'%s\' from \n    DEM:  %s\n    WSE:  %s'%(
-            len(dsc_l),method, os.path.basename(demR_fp), os.path.basename(wseR_fp)))
-        #=======================================================================
-        # populate downsample set
-        #=======================================================================
-        if dsc_l is None:
-            dsc_l = self.get_dscList(**dscList_kwargs, **skwargs)
+        log.info('for %i upscales using \'%s\' from \n    DEM:  %s\n    WSE:  %s' % (
+            len(dsc_l), method, os.path.basename(demR_fp), os.path.basename(wseR_fp)))
             
         #=======================================================================
         # check layers
@@ -432,7 +431,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         max_downscale = dsc_l[-1]
         if (not is_divisible(demR_fp, max_downscale)) or (not bbox is None):
-            log.warning('uneven division w/ %i... clipping'%max_downscale)
+            log.warning('uneven division w/ %i... clipping' % max_downscale)
             
             dem_fp = self.build_crop(demR_fp, divisor=max_downscale, **skwargs)
             wse_fp = self.build_crop(wseR_fp, divisor=max_downscale, **skwargs)
@@ -445,10 +444,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         #=======================================================================
         res_lib = self.build_dset(dem_fp, wse_fp, dsc_l=dsc_l, method=method, out_dir=out_dir)
         
- 
- 
-        
-        log.info('finished in %.2f secs'%((now()-start).total_seconds()))
+        log.info('finished in %.2f secs' % ((now() - start).total_seconds()))
         
         #=======================================================================
         # assemble meta
@@ -456,9 +452,9 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
  
         meta_df = pd.DataFrame.from_dict(res_lib).T.rename_axis('scale')
  
-        #write the meta
+        # write the meta
         meta_df.to_pickle(ofp)
-        log.info('wrote %s meta to \n    %s'%(str(meta_df.shape), ofp))
+        log.info('wrote %s meta to \n    %s' % (str(meta_df.shape), ofp))
  
         return ofp
             
@@ -863,7 +859,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         delayed_obj = xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
         
         with ProgressBar():
-            results = delayed_obj.compute()
+            _ = delayed_obj.compute()
  
         log.info(f'finished in {(now()-start).total_seconds():.2f} secs w/ {xds_res.dims}'+
                  f'\n    coors: {list(xds_res.coords)}'+
@@ -876,7 +872,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     # CASE MASKS---------
     #===========================================================================
-    def run_catMasks(self, pick_fp,
+    def run_catMasks(self, demR_fp, wseR_fp,
                     **kwargs):
         """build the dsmp cat mask for each reso iter"""
         
@@ -1655,9 +1651,17 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 
         return ofp
     
-    def run_pTP(self, nc_fp,layName_l=['wse'], **kwargs):
+    def run_pTP(self, nc_fp, cm_pick_fp, layName_l=['wse'], **kwargs):
+        #=======================================================================
+        # defaults
+        #=======================================================================
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('pTP',  subdir=True,ext='.pkl', **kwargs)
         
+
+        
+        #=======================================================================
+        # execute on the dataset
+        #=======================================================================
         log.info('from %s'%nc_fp)
         with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto' ) as ds:
  
@@ -1722,10 +1726,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #===================================================================
             #retrieve coarse exposures
             #===================================================================
-            #decimate
-            s2_expo_xar_s1 = stack_xar1.sel(scale=scale)
-            
-            s2_expo_xar_s2 = clean(s2_expo_xar_s1.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2))
+            #decimate and scale
+            s2_expo_xar_s2 = clean(stack_xar1.sel(scale=scale).coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2))
             
  
             #===================================================================
@@ -1751,7 +1753,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
             #===================================================================
             # zonal stat
             #===================================================================
-            raise IOError('stopped here')
+            s12_expo_xar_s2
             
             """
             s12_expo_xar_s2.plot()
