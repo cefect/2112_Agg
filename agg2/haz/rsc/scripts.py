@@ -34,7 +34,7 @@ class ResampClassifier(RioWrkr):
     cm_int_d=cm_int_d
     
     def __init__(self, 
-                 downscale=2,
+                 aggscale=2,
                  obj_name=None,
  
                  **kwargs):
@@ -42,19 +42,19 @@ class ResampClassifier(RioWrkr):
         
         Parameters
         ----------
-        downscale: int, default 2
+        aggscale: int, default 2
             multipler for new pixel resolution
-            oldDimension*(1/downscale) = newDimension
+            oldDimension*(1/aggscale) = newDimension
  
         """
-        if obj_name is None: obj_name='dsc%03i'%downscale
+        if obj_name is None: obj_name='dsc%03i'%aggscale
         
         super().__init__(obj_name=obj_name, **kwargs)
         
         #=======================================================================
         # attach
         #=======================================================================
-        self.downscale=downscale
+        self.aggscale=aggscale
  
 
         
@@ -115,7 +115,7 @@ class ResampClassifier(RioWrkr):
     
     def build_coarse(self,
                         raw_fp,
-                        downscale=None,
+                        aggscale=None,
                         resampleAlg='average',
                         **kwargs):
         
@@ -135,12 +135,12 @@ class ResampClassifier(RioWrkr):
         
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('coarse%s'%rawName,  **kwargs)
         
-        if downscale is None: downscale=self.downscale
+        if aggscale is None: aggscale=self.aggscale
         #=======================================================================
         # precheck
         #=======================================================================
-        assert isinstance(downscale, int)
-        assert downscale>1
+        assert isinstance(aggscale, int)
+        assert aggscale>1
         
         if __debug__:
             #===================================================================
@@ -155,7 +155,7 @@ class ResampClassifier(RioWrkr):
                 
             #check shape divisibility
             for dim in dem_shape:
-                assert dim%downscale==0, 'unequal dimension (%i/%i -> %.2f)'%(dim, downscale, dim%downscale)
+                assert dim%aggscale==0, 'unequal dimension (%i/%i -> %.2f)'%(dim, aggscale, dim%aggscale)
                 
  
             
@@ -167,7 +167,7 @@ class ResampClassifier(RioWrkr):
             
             assert_dem_ar(wrkr._base().read(1)) 
             
-            res_ds = wrkr.resample(resampling=resampling, scale=1/downscale)
+            res_ds = wrkr.resample(resampling=resampling, scale=1/aggscale)
             wrkr.write_memDataset(res_ds, ofp=ofp)
             
             
@@ -232,7 +232,7 @@ class ResampClassifier(RioWrkr):
                      dem_ds=None,
                      wse_ds=None,
                      dem_ar=None, wse_ar=None,
-                     downscale=None,
+                     aggscale=None,
                      **kwargs):
         """compute the a mask for each resample category
         
@@ -247,9 +247,9 @@ class ResampClassifier(RioWrkr):
         # defautls
         #=======================================================================
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cm',  **kwargs)
-        if downscale is None: downscale=self.downscale
+        if aggscale is None: aggscale=self.aggscale
         
-        assert isinstance(downscale, int)
+        assert isinstance(aggscale, int)
         start = now()
         #===================================================================
         # load layers----
@@ -273,12 +273,12 @@ class ResampClassifier(RioWrkr):
         #=======================================================================
         def apply_reducer(ar, func):
             #apply aggregation
-            arC = apply_block_reduce(ar, func, downscale=downscale) #max of each coarse block
+            arC = apply_block_reduce(ar, func, aggscale=aggscale) #max of each coarse block
             
             #rescale back to original
             """would have been nicer to just keep the reduce dscale"""
-            fine_ar = scipy.ndimage.zoom(arC, downscale, order=0, mode='reflect',   grid_mode=True)
-            #return np.kron(arC, np.ones((downscale,downscale))) #rescale back to original res
+            fine_ar = scipy.ndimage.zoom(arC, aggscale, order=0, mode='reflect',   grid_mode=True)
+            #return np.kron(arC, np.ones((aggscale,aggscale))) #rescale back to original res
  
             assert fine_ar.shape==ar.shape
             return fine_ar
@@ -369,7 +369,7 @@ class ResampClassifier(RioWrkr):
     def get_catMasks2(self,
  
                      dem_ar=None, wse_ar=None,
-                     downscale=None,
+                     aggscale=None,
                      **kwargs):
         """compute the a mask for each resample category
         
@@ -386,9 +386,9 @@ class ResampClassifier(RioWrkr):
         # defautls
         #=======================================================================
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cm',  **kwargs)
-        if downscale is None: downscale=self.downscale
+        if aggscale is None: aggscale=self.aggscale
         
-        assert isinstance(downscale, int)
+        assert isinstance(aggscale, int)
         start = now()
         #===================================================================
         # load layers----
@@ -419,14 +419,14 @@ class ResampClassifier(RioWrkr):
         # #dry-dry: max(delta) <=0
         #=======================================================================
         log.info('    computing DD')        
-        delta_max_ar = apply_block_reduce(delta_ar, np.max, downscale=downscale)
+        delta_max_ar = apply_block_reduce(delta_ar, np.max, aggscale=aggscale)
         
         cm_d['DD'] = delta_max_ar<=0
         log_status('DD')
         #===================================================================
         # #wet-wet: min(delta) >0
         #===================================================================        
-        delta_min_ar = apply_block_reduce(delta_ar, np.min, downscale=downscale)
+        delta_min_ar = apply_block_reduce(delta_ar, np.min, aggscale=aggscale)
         
         cm_d['WW'] = delta_min_ar>0
         log_status('WW')
@@ -450,11 +450,11 @@ class ResampClassifier(RioWrkr):
         #===============================================================
         
         
-        dem_mean_ar =apply_block_reduce(dem_ar, np.mean, downscale=downscale).data
+        dem_mean_ar =apply_block_reduce(dem_ar, np.mean, aggscale=aggscale).data
         
         """same thing
-        apply_block_reduce(wse_ar.filled(np.nan), np.nanmean, downscale=downscale)"""
-        wse_mean_ar = apply_block_reduce(wse_ar, np.mean, downscale=downscale).filled(np.nan) #ignore nulls in denomenator
+        apply_block_reduce(wse_ar.filled(np.nan), np.nanmean, aggscale=aggscale)"""
+        wse_mean_ar = apply_block_reduce(wse_ar, np.mean, aggscale=aggscale).filled(np.nan) #ignore nulls in denomenator
         
  
         #===============================================================
@@ -596,7 +596,7 @@ class ResampClassifierSession(ResampClassifier, Session):
     #===========================================================================
     def run_all(self,demR_fp, wseR_fp,
                 demC_fp=None,
-                 downscale=None, **kwargs):
+                 aggscale=None, **kwargs):
         """prep layers and build downsample classification 
         
         
@@ -609,9 +609,9 @@ class ResampClassifierSession(ResampClassifier, Session):
         #=======================================================================
         # defaults
         #=======================================================================
-        if downscale is None: downscale=self.downscale
+        if aggscale is None: aggscale=self.aggscale
         start = datetime.datetime.now()
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('dsc_%03i'%downscale,  **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('dsc_%03i'%aggscale,  **kwargs)
         skwargs = dict(logger=log, tmp_dir=tmp_dir, out_dir=tmp_dir, write=write)
         
         
@@ -622,11 +622,11 @@ class ResampClassifierSession(ResampClassifier, Session):
         #=======================================================================
         # check divisibility
         #=======================================================================
-        if not is_divisible(demR_fp, downscale):
-            log.warning('uneven division w/ %i... clipping'%downscale)
+        if not is_divisible(demR_fp, aggscale):
+            log.warning('uneven division w/ %i... clipping'%aggscale)
             
-            dem_fp = self.build_crop(demR_fp, divisor=downscale, **skwargs)
-            wse_fp = self.build_crop(wseR_fp, divisor=downscale, **skwargs)
+            dem_fp = self.build_crop(demR_fp, divisor=aggscale, **skwargs)
+            wse_fp = self.build_crop(wseR_fp, divisor=aggscale, **skwargs)
             
         else:
             dem_fp, wse_fp = demR_fp, wseR_fp
@@ -639,7 +639,7 @@ class ResampClassifierSession(ResampClassifier, Session):
         #build coarse dem
         #=======================================================================
         # if demC_fp is None:
-        #     demC_fp = self.build_coarse(dem_fp, downscale=downscale, **skwargs)
+        #     demC_fp = self.build_coarse(dem_fp, aggscale=aggscale, **skwargs)
         #=======================================================================
             
         #each mask
@@ -656,7 +656,7 @@ class ResampClassifierSession(ResampClassifier, Session):
     
     def build_cat_masks(self,
                         dem_fp, wse_fp, 
-                        downscale=None,
+                        aggscale=None,
  
  
                         **kwargs):
@@ -675,13 +675,13 @@ class ResampClassifierSession(ResampClassifier, Session):
         # defaults
         #=======================================================================
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cmask',  **kwargs)
-        if downscale is None: downscale=self.downscale
+        if aggscale is None: aggscale=self.aggscale
  
         #=======================================================================
         # exec
         #=======================================================================
         ofp_d=dict()
-        with ResampClassifier(rlay_ref_fp=dem_fp, session=self, downscale=downscale) as wrkr:
+        with ResampClassifier(rlay_ref_fp=dem_fp, session=self, aggscale=aggscale) as wrkr:
             #load the layers
             wse_ds = wrkr.open_dataset(wse_fp)
             dem_ds = wrkr._base()
