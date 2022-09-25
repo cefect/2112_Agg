@@ -353,26 +353,7 @@ class RasterArrayStats(AggBase):
             'sum':xda.sum(**agg_kwargs)
                 }
 
-    def _get_depth_stats_dask(self, mar, pixelArea=None):
  
-        res_d=dict()
-        dar = da.from_array(mar, chunks='auto')
-        #=======================================================
-        # simple mean
-        #=======================================================
-        res_d['mean'] = dar.mean().compute() #mar.mean()
-        
-        
-        #===================================================================
-        # inundation area
-        #===================================================================
-        res_d['posi_area'] = (np.sum(dar>0) * (pixelArea)).compute() #non-nulls times pixel area
-        #===================================================================
-        # volume
-        #===================================================================
-        res_d['vol'] = (dar.sum() * pixelArea).compute()
-        
-        return res_d
     
     #===========================================================================
     # DIFFERENCE-------
@@ -2018,49 +1999,51 @@ class UpsampleSessionXR(UpsampleSession):
         
         return ofp_l, ofp
     
-    def run_merge_XR(self, fp_l, **kwargs):
-        """merge the catMosaic and layer datasets
-        
-        
-        better to just write files in parallel"""
-        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('mXR',subdir=True, ext='.nc', **kwargs)
-        idxn = self.idxn
-        start = now()
-        assert isinstance(fp_l, list)
-        
-        log.info(f'opening and combining {len(fp_l)}\n' + '\n    '.join(fp_l))
-        
-        """
-        xr.open_dataset(fp1)
-        xr.open_dataset(fp2)
-        """
-        
-        with xr.open_mfdataset(fp_l, parallel=True,  engine='netcdf4',
-                               data_vars='minimal', coords=idxn, combine="by_coords",
-                               decode_coords="all",
-                               ) as ds:
-            
-            log.info(f'loaded {ds.dims}'+
-                 f'\n    coors: {list(ds.coords)}'+
-                 f'\n    data_vars: {list(ds.data_vars)}'+
-                 f'\n    crs:{ds.rio.crs}'
-                 )
-            
-            for attn in ['today_str', 'run_name', 'proj_name', 'case_name', 'scen_name']:
-                ds.attrs[attn] = getattr(self, attn)
-                
-            ds.attrs['fname'] = 'run_merge_XR'
- 
-            o = ds.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
-        
-            with ProgressBar():
-                _ = o.compute()
-                
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        log.info(f'wrote {len(fp_l)} to file in {(now()-start).total_seconds():.2f}\n    {ofp}')
-        return ofp
+ #==============================================================================
+ #    def run_merge_XR(self, fp_l, **kwargs):
+ #        """merge the catMosaic and layer datasets
+ #        
+ #        
+ #        better to just write files in parallel"""
+ #        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('mXR',subdir=True, ext='.nc', **kwargs)
+ #        idxn = self.idxn
+ #        start = now()
+ #        assert isinstance(fp_l, list)
+ #        
+ #        log.info(f'opening and combining {len(fp_l)}\n' + '\n    '.join(fp_l))
+ #        
+ #        """
+ #        xr.open_dataset(fp1)
+ #        xr.open_dataset(fp2)
+ #        """
+ #        
+ #        with xr.open_mfdataset(fp_l, parallel=True,  engine='netcdf4',
+ #                               data_vars='minimal', coords=idxn, combine="by_coords",
+ #                               decode_coords="all",
+ #                               ) as ds:
+ #            
+ #            log.info(f'loaded {ds.dims}'+
+ #                 f'\n    coors: {list(ds.coords)}'+
+ #                 f'\n    data_vars: {list(ds.data_vars)}'+
+ #                 f'\n    crs:{ds.rio.crs}'
+ #                 )
+ #            
+ #            for attn in ['today_str', 'run_name', 'proj_name', 'case_name', 'scen_name']:
+ #                ds.attrs[attn] = getattr(self, attn)
+ #                
+ #            ds.attrs['fname'] = 'run_merge_XR'
+ # 
+ #            o = ds.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
+ #        
+ #            with ProgressBar():
+ #                _ = o.compute()
+ #                
+ #        #=======================================================================
+ #        # wrap
+ #        #=======================================================================
+ #        log.info(f'wrote {len(fp_l)} to file in {(now()-start).total_seconds():.2f}\n    {ofp}')
+ #        return ofp
+ #==============================================================================
             
 
     
@@ -2183,7 +2166,8 @@ class UpsampleSessionXR(UpsampleSession):
         return res_dx1
 
     def run_statsXR(self, ds, 
-                    base='s2', 
+                    base='s2',
+                    func_d =  None,
                     **kwargs):
         """compute stats from the xarray stack"""
         #=======================================================================
@@ -2192,7 +2176,15 @@ class UpsampleSessionXR(UpsampleSession):
         start = now()
         idxn=self.idxn
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsXR',  subdir=False,ext='.pkl', **kwargs)
-        agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
+        agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True)
+        
+        if func_d is None: 
+            func_d = {
+                            'wse':self._get_wse_statsXR,
+                            'wd':self._get_wd_statsXR,
+                            #'wse_diff':self._get_diff_statsXR,
+                            #'wd_diff':self._get_diff_statsXR,
+                            } 
             
         scale_l = ds[self.idxn].values.tolist()
 
@@ -2204,12 +2196,7 @@ class UpsampleSessionXR(UpsampleSession):
         # loop on each layer
         #===================================================================
         res_d = dict()
-        for layName, func in {
-            'wse':self._get_wse_statsXR,
-            'wd':self._get_wd_statsXR,
-            #'wse_diff':self._get_diff_statsXR,
-            #'wd_diff':self._get_diff_statsXR,
-            }.items():
+        for layName, func in func_d.items():
                 
             #skips
             if base=='s1':

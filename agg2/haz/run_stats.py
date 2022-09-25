@@ -92,7 +92,11 @@ def run_haz_stats(xr_dir,
         
         #difference
         s12_ds = ses.get_s12XR(ds)
-        d['s12'] =  ses.run_statsXR(s12_ds)
+        d['s12'] =  ses.run_statsXR(s12_ds,
+                                    func_d={
+                                        'wse':ses._get_diff_statsXR,#dome
+                                        'wd':ses._get_diff_statsXR,
+                                        })
          
         #=======================================================================
         # get basic stats
@@ -140,6 +144,7 @@ if __name__ == "__main__":
   #       webbrowser.open(client.dashboard_link)
   #=============================================================================
     
+    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220925\_xr')
     run_haz_stats(res_fp_lib['r10']['filter'])
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
