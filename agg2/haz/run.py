@@ -382,13 +382,11 @@ if __name__ == "__main__":
  #==============================================================================
         #webbrowser.open(client.dashboard_link)
         
-    xr_dir = SJ_dev(method='direct')
-    #===========================================================================
-    # xr_dir = SJ_run(method='direct',
-    #             #dsc_l=[1,2**5,  2**7],
-    #             run_name='r10'
-    #            )
-    #===========================================================================
+    #xr_dir = SJ_dev(method='direct')
+    xr_dir = SJ_run(method='direct',
+                #dsc_l=[1,2**5,  2**7],
+                run_name='r10'
+               )
  
     run_haz_stats(xr_dir)
  

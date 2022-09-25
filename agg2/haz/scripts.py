@@ -1676,6 +1676,17 @@ class UpsampleSessionXR(UpsampleSession):
         self.xr_dir=xr_dir
         
 
+
+    def _prep_xds_write(self, xds_res):
+        #append spatial info
+        xds_res.rio.write_crs(self.crs.to_string(), inplace=True).rio.write_coordinate_system(inplace=True)
+    #add meta
+        for attn in ['today_str', 'run_name', 'proj_name']:
+            xds_res.attrs[attn] = getattr(self, attn)
+        
+    #do some checks
+        assert_xds(xds_res)
+
     def _save_mfdataset(self, xds_res,  resname, log, xr_dir=None):
         """write xds in scale and data_var chunks"""
         #=======================================================================
@@ -1683,15 +1694,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         if xr_dir is None: xr_dir=self.xr_dir
         
-        #append spatial info
-        xds_res.rio.write_crs(self.crs.to_string(), inplace=True).rio.write_coordinate_system(inplace=True)
-        
-        #add meta
-        for attn in ['today_str', 'run_name', 'proj_name']:
-            xds_res.attrs[attn] = getattr(self, attn)
-        
-        #do some checks
-        assert_xds(xds_res)
+        self._prep_xds_write(xds_res)
         
         #=======================================================================
         # prepare groups by data_var
@@ -1748,7 +1751,11 @@ class UpsampleSessionXR(UpsampleSession):
         ofp_l=list()
         cnt=0
         for layName, row in fp_df.items():
+            log.info(f'layer {layName}')
             if not layName in layName_l: continue
+            odi = os.path.join(xr_dir, layName)
+            if not os.path.exists(odi):os.makedirs(odi)
+            
             d = dict()
             for i, (scale, fp) in enumerate(row.to_dict().items()):
                 log.info(f'    {i+1}/{len(fp_df)} on {layName} from {fp}')
@@ -1787,12 +1794,26 @@ class UpsampleSessionXR(UpsampleSession):
                 assert xda1.rio.shape == base_shape
                 assert xda1.rio.resolution()[0] == base_res
                 
-                d[scale] = xda1
+                #write this layer+scale
+                xds_i= xr.concat([xda1], pd.Index([scale], name='scale', dtype=int)).to_dataset(name=layName) 
+                self._prep_xds_write(xds_i)
+                ofpi = os.path.join(odi, f'{resname}_s{scale:03d}.nc')
+                
+                log.info(f'         writing {xda1.rio.shape} to {ofpi}')
+                xds_i.to_netcdf(ofpi, mode='w', format='NETCDF4', engine='netcdf4', compute=True)
+                
+                ofp_l.append(ofpi)
+                
+                
                 cnt+=1
-            
-            log.info(f'concat {layName}')
-            xds_i= xr.concat(d.values(), pd.Index(d.keys(), name='scale', dtype=int)).to_dataset(name=layName)
-            ofp_l+=self._save_mfdataset(xds_i, resname, log, xr_dir=xr_dir)
+            #===================================================================
+            #     d[scale] = xda1
+            #     
+            # 
+            # log.info(f'concat {layName}')
+            # xds_i= xr.concat(d.values(), pd.Index(d.keys(), name='scale', dtype=int)).to_dataset(name=layName)
+            # ofp_l+=self._save_mfdataset(xds_i, resname, log, xr_dir=xr_dir)
+            #===================================================================
             
         #=======================================================================
         # #merge
@@ -1804,7 +1825,7 @@ class UpsampleSessionXR(UpsampleSession):
         xds_res.plot(col='scale')
         """
         #promote to dataset
-        log.info('converting %i to dataset'%cnt)
+        log.info('compiled %i datasets'%cnt)
         #xds_res = xr.Dataset(res_lib)
  
         #=======================================================================
