@@ -17,6 +17,15 @@ xr_lib = {'r10':{
               'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\_xr'
               }}
 
+fp_lib = {'r10':{
+    'filter':{  
+        's12_TP': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\tpXR\\SJ_r10_hs_0925_tpXR.pkl',
+       's12': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s12\\SJ_r10_hs_0925_statsXR_s12.pkl',
+       's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s2\\SJ_r10_hs_0925_statsXR_s2.pkl',
+       's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s1\\SJ_r10_hs_0925_statsXR_s1.pkl'
+   }
+    }}
+
 def run_haz_stats(xr_dir,
                   proj_d=None,
                   case_name='SJ',
@@ -124,7 +133,7 @@ def run_haz_stats(xr_dir,
         ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
         rdx.to_pickle(ofp)
          
-        log.info(f'wrote {str(rdx.shape)} to \n    {ofp}\n' +
+        log.info(f'wrote {str(rdx.shape)} to \n\n    {ofp}\n\n\n' +
                  pprint.pformat(fp_d, width=30, indent=3, compact=True, sort_dicts =False))
         
         return ofp
@@ -153,8 +162,8 @@ if __name__ == "__main__":
   #       webbrowser.open(client.dashboard_link)
   #=============================================================================
     
-    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220925\_xr')
-    SJ_run_h_stats(method='direct')
+    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
+    SJ_run_h_stats(method='filter')
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
         
