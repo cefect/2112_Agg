@@ -248,7 +248,8 @@ def run_haz_stats(xr_dir,
     from agg2.haz.scripts import UpsampleSessionXR as Session
     
     out_dir = os.path.join(
-            pathlib.Path(os.path.dirname(xr_dir)).parents[0],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+            #pathlib.Path(os.path.dirname(xr_dir)).parents[0],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+            os.path.dirname(xr_dir),
                     'hstats', today_str)
     #execute
     with Session(case_name=case_name,crs=crs, nodata=-9999, out_dir=out_dir,xr_dir=xr_dir,method='hs', **kwargs) as ses: 
@@ -269,32 +270,28 @@ def run_haz_stats(xr_dir,
         #=======================================================================
         ds_d = dict()
         for dirpath, _, fns in os.walk(xr_dir):
-            varName = os.path.basename(dirpath)
+            varName = os.path.basename(dirpath)            
             fp_l = [os.path.join(dirpath, e) for e in fns if e.endswith('.nc')]
-            if not len(fp_l)>0:continue
+            if len(fp_l)==0: continue
+            ds_l = list()
             
-            
-            ds_d[varName] = xr.open_mfdataset(fp_l, 
-                                #parallel=True,  #giving etCDF: Unknown file format
-                                #engine='netcdf4',
-                                data_vars='all', 
-                                coords='all', 
-                                combine="nested",
-                                concat_dim=[idxn],
-                                decode_coords="all",
-                                combine_attrs='override',
-                                chunks=1000,
-                                )
-            log.info(f'loaded {varName} from {len(fp_l)}')
-            
+            #load eaech
+            for i, fp in enumerate(fp_l):
+                ds_l.append(xr.open_dataset(fp, engine='netcdf4', chunks='auto',
+                                            decode_coords="all"))
+                
+            ds_d[varName] = xr.concat(ds_l, dim=idxn)
+                            
+        #merge all the layers            
         ds = xr.merge(ds_d.values())
+ 
             
         log.info(f'loaded {ds.dims}'+
              f'\n    coors: {list(ds.coords)}'+
              f'\n    data_vars: {list(ds.data_vars)}'+
              f'\n    crs:{ds.rio.crs}'
              )
-        assert ds.rio.crs == ses.crs
+        assert ds.rio.crs == ses.crs, ds.rio.crs
         
         d = dict()
         #=======================================================================
@@ -365,30 +362,31 @@ def SJ_dev(run_name='t',method='direct',**kwargs):
 if __name__ == "__main__": 
     start = now()
     """seems to slow things down..."""
- #==============================================================================
- #    with Client(
- #        #processes=True,
- #        #threads_per_worker=4, n_workers=3, memory_limit='2GB'
- #        ) as client:
- #        
- #        #get meta
- #        wrkr_cnt = len(client.scheduler_info()['workers'])
- #        for wName, wrkr in client.scheduler_info()['workers'].items():
- #            nthreads = wrkr['nthreads']
- #            break
- #        
- # 
- #        print(f' running dask client w/ {wrkr_cnt} workers and {nthreads} threads at {client.dashboard_link}')
- #==============================================================================
-        #webbrowser.open(client.dashboard_link)
+  #=============================================================================
+  #   with Client(
+  #       #processes=True,
+  #       #threads_per_worker=4, n_workers=3, memory_limit='2GB'
+  #       ) as client:
+  #        
+  #       #get meta
+  #       wrkr_cnt = len(client.scheduler_info()['workers'])
+  #       for wName, wrkr in client.scheduler_info()['workers'].items():
+  #           nthreads = wrkr['nthreads']
+  #           break
+  #        
+  # 
+  #       print(f' running dask client w/ {wrkr_cnt} workers and {nthreads} threads at {client.dashboard_link}')
+  #       webbrowser.open(client.dashboard_link)
+  #=============================================================================
         
-    #xr_dir = SJ_dev(method='direct')
-    xr_dir = SJ_run(method='direct',
+    #xr_dir = SJ_dev(method='filter')
+    xr_dir = SJ_run(method='filter',
                 #dsc_l=[1,2**5,  2**7],
                 run_name='r10'
                )
  
-    run_haz_stats(xr_dir)
+    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220925\_xr')
+    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr')
  
  
     print('finished in %.2f'%((now()-start).total_seconds())) 

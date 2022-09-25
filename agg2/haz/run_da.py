@@ -31,6 +31,10 @@ res_fp_lib = {
     'r10t':{
         'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\hstats\20220925\SJ_r1_direct_0925_stats.pkl',
         'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\hstats\20220925\SJ_r1_direct_0925_stats.pkl',
+        },
+    'r10':{
+        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
+        'filter':r''
         }
     }
 

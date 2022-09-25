@@ -8,7 +8,7 @@ aggregation hazard
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
-import os, copy, datetime
+import os, copy, datetime, gc
 import rasterio as rio
 from rasterio.enums import Resampling
 #import scipy.ndimage
@@ -1802,10 +1802,15 @@ class UpsampleSessionXR(UpsampleSession):
                 log.info(f'         writing {xda1.rio.shape} to {ofpi}')
                 xds_i.to_netcdf(ofpi, mode='w', format='NETCDF4', engine='netcdf4', compute=True)
                 
+                #===============================================================
+                # wrap
+                #===============================================================
                 ofp_l.append(ofpi)
+                del xda, xda1, xds_i
                 
                 
                 cnt+=1
+            gc.collect()
             #===================================================================
             #     d[scale] = xda1
             #     
@@ -2400,6 +2405,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         # wrap
         #=======================================================================
+        log.info(f'executing on {len(res_d)}')
         res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='scale', dtype=int))
         with ProgressBar():
             res_dxr.compute()
