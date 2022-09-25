@@ -6,7 +6,7 @@ Created on Aug. 30, 2022
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
-import os, copy, datetime
+import os, copy, datetime, pprint
 idx= pd.IndexSlice
 
 #===============================================================================
@@ -54,7 +54,7 @@ def now():
 class UpsampleDASession(Agg2DAComs, UpsampleSession):
     """dataanalysis of downsampling"""
 
-    def __init__(self,  obj_name='ups', **kwargs):
+    def __init__(self,  obj_name='ups', logfile_duplicate=False,**kwargs):
  
  
  
@@ -131,29 +131,109 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         made a functio nto workaround the access violation
         """
         
-        base_dxcol = dx_raw.loc[1, idx['s1', 'direct',:, 'full',:]].droplevel((0, 1, 3), axis=1).reset_index(drop=True)  # baseline values
+        base_serx = dx_raw.loc[1, idx['s1', 'direct',:, 'full',:]].droplevel((0, 1, 3), axis=0)  # baseline values
         
         d = dict()
         for layName, gdx in dx_raw[to_be_normd].groupby('layer', axis=1):
-            base_ser = base_dxcol[layName].iloc[0,:]
-            d[layName] = gdx.droplevel('layer', axis=1).divide(base_ser, axis=1, level='metric')
+ 
+            d[layName] = gdx.droplevel('layer', axis=1).divide(base_serx[layName], axis=1, level='metric')
             
             """
             view(gdx.droplevel('layer', axis=1))
             """
             
-        #concat and promote
+        # concat and promote
         div_dxcol = pd.concat(d, axis=1, names=['layer'])
-        
-        
         
         return pd.concat([div_dxcol], names=['base'], keys=[f'{to_be_normd}N'], axis=1).reorder_levels(dx_raw.columns.names, axis=1)
     
+    def data_prep(self, dxcol_raw, **kwargs):
         """
-        view(rdxcol)
+        had to make this a separate function to get around the memory exception
         """
- 
+        #===========================================================================
+        # defaults
+        #===========================================================================
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('dprep',  subdir=False,ext='.pkl', **kwargs)
+        idxn=self.idxn
+        # add aggregated residuals
+        """
+        both these bases are stats computed on teh same (dynamic) zones:
+            resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_samp, j=j_base]
         
+        """
+        
+        dx1a = dxcol_raw.join(pd.concat([dxcol_raw['s2'] - dxcol_raw['s1']], names=['base'], keys=['s12A'], axis=1))
+     
+        #print({lvlName:i for i, lvlName in enumerate(dx1.columns.names)})
+        l = [dx1a]
+        #=======================================================================
+        # area and volume
+        #=======================================================================
+        base_pixelLength = 1.0
+        scale_df = pd.concat([
+            pd.Series(dx1a.index), 
+            pd.Series(dx1a.index * base_pixelLength, name='pixelLength', dtype=float), 
+            pd.Series(dx1a.index * (base_pixelLength ** 2), name='pixelArea', dtype=float)], 
+            axis=1).set_index(idxn)
+            
+        #volume
+        l.append(
+            dx1a.loc[:, idx[:, :, 'wd', :, 'sum']].drop('s12_TP', axis=1, level='base').multiply(scale_df['pixelArea'], axis=0).rename(columns={'sum':'vol'}, level='metric'))
+        #area
+        l.append(
+            dx1a.loc[:, idx[:, :, 'wse', :, 'real_count']].drop('s12_TP', axis=1, level='base'
+                           ).multiply(scale_df['pixelArea'], axis=0
+                      ).rename(columns={'real_count':'real_area'}, level='metric'))
+        
+        dx1b = pd.concat(l, axis=1).sort_index(axis=1) #include these in the norm calcsl
+        
+        log.info(f'added area and volume w/ {str(dx1b.shape)}')
+        l = [dx1b]
+        #=======================================================================
+        # residuals and norming
+        #=======================================================================
+        #baseline mean
+        base_ser = dx1a['s1']['direct'].loc[:, idx[:, 'full', 'mean']].droplevel(['dsc', 'metric'], axis=1).iloc[0, :].rename('base')
+        
+        #normalize aggregates
+        """wse real_count not right
+        base_ser = dx1a['s1']['direct']['wse'].loc[:, idx[:, 'full', 'mean']].droplevel(['dsc', 'metric'], axis=1).iloc[0, :].rename('base')
+        
+        dx1a['s1']['filter']['wse'].loc[:, idx[:, 'real_count']]"""
+        
+        
+        l.append(self.get_normd(dx1b, to_be_normd='s12A'))
+        #normalize granulars
+        """only these metrics make sense to normalize on the diffs"""
+        l.append(
+            self.get_normd(dx1b, to_be_normd='s12').drop(['RMSE', 'real_count'], axis=1, level='metric'))
+        #=======================================================================
+        # merge
+        #=======================================================================
+        dx2 = pd.concat(l, axis=1).sort_index(axis=1)
+        
+        dx2.index = pd.MultiIndex.from_frame(scale_df.reset_index())
+        
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        #=======================================================================
+        # if write:
+        #     
+        #     ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_aggStats_dx.pkl')
+        #     dx1.to_pickle(ofp)
+        #     
+        #     log.info(f'wrote {str(dx1.shape)} to \n    {ofp}')
+        #=======================================================================
+        
+        mdex = dx2.columns
+        names_d = {name:mdex.unique(name).to_list() for name in mdex.names}
+            
+        log.info('assembled w/ \n%s'%pprint.pformat(names_d, width=10, indent=3, compact=True, sort_dicts =False))
+        
+        return dx2
     
 
  
