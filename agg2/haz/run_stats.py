@@ -124,7 +124,8 @@ def run_haz_stats(xr_dir,
         ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
         rdx.to_pickle(ofp)
          
-        log.info(f'wrote {str(rdx.shape)} to \n    {ofp}')
+        log.info(f'wrote {str(rdx.shape)} to \n    {ofp}\n' +
+                 pprint.pformat(fp_d, width=30, indent=3, compact=True, sort_dicts =False))
         
         return ofp
     
