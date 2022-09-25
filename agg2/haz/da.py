@@ -139,11 +139,21 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
             d[layName] = gdx.droplevel('layer', axis=1).divide(base_serx[layName], axis=1, level='metric')
             
             """
+            gdx.droplevel('layer', axis=1).loc[:, idx[:, :, 'real_count']]
+            d[layName].loc[:, idx[:, :, 'real_count']]
+            view()
+            view(base_serx)
             view(gdx.droplevel('layer', axis=1))
             """
             
         # concat and promote
         div_dxcol = pd.concat(d, axis=1, names=['layer'])
+        
+        """
+        view(base_serx)
+        view(dx_raw[to_be_normd].loc[:, idx[:, 'wse', :,  ('real_count', 'real_area')]].sort_index(axis=1))
+        view(div_dxcol.loc[:, idx['wse', :, :, ('real_count', 'real_area')]].sort_index(axis=1))
+        """
         
         return pd.concat([div_dxcol], names=['base'], keys=[f'{to_be_normd}N'], axis=1).reorder_levels(dx_raw.columns.names, axis=1)
     
@@ -178,12 +188,15 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
             axis=1).set_index(idxn)
             
         #volume
+        """these are all at base resolution"""
         l.append(
-            dx1a.loc[:, idx[:, :, 'wd', :, 'sum']].drop('s12_TP', axis=1, level='base').multiply(scale_df['pixelArea'], axis=0).rename(columns={'sum':'vol'}, level='metric'))
+            dx1a.loc[:, idx[:, :, 'wd', :, 'sum']].drop('s12_TP', axis=1, level='base'
+                                #).multiply(scale_df['pixelArea'], axis=0
+                                           ).rename(columns={'sum':'vol'}, level='metric'))
         #area
         l.append(
             dx1a.loc[:, idx[:, :, 'wse', :, 'real_count']].drop('s12_TP', axis=1, level='base'
-                           ).multiply(scale_df['pixelArea'], axis=0
+                          # ).multiply(scale_df['pixelArea'], axis=0
                       ).rename(columns={'real_count':'real_area'}, level='metric'))
         
         dx1b = pd.concat(l, axis=1).sort_index(axis=1) #include these in the norm calcsl
@@ -200,7 +213,9 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         """wse real_count not right
         base_ser = dx1a['s1']['direct']['wse'].loc[:, idx[:, 'full', 'mean']].droplevel(['dsc', 'metric'], axis=1).iloc[0, :].rename('base')
         
-        dx1a['s1']['filter']['wse'].loc[:, idx[:, 'real_count']]"""
+        dx1a['s12A']['filter']['wse'].loc[:, idx[:, 'real_count']]
+        
+        """
         
         
         l.append(self.get_normd(dx1b, to_be_normd='s12A'))

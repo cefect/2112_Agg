@@ -10,7 +10,8 @@ import pandas as pd
 import xarray as xr
 from dask.distributed import Client
 from definitions import proj_lib
-
+from hp.pd import view
+idx = pd.IndexSlice
 
 xr_lib = {'r10':{
               'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr',
@@ -98,17 +99,19 @@ def run_haz_stats(xr_dir,
         #=======================================================================
         # compute special stats-----
         #=======================================================================
-        if not 's12_tp' in fp_d:
-            fp_d['s12_TP'] = ses.run_TP_XR(ds)
-        
-        #difference
-        if not 's12' in fp_d:
-            s12_ds = ses.get_s12XR(ds)
-            fp_d['s12'] =  ses.run_statsXR(s12_ds,base='s12',
-                                        func_d={
-                                            'wse':ses._get_diff_statsXR,#dome
-                                            'wd':ses._get_diff_statsXR,
-                                            })
+        #=======================================================================
+        # if not 's12_tp' in fp_d:
+        #     fp_d['s12_TP'] = ses.run_TP_XR(ds)
+        # 
+        # #difference
+        # if not 's12' in fp_d:
+        #     s12_ds = ses.get_s12XR(ds)
+        #     fp_d['s12'] =  ses.run_statsXR(s12_ds,base='s12',
+        #                                 func_d={
+        #                                     'wse':ses._get_diff_statsXR,#dome
+        #                                     'wd':ses._get_diff_statsXR,
+        #                                     })
+        #=======================================================================
          
         #=======================================================================
         # get basic stats
@@ -127,7 +130,8 @@ def run_haz_stats(xr_dir,
         d = {k:pd.read_pickle(fp) for k,fp in fp_d.items()}
         rdx = pd.concat(d, axis=1, names=['base'], sort=True)
         """
-        view(rdx.T)
+        rdx.loc[:, idx[:, :, :, ('posi_count', 'real_count')]]
+        view(rdx.loc[:, idx[:, :, :, ('posi_count', 'real_count')]])
         """
          
         ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
@@ -162,8 +166,8 @@ if __name__ == "__main__":
   #       webbrowser.open(client.dashboard_link)
   #=============================================================================
     
-    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
-    SJ_run_h_stats(method='filter')
+    run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220925\_xr')
+    #SJ_run_h_stats(method='filter')
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
         

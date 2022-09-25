@@ -309,6 +309,17 @@ class RasterArrayStats(AggBase):
                 }
     
     """
+    np.invert(np.isnan(xda)).sum(**agg_kwargs).compute()
+    
+    xda.plot(col='scale')
+    
+    for e in xda.values:
+        #np.isnan(e).sum()
+        np.invert(np.isnan(e)).sum()
+        
+        #np.isnan(e).sum() + np.invert(np.isnan(e)).sum()
+    
+    np.invert(np.isnan(xda.values)).sum()
     xda.mean(dim=self.idxn).values.shape
     xda.mean().values
     np.isnan(xda.values).all()
@@ -349,7 +360,7 @@ class RasterArrayStats(AggBase):
         return {
             
             'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
-            'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
+            'posi_count':(xda>0).sum(**agg_kwargs),
             'sum':xda.sum(**agg_kwargs)
                 }
 
@@ -2047,63 +2058,65 @@ class UpsampleSessionXR(UpsampleSession):
             
 
     
- 
-    def run_diffsXR(self,
-                  nc_fp,
-                  xr_dir=None,
-                  crs=None,
-                  **kwargs):
-        
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('diffsXR',  subdir=True,ext='.nc', **kwargs)
-        start = now()
-        idxn = self.idxn
-        crs=self.crs
-        #=======================================================================
-        # open the dataset from disk
-        #=======================================================================
-        with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto', decode_coords="all") as xds:
-            scale_l = xds['scale'].values.tolist()
-            log.info(f'loaded w/ \n    data_vars:{list(xds.keys())}\n    scales:{scale_l} \n    {nc_fp}')
-            
-            assert xds.rio.crs==crs
-            #===================================================================
-            # loop and compute delta for each
-            #===================================================================
-            base_xds = xds.isel(scale=0)
-            res_d = dict()
-            for i, scale in enumerate(scale_l):
-                log.info(f'    {i+1}/{len(scale_l)} scale={scale}')
-                
-                #compute the difference (with the base mask
-                xds1 = xds.isel(scale=i).where(np.invert(np.isnan(base_xds))) - base_xds                
-                
-                if idxn in xds1.coords:
-                    xds1 = xds1.reset_coords(names=idxn, drop=True)
-                
-                res_d[scale] = xds1
-                
-            #===================================================================
-            # merge
-            #===================================================================
- 
-            """these are datasets"""
-            res_xds = xr.concat(res_d.values(),pd.Index(res_d.keys(), name=idxn, dtype=int)
-                                ).rename({k:f'{k}_diff' for k in xds1.data_vars})
-                                
-            """
-            res_xds['wse_diff'].plot(col='scale')
-            """
-                                
-            #===================================================================
-            # write
-            #===================================================================
- 
-            ofp_l = self._save_mfdataset(res_xds, resname, log, xr_dir=xr_dir)
-                
-        log.info(f'finished in {(now()-start).total_seconds()}')
-        
-        return ofp_l
- 
+ #==============================================================================
+ # 
+ #    def run_diffsXR(self,
+ #                  nc_fp,
+ #                  xr_dir=None,
+ #                  crs=None,
+ #                  **kwargs):
+ #        
+ #        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('diffsXR',  subdir=True,ext='.nc', **kwargs)
+ #        start = now()
+ #        idxn = self.idxn
+ #        crs=self.crs
+ #        #=======================================================================
+ #        # open the dataset from disk
+ #        #=======================================================================
+ #        with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto', decode_coords="all") as xds:
+ #            scale_l = xds['scale'].values.tolist()
+ #            log.info(f'loaded w/ \n    data_vars:{list(xds.keys())}\n    scales:{scale_l} \n    {nc_fp}')
+ #            
+ #            assert xds.rio.crs==crs
+ #            #===================================================================
+ #            # loop and compute delta for each
+ #            #===================================================================
+ #            base_xds = xds.isel(scale=0)
+ #            res_d = dict()
+ #            for i, scale in enumerate(scale_l):
+ #                log.info(f'    {i+1}/{len(scale_l)} scale={scale}')
+ #                
+ #                #compute the difference (with the base mask
+ #                xds1 = xds.isel(scale=i).where(np.invert(np.isnan(base_xds))) - base_xds                
+ #                
+ #                if idxn in xds1.coords:
+ #                    xds1 = xds1.reset_coords(names=idxn, drop=True)
+ #                
+ #                res_d[scale] = xds1
+ #                
+ #            #===================================================================
+ #            # merge
+ #            #===================================================================
+ # 
+ #            """these are datasets"""
+ #            res_xds = xr.concat(res_d.values(),pd.Index(res_d.keys(), name=idxn, dtype=int)
+ #                                ).rename({k:f'{k}_diff' for k in xds1.data_vars})
+ #                                
+ #            """
+ #            res_xds['wse_diff'].plot(col='scale')
+ #            """
+ #                                
+ #            #===================================================================
+ #            # write
+ #            #===================================================================
+ # 
+ #            ofp_l = self._save_mfdataset(res_xds, resname, log, xr_dir=xr_dir)
+ #                
+ #        log.info(f'finished in {(now()-start).total_seconds()}')
+ #        
+ #        return ofp_l
+ # 
+ #==============================================================================
 
     def _cm_stat_calc(self, cm_ds, lay_ds, func, agg_kwargs={}):
         
@@ -2134,21 +2147,7 @@ class UpsampleSessionXR(UpsampleSession):
  
         return xr.concat(d.values(), pd.Index(d.keys(), name='dsc', dtype=str))
     
-        """ 
-            ds1['catMask'].plot(col='scale')            
-        
-            mask_ds.sum(**agg_kwargs).values #catmask values            
-        
-            #real values per scale
-        
-            np.invert(np.isnan(lay_mask_ds)).sum(**agg_kwargs).values 
-        
-            
-        
-            d[dsc].values #rows:metrics, cols:scales
-        
-            """
-
+ 
 
     def _statXR_wrap(self, res_d, log, start, ofp):
         res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='layer', dtype=str))
@@ -2167,6 +2166,9 @@ class UpsampleSessionXR(UpsampleSession):
         log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
         
         return ofp
+    """
+    view(res_dx1.T)
+    """
 
     def run_statsXR(self, ds, 
                     base='s2',

@@ -288,10 +288,9 @@ def run_haz_plots(fp_lib,
         wse:
             dont want to normalize this one
             
-         
-        no area bias?
+ 
         direct: delta WSE has changed slightly
-        volume bias is normed strange
+ 
         
         """
         
@@ -305,7 +304,7 @@ def run_haz_plots(fp_lib,
         dxi = pd.concat([
             dx2.loc[:, idx['s12AN',:, 'wd',:, ('mean', 'vol')]],
             dx2.loc[:, idx['s12AN',:, 'wse',:, 'real_area']],
-            dx2.loc[:, idx['s12',:, 'wse',:, 'mean']],
+            dx2.loc[:, idx['s12A',:, 'wse',:, 'mean']],
             #dx2.loc[:, idx['s12AN',:, 'wse',:, 'real_area']]
             ], axis=1).droplevel('base', axis=1).sort_index(axis=1)
                                             
