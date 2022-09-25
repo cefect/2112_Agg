@@ -2150,7 +2150,7 @@ class UpsampleSessionXR(UpsampleSession):
             """
 
 
-    def _statXR_wrap(self, res_d, log, start):
+    def _statXR_wrap(self, res_d, log, start, ofp):
         res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='layer', dtype=str))
         with ProgressBar():
             res_dxr.compute()
@@ -2162,8 +2162,11 @@ class UpsampleSessionXR(UpsampleSession):
     # clean up a bit
         res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1)
  
-        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f}')
-        return res_dx1
+        res_dx1.sort_index().to_pickle(ofp)
+        
+        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
+        
+        return ofp
 
     def run_statsXR(self, ds, 
                     base='s2',
@@ -2175,7 +2178,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         start = now()
         idxn=self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('statsXR',  subdir=False,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup(f'statsXR_{base}',  subdir=True,ext='.pkl', **kwargs)
         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True)
         
         if func_d is None: 
@@ -2199,14 +2202,14 @@ class UpsampleSessionXR(UpsampleSession):
         for layName, func in func_d.items():
                 
             #skips
-            if base=='s1':
+            if base in ('s1', 's12'):
                 if not layName in ['wse', 'wd']:continue
             #===============================================================
             # setup
             #===============================================================
             
             
-            if base=='s2':
+            if base in ('s2', 's12'):
                 lay_ds = ds1[layName]
             else:
                 #replace the raw onto all scales to match the syntax
@@ -2227,7 +2230,7 @@ class UpsampleSessionXR(UpsampleSession):
         #===================================================================
  
         
-        return self._statXR_wrap(res_d, log, start)
+        return self._statXR_wrap(res_d, log, start, ofp)
     
     def get_s12XR(self, xds_raw, **kwargs):
         """get difference stats"""
@@ -2287,7 +2290,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         start = now()
         idxn=self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('tpXR',  subdir=False,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('tpXR',  subdir=True,ext='.pkl', **kwargs)
         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
         scale_l = ds[idxn].values.tolist()
         
@@ -2408,8 +2411,13 @@ class UpsampleSessionXR(UpsampleSession):
         
         #res_dx1.loc[1, :] = np.nan
  
-        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f}')
-        return res_dx1.sort_index()
+        
+        
+        res_dx1.sort_index().to_pickle(ofp)
+        
+        log.info(f'finished on {str(res_dx1.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
+        
+        return ofp
                 
                 
  

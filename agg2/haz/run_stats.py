@@ -12,7 +12,7 @@ from dask.distributed import Client
 from definitions import proj_lib
 
 
-res_fp_lib = {'r10':{
+xr_lib = {'r10':{
               'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr',
               'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\_xr'
               }}
@@ -20,6 +20,7 @@ res_fp_lib = {'r10':{
 def run_haz_stats(xr_dir,
                   proj_d=None,
                   case_name='SJ',
+                  fp_d=dict(),
                  **kwargs):
     """hazard/raster stat compute from xarray"""
  
@@ -84,25 +85,28 @@ def run_haz_stats(xr_dir,
              )
         assert ds.rio.crs == ses.crs, ds.rio.crs
         
-        d = dict()
+ 
         #=======================================================================
         # compute special stats-----
         #=======================================================================
-        d['s12_TP'] = ses.run_TP_XR(ds)
+        if not 's12_tp' in fp_d:
+            fp_d['s12_TP'] = ses.run_TP_XR(ds)
         
         #difference
-        s12_ds = ses.get_s12XR(ds)
-        d['s12'] =  ses.run_statsXR(s12_ds,
-                                    func_d={
-                                        'wse':ses._get_diff_statsXR,#dome
-                                        'wd':ses._get_diff_statsXR,
-                                        })
+        if not 's12' in fp_d:
+            s12_ds = ses.get_s12XR(ds)
+            fp_d['s12'] =  ses.run_statsXR(s12_ds,base='s12',
+                                        func_d={
+                                            'wse':ses._get_diff_statsXR,#dome
+                                            'wd':ses._get_diff_statsXR,
+                                            })
          
         #=======================================================================
         # get basic stats
-        #=======================================================================         
-        for base in ['s2', 's1']:
-            d[base] = ses.run_statsXR(ds, base=base, logger=log.getChild(base))
+        #=======================================================================
+        if not 's1' in fp_d or 's2' in fp_d:         
+            for base in ['s2', 's1']:
+                fp_d[base] = ses.run_statsXR(ds, base=base, logger=log.getChild(base))
             
         
          
@@ -111,6 +115,7 @@ def run_haz_stats(xr_dir,
         #=======================================================================
         ds.close()
         
+        d = {k:pd.read_pickle(fp) for k,fp in fp_d.items()}
         rdx = pd.concat(d, axis=1, names=['base'], sort=True)
         """
         view(rdx.T)
@@ -122,6 +127,9 @@ def run_haz_stats(xr_dir,
         log.info(f'wrote {str(rdx.shape)} to \n    {ofp}')
         
         return ofp
+    
+def SJ_run_h_stats(run_name='r10', method='direct'):
+    return run_haz_stats(xr_lib[run_name][method], run_name=run_name, )
     
 if __name__ == "__main__": 
     
@@ -145,7 +153,7 @@ if __name__ == "__main__":
   #=============================================================================
     
     #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220925\_xr')
-    run_haz_stats(res_fp_lib['r10']['filter'])
+    SJ_run_h_stats(method='direct')
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
         
