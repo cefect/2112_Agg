@@ -251,7 +251,7 @@ def run_haz_stats(xr_dir,
             pathlib.Path(os.path.dirname(xr_dir)).parents[0],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
                     'hstats', today_str)
     #execute
-    with Session(case_name=case_name,crs=crs, nodata=-9999, out_dir=out_dir, **kwargs) as ses: 
+    with Session(case_name=case_name,crs=crs, nodata=-9999, out_dir=out_dir,xr_dir=xr_dir,method='hs', **kwargs) as ses: 
         log = ses.logger
         idxn = ses.idxn
         #config directory
@@ -265,7 +265,7 @@ def run_haz_stats(xr_dir,
         """
  
         #=======================================================================
-        # load each subdir
+        # load each subdir----
         #=======================================================================
         ds_d = dict()
         for dirpath, _, fns in os.walk(xr_dir):
@@ -298,16 +298,21 @@ def run_haz_stats(xr_dir,
         
         d = dict()
         #=======================================================================
-        # compute special stats
+        # compute special stats-----
         #=======================================================================
-        d['s12_TP'] = ses.run_TP_XR(ds) 
+        d['s12_TP'] = ses.run_TP_XR(ds)
+        
+        #difference
+        s12_ds = ses.get_s12XR(ds)
+        d['s12'] =  ses.run_statsXR(s12_ds)
          
         #=======================================================================
         # get basic stats
-        #=======================================================================
-         
+        #=======================================================================         
         for base in ['s2', 's1']:
             d[base] = ses.run_statsXR(ds, base=base, logger=log.getChild(base))
+            
+        
          
         #=======================================================================
         # wrap
@@ -377,15 +382,13 @@ if __name__ == "__main__":
  #==============================================================================
         #webbrowser.open(client.dashboard_link)
         
-    #xr_dir = SJ_dev(method='filter')
-    #===========================================================================
-    # nc_fp = SJ_run(method='direct',
-    #             #dsc_l=[1,2**5,  2**7],
-    #             run_name='r10'
-    #            )
-    #===========================================================================
-    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
-    #run_haz_stats(nc_fp)
+    #xr_dir = SJ_dev(method='direct')
+    xr_dir = SJ_run(method='direct',
+                #dsc_l=[1,2**5,  2**7],
+                run_name='r10'
+               )
+ 
+    run_haz_stats(xr_dir)
  
  
     print('finished in %.2f'%((now()-start).total_seconds())) 

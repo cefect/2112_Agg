@@ -42,6 +42,16 @@ def SJ_da_run(
     
     return run_haz_plots(res_fp_lib[run_name], proj_name='SJ', run_name=run_name)
 
+def SJ_dev_run(
+        fp_d = {
+            'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
+            'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\hstats\20220925\SJ_r1_hs_0925_stats.pkl'
+            
+            }
+        
+        ):
+    return run_haz_plots(fp_d, proj_name='SJ', run_name='t')
+
  
 
 
