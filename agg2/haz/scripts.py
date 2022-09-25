@@ -31,7 +31,7 @@ from hp.sklearn import get_confusion
 
 from agg2.coms import Agg2Session, AggBase
 from agg2.haz.rsc.scripts import ResampClassifier
-from agg2.haz.coms import assert_dem_ar, assert_wse_ar, assert_dx_names, index_names, coldx_d, assert_xda
+from agg2.haz.coms import assert_dem_ar, assert_wse_ar, assert_dx_names, index_names, coldx_d, assert_xda, assert_xds
 idx= pd.IndexSlice
 
 #from skimage.transform import downscale_local_mean
@@ -1654,18 +1654,89 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
  
 
 class UpsampleSessionXR(UpsampleSession):
+    def __init__(self,xr_dir=None,**kwargs):
+        """session for xarray baseed hazard agg
+        
+        Parameters
+        -----------
+        xr_dir: str
+            directory to place nc files from xarray
+        """
+ 
+ 
+        super().__init__(**kwargs)
+        
+        if xr_dir is None:
+ 
+            
+            xr_dir = os.path.join(self.out_dir, '_xr')
+        if not os.path.exists(xr_dir):
+            os.makedirs(xr_dir)
+                
+        self.xr_dir=xr_dir
+        
+
+    def _save_mfdataset(self, xds_res,  resname, log, xr_dir=None):
+        """write xds in scale and data_var chunks"""
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if xr_dir is None: xr_dir=self.xr_dir
+        
+        #append spatial info
+        xds_res.rio.write_crs(self.crs.to_string(), inplace=True).rio.write_coordinate_system(inplace=True)
+        
+        #add meta
+        for attn in ['today_str', 'run_name', 'proj_name']:
+            xds_res.attrs[attn] = getattr(self, attn)
+        
+        #do some checks
+        assert_xds(xds_res)
+        
+        #=======================================================================
+        # prepare groups by data_var
+        #=======================================================================
+        ds_l, ofp_l = list(), list()
+        for dataName, xda in xds_res.data_vars.items():
+ 
+            #get the subdir
+            odi = os.path.join(xr_dir, dataName)
+            if not os.path.exists(odi):os.makedirs(odi)
+ 
+            #split along scales
+            si_l, dsi_l = zip(*xda.to_dataset().groupby('scale'))
+            ofpi_l = [os.path.join(odi, f'{resname}_s{k:03d}.nc') for k in si_l]
+            
+ 
+            
+            ds_l = ds_l + list(dsi_l)
+            ofp_l = ofp_l + ofpi_l
+            
+        #=======================================================================
+        # write the set
+        #=======================================================================
+        log.info(f'save_mfdataset on {len(ds_l)} to {xr_dir}')
+        o = xr.save_mfdataset(ds_l, ofp_l, mode='w', format='NETCDF4', engine='netcdf4', compute=False)
+        #o = xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
+        
+        
+            
+        with ProgressBar():
+            _ = o.compute()
+        return ofp_l
+
     def build_downscaled_aggXR(self, fp_df, 
                                     layName_l=['wse', 'wd'], **kwargs):
         """compile an aggregated stack (downsampled) into an xarray
         
-        seems to be only 1 cpu and maxing out the memory
+        here we just combine the aggs... would be better to integrate like we did with catMasks
         """
         
         #=======================================================================
         # defaults
         #=======================================================================
-        
-        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('aggXR',subdir=True, ext='.nc', **kwargs)
+        xr_dir = self.xr_dir
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('aggXR',subdir=False, ext='.nc', **kwargs)
         start = now()
  
         
@@ -1733,35 +1804,21 @@ class UpsampleSessionXR(UpsampleSession):
         #promote to dataset
         log.info('converting %i to dataset'%cnt)
         xds_res = xr.Dataset(res_lib)
-        
-        xds_res.rio.write_crs(crs.to_string(), inplace=True).rio.write_coordinate_system(inplace=True)
-        
-        assert xds_res.rio.crs==crs
-        
-        #add metadata
-        for attn in ['today_str', 'run_name', 'proj_name']:
-            xds_res.attrs[attn] = getattr(self, attn)
- 
-        
  
         #=======================================================================
-        # write
+        # write batch
         #=======================================================================
-        """export_grid_mapping?"""
-        delayed_obj = xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
-        
-        with ProgressBar():
-            _ = delayed_obj.compute()
+        ofp_l = self._save_mfdataset(xds_res, resname, log, xr_dir=xr_dir)
  
         log.info(f'finished in {(now()-start).total_seconds():.2f} secs w/ {xds_res.dims}'+
                  f'\n    coors: {list(xds_res.coords)}'+
                  f'\n    data_vars: {list(xds_res.data_vars)}'+
-                 f'\n    {ofp}')
+                 f'\n    {len(ofp_l)} files written to {xr_dir}')
         
-        return ofp
+        return ofp_l
     
-    def run_catMasks(self, dem_fp, wse_fp,dsc_l=None,
-                     write_tif=False,
+    def run_catMasksXR(self, dem_fp, wse_fp,dsc_l=None,
+                     write_tif=False,xr_dir=None,
                     **kwargs):
         """build the dsmp cat mask for each reso iter
         
@@ -1781,7 +1838,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         start = now()
         idxn = self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cMasks',subdir=True, ext='.cf', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('cMasks',subdir=True, ext='.pkl', **kwargs)
         if dsc_l is None: dsc_l=self.dsc_l
  
         
@@ -1904,14 +1961,14 @@ class UpsampleSessionXR(UpsampleSession):
         # concat
         #=======================================================================
         xda_cat = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='scale', dtype=int))
-        xds_res = xr.Dataset({'catMask':xda_cat}).rio.set_crs(dem_xda.rio.crs, inplace=True)
+        xds_res = xr.Dataset({'catMosaic':xda_cat})
+        
+        
         
         """    
         xda_cat.plot(col='scale')
         """
-        o = xds_res.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)
-        with ProgressBar():
-            o.compute()
+        ofp_l = self._save_mfdataset(xds_res, resname, log, xr_dir=xr_dir)
             
         
         #=======================================================================
@@ -1927,15 +1984,18 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         # write meta
         #=======================================================================\
-        ofp1 = os.path.join(out_dir, f'{resname}_meta.pkl')
-        meta_df.to_pickle(ofp1)
+ 
+        meta_df.to_pickle(ofp)
  
         log.info('finished in %.2f secs and wrote %s to \n    %s'%((now()-start).total_seconds(), str(meta_df.shape), ofp))
         
-        return ofp, ofp1
+        return ofp_l, ofp
     
     def run_merge_XR(self, fp_l, **kwargs):
-        """merge the catMosaic and layer datasets"""
+        """merge the catMosaic and layer datasets
+        
+        
+        better to just write files in parallel"""
         log, tmp_dir, out_dir, ofp, _, write = self._func_setup('mXR',subdir=True, ext='.nc', **kwargs)
         idxn = self.idxn
         start = now()
@@ -1980,7 +2040,7 @@ class UpsampleSessionXR(UpsampleSession):
  
     def run_diffsXR(self,
                   nc_fp,
- 
+                  xr_dir=None,
                   crs=None,
                   **kwargs):
         
@@ -2027,14 +2087,12 @@ class UpsampleSessionXR(UpsampleSession):
             #===================================================================
             # write
             #===================================================================
-            log.info(f'writing {list(res_xds.keys())} to \n    {ofp}')
-            o = res_xds.to_netcdf(path=ofp, mode='w', format ='NETCDF4', engine='netcdf4', compute=False)        
-            with ProgressBar():
-                _ = o.compute()
+ 
+            ofp_l = self._save_mfdataset(res_xds, resname, log, xr_dir=xr_dir)
                 
         log.info(f'finished in {(now()-start).total_seconds()}')
         
-        return ofp
+        return ofp_l
  
 
     def _cm_stat_calc(self, cm_ds, lay_ds, func, agg_kwargs={}):
@@ -2122,8 +2180,8 @@ class UpsampleSessionXR(UpsampleSession):
         for layName, func in {
             'wse':self._get_wse_statsXR,
             'wd':self._get_wd_statsXR,
-            'wse_diff':self._get_diff_statsXR,
-            'wd_diff':self._get_diff_statsXR,
+            #'wse_diff':self._get_diff_statsXR,
+            #'wd_diff':self._get_diff_statsXR,
             }.items():
                 
             #skips
@@ -2145,7 +2203,7 @@ class UpsampleSessionXR(UpsampleSession):
             #===================================================================
             # compute the stat on the masks
             #===================================================================
-            res_d[layName] = self._cm_stat_calc(ds1['catMask'], lay_ds, func, agg_kwargs=agg_kwargs)
+            res_d[layName] = self._cm_stat_calc(ds1['catMosaic'], lay_ds, func, agg_kwargs=agg_kwargs)
             
             log.info(f'finished {layName} w/ {len(res_d[layName])}')
  
@@ -2182,7 +2240,7 @@ class UpsampleSessionXR(UpsampleSession):
         # prep data
         #=======================================================================
         lay_ds = ds['wse'].reset_coords(names='spatial_ref', drop=True) 
-        cm_ds = ds['catMask'].reset_coords(names='spatial_ref', drop=True) 
+        cm_ds = ds['catMosaic'].reset_coords(names='spatial_ref', drop=True) 
         
         base_xar = lay_ds.isel(scale=0)
         
@@ -2223,16 +2281,19 @@ class UpsampleSessionXR(UpsampleSession):
             #decimate and scale
             s2_expo_xar_s2 = clean(lay_ds.sel(scale=scale).coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2))
             
-            """
-            s1_expo_xar_s2.plot()
-            s2_expo_xar_s2.plot()
-            s12_expo_xar_s2.plot()
-            """
+
  
             #===================================================================
             # compute ratio
             #===================================================================
             s12_expo_xar_s2 = s1_expo_xar_s2/s2_expo_xar_s2
+            
+            """
+            
+            s1_expo_xar_s2.plot()
+            s2_expo_xar_s2.plot()
+            s12_expo_xar_s2.plot()
+            """
             
             #=======================================================================
             # get stats on each mask------

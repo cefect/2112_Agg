@@ -107,25 +107,29 @@ def run_haz_agg2(method='direct',
         #     fp_d['diffs'] = ses.run_diffs(fp_d['agg'])
         #     ses._clear()
         #=======================================================================
-        if not 'diffXR' in fp_d:
-            fp_d['diffXR'] = ses.run_diffsXR(fp_d['aggXR'])
+        #=======================================================================
+        # if not 'diffXR' in fp_d:
+        #     fp_d['diffXR'] = ses.run_diffsXR(fp_d['aggXR'])
+        #=======================================================================
             
             
         #=======================================================================
         # category masks
         #=======================================================================
         if not ('catMasks' in fp_d) or not ('cmXR' in fp_d):            
-            fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasks(base_fp_d['dem'], base_fp_d['wse'], write_tif=False)            
+            fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasksXR(base_fp_d['dem'], base_fp_d['wse'], write_tif=False)            
             ses._clear()
             
             
 
  
         
-        if not 'XR' in fp_d:
-            fp_d['XR'] = ses.run_merge_XR([fp_d[k] for k in ['diffXR', 'cmXR', 'aggXR']]) 
+        #=======================================================================
+        # if not 'XR' in fp_d:
+        #     fp_d['XR'] = ses.run_merge_XR([fp_d[k] for k in ['diffXR', 'cmXR', 'aggXR']]) 
+        #=======================================================================
             
-        return 
+        return ses.xr_dir
         #=======================================================================
         # prob of TP per cell
         #=======================================================================
@@ -168,7 +172,61 @@ def run_haz_agg2(method='direct',
 
     return fp_d, stat_d
 
-def run_haz_stats(xr_fp,
+def run_haz_agg2XR(method='direct',
+            fp_d={},
+            case_name = 'SJ',
+            dsc_l=[1, 2**3, 2**5, 2**6, 2**7, 2**8, 2**9],
+ 
+            proj_d=None,
+                 **kwargs):
+    """hazard/raster run for agg2 xarray"""
+ 
+    #===========================================================================
+    # extract parametesr
+    #===========================================================================
+    #project data   
+    if proj_d is None: 
+        proj_d = proj_lib[case_name] 
+    wse_fp=proj_d['wse_fp_d']['hi']
+    dem_fp=proj_d['dem_fp_d'][1] 
+    crs = CRS.from_epsg(proj_d['EPSG'])
+    #===========================================================================
+    # run model
+    #===========================================================================
+    from agg2.haz.scripts import UpsampleSessionXR as Session    
+    #execute
+    with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, dsc_l=dsc_l, **kwargs) as ses:
+        stat_d = dict()
+        log = ses.logger
+        #=======================================================================
+        # build aggregated layers
+        #=======================================================================
+ 
+        if not 'agg' in fp_d:
+            fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method)
+            ses._clear()
+            
+        
+        #pre-processed base rasters
+        base_fp_d = pd.read_pickle(fp_d['agg']).iloc[0, :].to_dict()
+        
+ 
+        if not 'aggXR' in fp_d:
+            fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
+            
+        
+        #=======================================================================
+        # category masks
+        #=======================================================================
+        if not ('catMasks' in fp_d) or not ('cmXR' in fp_d):            
+            fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasksXR(base_fp_d['dem'], base_fp_d['wse'], write_tif=False)            
+            ses._clear()
+            
+ 
+        log.info(f'finished on \n    {ses.xr_dir}')
+    return ses.xr_dir
+
+def run_haz_stats(xr_dir,
                   proj_d=None,
                   case_name='SJ',
                  **kwargs):
@@ -178,13 +236,11 @@ def run_haz_stats(xr_fp,
     #===========================================================================
     # extract parametesr
     #===========================================================================
-    #project data   
+    # project data   
     if proj_d is None: 
         proj_d = proj_lib[case_name] 
  
     crs = CRS.from_epsg(proj_d['EPSG'])
-    
-    
     
     #===========================================================================
     # run model
@@ -192,44 +248,84 @@ def run_haz_stats(xr_fp,
     from agg2.haz.scripts import UpsampleSessionXR as Session
     
     out_dir = os.path.join(
-            pathlib.Path(os.path.dirname(xr_fp)).parents[3],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+            pathlib.Path(os.path.dirname(xr_dir)).parents[0],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
                     'hstats', today_str)
     #execute
     with Session(case_name=case_name,crs=crs, nodata=-9999, out_dir=out_dir, **kwargs) as ses: 
         log = ses.logger
+        idxn = ses.idxn
+        #config directory
+        assert os.path.exists(xr_dir), xr_dir
         
-        with xr.open_dataset(xr_fp, engine='netcdf4',chunks='auto', decode_coords="all") as ds:
-            scale_l = ds[ses.idxn].values.tolist()
-            log.info(f'loaded {ds.dims} from {os.path.basename(xr_fp)}' + 
-                 f'\n    coors: {list(ds.coords)}' + 
-                 f'\n    data_vars: {list(ds.data_vars)}' + 
-                 f'\n    crs:{ds.rio.crs}' + 
-                 f'\n    scales:{scale_l}'
-                 )
-            assert ds.rio.crs == ses.crs
+ 
+        
+        """we have 4 data_vars
+        all coords and dims should be the same
+        files are split along the 'scale' coord
+        """
+ 
+        #=======================================================================
+        # load each subdir
+        #=======================================================================
+        ds_d = dict()
+        for dirpath, _, fns in os.walk(xr_dir):
+            varName = os.path.basename(dirpath)
+            fp_l = [os.path.join(dirpath, e) for e in fns if e.endswith('.nc')]
+            if not len(fp_l)>0:continue
             
-            d = dict()
-            #=======================================================================
-            # compute special stats
-            #=======================================================================
-            d['s12_TP'] = ses.run_TP_XR(ds) 
             
-            #=======================================================================
-            # get basic stats
-            #=======================================================================
+            ds_d[varName] = xr.open_mfdataset(fp_l, 
+                                #parallel=True,  #giving etCDF: Unknown file format
+                                #engine='netcdf4',
+                                data_vars='all', 
+                                coords='all', 
+                                combine="nested",
+                                concat_dim=[idxn],
+                                decode_coords="all",
+                                combine_attrs='override',
+                                chunks=1000,
+                                )
+            log.info(f'loaded {varName} from {len(fp_l)}')
             
-            for base in ['s2', 's1']:
-                d[base] = ses.run_statsXR(ds, base=base, logger=log.getChild(base))
+        ds = xr.merge(ds_d.values())
             
-            rdx = pd.concat(d, axis=1, names=['base'], sort=True)
-            """
-            view(rdx.T)
-            """
-            
-            ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
-            rdx.to_pickle(ofp)
-            
-            log.info(f'wrote {str(rdx.shape)} to \n    {ofp}')
+        log.info(f'loaded {ds.dims}'+
+             f'\n    coors: {list(ds.coords)}'+
+             f'\n    data_vars: {list(ds.data_vars)}'+
+             f'\n    crs:{ds.rio.crs}'
+             )
+        assert ds.rio.crs == ses.crs
+        
+        d = dict()
+        #=======================================================================
+        # compute special stats
+        #=======================================================================
+        d['s12_TP'] = ses.run_TP_XR(ds) 
+         
+        #=======================================================================
+        # get basic stats
+        #=======================================================================
+         
+        for base in ['s2', 's1']:
+            d[base] = ses.run_statsXR(ds, base=base, logger=log.getChild(base))
+         
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        ds.close()
+        
+        rdx = pd.concat(d, axis=1, names=['base'], sort=True)
+        """
+        view(rdx.T)
+        """
+         
+        ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
+        rdx.to_pickle(ofp)
+         
+        log.info(f'wrote {str(rdx.shape)} to \n    {ofp}')
+        
+        return ofp
+        
         
  
             
@@ -246,78 +342,50 @@ def build_vrt(pick_fp = None,**kwargs):
     with Session(**kwargs) as ses:
         ses.run_vrts(pick_fp)
         
-
-#===============================================================================
-# def SJ_r5_0909(run_name='r8',
-#         method='direct',
-#         fp_lib = {
-#                 'direct':{
-#                     'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-#                     #'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
-#                     },
-#                 'filter':{
-#                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-#                     #'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
-#                     }
-#                 },
-#         **kwargs):
-#     return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name=run_name, **kwargs)
-#===============================================================================
  
-    
-#===============================================================================
-# def SJ_r7_0910(
-#         method='direct',
-#         fp_lib = {
-#                 'direct':{
-#                     #===========================================================
-#                     # 'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\cMasks\\SJ_r6_direct_0909_cMasks.pkl',
-#                     # 'err': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errs\\SJ_r6_direct_0909_errs.pkl',
-#                     #===========================================================
-#                     },
-#                 'filter':{
-#                     #===========================================================
-#                     # 'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-#                     # 'err':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\errs\\SJ_r5_filter_0909_errs.pkl'
-#                     #===========================================================
-#                     }
-#                 },
-#         **kwargs):
-#     return run_haz_agg2(case_name='SJ', fp_d = fp_lib[method], method=method, run_name='r7', **kwargs)
-#===============================================================================
 
 
 
 
 def SJ_run(run_name='r9',method='direct',**kwargs):
-    return run_haz_agg2(case_name='SJ', fp_d = res_fp_lib[run_name][method], method=method, run_name=run_name, **kwargs)
+    return run_haz_agg2XR(case_name='SJ', fp_d = res_fp_lib[run_name][method], method=method, run_name=run_name, **kwargs)
 
 
 def SJ_dev(run_name='t',method='direct',**kwargs):
-    return run_haz_agg2(case_name='SJ', fp_d = {}, method=method, run_name=run_name, 
+    return run_haz_agg2XR(case_name='SJ', fp_d = {}, method=method, run_name=run_name, 
                         dsc_l=[1,  2**3, 2**4],
                         bbox = sgeo.box(2492040.000, 7436320.000, 2492950.000, 7437130.000),
                         **kwargs)
 
 if __name__ == "__main__": 
     start = now()
-    #===========================================================================
-    # with Client(threads_per_worker=4, n_workers=1) as client:
-    #     
-    #     print(f' running dask client {client.dashboard_link}')
-    #     #webbrowser.open(client.dashboard_link)
-    #===========================================================================
+    """seems to slow things down..."""
+ #==============================================================================
+ #    with Client(
+ #        #processes=True,
+ #        #threads_per_worker=4, n_workers=3, memory_limit='2GB'
+ #        ) as client:
+ #        
+ #        #get meta
+ #        wrkr_cnt = len(client.scheduler_info()['workers'])
+ #        for wName, wrkr in client.scheduler_info()['workers'].items():
+ #            nthreads = wrkr['nthreads']
+ #            break
+ #        
+ # 
+ #        print(f' running dask client w/ {wrkr_cnt} workers and {nthreads} threads at {client.dashboard_link}')
+ #==============================================================================
+        #webbrowser.open(client.dashboard_link)
         
-    #SJ_dev()
-    # SJ_run(method='direct',
+    #xr_dir = SJ_dev(method='filter')
+    #===========================================================================
+    # nc_fp = SJ_run(method='direct',
     #             #dsc_l=[1,2**5,  2**7],
     #             run_name='r10'
     #            )
     #===========================================================================
-    
-    run_haz_stats(
-        r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220924\mXR\SJ_t_direct_0924_mXR.nc'
-        )
+    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
+    #run_haz_stats(nc_fp)
  
  
     print('finished in %.2f'%((now()-start).total_seconds())) 

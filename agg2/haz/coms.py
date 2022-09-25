@@ -142,7 +142,7 @@ def assert_dx_names(dx, msg=''):
     #dx.columns.get_level_values(''
     
 def assert_xda(xda, msg=''):
-    """index name expectations"""
+ 
     if not __debug__: # true if Python was not started with an -O option
         return
  
@@ -151,12 +151,31 @@ def assert_xda(xda, msg=''):
     assert isinstance(xda, xr.DataArray)
     
     #assert np.isnan(xda.values).any()
-    assert len(xda.values.shape)==4 #scale, band, x, y
-    assert xda.dims==('scale', 'band', 'y', 'x')
+    assert len(xda.shape)==4 #scale, band, x, y
+    if not set(xda.dims).symmetric_difference(('scale', 'band', 'y', 'x'))==set():
+        raise AssertionError('bad dims\n'+msg)
     
     
+def assert_xds(xds, msg=''):
+ 
+    if not __debug__: # true if Python was not started with an -O option
+        return
+ 
+    __tracebackhide__ = True
     
+    assert isinstance(xds, xr.Dataset)
     
+    #check labels
+    assert set(xds.coords).symmetric_difference({'scale', 'spatial_ref', 'band', 'y', 'x'})==set()    
+    if not set(xds.data_vars).difference(coldx_d['layer'])==set():
+        raise AssertionError(f'bad data_vars: {list(xds.data_vars)}\n'+msg)
+    
+    #data props
+    if not set(xds.dims.keys()).symmetric_difference(('scale', 'band', 'y', 'x'))==set():
+        raise AssertionError('bad dims\n'+msg)
+    
+    for varname, xda in xds.data_vars.items():
+        assert_xda(xda, msg=msg+f' {varname}')
     
     
     

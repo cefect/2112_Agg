@@ -27,83 +27,22 @@ res_fp_lib = {
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
                 'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220922\\diffStats\\SJ_r9_direct_0922_diffStats.pkl'
                 }
-            }
+            },
+    'r10t':{
+        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\hstats\20220925\SJ_r1_direct_0925_stats.pkl',
+        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\hstats\20220925\SJ_r1_direct_0925_stats.pkl',
+        }
     }
 
  
 
-def SJ_haz_r9_0922(
+def SJ_da_run(
         run_name='r9'
         ):    
     
     return run_haz_plots(res_fp_lib[run_name], proj_name='SJ', run_name=run_name)
 
-#===============================================================================
-# def SJ_plots_0918(        
-#         fp_lib = {
-#             'filter':{
-#                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\filter\\20220918\\stats\\SJ_r8_filter_0918_stats.pkl',
-#                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\filter\\20220918\\statsF\\SJ_r8_filter_0918_statsF.pkl',
-#                 #'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
-#                 },
-#             'direct':{
-#                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\direct\\20220918\\stats\\SJ_r8_direct_0918_stats.pkl',
-#                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r8\\SJ\\direct\\20220918\\statsF\\SJ_r8_direct_0918_statsF.pkl'
-#                 #'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
-#                 
-#                 }
-#             }
-#         ):
-#     return run_haz_plots(fp_lib, proj_name='SJ', run_name='r8')
-#===============================================================================
-
-#===============================================================================
-# def SJ_plots_0910(        
-#         fp_lib = {
-#             'filter':{
-#                 's2':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\filter\20220910\stats\SJ_r6_filter_0910_stats.pkl',
-#                 's1':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\filter\20220910\statsF\SJ_r6_filter_0910_statsF.pkl',
-#                 #'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
-#                 },
-#             'direct':{
-#                 's2': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\direct\20220910\stats\SJ_r6_direct_0910_stats.pkl',
-#                 's1': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r6\SJ\direct\20220910\statsF\SJ_r6_direct_0910_statsF.pkl',
-#                 #'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
-#                 
-#                 }
-#             }
-#         ):
-#     return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
-#===============================================================================
-
-#===============================================================================
-# def SJ_plots_0909(        
-#         fp_lib = {
-#             'filter':{
-#                 's2':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\stats\\SJ_r6_filter_0909_stats.pkl',
-#                 's1':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\statsF\\SJ_r6_filter_0909_statsF.pkl',
-#                 'diff':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\filter\\20220909\\errStats\\SJ_r6_filter_0909_errStats.pkl',                
-#                 },
-#             'direct':{
-#                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\stats\\SJ_r6_direct_0909_stats.pkl',
-#                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\statsF\\SJ_r6_direct_0909_statsF.pkl',
-#                 'diff': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r6\\SJ\\direct\\20220909\\errStats\\SJ_r6_direct_0909_errStats.pkl',                
-#                 
-#                 }
-#             }
-#         ):
-#     return run_haz_plots(fp_lib, proj_name='SJ', run_name='r4_da')
-# 
-# 
-# def SJ_plots_0830(
-#         fp_d  = {
-#             'direct':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_direct\20220908\stats\SJ_r4_direct_0908_stats.pkl',
-#             'directF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_direct\20220908\statsF\SJ_r4_direct_0908_statsF.pkl',
-#             'filter':r'C:\LS\10_IO\2112_Agg\outs\SJ\r4_filter\20220908\stats\SJ_r4_filter_0908_stats.pkl', 
-#             'filterF':r'C:\LS\10_OUT\2112_Agg\outs\SJ\r4_filter\20220908\statsF\SJ_r4_filter_0908_statsF.pkl'           
-#             }):
-#     return run_haz_plots(fp_d)
-#===============================================================================
+ 
 
 
 def run_haz_plots(fp_lib,
@@ -490,5 +429,5 @@ def run_haz_plots(fp_lib,
         
         
 if __name__ == "__main__":
-    SJ_haz_r9_0922()
+    SJ_da_run(run_name='r10t')
         
