@@ -1745,6 +1745,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         log.info('loading %s to xarrayDS'%(str(fp_df.shape)))
         res_lib = dict()
+        ofp_l=list()
         cnt=0
         for layName, row in fp_df.items():
             if not layName in layName_l: continue
@@ -1790,7 +1791,8 @@ class UpsampleSessionXR(UpsampleSession):
                 cnt+=1
             
             log.info(f'concat {layName}')
-            res_lib[layName] = xr.concat(d.values(), pd.Index(d.keys(), name='scale', dtype=int))
+            xds_i= xr.concat(d.values(), pd.Index(d.keys(), name='scale', dtype=int)).to_dataset(name=layName)
+            ofp_l+=self._save_mfdataset(xds_i, resname, log, xr_dir=xr_dir)
             
         #=======================================================================
         # #merge
@@ -1803,16 +1805,15 @@ class UpsampleSessionXR(UpsampleSession):
         """
         #promote to dataset
         log.info('converting %i to dataset'%cnt)
-        xds_res = xr.Dataset(res_lib)
+        #xds_res = xr.Dataset(res_lib)
  
         #=======================================================================
         # write batch
         #=======================================================================
-        ofp_l = self._save_mfdataset(xds_res, resname, log, xr_dir=xr_dir)
+        #ofp_l = self._save_mfdataset(xds_res, resname, log, xr_dir=xr_dir)
  
-        log.info(f'finished in {(now()-start).total_seconds():.2f} secs w/ {xds_res.dims}'+
-                 f'\n    coors: {list(xds_res.coords)}'+
-                 f'\n    data_vars: {list(xds_res.data_vars)}'+
+        log.info(f'finished in {(now()-start).total_seconds():.2f} secs  '+
+ 
                  f'\n    {len(ofp_l)} files written to {xr_dir}')
         
         return ofp_l
