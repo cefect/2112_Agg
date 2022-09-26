@@ -26,7 +26,7 @@ def SJ_da_run(
     
     return run_plots_combine(res_fp_lib[run_name], proj_name='SJ', run_name=run_name, **kwargs)
 
-def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
+def run_plots_combine(fp_lib,pick_fp=None,write=True,**kwargs):
     """da and figures which combine hazard and exposure
     
     
@@ -43,7 +43,7 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
     #===========================================================================
     # execute
     #===========================================================================
-    with Session(out_dir=out_dir,logger=logging.getLogger('run_da'),  **kwargs) as ses:
+    with Session(out_dir=out_dir, write=write,**kwargs) as ses:
         log = ses.logger 
         
         if pick_fp is None:
@@ -75,14 +75,14 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
         #=======================================================================
         # #direct_haz
         #=======================================================================
-        ea_base = 's12N'
+        ea_base = 's12AN'
         method, phase = 'direct', 'haz'
         
         coln = set_row(method, phase)        
         idx_d[coln]['wd_bias'] =    idx[phase, 's12N', method,'wd', 'mean', :]
         idx_d[coln]['wse_error'] =  idx[phase, 's12', method,'wse', 'mean', :]
-        idx_d[coln]['exp_area'] =   idx[phase, ea_base, method,'wd', 'posi_area', :]
-        idx_d[coln]['vol'] =        idx[phase, 's12N', method,'wd', 'vol', :]        
+        idx_d[coln]['exp_area'] =   idx[phase, ea_base, method,'wse', 'real_area', :]
+        idx_d[coln]['vol'] =        idx[phase, 's12AN', method,'wd', 'vol', :]        
  
         #=======================================================================
         # direct_exp
@@ -92,7 +92,7 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
         coln = set_row(method, phase)
         idx_d[coln]['wd_bias'] =    idx[phase, 's12N', method,'wd', 'mean', :]
         idx_d[coln]['wse_error'] =  idx[phase, 's12', method,'wse', 'mean', :]
-        idx_d[coln]['exp_area']=    idx[phase, ea_base, method,'expo', 'sum', :]
+        #idx_d[coln]['exp_area']=    idx[phase, ea_base, method,'expo', 'sum', :]
         #idx_d[coln]['vol'] =        idx[phase, 's12N', method,'wd', 'vol', :]
         
         #=======================================================================
@@ -103,8 +103,8 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
         coln = set_row(method, phase)        
         idx_d[coln]['wd_bias'] =    idx[phase, 's12N', method,'wd', 'mean', :]
         idx_d[coln]['wse_error'] =  idx[phase, 's12', method,'wse', 'mean', :]
-        idx_d[coln]['exp_area'] =   idx[phase, ea_base, method,'wd', 'posi_area', :]
-        idx_d[coln]['vol'] =        idx[phase, 's12N', method,'wd', 'vol', :]
+        idx_d[coln]['exp_area'] =    idx[phase, ea_base, method,'wse', 'real_area', :]
+        idx_d[coln]['vol'] =        idx[phase, 's12AN', method,'wd', 'vol', :]    
         
         #=======================================================================
         # filter_exp
@@ -114,7 +114,7 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
         coln = set_row(method, phase)
         idx_d[coln]['wd_bias'] =    idx[phase, 's12N', method,'wd', 'mean', :]
         idx_d[coln]['wse_error'] =  idx[phase, 's12', method,'wse', 'mean', :]
-        idx_d[coln]['exp_area'] =   idx[phase, ea_base, method,'expo', 'sum', :]
+        #idx_d[coln]['exp_area'] =   idx[phase, ea_base, method,'expo', 'sum', :]
         #idx_d[coln]['vol'] =        idx[phase, 's12N', method,'wd', 'vol', :]
         
         #=======================================================================
@@ -148,23 +148,30 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
         #===================================================================
         """such a custom plot no use in writing a function
         
-        WSH:direct
-            why is fulldomain flat but exposed increasing?
-                full: computes the same metric for reporting as for aggregating. averaging is commutative
-                exposed: 
+        WSH:
+            need to split axis
+            direct
+                why is normalized asset WD so high?
+                    because assets are biased to dry zones
+                    as the WD is smoothed, dry zones become wetter (and wet zones become drier)
         
         TODO:
         
         """
+        dx1['exp'].loc[:, idx[('s1', 's12', 's2', 's12N'), 'direct', 'wd', :, 'full']]
+        
+        
         ax_d, keys_all_d = ses.plot_grid_d(data_lib, post_lib)
  
         
         
         ylab_d={
-              'wd_bias':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
-            'wse_error':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$', 
-              'exp_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-              'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
+            #===================================================================
+            #   'wd_bias':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$', 
+            # 'wse_error':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$', 
+            #   'exp_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+            #   'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
+            #===================================================================
               }
         
         ax_title_d = {
@@ -175,10 +182,12 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
             }
         
         ax_ylims_d = {
-              'wd_bias':(-2,10), 
-              'wse_error':(-1,15), 
-              #'exp_area':(-1,20),
-              'vol':(-0.2, .01),
+              #=================================================================
+              'wd_bias':(-10,10**2), 
+              # 'wse_error':(-1,15), 
+              # #'exp_area':(-1,20),
+              # 'vol':(-0.2, .01),
+              #=================================================================
             }
         
         ax_yprec_d = {
@@ -192,11 +201,17 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
         for row_key, col_key, ax in lib_iter(ax_d):
             ax.grid()
             
+            
+            
             #first col
             if col_key == col_keys[0]:
-                ax.set_ylabel(ylab_d[row_key])
-                if row_key in ax_ylims_d:                
-                    ax.set_ylim(ax_ylims_d[row_key])
+                if row_key in ylab_d:
+                    ax.set_ylabel(ylab_d[row_key])
+                else:
+                    ax.set_ylabel(row_key)
+                    
+
+                    
                 digits = ax_yprec_d[row_key]
                 """not working... settig on all
                 ax.yaxis.set_major_formatter(lambda x,p:f'%.{digits}f'%x)
@@ -224,6 +239,12 @@ def run_plots_combine(fp_lib,pick_fp=None,**kwargs):
                     ax.axis('off')
                     for txt in ax.texts:
                         txt.set_visible(False)
+                    
+            #all?    
+            #===================================================================
+            # if row_key in ax_ylims_d:                
+            #     ax.set_ylim(ax_ylims_d[row_key])
+            #===================================================================
  
         
         #add the titles

@@ -198,7 +198,7 @@ def run_haz_plots(fp_lib,
 #             """common collection of data stack
 #              
 #              Parameters
-#             -----------
+#       
 #             metrics_cat_l: list
 #                 post concat order
 #             """
@@ -281,41 +281,39 @@ def run_haz_plots(fp_lib,
         """
  
         """join wd with wse from different base"""
-        #=======================================================================
-        # dxi = pd.concat([
-        #     dx2.loc[:, idx['s12AN',:, 'wd',:, ('mean', 'vol')]],
-        #     dx2.loc[:, idx['s12AN',:, 'wse',:, 'real_area']],
-        #     dx2.loc[:, idx['s12A',:, 'wse',:, 'mean']],
-        #     #dx2.loc[:, idx['s12AN',:, 'wse',:, 'real_area']]
-        #     ], axis=1).droplevel('base', axis=1).sort_index(axis=1)
-        #                                        
-        # dxi.columns, mcoln = cat_mdex(dxi.columns) #cat layer and metric
-        #      
-        # serx = dxi.droplevel((0,2), axis=0).stack(dxi.columns.names
-        #                   ).reindex(index=['full', 'DD', 'DP', 'WP', 'WW'], level='dsc' #need a bucket with all the metrics to be first
-        #                 ).reindex(index=m1_l, level=mcoln) 
-        # """
-        # view(serx)
-        # """
-        #         
-        # # plot
-        # ses.plot_matrix_metric_method_var(serx,
-        #                                   map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
-        #                                   ylab_d={
-        #                                       'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
-        #                                       'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$',
-        #                                       'wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
-        #                                       'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
-        #                                       },
-        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('agg')),
-        #                                   matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
-        #                                   ax_lims_d={
-        #                                       'y':{'wd_mean':(-1.5, 0.2), 'wse_real_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
-        #                                            'wse_mean':(-1.0, 15.0),
-        #                                            },
-        #                                       }
-        #                                   )
-        #=======================================================================
+        dxi = pd.concat([
+            dx2.loc[:, idx['s12AN',:, 'wd',:, ('mean', 'vol')]],
+            dx2.loc[:, idx['s12AN',:, 'wse',:, 'real_area']],
+            dx2.loc[:, idx['s12A',:, 'wse',:, 'mean']],
+            #dx2.loc[:, idx['s12AN',:, 'wse',:, 'real_area']]
+            ], axis=1).droplevel('base', axis=1).sort_index(axis=1)
+                                                
+        dxi.columns, mcoln = cat_mdex(dxi.columns) #cat layer and metric
+              
+        serx = dxi.droplevel((0,2), axis=0).stack(dxi.columns.names
+                          ).reindex(index=['full', 'DD', 'DP', 'WP', 'WW'], level='dsc' #need a bucket with all the metrics to be first
+                        ).reindex(index=m1_l, level=mcoln) 
+        """
+        view(serx)
+        """
+                 
+        # plot
+        ses.plot_matrix_metric_method_var(serx,
+                                          map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                          ylab_d={
+                                              'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
+                                              'wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$',
+                                              'wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+                                              'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
+                                              },
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('agg')),
+                                          matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
+                                          ax_lims_d={
+                                              'y':{'wd_mean':(-1.5, 0.2), 'wse_real_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
+                                                   'wse_mean':(-1.0, 15.0),
+                                                   },
+                                              }
+                                          )
  
  
         #=======================================================================
@@ -371,16 +369,17 @@ def run_haz_plots(fp_lib,
         #dx2['s12']['direct']['wd']['full'] #.loc[:, idx[:, 'real_area']]
         
         dxi = pd.concat([
-            dx2.loc[:, idx['s12',:, 'wd',:, ('mean')]],
-            dx2.loc[:, idx['s12_TP',:, 'wse',:, 'mean']],
+            dx2.loc[:, idx['s12N',:, 'wd',:, ('mean')]],
+
             dx2.loc[:, idx['s12',:, 'wse',:, 'mean']],
+            dx2.loc[:, idx['s12_TP',:, 'wse',:, 'mean']],
             dx2.loc[:, idx['s12N',:, 'wd',:, 'vol']],
             ], axis=1).sort_index(axis=1)
                                              
         dxi.columns, mcoln = cat_mdex(dxi.columns, levels=['base', 'layer', 'metric']) #cat layer and metric
         
         print(dxi.columns.unique(mcoln).tolist())
-        m1_l = ['s12_wd_mean', 's12_wse_mean',  's12_TP_wse_mean','s12N_wd_vol',]
+        m1_l = ['s12N_wd_mean', 's12_wse_mean',  's12_TP_wse_mean','s12N_wd_vol',]
            
         serx = dxi.droplevel((0,2), axis=0).stack(dxi.columns.names) 
                         
@@ -409,7 +408,7 @@ def run_haz_plots(fp_lib,
                                           matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
                                           ax_lims_d={
                                               'y':{
-                                                    's12_wd_mean':(-1.5, 0.2), 
+                                                    's12N_wd_mean':(-1.5, 0.2), 
                                                    #'wse_real_area':(-0.2, 1.0), 
                                                    's12N_wd_vol':(-0.3, 0.1),
                                                    's12_wse_mean':(-1.0, 15.0),

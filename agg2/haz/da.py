@@ -207,7 +207,7 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         # residuals and norming
         #=======================================================================
         #baseline mean
-        base_ser = dx1a['s1']['direct'].loc[:, idx[:, 'full', 'mean']].droplevel(['dsc', 'metric'], axis=1).iloc[0, :].rename('base')
+        #base_ser = dx1a['s1']['direct'].loc[:, idx[:, 'full', 'mean']].droplevel(['dsc', 'metric'], axis=1).iloc[0, :].rename('base')
         
         #normalize aggregates
         """wse real_count not right

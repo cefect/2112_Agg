@@ -284,11 +284,14 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         
         #chekc column values
         hmdex, amdex = haz_dx.columns, expo_dx.columns
-        for aname in ['base', 'method', 'dsc']:
+        for aname in [
+            #'base', 
+            'method', 'dsc']:
             if not np.array_equal(
                 hmdex.unique(aname),
                 amdex.unique(aname)
                 ):
+                
                 raise AssertionError(f'bad match on {aname}')
         
         assert set(hmdex.unique('layer')).difference(amdex.unique('layer'))==set(), 'layer name mismatch'
