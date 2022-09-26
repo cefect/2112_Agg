@@ -403,29 +403,10 @@ class RasterArrayStats(AggBase):
             'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
             'RMSE':np.sqrt(
                 np.square(xda).sum(**agg_kwargs)
-                )
+                ),
+            'sum':xda.sum(**agg_kwargs),
                 }
-    
-    def _get_diff_stats_dask(self, ar, **kwargs):
-        """compute stats on difference grids.
-        NOTE: always using reals for denometer"""
-        assert isinstance(ar, ma.MaskedArray)
-        assert not np.any(np.isnan(ar))
-        
-        
-        
-        #fully masked check
-        if np.all(ar.mask):
-            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
-        
-        dar = da.from_array(ar, chunks='auto')
-        res_d = dict()
-        rcnt = (~ar.mask).sum()
-        
-        res_d['meanErr'] =  dar.sum().compute()/rcnt #same as np.mean(ar)
-        res_d['meanAbsErr'] = np.abs(dar).sum().compute() / rcnt
-        res_d['RMSE'] = np.sqrt(np.mean(np.square(dar))).compute()
-        return res_d
+ 
         
  
 class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
@@ -2284,7 +2265,7 @@ class UpsampleSessionXR(UpsampleSession):
         
         
         here we compute a new stack and get the zonal stats
-        because the new stack has variable resolution
+        cant use the generic function because the new stack has variable resolution
         
         """
         #=======================================================================
@@ -2300,7 +2281,8 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         # prep data
         #=======================================================================
-        lay_ds = ds['wse'].reset_coords(names='spatial_ref', drop=True) 
+        #convert to binary exposure (1=exposed)
+        lay_ds = np.invert(np.isnan(ds['wse'].reset_coords(names='spatial_ref', drop=True))).astype(int)
         cm_ds = ds['catMosaic'].reset_coords(names='spatial_ref', drop=True) 
         
         base_xar = lay_ds.isel(scale=0)
@@ -2321,18 +2303,18 @@ class UpsampleSessionXR(UpsampleSession):
             if i==0:continue
             log.info(f'    {i+1}/{len(scale_l)}')
             
-            #===================================================================
-            # compute the fine exposures (at s2)
-            #===================================================================
-            s1_expo_xar_s2 = base_xar.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').sum()
-            
             #update the scal
             def clean(xar): 
                 xar = xar.reset_coords(names=['scale'], drop=True)
                 xar.attrs['scale'] = scale
                 return xar
             
-            s1_expo_xar_s2 = clean(s1_expo_xar_s2)
+            #===================================================================
+            # compute the fine exposures (at s2)
+            #===================================================================
+            s1_expo_xar_s2 = clean(base_xar.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').sum())
+            
+ 
             
             assert (base_xar.shape[1]//scale, base_xar.shape[2]//scale) ==s1_expo_xar_s2.shape[1:]
             
@@ -2350,10 +2332,13 @@ class UpsampleSessionXR(UpsampleSession):
             s12_expo_xar_s2 = s1_expo_xar_s2/s2_expo_xar_s2
             
             """
-            
-            s1_expo_xar_s2.plot()
-            s2_expo_xar_s2.plot()
-            s12_expo_xar_s2.plot()
+            plt.close('all')
+            fig, ax_ar = plt.subplots(nrows=3, figsize=(5,12))
+            s1_expo_xar_s2.plot(ax = ax_ar[0])
+            s2_expo_xar_s2.plot(ax = ax_ar[1])
+            s12_expo_xar_s2.plot(ax = ax_ar[2])
+            d = {'s1':s1_expo_xar_s2, 's2':s2_expo_xar_s2, 's12':s12_expo_xar_s2}
+            xr.concat(d.values(),  pd.Index(d.keys(), name='base', dtype=str)).plot(col='base')
             """
             
             #=======================================================================
@@ -2379,12 +2364,8 @@ class UpsampleSessionXR(UpsampleSession):
                 mask_dar = cm_s2 == dsc_int
                 # mask the data
                 s12_expo_maskd = s12_expo_xar_s2.where(mask_dar, other=np.nan) # .plot(col='scale')
-                
-                """
-                s12_expo_maskd.plot()
-                """
-                # compute the stats
  
+                # compute the stats 
                 d[dsc] = get_stats(s12_expo_maskd)
                 
             #===================================================================
@@ -2392,6 +2373,9 @@ class UpsampleSessionXR(UpsampleSession):
             #===================================================================
             res_d[scale] = xr.concat(d.values(), pd.Index(d.keys(), name='dsc', dtype=str))
             log.info(f'finished scale={scale} w/ {res_d[scale].dims}')
+            """
+            res_d[scale].values
+            """
             
         
         #=======================================================================

@@ -99,19 +99,17 @@ def run_haz_stats(xr_dir,
         #=======================================================================
         # compute special stats-----
         #=======================================================================
-        #=======================================================================
-        # if not 's12_tp' in fp_d:
-        #     fp_d['s12_TP'] = ses.run_TP_XR(ds)
-        # 
-        # #difference
-        # if not 's12' in fp_d:
-        #     s12_ds = ses.get_s12XR(ds)
-        #     fp_d['s12'] =  ses.run_statsXR(s12_ds,base='s12',
-        #                                 func_d={
-        #                                     'wse':ses._get_diff_statsXR,#dome
-        #                                     'wd':ses._get_diff_statsXR,
-        #                                     })
-        #=======================================================================
+        if not 's12_tp' in fp_d:
+            fp_d['s12_TP'] = ses.run_TP_XR(ds)
+         
+        #difference
+        if not 's12' in fp_d:
+            s12_ds = ses.get_s12XR(ds)
+            fp_d['s12'] =  ses.run_statsXR(s12_ds,base='s12',
+                                        func_d={
+                                            'wse':ses._get_diff_statsXR,#dome
+                                            'wd':ses._get_diff_statsXR,
+                                            })
          
         #=======================================================================
         # get basic stats
