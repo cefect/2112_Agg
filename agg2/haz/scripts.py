@@ -1505,125 +1505,127 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 
         return ofp
     
-    def run_pTP(self, nc_fp, cm_pick_fp, layName_l=['wse'], **kwargs):
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('pTP',  subdir=True,ext='.pkl', **kwargs)
-        
-
-        
-        #=======================================================================
-        # execute on the dataset
-        #=======================================================================
-        log.info('from %s'%nc_fp)
-        with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto' ,decode_coords="all") as ds:
- 
-            log.info(f'loaded dims {list(ds.dims)}'+
-                     f'\n    {list(ds.coords)}'+
-                     f'\n    {list(ds.data_vars)}' +
-                     f'\n    chunks:{ds.chunks}')
- 
-            #===================================================================
-            # loop on each layer
-            #===================================================================
-            for layName in layName_l:
-                self.get_pTP(ds[layName], logger=log.getChild(layName), resname=layName, out_dir=out_dir, write=write)
-                
-    def get_pTP(self, xar,crs=None, **kwargs):
-        """get the s1_expo_cnt/s2_expo_cnt fraction for each scale
-        
-        variable shapes... dont want to collapse into DataArray
-        
-        could write a tiff or 1 dim netcdf for each?
-        
-        opted to compute the stat directly 
-        
-        """
-        #=======================================================================
-        # defautls
-        #=======================================================================
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('gpTP', **kwargs)
-        if crs is None: crs=self.crs
- 
-        #convert to boolean (True=exposed)
-        stack_xar1 = np.invert(np.isnan(xar))
-        
-        #=======================================================================
-        # get baseline values
-        #=======================================================================
-        ofp_d = dict()
-        delay_ofp_l = list()
-        d = dict()
-        scale_l = xar['scale'].values.tolist()
-        for i, scale in enumerate(scale_l):
-            log.info(f'    {i+1}/{len(scale_l)}')
-            if i==0:        
-                #get the baseline
-                base_xar = stack_xar1.isel(scale=0)
- 
-            #===================================================================
-            # compute the fine exposures (at s2)
-            #===================================================================
-            s1_expo_xar_s2 = base_xar.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').sum()
-            
-            #update the scal
-            def clean(xar): 
-                xar = xar.reset_coords(names=['scale'], drop=True)
-                xar.attrs['scale'] = scale
-                return xar
-            
-            s1_expo_xar_s2 = clean(s1_expo_xar_s2)
-            
-            assert (base_xar.shape[1]//scale, base_xar.shape[2]//scale) ==s1_expo_xar_s2.shape[1:]
-            
-            #===================================================================
-            #retrieve coarse exposures
-            #===================================================================
-            #decimate and scale
-            s2_expo_xar_s2 = clean(stack_xar1.sel(scale=scale).coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2))
-            
- 
-            #===================================================================
-            # compute ratio
-            #===================================================================
-            s12_expo_xar_s2 = s1_expo_xar_s2/s2_expo_xar_s2
-            
-            #===================================================================
-            # output
-            #===================================================================
-            if write:
-                ofpi = os.path.join(out_dir, f's12expoFrac_{resname}_{scale:03d}.tif')
-                
-                s12_expo_xar_s2.rio.write_crs(crs, inplace=True)
-                
-                #append to the que
-                delay_ofp_l.append(
-                    s12_expo_xar_s2.rio.to_raster(ofpi, compute=False, lock=None, crs=crs, nodata=-9999)
-                    )
-                
-                ofp_d[scale] = ofpi
-                
-            #===================================================================
-            # zonal stat
-            #===================================================================
-            s12_expo_xar_s2
-            
-            """
-            s12_expo_xar_s2.plot()
-            """
- 
-            
- 
-            
-        #concat
-        """"""
-        log.info(f'writing {len(delay_ofp_l)} files to disk')
-        with ProgressBar():
-            #res_xar = xr.merge(d.values()).compute()
-            dask.compute(*delay_ofp_l)
-        
-        return 
+#===============================================================================
+#     def run_pTP(self, nc_fp, cm_pick_fp, layName_l=['wse'], **kwargs):
+#         #=======================================================================
+#         # defaults
+#         #=======================================================================
+#         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('pTP',  subdir=True,ext='.pkl', **kwargs)
+#         
+# 
+#         
+#         #=======================================================================
+#         # execute on the dataset
+#         #=======================================================================
+#         log.info('from %s'%nc_fp)
+#         with xr.open_dataset(nc_fp, engine='netcdf4',chunks='auto' ,decode_coords="all") as ds:
+#  
+#             log.info(f'loaded dims {list(ds.dims)}'+
+#                      f'\n    {list(ds.coords)}'+
+#                      f'\n    {list(ds.data_vars)}' +
+#                      f'\n    chunks:{ds.chunks}')
+#  
+#             #===================================================================
+#             # loop on each layer
+#             #===================================================================
+#             for layName in layName_l:
+#                 self.get_pTP(ds[layName], logger=log.getChild(layName), resname=layName, out_dir=out_dir, write=write)
+#                 
+#     def get_pTP(self, xar,crs=None, **kwargs):
+#         """get the s1_expo_cnt/s2_expo_cnt fraction for each scale
+#         
+#         variable shapes... dont want to collapse into DataArray
+#         
+#         could write a tiff or 1 dim netcdf for each?
+#         
+#         opted to compute the stat directly 
+#         
+#         """
+#         #=======================================================================
+#         # defautls
+#         #=======================================================================
+#         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('gpTP', **kwargs)
+#         if crs is None: crs=self.crs
+#  
+#         #convert to boolean (True=exposed)
+#         stack_xar1 = np.invert(np.isnan(xar))
+#         
+#         #=======================================================================
+#         # get baseline values
+#         #=======================================================================
+#         ofp_d = dict()
+#         delay_ofp_l = list()
+#         d = dict()
+#         scale_l = xar['scale'].values.tolist()
+#         for i, scale in enumerate(scale_l):
+#             log.info(f'    {i+1}/{len(scale_l)}')
+#             if i==0:        
+#                 #get the baseline
+#                 base_xar = stack_xar1.isel(scale=0)
+#  
+#             #===================================================================
+#             # compute the fine exposures (at s2)
+#             #===================================================================
+#             s1_expo_xar_s2 = base_xar.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').sum()
+#             
+#             #update the scal
+#             def clean(xar): 
+#                 xar = xar.reset_coords(names=['scale'], drop=True)
+#                 xar.attrs['scale'] = scale
+#                 return xar
+#             
+#             s1_expo_xar_s2 = clean(s1_expo_xar_s2)
+#             
+#             assert (base_xar.shape[1]//scale, base_xar.shape[2]//scale) ==s1_expo_xar_s2.shape[1:]
+#             
+#             #===================================================================
+#             #retrieve coarse exposures
+#             #===================================================================
+#             #decimate and scale
+#             s2_expo_xar_s2 = clean(stack_xar1.sel(scale=scale).coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2))
+#             
+#  
+#             #===================================================================
+#             # compute ratio
+#             #===================================================================
+#             s12_expo_xar_s2 = s1_expo_xar_s2/s2_expo_xar_s2
+#             
+#             #===================================================================
+#             # output
+#             #===================================================================
+#             if write:
+#                 ofpi = os.path.join(out_dir, f's12expoFrac_{resname}_{scale:03d}.tif')
+#                 
+#                 s12_expo_xar_s2.rio.write_crs(crs, inplace=True)
+#                 
+#                 #append to the que
+#                 delay_ofp_l.append(
+#                     s12_expo_xar_s2.rio.to_raster(ofpi, compute=False, lock=None, crs=crs, nodata=-9999)
+#                     )
+#                 
+#                 ofp_d[scale] = ofpi
+#                 
+#             #===================================================================
+#             # zonal stat
+#             #===================================================================
+#             s12_expo_xar_s2
+#             
+#             """
+#             s12_expo_xar_s2.plot()
+#             """
+#  
+#             
+#  
+#             
+#         #concat
+#         """"""
+#         log.info(f'writing {len(delay_ofp_l)} files to disk')
+#         with ProgressBar():
+#             #res_xar = xr.merge(d.values()).compute()
+#             dask.compute(*delay_ofp_l)
+#         
+#         return 
+#===============================================================================
  
 
 class UpsampleSessionXR(UpsampleSession):
@@ -2273,7 +2275,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         start = now()
         idxn=self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('tpXR',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('s12_TP',  subdir=True,ext='.pkl', **kwargs)
         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
         scale_l = ds[idxn].values.tolist()
         
@@ -2312,26 +2314,42 @@ class UpsampleSessionXR(UpsampleSession):
             #===================================================================
             # compute the fine exposures (at s2)
             #===================================================================
+            """ranges from 0:dry to scale**2:wet. no nulls"""            
             s1_expo_xar_s2 = clean(base_xar.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').sum())
-            
- 
-            
             assert (base_xar.shape[1]//scale, base_xar.shape[2]//scale) ==s1_expo_xar_s2.shape[1:]
             
             #===================================================================
             #retrieve coarse exposures
             #===================================================================
             #decimate and scale
-            s2_expo_xar_s2 = clean(lay_ds.sel(scale=scale).coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2))
-            
-
- 
+            """either 0=dry or scale**2=wet. no nulls"""
+            s2_expo_xar_s2 = clean(lay_ds.sel(scale=scale).coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()*(scale**2)) 
+            assert s2_expo_xar_s2.shape==s1_expo_xar_s2.shape
             #===================================================================
             # compute ratio
             #===================================================================
+            """from near zero to 1.0. nulls where  s2_expo_xar_s2==0
+            
+            for method=filter in DPs, can have some s2 zero where we have non-zero s1 values
+                means we get 'inf' for the division
+                these are FPs
+            """
             s12_expo_xar_s2 = s1_expo_xar_s2/s2_expo_xar_s2
             
+            #mask out false positives
+            s12_expo_xar_s2 = s12_expo_xar_s2.where(s12_expo_xar_s2!=np.inf, other=np.nan)
+            
+ 
+            
+            assert np.nanmax(s12_expo_xar_s2.values)==1.0
+            assert np.nanmin(s12_expo_xar_s2.values)>0.0
+            
             """
+            view(pd.DataFrame(s12_expo_xar_s2.values[0]))
+            base_xar.values
+            np.unique(s1_expo_xar_s2.values)
+            np.unique(s2_expo_xar_s2.values)
+            
             plt.close('all')
             fig, ax_ar = plt.subplots(nrows=3, figsize=(5,12))
             s1_expo_xar_s2.plot(ax = ax_ar[0])
@@ -2355,6 +2373,13 @@ class UpsampleSessionXR(UpsampleSession):
             d=dict()
             
             d['full'] = get_stats(s12_expo_xar_s2)
+            
+            """
+            s12_expo_xar_s2.to_dataframe().mean()
+ 
+            
+            d['full'].values
+            """
             
             for dsc, dsc_int in self.cm_int_d.items():
                 """NOTE: this computes against the full stack.. 
@@ -2387,6 +2412,10 @@ class UpsampleSessionXR(UpsampleSession):
             res_dxr.compute()
             #get a frame
         res_dx = res_dxr.to_dataframe()
+        
+        """
+        view(res_dx)
+        """
         #=======================================================================
         # wrap
         #=======================================================================

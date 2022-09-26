@@ -20,17 +20,23 @@ xr_lib = {'r10':{
 
 fp_lib = {'r10':{
     'filter':{  
-        's12_TP': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\tpXR\\SJ_r10_hs_0925_tpXR.pkl',
-       's12': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s12\\SJ_r10_hs_0925_statsXR_s12.pkl',
+        #'s12_TP': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\tpXR\SJ_r10_hs_0926_tpXR.pkl',
+       's12': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',
        's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s2\\SJ_r10_hs_0925_statsXR_s2.pkl',
        's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s1\\SJ_r10_hs_0925_statsXR_s1.pkl'
-   }
+            },
+    'direct':{
+        's1':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s1\SJ_r10_hs_0925_statsXR_s1.pkl',
+        's2':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s2\SJ_r10_hs_0925_statsXR_s2.pkl',
+        's12_TP':   r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\s12_TP\SJ_r10_hs_0926_s12_TP.pkl',
+        's12':      r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',                
+        }
     }}
 
 def run_haz_stats(xr_dir,
                   proj_d=None,
                   case_name='SJ',
-                  fp_d=dict(),
+                  fp_d=None,
                  **kwargs):
     """hazard/raster stat compute from xarray"""
  
@@ -38,6 +44,7 @@ def run_haz_stats(xr_dir,
     #===========================================================================
     # extract parametesr
     #===========================================================================
+    if fp_d is None: fp_d=dict()
     # project data   
     if proj_d is None: 
         proj_d = proj_lib[case_name] 
@@ -99,7 +106,7 @@ def run_haz_stats(xr_dir,
         #=======================================================================
         # compute special stats-----
         #=======================================================================
-        if not 's12_tp' in fp_d:
+        if not 's12_TP' in fp_d:
             fp_d['s12_TP'] = ses.run_TP_XR(ds)
          
         #difference
@@ -107,19 +114,18 @@ def run_haz_stats(xr_dir,
             s12_ds = ses.get_s12XR(ds)
             fp_d['s12'] =  ses.run_statsXR(s12_ds,base='s12',
                                         func_d={
-                                            'wse':ses._get_diff_statsXR,#dome
+                                            'wse':ses._get_diff_statsXR,
                                             'wd':ses._get_diff_statsXR,
                                             })
          
         #=======================================================================
         # get basic stats
         #=======================================================================
-        if not 's1' in fp_d or 's2' in fp_d:         
-            for base in ['s2', 's1']:
-                fp_d[base] = ses.run_statsXR(ds, base=base, logger=log.getChild(base))
+        if not 's1' in fp_d:         
+            fp_d['s1'] = ses.run_statsXR(ds, base='s1')
             
-        
-         
+        if not 's2' in fp_d:         
+            fp_d['s2'] = ses.run_statsXR(ds, base='s2')
         #=======================================================================
         # wrap
         #=======================================================================
@@ -141,7 +147,7 @@ def run_haz_stats(xr_dir,
         return ofp
     
 def SJ_run_h_stats(run_name='r10', method='direct'):
-    return run_haz_stats(xr_lib[run_name][method], run_name=run_name, )
+    return run_haz_stats(xr_lib[run_name][method], run_name=run_name,fp_d=fp_lib[run_name][method] )
     
 if __name__ == "__main__": 
     
@@ -164,8 +170,8 @@ if __name__ == "__main__":
   #       webbrowser.open(client.dashboard_link)
   #=============================================================================
     
-    run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220925\_xr')
-    #SJ_run_h_stats(method='filter')
+    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
+    SJ_run_h_stats(method='filter')
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
         
