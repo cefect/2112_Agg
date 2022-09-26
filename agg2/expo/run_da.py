@@ -46,6 +46,12 @@ def SJ_plots_0910(
         run_name='r8'):
     return run_plots(fp_lib, run_name=run_name)
 
+
+
+
+
+
+
 def run_plots(fp_lib,write=False, **kwargs):
     """construct figure from SJ expo results"""
     from agg2.expo.da import ExpoDASession as Session
@@ -64,112 +70,19 @@ def run_plots(fp_lib,write=False, **kwargs):
     with Session(out_dir=out_dir, logger=logging.getLogger('run_da'), **kwargs) as ses:
         log = ses.logger
         
- 
-        pdc_kwargs = dict(axis=1, names=['base'])
-        matrix_kwargs = dict(figsize=(10,10), set_ax_title=False, add_subfigLabel=False)
-        lvls = ['base', 'method', 'layer', 'metric', 'dsc']
-        
-        def sort_dx(dx):
-            return dx.reorder_levels(lvls, axis=1).sort_index(axis=1, sort_remaining=True)
+        matrix_kwargs = dict(figsize=(10, 10), set_ax_title=False, add_subfigLabel=False)
+
         #=======================================================================
         # data prep
         #=======================================================================
-        
-        # get the rsc for each asset and scale        
         dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
-        
-        # join the simulation results (and clean up indicides
-        samp_dx_raw = ses.join_layer_samps(fp_lib)
-        
-        """
-        samp_dx.loc[:, idx['filter', 'wse', (1, 8)]].hist()
-        """
-        
-        #=======================================================================
-        # compute exposures
-        #=======================================================================
-        wet_bx = ~samp_dx_raw.loc[:, idx[:, 'wse',:]].isna().all(axis=1)
-        wet_bxcol = samp_dx_raw.loc[:, idx[:, 'wse',:]].droplevel('layer', axis=1).notna().astype(int)
-        
-        #check false negatives        
-        wet_falseNegatives = (wet_bxcol.subtract(wet_bxcol.loc[:, idx[:, 1]].droplevel('scale', axis=1))==-1).sum()
-        if wet_falseNegatives.any():
-            log.info('got %i False Negative exposures\n%s'%(
-                wet_falseNegatives.sum(), wet_falseNegatives[wet_falseNegatives!=0]))
-        
-        #merge
-        samp_dx = pd.concat([samp_dx_raw, pd.concat({'expo':wet_bxcol}, axis=1 ,names=['layer']).swaplevel('layer', 'method', axis=1)], 
-                            axis=1).sort_index(axis=1, sort_remaining=True)
-                            
+        samp_dx = ses.build_samps(fp_lib)
         
         #=======================================================================
         # GRANULAR (raster style)-------
         #=======================================================================
-        """
-        unlike Haz, we are computing the stats during data analysis
         
-        s2 is computed against the matching samples
-        s1 is computed against the baseline samples"""
-        
-        samp_base_dx = samp_dx.loc[:, idx[:, :, 1]].droplevel('scale', axis=1)
-        ufunc_d = {'expo':'sum', 'wd':'mean', 'wse':'mean'}
-        
-         
-        #get baseline stats
-        d = dict()
-        for layName, stat in ufunc_d.items():
-            dxi = samp_base_dx.loc[:, idx[:, layName]].droplevel('layer', axis=1)
-            d[layName] = pd.concat({stat:getattr(dxi, stat)()}, axis=1, names='metric')
-        
-        s1_sdxi = pd.concat(d, axis=1, names=['layer']).unstack().rename(1).to_frame().T.rename_axis('scale')
-        s1_sdx = sort_dx(pd.concat({'full':pd.concat({'s1':s1_sdxi, 's2':s1_sdxi}, axis=1, names=['base'])},axis=1, names=['dsc']))
- 
-        #sampled stats
-        res_d=dict()
-        for scale, col in dsc_df.items():
-            """loop and compute stats with different masks"""
-            d = dict()
-            #===================================================================
-            # #s1
-            #===================================================================
-            mdex = pd.MultiIndex.from_frame(samp_base_dx.index.to_frame().reset_index(drop=True).join(col.rename('dsc')))
-            s1_dx = pd.DataFrame(samp_base_dx.values, index=mdex, columns=samp_base_dx.columns)
-            
-            d['s1'] = ses.get_dsc_stats2(s1_dx, ufunc_d=ufunc_d)
-            #===================================================================
-            # s2
-            #===================================================================
-            s2_dx = pd.DataFrame(samp_dx.loc[:, idx[:, :, scale]].values, index=mdex, columns=samp_base_dx.columns)
-            
-            d['s2'] = ses.get_dsc_stats2(s2_dx, ufunc_d=ufunc_d)
-            
-            #JOIN
-            res_d[scale] = pd.concat(d, axis=1, names=['base'])
-            
-        #wrap
-        sdx1 = sort_dx(pd.concat(res_d, axis=1, names=['scale']).stack('scale').unstack('dsc'))
-        
-        sdx2 = pd.concat([sdx1, s1_sdx]).sort_index() #add reso1
-        #=======================================================================
-        # compute residuals
-        #=======================================================================
-        srdx = sdx2['s2'].subtract(sdx2['s1'])
-        
-        
-        #normed
-        srdxN = srdx.divide(sdx2['s1'])
-        
-        sdx3 = pd.concat([sdx2, pd.concat({'s12':srdx, 's12N':srdxN}, **pdc_kwargs)], axis=1)
-        
-        #=======================================================================
-        # write
-        #=======================================================================
-        if write:
-            ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_aggStats_dx.pkl')
-            sdx3.to_pickle(ofp)
-            
-            log.info(f'wrote {str(sdx3.shape)} to \n    {ofp}')
-        
+        sdx3 = ses.build_stats(samp_dx, dsc_df)
  
         #=======================================================================
         # GRANULAR.PLOT---------
@@ -471,7 +384,7 @@ def run_plots(fp_lib,write=False, **kwargs):
         #=======================================================================
         # GRANULAR WET-----------
         #=======================================================================
-        kdx3
+ 
         #=======================================================================
         # AGG----------
         #=======================================================================
@@ -620,8 +533,8 @@ def run_plots(fp_lib,write=False, **kwargs):
 
 def SJ_combine_plots_0919(
         fp_lib = {
-            'haz':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\da\20220919\SJ_r8_haz_da_0919_aggStats_dx.pkl',
-            'exp':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\da\20220919\SJ_r8_expo_da_0919_aggStats_dx.pkl'}
+            'haz': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
+            'exp':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\da\20220926\bstats\SJ_r8_expo_da_0926_bstats.pkl'}
         
         ):
     return  run_plots_combine(fp_lib, run_name='r8')
