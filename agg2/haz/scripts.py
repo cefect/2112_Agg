@@ -369,28 +369,30 @@ class RasterArrayStats(AggBase):
     #===========================================================================
     # DIFFERENCE-------
     #===========================================================================
-    def _get_diff_stats(self, ar):
-        """compute stats on difference grids.
-        NOTE: always using reals for denometer"""
-        assert isinstance(ar, ma.MaskedArray)
-        assert not np.any(np.isnan(ar))
-        
-        
-        
-        #fully masked check
-        if np.all(ar.mask):
-            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
-        
- 
-        res_d = dict()
-        rcnt = (~ar.mask).sum()
-        res_d['sum'] = ar.sum()
-        res_d['meanErr'] =  res_d['sum']/rcnt #same as np.mean(ar)
-        res_d['meanAbsErr'] = np.abs(ar).sum() / rcnt
-        res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
-        return res_d
+ #==============================================================================
+ #    def _get_diff_wd_stats(self, ar):
+ #        """compute stats on difference grids.
+ #        NOTE: always using reals for denometer"""
+ #        assert isinstance(ar, ma.MaskedArray)
+ #        assert not np.any(np.isnan(ar))
+ #        
+ #        
+ #        
+ #        #fully masked check
+ #        if np.all(ar.mask):
+ #            return {'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}
+ #        
+ # 
+ #        res_d = dict()
+ #        rcnt = (~ar.mask).sum()
+ #        res_d['sum'] = ar.sum()
+ #        res_d['meanErr'] =  res_d['sum']/rcnt #same as np.mean(ar)
+ #        res_d['meanAbsErr'] = np.abs(ar).sum() / rcnt
+ #        res_d['RMSE'] = np.sqrt(np.mean(np.square(ar)))
+ #        return res_d
+ #==============================================================================
     
-    def _get_diff_statsXR(self, xda,
+    def _get_diff_wd_statsXR(self, xda,
                          agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True),
                          ):
         
@@ -400,14 +402,31 @@ class RasterArrayStats(AggBase):
         return {            
             'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
             'mean_abs':np.abs(xda).mean(**agg_kwargs), #compute mean for each scale 
-            'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
+            #'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
             'RMSE':np.sqrt(
                 np.square(xda).sum(**agg_kwargs)
                 ),
             'sum':xda.sum(**agg_kwargs),
+            'posi_frac':(xda>0).astype(int).mean(**agg_kwargs)
                 }
  
+    def _get_diff_wse_statsXR(self, xda,
+                         agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True),
+                         ):
         
+        #check expectations
+        assert_xda(xda) 
+        
+        return {            
+            'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
+            'mean_abs':np.abs(xda).mean(**agg_kwargs), #compute mean for each scale 
+            #'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
+            'RMSE':np.sqrt(
+                np.square(xda).sum(**agg_kwargs)
+                ),
+            #'sum':xda.sum(**agg_kwargs),
+            'posi_frac':(xda>0).astype(int).mean(**agg_kwargs)
+                }
  
 class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     """tools for experimenting with downsample sets"""
@@ -2136,13 +2155,16 @@ class UpsampleSessionXR(UpsampleSession):
         res_dxr = xr.concat(res_d.values(), pd.Index(res_d.keys(), name='layer', dtype=str))
         with ProgressBar():
             res_dxr.compute()
-    #get a frame
+            #get a frame
         res_dx = res_dxr.to_dataframe()
-    #=======================================================================
-    # wrap
-    #=======================================================================
-    # clean up a bit
-        res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1)
+        """
+        view(res_dx1)
+        """
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        # clean up a bit
+        res_dx1 = res_dx.unstack(['layer', 'dsc', 'metric']).droplevel(0, axis=1).dropna(how='all', axis=1)
  
         res_dx1.sort_index().to_pickle(ofp)
         

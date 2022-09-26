@@ -20,8 +20,8 @@ xr_lib = {'r10':{
 
 fp_lib = {'r10':{
     'filter':{  
-        #'s12_TP': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\tpXR\SJ_r10_hs_0926_tpXR.pkl',
-       's12': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',
+       's12_TP': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\tpXR\SJ_r10_hs_0926_tpXR.pkl',
+       #'s12': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',
        's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s2\\SJ_r10_hs_0925_statsXR_s2.pkl',
        's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s1\\SJ_r10_hs_0925_statsXR_s1.pkl'
             },
@@ -29,7 +29,7 @@ fp_lib = {'r10':{
         's1':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s1\SJ_r10_hs_0925_statsXR_s1.pkl',
         's2':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s2\SJ_r10_hs_0925_statsXR_s2.pkl',
         's12_TP':   r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\s12_TP\SJ_r10_hs_0926_s12_TP.pkl',
-        's12':      r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',                
+        #'s12':      r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',                
         }
     }}
 
@@ -114,8 +114,8 @@ def run_haz_stats(xr_dir,
             s12_ds = ses.get_s12XR(ds)
             fp_d['s12'] =  ses.run_statsXR(s12_ds,base='s12',
                                         func_d={
-                                            'wse':ses._get_diff_statsXR,
-                                            'wd':ses._get_diff_statsXR,
+                                            'wse':ses._get_diff_wse_statsXR,
+                                            'wd':ses._get_diff_wd_statsXR,
                                             })
          
         #=======================================================================
@@ -170,8 +170,8 @@ if __name__ == "__main__":
   #       webbrowser.open(client.dashboard_link)
   #=============================================================================
     
-    #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
-    SJ_run_h_stats(method='filter')
+    run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
+    #SJ_run_h_stats(method='filter')
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
         
