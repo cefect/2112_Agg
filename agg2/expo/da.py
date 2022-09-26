@@ -230,6 +230,59 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             
         return sdx3 
     
+    def build_combined(self,
+                       fp_lib,
+                       **kwargs):
+        """combine hazard and exposure datasets"""
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('bc',  subdir=True,ext='.pkl', **kwargs)
+        #=======================================================================
+        # load data-------
+        #=======================================================================
+        haz_dx = pd.read_pickle(fp_lib['haz'])
+        log.info(f'loaded hazard data {str(haz_dx.shape)} w/ coldex:\n    {haz_dx.columns.names}')
+        
+        expo_dx = pd.read_pickle(fp_lib['exp'])
+        log.info(f'loaded expo data {str(expo_dx.shape)} w/ coldex:\n    {expo_dx.columns.names}')
+        
+        
+        #===================================================================
+        # check consistency
+        #===================================================================
+        assert np.array_equal(
+            haz_dx.index.to_frame().reset_index(drop=True)['scale'].values,
+            expo_dx.index.values
+            )
+        
+        assert len(set(haz_dx.columns.names).symmetric_difference(expo_dx.columns.names))==0, 'column name mismatch'
+        
+        #chekc column values
+        hmdex, amdex = haz_dx.columns, expo_dx.columns
+        for aname in ['base', 'method', 'dsc']:
+            assert np.array_equal(
+                hmdex.unique(aname),
+                amdex.unique(aname)
+                ), aname
+        
+        assert set(hmdex.unique('layer')).difference(amdex.unique('layer'))==set(), 'layer name mismatch'
+        
+        #===================================================================
+        # join
+        #===================================================================
+        haz_dx1 = haz_dx.reorder_levels(expo_dx.columns.names, axis=1).droplevel((1,2))
+        dx1 = pd.concat({'exp':expo_dx, 'haz':haz_dx1},names=['phase'], axis=1)
+        
+        log.info(f'merged haz and expo data to get {str(dx1.shape)} w/ coldex:\n    {dx1.columns.names}')
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        log_dxcol(log, dx1)
+        if write: 
+            dx1.to_pickle(ofp)
+            log.info(f'wrote {str(dx1.shape)} to \n    {ofp}')
+        
+        return dx1
+    
     def get_dsc_stats2(self, raw_dx,
                        ufunc_d = {'expo':'sum', 'wd':'mean', 'wse':'mean'},
                        **kwargs):
