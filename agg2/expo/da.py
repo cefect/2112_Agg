@@ -180,10 +180,18 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         
         #expand to match
         s1_sdxi = pd.concat(d, axis=1, names=['layer']).unstack().rename(1).to_frame().T.rename_axis('scale')        
-        s1_sdx = sort_dx(pd.concat({'full':pd.concat({'s1':s1_sdxi, 's2':s1_sdxi}, axis=1, names=['base'])}, axis=1, names=['dsc']))
+        s1_sdx = sort_dx(pd.concat(
+            {'full':pd.concat({'s1':s1_sdxi, 's2':s1_sdxi, 's12':pd.DataFrame(0.0, index=s1_sdxi.index, columns=s1_sdxi.columns)}, axis=1, names=['base'])
+            }, axis=1, names=['dsc']))
+        
         
         #=======================================================================
-        # #sampled stats
+        # add GRANULAR
+        #=======================================================================
+        #samp_s12_dx = samp_dx.subtract(samp_base_dx, axis=1) 
+        
+        #=======================================================================
+        #ZONAL stats
         #=======================================================================
         res_d = dict()
         for scale, col in dsc_df.items():
@@ -193,14 +201,22 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             # #s1 (calc against base)
             #===================================================================
             mdex = pd.MultiIndex.from_frame(samp_base_dx.index.to_frame().reset_index(drop=True).join(col.rename('dsc')))
-            s1_dx = pd.DataFrame(samp_base_dx.values, index=mdex, columns=samp_base_dx.columns)
-            d['s1'] = self.get_dsc_stats2(s1_dx, ufunc_d=ufunc_d)
+            dxi = pd.DataFrame(samp_base_dx.values, index=mdex, columns=samp_base_dx.columns)
+            d['s1'] = self.get_dsc_stats2(dxi, ufunc_d=ufunc_d)
             
             #===================================================================
             # s2
             #===================================================================
-            s2_dx = pd.DataFrame(samp_dx.loc[:, idx[:, :, scale]].values, index=mdex, columns=samp_base_dx.columns)
-            d['s2'] = self.get_dsc_stats2(s2_dx, ufunc_d=ufunc_d)
+            dxi = pd.DataFrame(samp_dx.loc[:, idx[:, :, scale]].values, index=mdex, columns=samp_base_dx.columns)
+            d['s2'] = self.get_dsc_stats2(dxi, ufunc_d=ufunc_d)
+            
+            #===================================================================
+            # s12
+            #===================================================================
+            dxi = pd.DataFrame(
+                samp_dx.loc[:, idx[:, :, scale]].droplevel('scale', axis=1).sub(samp_base_dx).values, 
+                index=mdex, columns=samp_base_dx.columns)
+            d['s12'] = self.get_dsc_stats2(dxi, ufunc_d=ufunc_d)
             #===================================================================
             # wrap
             #===================================================================
@@ -209,17 +225,28 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #wrap
         sdx1 = sort_dx(pd.concat(res_d, axis=1, names=['scale']).stack('scale').unstack('dsc'))
         sdx2 = pd.concat([sdx1, s1_sdx]).sort_index() #add baseline (scale=1)
+        
+        """
+        view(sdx2.drop('filter', level='method', axis=1).loc[:, idx[:, :, 'expo', :, 'full']])
+        """
         #=======================================================================
         # compute residuals
         #=======================================================================
-        srdx = sdx2['s2'].subtract(sdx2['s1'])
+        srdx = sdx2['s2'].subtract(sdx2['s1']) #ggregated stats
+        
+        #normalize
+        base_serx1 = s1_sdxi.iloc[0, :].reorder_levels(['method', 'layer', 'metric']).sort_index()
+        
  
         #combine everything
         sdx3 = pd.concat([sdx2, 
                           pd.concat({
-                                's12':srdx, 's12N':srdx.divide(sdx2['s1'])
+                                's12A':srdx, 's12AN':srdx.divide(base_serx1, axis=1), 's12N':sdx2['s12'].divide(base_serx1, axis=1)
                                 }, **pdc_kwargs)
                           ], axis=1)
+        
+
+        
         #=======================================================================
         # write
         #=======================================================================
@@ -258,10 +285,11 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #chekc column values
         hmdex, amdex = haz_dx.columns, expo_dx.columns
         for aname in ['base', 'method', 'dsc']:
-            assert np.array_equal(
+            if not np.array_equal(
                 hmdex.unique(aname),
                 amdex.unique(aname)
-                ), aname
+                ):
+                raise AssertionError(f'bad match on {aname}')
         
         assert set(hmdex.unique('layer')).difference(amdex.unique('layer'))==set(), 'layer name mismatch'
         

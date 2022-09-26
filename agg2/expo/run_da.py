@@ -52,7 +52,7 @@ def SJ_plots_0910(
 
 
 
-def run_plots(fp_lib,write=False, **kwargs):
+def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
     """construct figure from SJ expo results"""
     from agg2.expo.da import ExpoDASession as Session
  
@@ -75,14 +75,16 @@ def run_plots(fp_lib,write=False, **kwargs):
         #=======================================================================
         # data prep
         #=======================================================================
-        dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
-        samp_dx = ses.build_samps(fp_lib)
-        
-        #=======================================================================
-        # GRANULAR (raster style)-------
-        #=======================================================================
-        
-        sdx3 = ses.build_stats(samp_dx, dsc_df)
+        if pick_fp is None:
+            dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
+            
+            samp_dx = ses.build_samps(fp_lib)
+     
+            # GRANULAR (raster style)-------
+            
+            sdx3 = ses.build_stats(samp_dx, dsc_df)
+        else:
+            sdx3 = pd.read_pickel(pick_fp)
  
         #=======================================================================
         # GRANULAR.PLOT---------
