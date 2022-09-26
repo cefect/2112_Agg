@@ -34,18 +34,18 @@ res_fp_lib = {
         'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
         },
     'r10':{
-        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\SJ_r10_hs_0925_stats.pkl',
-        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220925\SJ_r10_hs_0925_stats.pkl'
+        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl',
+        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl'
         }
     }
 
  
 
 def SJ_da_run(
-        run_name='r9'
-        ):    
+        run_name='r9',
+        **kwargs):    
     
-    return run_haz_plots(res_fp_lib[run_name], proj_name='SJ', run_name=run_name)
+    return run_haz_plots(res_fp_lib[run_name], proj_name='SJ', run_name=run_name, **kwargs)
 
 def SJ_dev_run(
         fp_d = {
@@ -74,6 +74,7 @@ def log_dxcol(log, dxcol_raw):
 
 
 def run_haz_plots(fp_lib,
+                  pick_fp=None,
                   write=True,
                   **kwargs):
     """construct figure from SJ downscale cat results"""
@@ -83,9 +84,9 @@ def run_haz_plots(fp_lib,
     #===========================================================================
     # get base dir
     #=========================================================================== 
-    
+    """combines filter and direct"""
     out_dir = os.path.join(
-        pathlib.Path(os.path.dirname(fp_lib['filter'])).parents[1],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+        pathlib.Path(os.path.dirname(fp_lib['filter'])).parents[3],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
         'da', 'haz', today_str)
     
     #===========================================================================
@@ -105,37 +106,22 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         # DATA PREP---------
         #=======================================================================
+        if pick_fp is None:
+            # join the simulation results (and clean up indicides
+            d = {k:pd.read_pickle(fp) for k,fp in fp_lib.items()}
+            dxcol_raw = pd.concat(d, axis=1, names=['method']).swaplevel('base', 'method', axis=1).sort_index(axis=1)
+     
+            log_dxcol(log, dxcol_raw)
+     
+            
+            """Windows fatal exception: access violation
+            but only when I assign this to a variable used below?
+            """  
+            dx2 = ses.data_prep(dxcol_raw, write=True)
+        else:
+            dx2 = pd.read_pickle(pick_fp)
+             
  
-        # join the simulation results (and clean up indicides
-        d = {k:pd.read_pickle(fp) for k,fp in fp_lib.items()}
-        dxcol_raw = pd.concat(d, axis=1, names=['method']).swaplevel('base', 'method', axis=1).sort_index(axis=1)
-        #dxcol_raw = ses.join_stats(fp_lib, write=False)
-        del d
-        log_dxcol(log, dxcol_raw)
-                 
-        
-        """
-        view(dxcol_raw.T)
-        """
-        
- 
- 
-
-        
-        """Windows fatal exception: access violation
-        but only when I assign this to a variable used below?
-        """  
-        dx2 = ses.data_prep(dxcol_raw) 
- 
-        """
-        view(dx2.T)
-        view(dx2['diffs'].T)
-        """
-        #dx2.index = pd.MultiIndex.from_frame(scale_df.reset_index())
- 
-        
-
-
         
         #=======================================================================
         # HELPERS------
@@ -143,9 +129,9 @@ def run_haz_plots(fp_lib,
         def cat_mdex(mdex, levels=['layer', 'metric']):
             """concatnate two levels into one of an mdex"""
             mcoln = '_'.join(levels)
-            df = mdex.to_frame().reset_index(drop=True)
+            df = mdex.to_frame().reset_index(drop=True) 
  
-            df[mcoln] = df[levels[0]].str.cat(df[levels[1]], sep='_')
+            df[mcoln] = df[levels[0]].str.cat(others=df.loc[:, levels[1:]], sep='_')
             
             return pd.MultiIndex.from_frame(df.drop(levels, axis=1)), mcoln
         
@@ -302,16 +288,16 @@ def run_haz_plots(fp_lib,
         #     dx2.loc[:, idx['s12A',:, 'wse',:, 'mean']],
         #     #dx2.loc[:, idx['s12AN',:, 'wse',:, 'real_area']]
         #     ], axis=1).droplevel('base', axis=1).sort_index(axis=1)
-        #                                       
+        #                                        
         # dxi.columns, mcoln = cat_mdex(dxi.columns) #cat layer and metric
-        #     
+        #      
         # serx = dxi.droplevel((0,2), axis=0).stack(dxi.columns.names
         #                   ).reindex(index=['full', 'DD', 'DP', 'WP', 'WW'], level='dsc' #need a bucket with all the metrics to be first
         #                 ).reindex(index=m1_l, level=mcoln) 
         # """
         # view(serx)
         # """
-        #        
+        #         
         # # plot
         # ses.plot_matrix_metric_method_var(serx,
         #                                   map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
@@ -321,7 +307,7 @@ def run_haz_plots(fp_lib,
         #                                       'wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
         #                                       'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
         #                                       },
-        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('sA12_s12AN')),
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('agg')),
         #                                   matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
         #                                   ax_lims_d={
         #                                       'y':{'wd_mean':(-1.5, 0.2), 'wse_real_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
@@ -331,9 +317,6 @@ def run_haz_plots(fp_lib,
         #                                   )
         #=======================================================================
  
-        
- 
-
  
         #=======================================================================
         # for presentation (WD and A)
@@ -375,38 +358,45 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         """
         No sum on s12? no granular vol -- added
-        
-        area delta has wonky basleine?
+ 
         
         wse.real_area
             this is constant because filter to the s1 inundation area
             thats why we use s12_TP
+            
+        filter.s12_TP.full
+            where did this go?
         
         """
-        dx2['s12_TP']['direct']['wse'] #.loc[:, idx[:, 'real_area']]
+        #dx2['s12']['direct']['wd']['full'] #.loc[:, idx[:, 'real_area']]
         
         dxi = pd.concat([
-            dx2.loc[:, idx['s12N',:, 'wd',:, ('mean')]],
+            dx2.loc[:, idx['s12',:, 'wd',:, ('mean')]],
             dx2.loc[:, idx['s12_TP',:, 'wse',:, 'mean']],
             dx2.loc[:, idx['s12',:, 'wse',:, 'mean']],
-            #dx2.loc[:, idx['s12AN',:, 'wse',:, 'real_area']]
-            ], axis=1).droplevel('metric', axis=1).sort_index(axis=1)
+            dx2.loc[:, idx['s12N',:, 'wd',:, 'vol']],
+            ], axis=1).sort_index(axis=1)
                                              
-        dxi.columns, mcoln = cat_mdex(dxi.columns, levels=['base', 'layer']) #cat layer and metric
+        dxi.columns, mcoln = cat_mdex(dxi.columns, levels=['base', 'layer', 'metric']) #cat layer and metric
         
-        #dxi.columns.unique(mcoln)
-        m1_l = ['s12N_wd', 's12_wse', 's12_TP_wse']
+        print(dxi.columns.unique(mcoln).tolist())
+        m1_l = ['s12_wd_mean', 's12_wse_mean',  's12_TP_wse_mean','s12N_wd_vol',]
            
-        serx = dxi.droplevel((0,2), axis=0).stack(dxi.columns.names
-                          ).reindex(index=['full', 'DD', 'DP', 'WP', 'WW'], level='dsc' #need a bucket with all the metrics to be first
-                        ).reindex(index=m1_l, level=mcoln) 
+        serx = dxi.droplevel((0,2), axis=0).stack(dxi.columns.names) 
+                        
+        assert set(serx.index.unique(mcoln)).symmetric_difference(dxi.columns.unique(mcoln))==set() 
         """
+        view(serx.loc[:, 'filter', :, 's12_TP_wse_mean'])
+        
+        dxi.droplevel((0,2), axis=0).sort_index(axis=1).columns.unique(mcoln)
+        view(dxi.droplevel((0,2), axis=0).sort_index(axis=1))
         view(serx)
         """
               
         # plot
         ses.plot_matrix_metric_method_var(serx,
                                           map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
+                                          row_l=m1_l,
                                           ylab_d={
                                               #=================================
                                               # 'wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
@@ -415,12 +405,14 @@ def run_haz_plots(fp_lib,
                                               # 'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
                                               #=================================
                                               },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % (mcoln)),
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('granular')),
                                           matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
                                           ax_lims_d={
-                                              'y':{'s12N_wd':(-1.5, 0.2), 
-                                                   #'wse_real_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
-                                                   's12_wse':(-1.0, 15.0),
+                                              'y':{
+                                                    's12_wd_mean':(-1.5, 0.2), 
+                                                   #'wse_real_area':(-0.2, 1.0), 
+                                                   's12N_wd_vol':(-0.3, 0.1),
+                                                   's12_wse_mean':(-1.0, 15.0),
                                                    },
                                               }
                                           )
@@ -449,5 +441,7 @@ def run_haz_plots(fp_lib,
 if __name__ == "__main__":
 
   
-    SJ_da_run(run_name='r10')
+    SJ_da_run(run_name='r10',
+              pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
+              )
         

@@ -58,7 +58,7 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
  
  
  
-        super().__init__(obj_name=obj_name, **kwargs)
+        super().__init__(obj_name=obj_name, logfile_duplicate=logfile_duplicate, **kwargs)
  
         
     def join_stats(self,fp_lib, **kwargs):
@@ -234,14 +234,9 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         #=======================================================================
         # write
         #=======================================================================
-        #=======================================================================
-        # if write:
-        #     
-        #     ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_aggStats_dx.pkl')
-        #     dx1.to_pickle(ofp)
-        #     
-        #     log.info(f'wrote {str(dx1.shape)} to \n    {ofp}')
-        #=======================================================================
+        if write: 
+            dx2.to_pickle(ofp)             
+            log.info(f'wrote {str(dx2.shape)} to \n    {ofp}')
         
         mdex = dx2.columns
         names_d = {name:mdex.unique(name).to_list() for name in mdex.names}

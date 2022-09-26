@@ -92,6 +92,7 @@ class Agg2DAComs(Plotr):
                                       serx,
                                       map_d={'row':'metric', 'col':'method', 'color':'dsc', 'x':'pixelLength'},
                                       title=None, colorMap=None, color_d=None,
+                                      row_l = None,
                                       ylab_d={'vol':'$V_{s2}$ (m3)', 'wd_mean':r'$WD_{s2}$ (m)', 'wse_area':'$A_{s2}$ (m2)'},
                                       ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
                                       ax_lims_d=dict(),
@@ -155,6 +156,13 @@ class Agg2DAComs(Plotr):
         
         mdex = serx.index
         keys_all_d = {k:mdex.unique(v).tolist() for k,v in map_d.items()} #order matters
+        
+        #change row order
+        """because pulling from teh index can give inconsistent order (if there are labels missing)"""
+        if not row_l is None:
+            assert set(keys_all_d['row']).symmetric_difference(row_l)==set(), 'bad row labels'
+            keys_all_d['row'] = row_l
+            
         
         #check the keys
         for k,v in keys_all_d.items():
