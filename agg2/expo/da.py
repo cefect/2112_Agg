@@ -22,8 +22,8 @@ from hp.pd import append_levels
 
 #from agg2.haz.da import UpsampleDASession
 from agg2.expo.scripts import ExpoSession
-from agg2.haz.da import log_dxcol
-from agg2.coms import Agg2DAComs
+ 
+from agg2.coms import Agg2DAComs, log_dxcol
 from hp.plot import view
 
 
@@ -33,12 +33,8 @@ def now():
 
 class ExpoDASession(ExpoSession, Agg2DAComs):
  
-    def __init__(self,scen_name='expo_da',  **kwargs):
- 
- 
- 
-        super().__init__(scen_name=scen_name, logfile_duplicate=False,
-                          **kwargs)
+    def __init__(self,scen_name='expo_da',  **kwargs): 
+        super().__init__(scen_name=scen_name, logfile_duplicate=False,**kwargs)
  
     
     def join_layer_samps(self,fp_lib,

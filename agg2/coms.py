@@ -6,6 +6,7 @@ Created on Sep. 9, 2022
 commons for all of Agg
 '''
 import os, datetime
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from hp.oop import Session, today_str
@@ -89,6 +90,9 @@ class Agg2DAComs(Plotr):
  
  
         super().__init__(  **kwargs)
+        
+    def log_dxcol(self, *args):
+        return log_dxcol(self.logger, *args)
  
     
     def plot_matrix_metric_method_var(self,
@@ -253,7 +257,8 @@ class Agg2DAComs(Plotr):
                     
                     #first row
                     if row_key==keys_all_d['row'][0]:
-                        ax.legend(**legend_kwargs)
+                        if not legend_kwargs is None:
+                            ax.legend(**legend_kwargs)
                     
                 
                 #last row
@@ -271,7 +276,7 @@ class Agg2DAComs(Plotr):
         if write:
             return self.output_fig(fig, ofp=ofp, logger=log, **output_fig_kwargs)
         else:
-            return fig
+            return fig, ax_d
     
     def plot_dsc_ratios(self, df,
                         colorMap=None,color_d=None,
@@ -327,3 +332,22 @@ class Agg2DAComs(Plotr):
         # output
         #=======================================================================
         return self.output_fig(fig, ofp=ofp, logger=log)
+    
+    
+def log_dxcol(log, dxcol_raw):
+    mdex = dxcol_raw.columns
+    log.info(
+        f'for {str(dxcol_raw.shape)}' + 
+        '\n    base:     %s' % mdex.unique('base').tolist() + 
+        '\n    layers:   %s' % mdex.unique('layer').tolist() + 
+        '\n    metrics:  %s' % mdex.unique('metric').tolist())
+    return 
+
+def cat_mdex(mdex, levels=['layer', 'metric']):
+    """concatnate two levels into one of an mdex"""
+    mcoln = '_'.join(levels)
+    df = mdex.to_frame().reset_index(drop=True) 
+
+    df[mcoln] = df[levels[0]].str.cat(others=df.loc[:, levels[1:]], sep='_')
+    
+    return pd.MultiIndex.from_frame(df.drop(levels, axis=1)), mcoln

@@ -12,9 +12,9 @@ from definitions import proj_lib
 from hp.basic import get_dict_str, today_str, lib_iter
 from hp.pd import append_levels, view
 import pandas as pd
-from pandas.testing import assert_series_equal
+ 
 import numpy as np
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+ 
 idx = pd.IndexSlice
 
 #===============================================================================
