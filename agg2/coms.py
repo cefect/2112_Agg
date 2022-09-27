@@ -81,6 +81,9 @@ class Agg2DAComs(Plotr):
                 'full': '#000000'}
         }
     
+    #order of column index names
+    names_l = ['base', 'method', 'layer', 'dsc', 'metric']
+    
     def __init__(self,  **kwargs):
  
  
@@ -97,7 +100,7 @@ class Agg2DAComs(Plotr):
                                       ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
                                       ax_lims_d=dict(),
                                       xscale='linear',
-                                      matrix_kwargs=dict(figsize=(6.5, 6), set_ax_title=False, add_subfigLabel=True),
+                                      matrix_kwargs=dict(figsize=(6.5, 6), set_ax_title=False, add_subfigLabel=True, fig_id=0, constrained_layout=True),
                                       plot_kwargs_lib={
                                           'full':{'marker':'x'},
                                           'DD':{'marker':'s', 'fillstyle':'none'},
@@ -183,14 +186,12 @@ class Agg2DAComs(Plotr):
         #=======================================================================
         # setup figure
         #=======================================================================
-        plt.close('all')
+        #plt.close('all')
  
  
-        fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'],
-                                    #figsize_scaler=4,                                    
-                                    constrained_layout=True,
+        fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'], 
                                     sharey='row',sharex='all',  
-                                    fig_id=0,logger=log, **matrix_kwargs)
+                                    logger=log, **matrix_kwargs)
  
         if not title is None:
             fig.suptitle(title)
@@ -267,7 +268,10 @@ class Agg2DAComs(Plotr):
         #=======================================================================
         # output
         #=======================================================================
-        return self.output_fig(fig, ofp=ofp, logger=log, **output_fig_kwargs)
+        if write:
+            return self.output_fig(fig, ofp=ofp, logger=log, **output_fig_kwargs)
+        else:
+            return fig
     
     def plot_dsc_ratios(self, df,
                         colorMap=None,color_d=None,

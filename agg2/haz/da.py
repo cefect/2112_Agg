@@ -9,38 +9,7 @@ import pandas as pd
 import os, copy, datetime, pprint
 idx= pd.IndexSlice
 
-#===============================================================================
-# setup matplotlib----------
-#===============================================================================
-  
-import matplotlib
-#matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
-matplotlib.set_loglevel("info") #reduce logging level
-import matplotlib.pyplot as plt
- 
-#set teh styles
-plt.style.use('default')
- 
-#font
-matplotlib.rc('font', **{
-        'family' : 'serif',
-        'weight' : 'normal',
-        'size'   : 8})
- 
- 
-for k,v in {
-    'axes.titlesize':10,
-    'axes.labelsize':10,
-    'xtick.labelsize':8,
-    'ytick.labelsize':8,
-    'figure.titlesize':12,
-    'figure.autolayout':False,
-    'figure.figsize':(10,10),
-    'legend.title_fontsize':'large'
-    }.items():
-        matplotlib.rcParams[k] = v
-  
-print('loaded matplotlib %s'%matplotlib.__version__)
+
 
 from agg2.haz.scripts import UpsampleSession, assert_dx_names
 from agg2.coms import Agg2DAComs
@@ -50,6 +19,24 @@ from hp.plot import view
 def now():
     return datetime.datetime.now()
 
+def log_dxcol(log, dxcol_raw):
+    mdex = dxcol_raw.columns
+    log.info(
+        f'for {str(dxcol_raw.shape)}' + 
+        '\n    base:     %s' % mdex.unique('base').tolist() + 
+        '\n    layers:   %s' % mdex.unique('layer').tolist() + 
+        '\n    metrics:  %s' % mdex.unique('metric').tolist())
+    return 
+
+
+def cat_mdex(mdex, levels=['layer', 'metric']):
+    """concatnate two levels into one of an mdex"""
+    mcoln = '_'.join(levels)
+    df = mdex.to_frame().reset_index(drop=True) 
+
+    df[mcoln] = df[levels[0]].str.cat(others=df.loc[:, levels[1:]], sep='_')
+    
+    return pd.MultiIndex.from_frame(df.drop(levels, axis=1)), mcoln
 
 class UpsampleDASession(Agg2DAComs, UpsampleSession):
     """dataanalysis of downsampling"""

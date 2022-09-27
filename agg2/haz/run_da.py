@@ -8,13 +8,53 @@ faulthandler.enable()
 
 import os, pathlib, math, pprint
 from definitions import proj_lib
-from hp.basic import get_dict_str, today_str
+
 import pandas as pd
 idx = pd.IndexSlice
+ 
+
+#===============================================================================
+# setup matplotlib----------
+#===============================================================================
+  
+import matplotlib
+#matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
+matplotlib.set_loglevel("info") #reduce logging level
+import matplotlib.pyplot as plt
+ 
+#set teh styles
+plt.style.use('default')
+ 
+#font
+matplotlib.rc('font', **{
+        'family' : 'serif',
+        'weight' : 'normal',
+        'size'   : 8})
+ 
+ 
+for k,v in {
+    'axes.titlesize':10,
+    'axes.labelsize':10,
+    'xtick.labelsize':8,
+    'ytick.labelsize':8,
+    'figure.titlesize':12,
+    'figure.autolayout':False,
+    'figure.figsize':(10,10),
+    'legend.title_fontsize':'large'
+    }.items():
+        matplotlib.rcParams[k] = v
+  
+print('loaded matplotlib %s'%matplotlib.__version__)
 
 
-from agg2.haz.run import res_fp_lib as haz_res_fp_lib
+from agg2.haz.da import UpsampleDASession as Session
+from agg2.haz.da import log_dxcol, cat_mdex
+from hp.pd import view
+from hp.basic import get_dict_str, today_str
 
+#===============================================================================
+# globals
+#===============================================================================
 
 res_fp_lib = {
     'r9':{
@@ -60,26 +100,12 @@ def SJ_dev_run(
  
 
 
-
-def log_dxcol(log, dxcol_raw):
-    mdex = dxcol_raw.columns
-    log.info(
-        f'for {str(dxcol_raw.shape)}' + 
-        '\n    base:     %s' % mdex.unique('base').tolist() + 
-        '\n    layers:   %s' % mdex.unique('layer').tolist() + 
-        '\n    metrics:  %s' % mdex.unique('metric').tolist())
-    return 
-
-
-
-
 def run_haz_plots(fp_lib,
                   pick_fp=None,
                   write=True,
                   **kwargs):
     """construct figure from SJ downscale cat results"""
-    from agg2.haz.da import UpsampleDASession as Session
-    from hp.pd import view
+
     
     #===========================================================================
     # get base dir
@@ -126,14 +152,7 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         # HELPERS------
         #=======================================================================
-        def cat_mdex(mdex, levels=['layer', 'metric']):
-            """concatnate two levels into one of an mdex"""
-            mcoln = '_'.join(levels)
-            df = mdex.to_frame().reset_index(drop=True) 
- 
-            df[mcoln] = df[levels[0]].str.cat(others=df.loc[:, levels[1:]], sep='_')
-            
-            return pd.MultiIndex.from_frame(df.drop(levels, axis=1)), mcoln
+
         
         #=======================================================================
         # AGG ZONAL PLOTS---------
@@ -366,6 +385,7 @@ def run_haz_plots(fp_lib,
             where did this go?
         
         """
+        dx2.columns.names
         #dx2['s12']['direct']['wd']['full'] #.loc[:, idx[:, 'real_area']]
         
         dxi = pd.concat([
@@ -443,4 +463,6 @@ if __name__ == "__main__":
     SJ_da_run(run_name='r10',
               pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
               )
+    
+    print('finished')
         

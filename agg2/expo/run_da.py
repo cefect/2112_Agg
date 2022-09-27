@@ -16,10 +16,43 @@ from pandas.testing import assert_series_equal
 import numpy as np
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 idx = pd.IndexSlice
-import matplotlib.pyplot as plt
+
+#===============================================================================
+# setup matplotlib----------
+#===============================================================================
+cm = 1/2.54
 import matplotlib
+#matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
+matplotlib.set_loglevel("info") #reduce logging level
+import matplotlib.pyplot as plt
+ 
+#set teh styles
+plt.style.use('default')
+ 
+#font
+matplotlib.rc('font', **{
+        'family' : 'serif',
+        'weight' : 'normal',
+        'size'   : 8})
+ 
+ 
+for k,v in {
+    'axes.titlesize':10,
+    'axes.labelsize':10,
+    'xtick.labelsize':8,
+    'ytick.labelsize':8,
+    'figure.titlesize':12,
+    'figure.autolayout':False,
+    'figure.figsize':(10,10),
+    'legend.title_fontsize':'large'
+    }.items():
+        matplotlib.rcParams[k] = v
+  
+print('loaded matplotlib %s'%matplotlib.__version__)
 
-
+#===============================================================================
+# setup logger
+#===============================================================================
 logging.basicConfig(
                 #filename='xCurve.log', #basicConfig can only do file or stream
                 force=True, #overwrite root handlers
@@ -27,24 +60,26 @@ logging.basicConfig(
                 level=logging.INFO, #lowest level to display
                 )
 
-def SJ_plots_0910(
-        fp_lib = {
-                'direct':{
-                    'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
-                    'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
-                    'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
-                    },
-                'filter':{
-                    'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-                    #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
-                    'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
-                    'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
-                    }
-                },
- 
-        run_name='r8'):
-    return run_plots(fp_lib, run_name=run_name)
+#===============================================================================
+# globals
+#===============================================================================
+res_fp_lib = {'r8':{
+        'direct':{
+            'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
+            'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
+            'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
+            'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
+            },
+        'filter':{
+            'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+            #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
+            'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
+            'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
+            }
+        }}
+
+def SJ_plots_0910(run_name='r8', **kwargs):
+    return run_plots(res_fp_lib[run_name], run_name=run_name, **kwargs)
 
 
 
@@ -537,3 +572,5 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
 if __name__ == "__main__":
     SJ_plots_0910()
     #SJ_combine_plots_0919()
+    
+    print('finished')
