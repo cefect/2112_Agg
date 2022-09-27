@@ -135,13 +135,17 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         # baseline values
         #=======================================================================
         samp_base_dx = samp_dx.loc[:, idx[:, :, 1]].droplevel('scale', axis=1)
-        ufunc_d = {'expo':'sum', 'wd':'mean', 'wse':'mean'}
+        ufunc_d = {'expo':['sum'], 'wd':['mean', 'sum'], 'wse':['mean']}
         
         #get baseline stats
         d = dict()
-        for layName, stat in ufunc_d.items():
+        for layName, stat_l in ufunc_d.items():
             dxi = samp_base_dx.loc[:, idx[:, layName]].droplevel('layer', axis=1)
-            d[layName] = pd.concat({stat:getattr(dxi, stat)()}, axis=1, names='metric')
+            
+            d[layName] = pd.concat({stat:getattr(dxi, stat)() for stat in stat_l}, axis=1, names='metric')
+            
+ 
+ 
         
         #expand to match
         s1_sdxi = pd.concat(d, axis=1, names=['layer']).unstack().rename(1).to_frame().T.rename_axis('scale')        
@@ -149,11 +153,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             {'full':pd.concat({'s1':s1_sdxi, 's2':s1_sdxi, 's12':pd.DataFrame(0.0, index=s1_sdxi.index, columns=s1_sdxi.columns)}, axis=1, names=['base'])
             }, axis=1, names=['dsc']))
         
-        
-        #=======================================================================
-        # add GRANULAR
-        #=======================================================================
-        #samp_s12_dx = samp_dx.subtract(samp_base_dx, axis=1) 
+ 
         
         #=======================================================================
         #ZONAL stats
@@ -225,7 +225,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
 
     
     def get_dsc_stats2(self, raw_dx,
-                       ufunc_d = {'expo':'sum', 'wd':'mean', 'wse':'mean'},
+                       ufunc_d = {'expo':['sum'], 'wd':['mean'], 'wse':['mean']},
                        **kwargs):
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('dscStats',  subdir=True,ext='.pkl', **kwargs)
         
@@ -233,16 +233,22 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         res_d = dict()
         for i, (gkeys, gdx) in enumerate(raw_dx.groupby(level=gcols, axis=1)):
             gkeys_d = dict(zip(gcols, gkeys))
-            stat = ufunc_d[gkeys_d['layer']]
+            stat_l = ufunc_d[gkeys_d['layer']]
             
-            #get zonal stats            
-            grouper = gdx.groupby(level='dsc')            
-            sdx = getattr(grouper, stat)()
+            d = dict()
+            for stat in stat_l:
             
-            #get total stat
-            sdx.loc['full', :] = getattr(gdx, stat)()
+                #get zonal stats            
+                grouper = gdx.groupby(level='dsc')            
+                sdx = getattr(grouper, stat)()
+                
+                #get total stat
+                sdx.loc['full', :] = getattr(gdx, stat)()
+                
+                d[stat] = sdx
             
-            res_d[i] = pd.concat({stat:sdx}, axis=1, names=['metric'])
+            #wrap
+            res_d[i] = pd.concat(d, axis=1, names=['metric'])
  
         return pd.concat(list(res_d.values()), axis=1).reorder_levels(list(raw_dx.columns.names) + ['metric'], axis=1)
     

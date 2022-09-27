@@ -224,8 +224,7 @@ class PlotWrkr_4x4_subfigs(object):
         # build the figures
         #===========================================================================
         """
-        plt.close('all')
-        plt.show()
+        TODO: dont use subfigures... create a custom gridspec
         """
         
         fig_master = plt.figure(num=0, constrained_layout=False, figsize=(17 * cm, 18 * cm))
@@ -335,6 +334,11 @@ class PlotWrkr_4x4_subfigs(object):
         ax_f(axi_d[1][2])
         
         #=======================================================================
+        # x axis
+        #=======================================================================
+        axi_d[0][0].set_xlim((0,600))
+        axi_d[0][2].set_xlim((0,600))
+        #=======================================================================
         # change precision
         #=======================================================================
         def ax_f1(ax):
@@ -413,8 +417,8 @@ class PlotWrkr_4x4_subfigs(object):
                 map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'scale'}, 
                 row_l=row_l, 
                 ylab_d={ 
-                    's12N_wd_mean':r'$\frac{\overline{WSH_{s2}}-\overline{WSH_{s1}}}{\overline{WSH_{s1}}}$',
-                    's12_wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
+                    's12N_wd_mean':r'$\frac{\overline{WSH_{s2} - WSH_{s1}}}{\overline{WSH_{s1}}}$',
+                    's12_wse_mean':r'$\overline{WSE_{s2}-WSE_{s1}}$ (m)',
                     's12AN_wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$ or $\frac{\sum wet_{s2}-\sum wet_{s1}}{\sum wet_{s1}}$',
                     's12AN_wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
                     
@@ -453,7 +457,7 @@ class PlotWrkr_4x4_subfigs(object):
                 dx.loc[:, idx['s12', :, 'wd', :, 'mean']], 
                 dx.loc[:, idx['s12', :, 'wse', :, 'mean']], 
                 dx.loc[:, idx['s12AN', :,'expo', :, 'sum']],
-                dx.loc[:, idx['s12N', :,'expo', :, 'sum']],  #dummy 
+                dx.loc[:, idx['s12AN', :,'wd', :, 'sum']],   
      
             ], axis=1).sort_index(axis=1) 
         
@@ -461,7 +465,7 @@ class PlotWrkr_4x4_subfigs(object):
         print(dxi.columns.unique(mcoln).tolist())
      
         row_l = ['s12_wd_mean', 's12_wse_mean', 's12AN_expo_sum', 
-                 's12N_expo_sum'
+                 's12AN_wd_sum'
                  ]
         
         #stack into a series
@@ -487,7 +491,7 @@ class PlotWrkr_4x4_subfigs(object):
                                       ax_lims_d = {'y':{
                                           's12_wd_mean':(-1.5,3.0), 
                                           's12_wse_mean':(-1, 10.0),
-                                          's12AN_expo_sum':(-1, 20), #'expo':(-10, 4000)
+                                          's12AN_expo_sum':(-5, 20), #'expo':(-10, 4000)
                                           }},
                                       yfmt_func= lambda x,p:'%d'%x,
                                       legend_kwargs=None,

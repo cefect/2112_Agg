@@ -108,7 +108,7 @@ class Agg2DAComs(Plotr):
                                       plot_kwargs_lib={
                                           'full':{'marker':'x'},
                                           'DD':{'marker':'s', 'fillstyle':'none'},
-                                          'WW':{'marker':'o', 'fillstyle':'full'},
+                                          'WW':{'marker':'v', 'fillstyle':'full'},
                                           'WP':{'marker':'o', 'fillstyle':'top'},
                                           'DP':{'marker':'o', 'fillstyle':'bottom'},
                                           },
