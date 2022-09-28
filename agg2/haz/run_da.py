@@ -12,6 +12,13 @@ from definitions import proj_lib
 import pandas as pd
 idx = pd.IndexSlice
  
+ 
+from agg2.haz.da import UpsampleDASession as Session
+from agg2.haz.da import cat_mdex
+from agg2.coms import log_dxcol
+
+from hp.pd import view
+from hp.basic import get_dict_str, today_str
 
 #===============================================================================
 # setup matplotlib----------
@@ -47,10 +54,7 @@ for k,v in {
 print('loaded matplotlib %s'%matplotlib.__version__)
 
 
-from agg2.haz.da import UpsampleDASession as Session
-from agg2.haz.da import log_dxcol, cat_mdex
-from hp.pd import view
-from hp.basic import get_dict_str, today_str
+
 
 #===============================================================================
 # globals
@@ -456,7 +460,9 @@ def run_haz_plots(fp_lib,
         # ses.plot_dsc_ratios(fdf)
         #=======================================================================
         
-        
+
+
+   
 if __name__ == "__main__":
 
   
