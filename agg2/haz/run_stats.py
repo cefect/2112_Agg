@@ -16,7 +16,12 @@ idx = pd.IndexSlice
 xr_lib = {'r10':{
               'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr',
               'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\_xr'
-              }}
+              },
+        'dev':{
+            'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220928\_xr',
+            
+            }
+        }
 
 fp_lib = {'r10':{
     'filter':{  
@@ -32,6 +37,9 @@ fp_lib = {'r10':{
         #'s12':      r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',                
         }
     }}
+
+
+
 
 def run_haz_stats(xr_dir,
                   proj_d=None,
@@ -63,44 +71,9 @@ def run_haz_stats(xr_dir,
     #execute
     with Session(case_name=case_name,crs=crs, nodata=-9999, out_dir=out_dir,xr_dir=xr_dir,method='hs', **kwargs) as ses: 
         log = ses.logger
-        idxn = ses.idxn
-        #config directory
-        assert os.path.exists(xr_dir), xr_dir
         
- 
-        
-        """we have 4 data_vars
-        all coords and dims should be the same
-        files are split along the 'scale' coord
-        """
- 
-        #=======================================================================
-        # load each subdir----
-        #=======================================================================
-        ds_d = dict()
-        for dirpath, _, fns in os.walk(xr_dir):
-            varName = os.path.basename(dirpath)            
-            fp_l = [os.path.join(dirpath, e) for e in fns if e.endswith('.nc')]
-            if len(fp_l)==0: continue
-            ds_l = list()
-            
-            #load eaech
-            for i, fp in enumerate(fp_l):
-                ds_l.append(xr.open_dataset(fp, engine='netcdf4', chunks='auto',
-                                            decode_coords="all"))
-                
-            ds_d[varName] = xr.concat(ds_l, dim=idxn)
-                            
-        #merge all the layers            
-        ds = xr.merge(ds_d.values())
- 
-            
-        log.info(f'loaded {ds.dims}'+
-             f'\n    coors: {list(ds.coords)}'+
-             f'\n    data_vars: {list(ds.data_vars)}'+
-             f'\n    crs:{ds.rio.crs}'
-             )
-        assert ds.rio.crs == ses.crs, ds.rio.crs
+        #build a datasource from the netcdf files
+        ds = ses.get_ds_merge(xr_dir)
         
  
         #=======================================================================

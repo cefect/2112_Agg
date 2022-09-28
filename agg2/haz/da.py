@@ -220,21 +220,5 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
     
 
  
-class Session_haz_da_rast(UpsampleDASession):
-    pass
-        
-        
- 
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     

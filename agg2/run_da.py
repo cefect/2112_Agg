@@ -98,7 +98,7 @@ def run_plots_combine(fp_lib,pick_fp=None,write=True,**kwargs):
     #===========================================================================
     # execute
     #===========================================================================
-    with Session(out_dir=out_dir, write=write,**kwargs) as ses:
+    with Session(out_dir=out_dir, write=write,logger=logging.getLogger('r'), **kwargs) as ses:
         log = ses.logger 
         
         if pick_fp is None:
