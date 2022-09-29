@@ -5,10 +5,10 @@ Created on Sep. 28, 2022
 
 data analysis on raster data
 '''
-import os, pathlib, math, pprint, logging, sys
+import os, pathlib, math, pprint, logging, sys, webbrowser
 from definitions import proj_lib
 from rasterio.crs import CRS
-
+from dask.distributed import Client
 import pandas as pd
 idx = pd.IndexSlice
 from hp.pd import view
@@ -108,31 +108,54 @@ def run_rast_plots(xr_dir_lib,
         log = ses.logger
         
         #=======================================================================
-        # loop on each method
+        # loop and build gaussian values on each
         #=======================================================================
+        if pick_fp is None:
         #build a datasource from the netcdf files
-        for method, xr_dir in xr_dir_lib.items():
-            #===================================================================
-            # load data
-            #===================================================================
-            ds = ses.get_ds_merge(xr_dir)
+            d=dict()
+            for method, xr_dir in xr_dir_lib.items():
+                #===================================================================
+                # load data
+                #===================================================================
             
-            #===================================================================
-            # plot gaussian of wd
-            #===================================================================
-            #data prep
-            dar = ds['wd']
-            dar1 = dar.where(dar[0]!=0)
-            """
-            dar1.plot(col='scale')
-            """
-                        
-            ses.plot_gaussian_set(dar1)
+                ds = ses.get_ds_merge(xr_dir)
+                
+                #===================================================================
+                # plot gaussian of wd
+                #===================================================================
+                #data prep
+                dar = ds['wd']
+                dar1 = dar.where(dar[0]!=0)
+                """
+                dar1.plot(col='scale')
+                """
+                #get gausian data
+                d[method] = ses.get_kde_df(dar1)
+                
+            #merge
+            dxcol = pd.concat(d)
+        else:
+            dxcol = pd.read_pickle(pick_fp)
+              
+        #=======================================================================
+        # plot      
+        #=======================================================================
+        ses.plot_gaussian_set(dxcol)
         
         
 if __name__ == "__main__":
+    
+    
+    #===========================================================================
+    # with Client(threads_per_worker=1, n_workers=6) as client:
+    #      
+    #     print(f' opening dask client {client.dashboard_link}')
+    #===========================================================================
+        #webbrowser.open(client.dashboard_link)
 
   
-    SJ_da_rast_run(run_name='dev')
+    SJ_da_rast_run(run_name='dev',
+                   pick_fp=r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\da\rast\20220929\SJ_dev_direct_0929_kde_df.pkl'
+                   )
     
     print('finished')
