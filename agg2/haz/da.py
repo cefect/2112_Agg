@@ -195,7 +195,7 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         #normalize granulars
         """only these metrics make sense to normalize on the diffs"""
         l.append(
-            self.get_normd(dx1b, to_be_normd='s12').drop(['RMSE', 'real_count'], axis=1, level='metric'))
+            self.get_normd(dx1b, to_be_normd='s12').drop(['RMSE', 'real_count'], axis=1, level='metric', errors='ignore'))
         #=======================================================================
         # merge
         #=======================================================================
@@ -218,77 +218,7 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         
         return dx2
     
- #==============================================================================
- #    def plot_kde_set(self,dxcol, 
- #                                 fig=None, 
- #                          fig_kwargs = dict(figsize=(10,5)),
- #                          output_fig_kwargs=dict(),
- #                          color_d=None,
- #                          mean_line=True,
- #                          **kwargs):
- #        """plot lines from kde data"""
- #        #=======================================================================
- #        # defaults
- #        #=======================================================================
- #        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('kde',  ext='.svg', **kwargs)
- #        idxn =self.idxn
- #        scale_l = dxcol.columns.unique(idxn).tolist()
- #        #=======================================================================
- #        # setup plot
- #        #=======================================================================
- #        if fig is None:
- #            fig, ax = plt.subplots(**fig_kwargs)
- #        else:
- #            ax = fig.gca()
- #            
- # 
- #        if color_d is None:
- #            cmap = plt.cm.get_cmap(name='copper')            
- #            color_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(
- #                zip(scale_l, np.linspace(0, 1, len(scale_l)))).items()}
- #            
- #            
- #        #=======================================================================
- #        # loop and plot
- #        #=======================================================================
- #        
- #        for i, (scale, gdf) in enumerate(dxcol.groupby(idxn, axis=1)):
- # 
- #            log.info(f'    {i+1}/{len(scale_l)} scale={scale}')
- #            xar, yar = gdf.T.values
- #  
- #            
- #            ax.plot(xar, yar, 
- #                color=color_d[scale], label=scale, linewidth=0.5,
- #                    **kwargs)
- #            
- #            """need the full data for this...."""
- # #==============================================================================
- # #            #vertical mean line
- # #            if not mean_line is None:
- # # 
- # #                """should be the same"""
- # #                ax.axvline(xar.mean(), color=color_d[scale], linestyle='dashed')
- # #==============================================================================
- #                
- #            log.debug(f'finished in {scale}')
- #        
- #        #=======================================================================
- #        # wrap
- #        #=======================================================================
- #        log.info(f'finished on {len(scale_l)}')
- #        """
- #        plt.show()
- #        """
- #        #=======================================================================
- #        # output
- #        #=======================================================================
- #        if write:
- #            return self.output_fig(fig, ofp=ofp, logger=log, **output_fig_kwargs)
- #        else:
- #            return ax
- #==============================================================================
-    
+ 
 
  
     

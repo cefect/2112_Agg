@@ -88,6 +88,10 @@ res_fp_lib = {
     'r10':{
         'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl',
         'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl'
+        },
+    'r11':{
+        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\direct\20220930\hstats\20220930\SJ_r11_hs_0930_stats.pkl',
+        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\hstats\20220930\SJ_r11_hs_0930_stats.pkl'
         }
     }
 
@@ -329,6 +333,7 @@ def run_haz_plots(fp_lib,
         """
                  
         # plot
+        plt.close('all')
         ses.plot_matrix_metric_method_var(serx,
                                           map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
                                           ylab_d={
@@ -346,7 +351,7 @@ def run_haz_plots(fp_lib,
                                               }
                                           )
  
- 
+        
         #=======================================================================
         # for presentation (WD and A)
         #=======================================================================
@@ -425,6 +430,7 @@ def run_haz_plots(fp_lib,
         """
               
         # plot
+        plt.close('all')
         ses.plot_matrix_metric_method_var(serx,
                                           map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
                                           row_l=m1_l,
@@ -536,15 +542,15 @@ def run_kde_plots(pick_fp,
 if __name__ == "__main__":
 
   
-    #===========================================================================
-    # SJ_da_run(run_name='r10',
-    #           pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
-    #           )
-    #===========================================================================
+    SJ_da_run(run_name='r11',
+              #pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
+              )
     
-    run_kde_plots(
-        r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\da\rast\20220930\SJ_r10_direct_0930_kde_dxcol.pkl'
-        )
+    #===========================================================================
+    # run_kde_plots(
+    #     r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\da\rast\20220930\SJ_r10_direct_0930_kde_dxcol.pkl'
+    #     )
+    #===========================================================================
     
     print('finished')
         
