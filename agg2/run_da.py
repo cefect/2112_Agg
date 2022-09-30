@@ -64,6 +64,7 @@ logging.basicConfig(
 res_fp_lib = {
     'r11':{
         'haz':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\da\haz\20220930\SJ_r11_direct_0930_dprep.pkl',
+        'exp':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\da\20220930\bstats\SJ_r11_expo_da_0930_bstats.pkl'
         
         },
     
@@ -123,7 +124,7 @@ def run_plots_combine(fp_lib,pick_fp=None,write=True,**kwargs):
         
 
 if __name__ == "__main__":
-    SJ_da_run()
+    SJ_da_run(run_name='r11')
     #SJ_combine_plots_0919()
     
     print('finished')

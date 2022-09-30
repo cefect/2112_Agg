@@ -17,6 +17,8 @@ import numpy as np
  
 idx = pd.IndexSlice
 
+from agg2.expo.run import res_fp_lib
+
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
@@ -63,20 +65,22 @@ logging.basicConfig(
 #===============================================================================
 # globals
 #===============================================================================
-res_fp_lib = {'r8':{
-        'direct':{
-            'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-            'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
-            'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
-            'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
-            },
-        'filter':{
-            'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-            #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
-            'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
-            'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
-            }
-        }}
+#===============================================================================
+# res_fp_lib = {'r8':{
+#         'direct':{
+#             'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
+#             'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
+#             'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
+#             'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
+#             },
+#         'filter':{
+#             'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+#             #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
+#             'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
+#             'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
+#             }
+#         }}
+#===============================================================================
 
 def SJ_plots_0910(run_name='r8', **kwargs):
     return run_plots(res_fp_lib[run_name], run_name=run_name, **kwargs)
@@ -96,7 +100,7 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
     # get base dir
     #=========================================================================== 
     out_dir = os.path.join(
-        pathlib.Path(os.path.dirname(fp_lib['direct']['catMasks'])).parents[3], #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+        pathlib.Path(os.path.dirname(fp_lib['direct']['arsc'])).parents[3], #C:/LS/10_OUT/2112_Agg/outs/agg2/r5
         'da', today_str)
     print('out_dir:   %s'%out_dir)
     #===========================================================================
@@ -121,6 +125,7 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
         else:
             sdx3 = pd.read_pickel(pick_fp)
  
+        return
         #=======================================================================
         # GRANULAR.PLOT---------
         #=======================================================================
@@ -130,11 +135,13 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
             
             dx1 = sdx3[baseName]
             
+            raise IOError('need to fix this as we have multiple metrics now')
             """just 1 metric per layer now"""
             dx2 = dx1.droplevel('metric', axis=1) 
  
             
             """
+            view(dx1)
             view(dx2.loc[:, idx[:, :, 'wse_count']].T)
             """
             
@@ -570,7 +577,7 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
 
 
 if __name__ == "__main__":
-    SJ_plots_0910()
+    SJ_plots_0910(run_name='r11')
     #SJ_combine_plots_0919()
     
     print('finished')

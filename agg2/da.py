@@ -212,6 +212,13 @@ class PlotWrkr_4x4_matrix(object):
 
 
 class PlotWrkr_4x4_subfigs(object):
+    ax_ylims_d = {
+            0:(-0.5, 2.5),
+            1:(-1.0, 8.0),
+            2:(-0.2, 1.2),
+            3:(-0.3, 0.1)            
+            }
+            
     """complex 4x4 matrix plot with expo and haz"""
     def plot_4x4_subfigs(self, dx,
                          output_fig_kwargs=dict(),
@@ -412,6 +419,8 @@ class PlotWrkr_4x4_subfigs(object):
         #===========================================================================
         # plot
         #===========================================================================
+        ax_ylims_d = self.ax_ylims_d
+
         
         return self.plot_matrix_metric_method_var(serx, 
                 map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'scale'}, 
@@ -427,10 +436,11 @@ class PlotWrkr_4x4_subfigs(object):
                 matrix_kwargs={**mk_base, **dict(fig=fig)}, 
                 ax_lims_d={
                     'y':{
-                        's12N_wd_mean':(-1.5, 3.0), 
-                        's12AN_wse_real_area':(-0.2, 0.8),
-                        's12N_wd_vol':(-0.3, 0.1), 
-                        's12_wse_mean':(-1.0, 10.0)}}, 
+                        's12N_wd_mean':ax_ylims_d[0],
+                        's12_wse_mean':ax_ylims_d[1], 
+                        's12AN_wse_real_area':ax_ylims_d[2],
+                        's12N_wd_vol':ax_ylims_d[3],                        
+                        }}, 
                 legend_kwargs=None,
                     write=write,)
     
@@ -474,7 +484,7 @@ class PlotWrkr_4x4_subfigs(object):
         #===========================================================================
         # plot 
         #===========================================================================
-        
+        ax_ylims_d = self.ax_ylims_d
         return self.plot_matrix_metric_method_var(serx, 
                                       #title=baseName,
                                       row_l=row_l, 
@@ -489,9 +499,9 @@ class PlotWrkr_4x4_subfigs(object):
                                      ofp=os.path.join(self.out_dir, f'{self.fancy_name}_fig_expo_3x2_{mcoln}.svg'),
                                       matrix_kwargs={**mk_base, **dict(fig=fig)}, 
                                       ax_lims_d = {'y':{
-                                          's12_wd_mean':(-1.5,3.0), 
-                                          's12_wse_mean':(-1, 10.0),
-                                          's12AN_expo_sum':(-5, 20), #'expo':(-10, 4000)
+                                          's12_wd_mean':ax_ylims_d[0], 
+                                          's12_wse_mean':ax_ylims_d[1],
+                                          's12AN_expo_sum':(-5, 20), #'expo':(-10, 4000)... separate from full domain
                                           }},
                                       yfmt_func= lambda x,p:'%d'%x,
                                       legend_kwargs=None,
