@@ -77,7 +77,7 @@ class Session(Agg2DAComs, UpsampleSessionXR):
                            #figsize_scaler=3,
                            figsize=(6,12), 
                            set_ax_title=True, add_subfigLabel=True, fig_id=0, constrained_layout=True),
-                       bin_kwargs = dict(density=True, bins=30, rwidth=0.95),
+                       bin_kwargs = dict(density=True, bins=100, rwidth=0.99),
                        output_fig_kwargs=dict(),
                          **kwargs):
         """histograms of each raster per scale"""
@@ -108,7 +108,10 @@ class Session(Agg2DAComs, UpsampleSessionXR):
         #=======================================================================
         bvals_d = dict()
         stats_lib = dict()
-        log.info(f'building plots %i on {xar.shape}'%len(keys_all_d['row']))        
+        log.info(f'building plots %i on {xar.shape}'%len(keys_all_d['row']))
+        
+        
+        hrange = (float(xar.min().values), float(xar.max().values))
         for i, (scale, xari) in enumerate(xar.groupby(idxn, squeeze=False)):
             ax = ax_d[scale]['method']
             log.info(f'    on scale={scale}')
@@ -117,7 +120,14 @@ class Session(Agg2DAComs, UpsampleSessionXR):
             # data prep
             #===================================================================
             if not scale==1:
-                xari_s2 = xari.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()
+                xari_s2 = xari.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').min()
+                """
+                fig, (ax1, ax2) = plt.subplots(2)
+                plt.close('all')
+                xari.plot(ax=ax1)
+                xari_s2.plot(ax=ax2)
+                plt.show()
+                """
             else:
                 xari_s2 = xari
                 
@@ -127,13 +137,18 @@ class Session(Agg2DAComs, UpsampleSessionXR):
             #===================================================================
             # plot
             #===================================================================
-            bvals_d[scale], bins, patches = ax.hist(ar, **bin_kwargs)
+            bvals_d[scale], bins, patches = ax.hist(ar,range=hrange, **bin_kwargs)
+            
+            #===================================================================
+            # mean line
+            #===================================================================
+            ax.axvline(ar.mean(), color='black', linestyle='dashed')
             
             #===================================================================
             # stats
             #===================================================================
  
-            stats_d = {'min':ar.min(), 'max':ar.max(), 'var':ar.var(), 'size':ar.size}
+            stats_d = {'min':ar.min(), 'max':ar.max(), 'var':ar.var(), 'size':ar.size, 'mean':ar.mean()}
             
             
             ax.text(0.1, 0.8, get_dict_str(stats_d),transform=ax.transAxes, va='top',
@@ -201,6 +216,10 @@ def plot_hist(xr_dir_lib,
     # execute
     #===========================================================================
     with Session(out_dir=out_dir,logger=logging.getLogger('r'), **kwargs) as ses:
+        """
+        raw domain clipped is showing a negative bias!
+        
+        """
  
         idxn = ses.idxn
         log = ses.logger
@@ -229,7 +248,9 @@ def plot_hist(xr_dir_lib,
             #data prep
             
             dar1 = dar.where(dar[0]!=0)
+            #dar1 = dar
             
+            plt.close('all')
             ofp = ses.plot_hist_xar(dar1,method=method)
             
         #=======================================================================
@@ -256,6 +277,6 @@ if __name__ == "__main__":
         #print(pprint.pformat(dask.config.config, width=30, indent=3, compact=True, sort_dicts =False))
     
  
-        SJ_plot_hist_run(run_name='r10')
+        SJ_plot_hist_run(run_name='r11')
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
