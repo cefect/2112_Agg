@@ -47,130 +47,132 @@ res_fp_lib = {'r9':
                 }}
         
 
-def run_haz_agg2(method='direct',
-            fp_d={},
-            case_name = 'SJ',
-            dsc_l=[1, 2**3, 2**5, 2**6, 2**7, 2**8, 2**9],
- 
-            proj_d=None,
-                 **kwargs):
-    """hazard/raster run for agg2"""
-    #===========================================================================
-    # imports
-    #===========================================================================
- 
- 
-    
-
-    
-    
-    #===========================================================================
-    # extract parametesr
-    #===========================================================================
-    #project data   
-    if proj_d is None: 
-        proj_d = proj_lib[case_name] 
-    wse_fp=proj_d['wse_fp_d']['hi']
-    dem_fp=proj_d['dem_fp_d'][1] 
-    crs = CRS.from_epsg(proj_d['EPSG'])
-    #===========================================================================
-    # run model
-    #===========================================================================
-    from agg2.haz.scripts import UpsampleSessionXR as Session    
-    #execute
-    with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, dsc_l=dsc_l, **kwargs) as ses:
-        stat_d = dict()
-        log = ses.logger
-        #=======================================================================
-        # build aggregated layers
-        #=======================================================================
-        """todo: add something similar for the layers"""
-        if not 'agg' in fp_d:
-            fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method)
-            ses._clear()
-            
-        
-        #pre-processed base rasters
-        base_fp_d = pd.read_pickle(fp_d['agg']).iloc[0, :].to_dict()
-        
- 
-        if not 'aggXR' in fp_d:
-            fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
-            
-            
-            
-        #=======================================================================
-        # build difference grids
-        #=======================================================================
-        #=======================================================================
-        # if not 'diffs' in fp_d:
-        #     fp_d['diffs'] = ses.run_diffs(fp_d['agg'])
-        #     ses._clear()
-        #=======================================================================
-        #=======================================================================
-        # if not 'diffXR' in fp_d:
-        #     fp_d['diffXR'] = ses.run_diffsXR(fp_d['aggXR'])
-        #=======================================================================
-            
-            
-        #=======================================================================
-        # category masks
-        #=======================================================================
-        if not ('catMasks' in fp_d) or not ('cmXR' in fp_d):            
-            fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasksXR(base_fp_d['dem'], base_fp_d['wse'], write_tif=False)            
-            ses._clear()
-            
-            
-
- 
-        
-        #=======================================================================
-        # if not 'XR' in fp_d:
-        #     fp_d['XR'] = ses.run_merge_XR([fp_d[k] for k in ['diffXR', 'cmXR', 'aggXR']]) 
-        #=======================================================================
-            
-        return ses.xr_dir
-        #=======================================================================
-        # prob of TP per cell
-        #=======================================================================
-        #ses.run_pTP(fp_d['aggXR'], fp_d['catMasks'], write=False)
- 
- 
-        #=======================================================================
-        # assemble vrts
-        #=======================================================================
-        for k, v in fp_d.items():
-            if not v.endswith('.pkl'): continue 
-            vrt_d = ses.run_vrts(v, resname=k, logger=log.getChild(k))  
- 
-            
-        #=======================================================================
-        # build agg stats
-        #=======================================================================
-        if 'agg' in fp_d:
-            stat_d['s2'] = ses.run_stats(fp_d['agg'], fp_d['catMasks'])
-            stat_d['s1'] = ses.run_stats_fine(fp_d['agg'], fp_d['catMasks'])
-        
-        #=======================================================================
-        # build difference stats
-        #=======================================================================
-        if 'diffs' in fp_d:
-            stat_d['diffs'] =ses.run_diff_stats(fp_d['diffs'], fp_d['catMasks'])
-        
-        ses.concat_stats(stat_d, write=False)
-
-        #=======================================================================
-        # wrap
-        #=======================================================================
-        
-        log.info('finished w/ array picks \n%s'%pprint.pformat(fp_d, width=10, indent=3, compact=True, sort_dicts =False))
-        log.info('finished w/ stat picks \n%s'%pprint.pformat(stat_d, width=30, indent=3, compact=True, sort_dicts =False))
-        out_dir = ses.out_dir
-        
-        
-    print('finished to %s'%out_dir)
-
-    return fp_d, stat_d
+#===============================================================================
+# def run_haz_agg2(method='direct',
+#             fp_d={},
+#             case_name = 'SJ',
+#             dsc_l=[1, 2**3, 2**5, 2**6, 2**7, 2**8, 2**9],
+#  
+#             proj_d=None,
+#                  **kwargs):
+#     """hazard/raster run for agg2"""
+#     #===========================================================================
+#     # imports
+#     #===========================================================================
+#  
+#  
+#     
+# 
+#     
+#     
+#     #===========================================================================
+#     # extract parametesr
+#     #===========================================================================
+#     #project data   
+#     if proj_d is None: 
+#         proj_d = proj_lib[case_name] 
+#     wse_fp=proj_d['wse_fp_d']['hi']
+#     dem_fp=proj_d['dem_fp_d'][1] 
+#     crs = CRS.from_epsg(proj_d['EPSG'])
+#     #===========================================================================
+#     # run model
+#     #===========================================================================
+#     from agg2.haz.scripts import UpsampleSessionXR as Session    
+#     #execute
+#     with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, dsc_l=dsc_l, **kwargs) as ses:
+#         stat_d = dict()
+#         log = ses.logger
+#         #=======================================================================
+#         # build aggregated layers
+#         #=======================================================================
+#         """todo: add something similar for the layers"""
+#         if not 'agg' in fp_d:
+#             fp_d['agg'] = ses.run_agg(dem_fp, wse_fp, method=method)
+#             ses._clear()
+#             
+#         
+#         #pre-processed base rasters
+#         base_fp_d = pd.read_pickle(fp_d['agg']).iloc[0, :].to_dict()
+#         
+#  
+#         if not 'aggXR' in fp_d:
+#             fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
+#             
+#             
+#             
+#         #=======================================================================
+#         # build difference grids
+#         #=======================================================================
+#         #=======================================================================
+#         # if not 'diffs' in fp_d:
+#         #     fp_d['diffs'] = ses.run_diffs(fp_d['agg'])
+#         #     ses._clear()
+#         #=======================================================================
+#         #=======================================================================
+#         # if not 'diffXR' in fp_d:
+#         #     fp_d['diffXR'] = ses.run_diffsXR(fp_d['aggXR'])
+#         #=======================================================================
+#             
+#             
+#         #=======================================================================
+#         # category masks
+#         #=======================================================================
+#         if not ('catMasks' in fp_d) or not ('cmXR' in fp_d):            
+#             fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasksXR(base_fp_d['dem'], base_fp_d['wse'], write_tif=False)            
+#             ses._clear()
+#             
+#             
+# 
+#  
+#         
+#         #=======================================================================
+#         # if not 'XR' in fp_d:
+#         #     fp_d['XR'] = ses.run_merge_XR([fp_d[k] for k in ['diffXR', 'cmXR', 'aggXR']]) 
+#         #=======================================================================
+#             
+#         return ses.xr_dir
+#         #=======================================================================
+#         # prob of TP per cell
+#         #=======================================================================
+#         #ses.run_pTP(fp_d['aggXR'], fp_d['catMasks'], write=False)
+#  
+#  
+#         #=======================================================================
+#         # assemble vrts
+#         #=======================================================================
+#         for k, v in fp_d.items():
+#             if not v.endswith('.pkl'): continue 
+#             vrt_d = ses.run_vrts(v, resname=k, logger=log.getChild(k))  
+#  
+#             
+#         #=======================================================================
+#         # build agg stats
+#         #=======================================================================
+#         if 'agg' in fp_d:
+#             stat_d['s2'] = ses.run_stats(fp_d['agg'], fp_d['catMasks'])
+#             stat_d['s1'] = ses.run_stats_fine(fp_d['agg'], fp_d['catMasks'])
+#         
+#         #=======================================================================
+#         # build difference stats
+#         #=======================================================================
+#         if 'diffs' in fp_d:
+#             stat_d['diffs'] =ses.run_diff_stats(fp_d['diffs'], fp_d['catMasks'])
+#         
+#         ses.concat_stats(stat_d, write=False)
+# 
+#         #=======================================================================
+#         # wrap
+#         #=======================================================================
+#         
+#         log.info('finished w/ array picks \n%s'%pprint.pformat(fp_d, width=10, indent=3, compact=True, sort_dicts =False))
+#         log.info('finished w/ stat picks \n%s'%pprint.pformat(stat_d, width=30, indent=3, compact=True, sort_dicts =False))
+#         out_dir = ses.out_dir
+#         
+#         
+#     print('finished to %s'%out_dir)
+# 
+#     return fp_d, stat_d
+#===============================================================================
 
 def run_haz_agg2XR(method='direct',
             fp_d={},
@@ -259,17 +261,18 @@ def SJ_dev(run_name='t',method='direct',**kwargs):
 
 if __name__ == "__main__": 
     start = now()
-    """seems to slow things down..."""
-
-        
-    xr_dir = SJ_dev(method='filter')
  
-    #===========================================================================
-    # xr_dir = SJ_run(method='filter',
-    #             #dsc_l=[1,2**5,  2**7],
-    #             run_name='r10'
-    #            )
-    #===========================================================================
+    scheduler='single-threaded'
+    #scheduler='threads'
+    with dask.config.set(scheduler=scheduler):
+        print(scheduler)
+        
+        #xr_dir = SJ_dev(method='filter')
+     
+        xr_dir = SJ_run(method='filter',
+                    #dsc_l=[1,2**5,  2**7],
+                    run_name='r10'
+                   )
  
  
  

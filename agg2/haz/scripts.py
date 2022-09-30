@@ -1706,7 +1706,9 @@ class UpsampleSessionXR(UpsampleSession):
         return ofp_l
 
     def build_downscaled_aggXR(self, fp_df, 
-                                    layName_l=['wse', 'wd'], **kwargs):
+                                    layName_l=[
+                                        #'wse', 
+                                        'wd'], **kwargs):
         """compile an aggregated stack (downsampled) into an xarray
         
         here we just combine the aggs... would be better to integrate like we did with catMasks
@@ -1733,6 +1735,8 @@ class UpsampleSessionXR(UpsampleSession):
             odi = os.path.join(xr_dir, layName)
             if not os.path.exists(odi):os.makedirs(odi)
             
+            
+            
             d = dict()
             for i, (scale, fp) in enumerate(row.to_dict().items()):
                 log.info(f'    {i+1}/{len(fp_df)} on {layName} from {fp}')
@@ -1743,18 +1747,32 @@ class UpsampleSessionXR(UpsampleSession):
                         base_res = ds.res[0]
                         crs = ds.crs
                         
+                        #=======================================================
+                        # ar = ds.read(1)
+                        # ar.max()
+                        #=======================================================
+                        
                     rio_open_kwargs = dict(shape=base_shape, resampling=Resampling.nearest)
      
                 #===================================================================
                 # #load datasource
                 #===================================================================
-                xda = rioxarray.open_rasterio(fp,masked=True)            
+                xda = rioxarray.open_rasterio(fp,masked=True, chunks='auto')            
                 
                 assert scale ==xda.rio.resolution()[0]
      
-                log.debug(f'for scale = {scale} loaded {xda.dtype.name} raster {xda.shape}  w/\n' +
+                log.info(f'for scale = {scale} loaded {xda.dtype.name} raster {xda.shape}  w/\n' +
                          f'    crs {xda.rio.crs} nodata {xda.rio.nodata} and bounds {xda.rio.bounds()}\n' +
                          f'    from {fp}')
+                
+                """
+                xda.max().values
+                    array(26.19882965)
+                    
+                    
+                
+                xda.plot()
+                """
                 
                 #===================================================================
                 # resample
@@ -2480,27 +2498,7 @@ class UpsampleSessionXR(UpsampleSession):
         return ds
     
     
-    def plot_hist_xar(self, xar_raw,   **kwargs):
-        """histograms of each raster per scale"""
-        #=======================================================================
-        # defautlts
-        #=======================================================================
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('kde_df',  ext='.pkl', **kwargs)
- 
-        idxn = self.idxn
-        xar = xar_raw
-        
-        import matplotlib
-        import matplotlib.pyplot as plt
-        
-        for i, (scale, xari) in enumerate(xar.groupby(idxn, squeeze=False)):
-            if not scale==1:
-                xari_s2 = xari.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()
-            else:
-                xari_s2 = xari
-                
-            #
-            dar = xari.stack(rav=list(xari.coords)).dropna('rav').data
+
     
     def get_kde_df(self, xar_raw,dim='scale',
 
