@@ -31,29 +31,44 @@ logging.basicConfig(
 # result files
 #===============================================================================
 
-xr_lib = {'r10':{
+xr_lib = {
+    'r11':{
+        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\direct\20220930\_xr',
+        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\_xr',        
+        },
+    
+    
+    'r10':{
               'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr',
               'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\_xr'
               },
+
         'dev':{
             'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220930\_xr',
             'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220930\_xr',            
             }
         }
 
-fp_lib = {'r10':{
-    'filter':{  
-       's12_TP': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\tpXR\SJ_r10_hs_0926_tpXR.pkl',
-       's12': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',
-       #'s2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s2\\SJ_r10_hs_0925_statsXR_s2.pkl',
-       's1': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220930\statsXR_s1\SJ_r10_hs_0930_statsXR_s1.pkl',
-            },
-    'direct':{
-        #'s1':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s1\SJ_r10_hs_0925_statsXR_s1.pkl',
-        #'s2':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s2\SJ_r10_hs_0925_statsXR_s2.pkl',
-        's12_TP':   r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\s12_TP\SJ_r10_hs_0926_s12_TP.pkl',
-        's12':      r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',                
-        }
+fp_lib = {
+    'r11':{
+        'direct':{},
+        'filter':{},        
+        },
+    
+    
+    'r10':{
+        'filter':{  
+           's12_TP': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\tpXR\SJ_r10_hs_0926_tpXR.pkl',
+           's12': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',
+           #'s2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s2\\SJ_r10_hs_0925_statsXR_s2.pkl',
+           's1': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220930\statsXR_s1\SJ_r10_hs_0930_statsXR_s1.pkl',
+                },
+        'direct':{
+            #'s1':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s1\SJ_r10_hs_0925_statsXR_s1.pkl',
+            #'s2':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s2\SJ_r10_hs_0925_statsXR_s2.pkl',
+            's12_TP':   r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\s12_TP\SJ_r10_hs_0926_s12_TP.pkl',
+            's12':      r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',                
+            }
     },
     'dev':{'filter':{}, 'direct':{}}
     }
@@ -244,8 +259,8 @@ if __name__ == "__main__":
         print(scheduler)
         #print(pprint.pformat(dask.config.config, width=30, indent=3, compact=True, sort_dicts =False))
     
-        #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
-        SJ_run_h_stats(method='filter', run_name='r10')
+        #SJ_run_h_stats(method='direct', run_name='dev')
+        SJ_run_h_stats(method='filter', run_name='r11')
         
         #SJ_compute_kde_run(run_name='r10')
  
