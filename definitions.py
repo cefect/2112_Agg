@@ -84,13 +84,13 @@ proj_lib =     { #studyArea data for hyd.runr
                         
             'SJ': {
                 'EPSG': 2953, 
-                'finv_fp': r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\finv\microsoft_aoi17_0819.geojson',
+                'finv_fp': r'C:\LS\10_OUT\2112_Agg\ins\hyd\SJ\microsoft_aoi17_0819.geojson',
                 'wse_fp_d':{ #1x1
-                    'hi':r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\wse\0819\GeoNB_LSJ_FloodExtent2018_aoi17_fnd_noGW_r01_0828.tif', 
+                    'hi':r'C:\LS\10_OUT\2112_Agg\ins\hyd\SJ\GeoNB_LSJ_FloodExtent2018_aoi17_fnd_noGW_r01_0828.tif', 
  
                       },
                 'dem_fp_d':{
-                    1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\dem\NBDNR2015_r01_aoi17_fnd_e2953_0909.tif',
+                    1:r'C:\LS\10_OUT\2112_Agg\ins\hyd\SJ\NBDNR2015_r01_aoi17_fnd_e2953_0909.tif',
                     #===========================================================
                     # 2:r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\dem\NBDNR2015_r02_aoi17_fnd_e2953_0819.tif',
                     # 16:r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\dem\NBDNR2015_r16_aoi17_fnd_e2953_0819.tif'

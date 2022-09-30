@@ -750,7 +750,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         self.out_dir
         meta_df.columns
         """
-        df = pd.read_pickle(pick_fp)
+        
         log.info('compiling \'%s\' vrt from %s'%(resname0, os.path.basename(pick_fp))) 
         res_d = dict()
         
@@ -1707,7 +1707,7 @@ class UpsampleSessionXR(UpsampleSession):
 
     def build_downscaled_aggXR(self, fp_df, 
                                     layName_l=[
-                                        #'wse', 
+                                        'wse', 
                                         'wd'], **kwargs):
         """compile an aggregated stack (downsampled) into an xarray
         
@@ -1792,7 +1792,7 @@ class UpsampleSessionXR(UpsampleSession):
                 #write this layer+scale
                 xds_i= xr.concat([xda1], pd.Index([scale], name='scale', dtype=int)).to_dataset(name=layName) 
                 self._prep_xds_write(xds_i)
-                ofpi = os.path.join(odi, f'{resname}_s{scale:03d}.nc')
+                ofpi = os.path.join(odi, f'{resname}_{layName}_s{scale:03d}.nc')
                 
                 log.info(f'         writing {xda1.rio.shape} to {ofpi}')
                 xds_i.to_netcdf(ofpi, mode='w', format='NETCDF4', engine='netcdf4', compute=True)
