@@ -15,6 +15,7 @@ from rasterio.enums import Resampling
 
 from osgeo import gdal
 from sklearn.metrics import confusion_matrix
+import scipy.stats
 
 import rioxarray
 import xarray as xr
@@ -2533,6 +2534,8 @@ class UpsampleSessionXR(UpsampleSession):
         @dask.delayed
         def get_vals(xari):
             
+            
+            
             dar = xari.stack(rav=list(xari.coords)).dropna('rav').data
             kde = scipy.stats.gaussian_kde(dar,
                                                bw_method='scott',
@@ -2548,7 +2551,14 @@ class UpsampleSessionXR(UpsampleSession):
         def get_all_vals(xar):
             d = dict()
             for i, (scale, xari) in enumerate(xar.groupby(idxn, squeeze=False)):
-                d[scale] = get_vals(xari)
+                xari_s2 = xari.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()
+                
+                """
+                xari_s2.plot()
+                xari_s2.shape
+                xari_s2.values
+                """
+                d[scale] = get_vals(xari_s2)
  
             return d
  

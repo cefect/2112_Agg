@@ -9,6 +9,8 @@ from rasterio.crs import CRS
 import pandas as pd
 import xarray as xr
 #from dask.distributed import Client
+import dask
+import dask.config
 from definitions import proj_lib
 from hp.pd import view
 idx = pd.IndexSlice
@@ -150,7 +152,7 @@ def compute_kde(xr_dir_lib,
         pathlib.Path(os.path.dirname(xr_dir_lib['direct'])).parents[1],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
         'da', 'rast', today_str)
     
-    raise IOError('x values should all be common')
+
     
     #===========================================================================
     # execute
@@ -185,16 +187,26 @@ def compute_kde(xr_dir_lib,
             #get gausian data
             d[method] = ses.get_kde_df(dar1, logger=log.getChild(method), write=False)
             
-        #merge
+        #=======================================================================
+        # #merge
+        #=======================================================================
         dxcol = pd.concat(d, axis=1, names=['method'])
         
+        #cleanup
+        xser = dxcol.loc[:, idx[:, :, 'x']].iloc[:,0].rename('x')
+        
+        dx1 = dxcol.loc[:, idx[:, :, 'y']].droplevel('dim', axis=1)
+        
+        dx1.index = pd.MultiIndex.from_frame(dx1.index.to_frame().join(xser))
+        
+ 
         #=======================================================================
         # write
         #=======================================================================
         
         ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_kde_dxcol.pkl')
-        dxcol.to_pickle(ofp)
-        log.info(f'wrote {dxcol.shape} to\n    {ofp}')
+        dx1.to_pickle(ofp)
+        log.info(f'wrote {dx1.shape} to\n    {ofp}')
         
     return ofp
     
@@ -202,25 +214,16 @@ if __name__ == "__main__":
     
     start = now()
     
-          #=============================================================================
-  #   with Client(
-  #       #processes=True,
-  #       #threads_per_worker=4, n_workers=3, memory_limit='2GB'
-  #       ) as client:
-  #        
-  #       #get meta
-  #       wrkr_cnt = len(client.scheduler_info()['workers'])
-  #       for wName, wrkr in client.scheduler_info()['workers'].items():
-  #           nthreads = wrkr['nthreads']
-  #           break
-  #        
-  # 
-  #       print(f' running dask client w/ {wrkr_cnt} workers and {nthreads} threads at {client.dashboard_link}')
-  #       webbrowser.open(client.dashboard_link)
-  #=============================================================================
+    #scheduler='single-threaded'
+    scheduler='threads'
+    with dask.config.set(scheduler=scheduler):
+        print(scheduler)
+        #print(pprint.pformat(dask.config.config, width=30, indent=3, compact=True, sort_dicts =False))
     
-    run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
-    #SJ_run_h_stats(method='filter')
+        #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
+        #SJ_run_h_stats(method='filter')
+        
+        SJ_compute_kde_run(run_name='dev')
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
         
