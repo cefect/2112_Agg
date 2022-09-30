@@ -2573,6 +2573,7 @@ class UpsampleSessionXR(UpsampleSession):
         #df.visualize(filename=os.path.join(out_dir, 'dask_visualize.svg'))
         #d = dask.compute(get_all_vals(xar1))
         
+        """stalling at ~38%"""
         with ProgressBar():
  
             df = o.compute()

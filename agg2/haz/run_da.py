@@ -507,13 +507,7 @@ def run_kde_plots(pick_fp,
         # load data
         #=======================================================================
         dxcol = pd.read_pickle(pick_fp)
-        
-        #cleanup
-        xser = dxcol.loc[:, idx[:, :, 'x']].iloc[:,0].rename('x')
-        
-        dx1 = dxcol.loc[:, idx[:, :, 'y']].droplevel('dim', axis=1)
-        
-        dx1.index = pd.MultiIndex.from_frame(dx1.index.to_frame().join(xser))
+ 
         
         dx1 = pd.concat({'haz':dx1}, axis=1, names=['base']) #add dummy level
         

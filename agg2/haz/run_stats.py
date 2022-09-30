@@ -17,6 +17,20 @@ idx = pd.IndexSlice
 
 from agg2.haz.scripts import UpsampleSessionXR as Session
 
+#===============================================================================
+# setup logger
+#===============================================================================
+logging.basicConfig(
+                #filename='xCurve.log', #basicConfig can only do file or stream
+                force=True, #overwrite root handlers
+                stream=sys.stdout, #send to stdout (supports colors)
+                level=logging.INFO, #lowest level to display
+                )
+
+#===============================================================================
+# result files
+#===============================================================================
+
 xr_lib = {'r10':{
               'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr',
               'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\_xr'
@@ -223,7 +237,7 @@ if __name__ == "__main__":
         #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
         #SJ_run_h_stats(method='filter')
         
-        SJ_compute_kde_run(run_name='dev')
+        SJ_compute_kde_run(run_name='r10')
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
         
