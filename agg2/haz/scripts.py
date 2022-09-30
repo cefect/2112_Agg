@@ -2495,6 +2495,88 @@ class UpsampleSessionXR(UpsampleSession):
             f'loaded {ds.dims}' + f'\n    coors: {list(ds.coords)}' + f'\n    data_vars: {list(ds.data_vars)}' + f'\n    crs:{ds.rio.crs}')
         assert ds.rio.crs == self.crs, ds.rio.crs
         return ds
+    
+    def get_kde_df(self, xar_raw,dim='scale',
+
+                          **kwargs):
+        """plot a set of gaussian kdes
+        
+        Parameters
+        -----------
+        dim: str
+            dimension of DataArray to build kde progression on
+            
+        Todo
+        -----------
+        use dask delayed and build in parallel?
+        
+        just partial zones?
+        """
+        #=======================================================================
+        # defautlts
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('kde_df',  ext='.pkl', **kwargs)
+        idxn = self.idxn
+        scale_l = xar_raw[dim].values.tolist()
+        start=now()
+        
+        log.info(f'building {len(scale_l)} on {xar_raw.shape}')
+        
+        xar1 = xar_raw.squeeze(drop=True).reset_coords( #drop band
+            names=['spatial_ref'], drop=True
+            ).transpose(idxn, ...)  #put scale first for iterating
+        
+        #=======================================================================
+        # loop and build values
+        #=======================================================================
+        
+        @dask.delayed
+        def get_vals(xari):
+            
+            dar = xari.stack(rav=list(xari.coords)).dropna('rav').data
+            kde = scipy.stats.gaussian_kde(dar,
+                                               bw_method='scott',
+                                               weights=None,  # equally weighted
+                                               )
+            
+            xvals = np.linspace(dar.min() + .01, dar.max(), 200)
+            
+            del dar
+            
+            return pd.concat({'x':pd.Series(xvals), 'y':pd.Series(kde(xvals))})
+            
+        def get_all_vals(xar):
+            d = dict()
+            for i, (scale, xari) in enumerate(xar.groupby(idxn, squeeze=False)):
+                d[scale] = get_vals(xari)
+ 
+            return d
+ 
+        log.info(f'executing get_all_vals on  {xar1.shape}')
+                 
+        def concat(d):
+            df = pd.concat(d, axis=1, names=['scale'])
+            df.index.set_names(['dim', 'coord'], inplace=True)
+            return df.unstack('dim') 
+        
+        o=dask.delayed(concat)(get_all_vals(xar1))
+        #df.visualize(filename=os.path.join(out_dir, 'dask_visualize.svg'))
+        #d = dask.compute(get_all_vals(xar1))
+        
+        with ProgressBar():
+ 
+            df = o.compute()
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        if write:
+            df.to_pickle(ofp)
+            log.info(f'wrote {str(df.shape)} to file\n    {ofp}') 
+            
+        log.info(f'finished on {df.shape} in %.2f secs'%((now()-start).total_seconds()))       
+        
+        return df
                 
                 
  

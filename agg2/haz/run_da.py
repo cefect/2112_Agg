@@ -6,7 +6,7 @@ Created on Sep. 9, 2022
 import faulthandler
 faulthandler.enable()
 
-import os, pathlib, math, pprint
+import os, pathlib, math, pprint, logging, sys
 from definitions import proj_lib
 
 import pandas as pd
@@ -54,7 +54,15 @@ for k,v in {
 print('loaded matplotlib %s'%matplotlib.__version__)
 
 
-
+#===============================================================================
+# setup logger
+#===============================================================================
+logging.basicConfig(
+                #filename='xCurve.log', #basicConfig can only do file or stream
+                force=True, #overwrite root handlers
+                stream=sys.stdout, #send to stdout (supports colors)
+                level=logging.INFO, #lowest level to display
+                )
 
 #===============================================================================
 # globals
@@ -122,7 +130,7 @@ def run_haz_plots(fp_lib,
     #===========================================================================
     # execute
     #===========================================================================
-    with Session(out_dir=out_dir, **kwargs) as ses:
+    with Session(out_dir=out_dir, logger=logging.getLogger('r'),**kwargs) as ses:
         """for haz, working with aggregated zonal stats.
             these are computed on:
                 aggregated (s2) data with UpsampleSession.run_stats()
@@ -461,7 +469,41 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         
 
+def run_kde_plots(pick_fp, 
+                  **kwargs):
+    """plot lines from kDE calcs"""
 
+    
+    #===========================================================================
+    # get base dir
+    #=========================================================================== 
+    """combines filter and direct"""
+    out_dir = os.path.dirname(pick_fp)
+    
+    #===========================================================================
+    # execute
+    #===========================================================================
+    with Session(out_dir=out_dir,logger=logging.getLogger('r'), **kwargs) as ses:
+        """for haz, working with aggregated zonal stats.
+            these are computed on:
+                aggregated (s2) data with UpsampleSession.run_stats()
+                raw/fine (s1) data with UpsampleSession.run_stats_fine()
+                local diff (s2-s1) with UpsampleSession.run_diff_stats()
+            
+ 
+        """
+        idxn = ses.idxn
+        log = ses.logger
+        
+        #=======================================================================
+        # load data
+        #=======================================================================
+        dxcol = pd.read_pickle(pick_fp)
+              
+        #=======================================================================
+        # plot      
+        #=======================================================================
+        ses.plot_gaussian_set(dxcol)
    
 if __name__ == "__main__":
 

@@ -3,15 +3,17 @@ Created on Sep. 25, 2022
 
 @author: cefect
 '''
-import os, pathlib, pprint, webbrowser
+import os, pathlib, pprint, webbrowser, logging
 from hp.basic import get_dict_str, now, today_str
 from rasterio.crs import CRS
 import pandas as pd
 import xarray as xr
-from dask.distributed import Client
+#from dask.distributed import Client
 from definitions import proj_lib
 from hp.pd import view
 idx = pd.IndexSlice
+
+from agg2.haz.scripts import UpsampleSessionXR as Session
 
 xr_lib = {'r10':{
               'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr',
@@ -62,7 +64,7 @@ def run_haz_stats(xr_dir,
     #===========================================================================
     # run model
     #===========================================================================
-    from agg2.haz.scripts import UpsampleSessionXR as Session
+    
     
     out_dir = os.path.join(
             #pathlib.Path(os.path.dirname(xr_dir)).parents[0],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
@@ -121,6 +123,77 @@ def run_haz_stats(xr_dir,
     
 def SJ_run_h_stats(run_name='r10', method='direct'):
     return run_haz_stats(xr_lib[run_name][method], run_name=run_name,fp_d=fp_lib[run_name][method] )
+
+
+def SJ_compute_kde_run(
+        run_name='r10',
+        crs=None,
+        case_name='SJ',
+        **kwargs): 
+ 
+    if crs is None:
+        crs = CRS.from_epsg(proj_lib[case_name]['EPSG'])   
+    
+    return compute_kde(xr_lib[run_name], case_name=case_name, run_name=run_name,crs=crs,**kwargs)
+        
+        
+def compute_kde(xr_dir_lib, 
+                  **kwargs):
+    """calculate kde plotting data"""
+
+    
+    #===========================================================================
+    # get base dir
+    #=========================================================================== 
+    """combines filter and direct"""
+    out_dir = os.path.join(
+        pathlib.Path(os.path.dirname(xr_dir_lib['direct'])).parents[1],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+        'da', 'rast', today_str)
+    
+    #===========================================================================
+    # execute
+    #===========================================================================
+    with Session(out_dir=out_dir,logger=logging.getLogger('r'), **kwargs) as ses:
+ 
+        idxn = ses.idxn
+        log = ses.logger
+        
+        #=======================================================================
+        # loop and build gaussian values on each
+        #=======================================================================
+ 
+        #build a datasource from the netcdf files
+        d=dict()
+        for method, xr_dir in xr_dir_lib.items():
+            log.info(f'\n\non {method}\n\n')
+            #===================================================================
+            # load data
+            #===================================================================        
+            ds = ses.get_ds_merge(xr_dir)
+            
+            #===================================================================
+            # plot gaussian of wd
+            #===================================================================
+            #data prep
+            dar = ds['wd']
+            dar1 = dar.where(dar[0]!=0)
+            """
+            dar1.plot(col='scale')
+            """
+            #get gausian data
+            d[method] = ses.get_kde_df(dar1, logger=log.getChild(method), write=False)
+            
+        #merge
+        dxcol = pd.concat(d, axis=1, names=['method'])
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_kde_dxcol.pkl')
+        dxcol.to_pickle(ofp)
+        log.info(f'wrote {dxcol.shape} to\n    {ofp}')
+        
+    return ofp
     
 if __name__ == "__main__": 
     
