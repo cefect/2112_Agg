@@ -53,13 +53,13 @@ fp_lib = {
     'r11':{
         'direct':{  
             's12_TP': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20220930\\s12_TP\\SJ_r11_hs_0930_s12_TP.pkl',
-           's12': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20220930\\statsXR_s12\\SJ_r11_hs_0930_statsXR_s12.pkl',
+           #'s12': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20220930\\statsXR_s12\\SJ_r11_hs_0930_statsXR_s12.pkl',
            's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20220930\\statsXR_s1\\SJ_r11_hs_0930_statsXR_s1.pkl',
            's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20220930\\statsXR_s2\\SJ_r11_hs_0930_statsXR_s2.pkl'
                 },
         'filter':{
                 's12_TP': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20220930\\s12_TP\\SJ_r11_hs_0930_s12_TP.pkl',
-                's12': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20220930\\statsXR_s12\\SJ_r11_hs_0930_statsXR_s12.pkl',
+                #'s12': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20220930\\statsXR_s12\\SJ_r11_hs_0930_statsXR_s12.pkl',
                 's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20220930\\statsXR_s1\\SJ_r11_hs_0930_statsXR_s1.pkl',
                 's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20220930\\statsXR_s2\\SJ_r11_hs_0930_statsXR_s2.pkl'            
             },        
@@ -269,7 +269,7 @@ if __name__ == "__main__":
         print(scheduler)
         #print(pprint.pformat(dask.config.config, width=30, indent=3, compact=True, sort_dicts =False))
     
-        #SJ_run_h_stats(method='direct', run_name='dev')
+        #SJ_run_h_stats(method='filter', run_name='dev')
         SJ_run_h_stats(method='direct', run_name='r11')
         
         #SJ_compute_kde_run(run_name='r10')

@@ -2247,37 +2247,61 @@ class UpsampleSessionXR(UpsampleSession):
         start = now()
         idxn=self.idxn
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('s12XR',  subdir=False,ext='.pkl', **kwargs)
-        agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
+        #agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
         
+        #=======================================================================
+        # prep data
+        #=======================================================================
         scale_l = xds_raw['scale'].values.tolist()
         
-        log.info(f'on {len(scale_l)} scales')
+        log.info(f'on {len(scale_l)} scales')        
+
+        #clean up and reorder dinensions for indexing
+        #=======================================================================
+        # xds = xds_raw.drop_vars('catMosaic').squeeze(drop=True).reset_coords(
+        #     names='spatial_ref', drop=True).transpose(idxn, ...)
+        #=======================================================================
+            
+        xds = xds_raw.drop_vars('catMosaic').transpose(idxn, ...)
         
-        #===================================================================
-        # loop and compute difference for each scale
-        #===================================================================
-        xds = xds_raw.drop_vars('catMosaic')
-        base_xds = xds.isel(scale=0)
+        #=======================================================================
+        # loop on each layer
+        #=======================================================================
         res_d = dict()
-        for i, scale in enumerate(scale_l):
-            log.info(f'    {i+1}/{len(scale_l)} scale={scale}')
-            
-            #compute the difference (with the base mask
-            xds1 = xds.isel(scale=i).where(np.invert(np.isnan(base_xds))) - base_xds                
-            
-            if idxn in xds1.coords:
-                xds1 = xds1.reset_coords(names=idxn, drop=True)
-            
-            res_d[scale] = xds1
+        for layName, xar in xds.items():
+            log.info(f'on {layName}')
+        
+            #===================================================================
+            # loop and compute difference for each scale
+            #===================================================================
+            base_xar = xar[0]
+            d = dict()
+            for i, (scale, gxar) in enumerate(xar.groupby(idxn)):
+                log.info(f'    {i+1}/{len(scale_l)} scale={scale}')
+                
+                #get the base mask
+                if layName=='wd':
+                    base_mask = base_xar==0
+                elif layName=='wse':
+                    base_mask = np.isnan(base_xar)
+                
+                #compute the difference (with the base mask
+                gxar_diff = gxar.where(np.invert(base_mask)) - base_xar                
+                
+                if idxn in gxar_diff.coords:
+                    gxar_diff = gxar_diff.reset_coords(names=idxn, drop=True)
+                
+                d[scale] = gxar_diff
+                
+            #merge
+            res_d[layName] = xr.concat(d.values(), pd.Index(d.keys(), name=idxn, dtype=int))
             
         #=======================================================================
         # #wrap
         #=======================================================================
         #merge the scales back
-        s12_ds = xr.concat(res_d.values(),pd.Index(res_d.keys(), name=idxn, dtype=int))
-        
-        #add the catMosaic back
-        return xr.merge([s12_ds, xds_raw.drop_vars(s12_ds.data_vars)])
+ 
+        return  xr.merge([xds_raw.drop_vars(res_d.keys())] + list(res_d.values()))
         
         
         
