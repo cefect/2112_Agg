@@ -12,10 +12,14 @@ import os, copy, datetime, gc
 import matplotlib
 import matplotlib.pyplot as plt
 import scipy.stats
+import dask.delayed
+from dask.diagnostics import ProgressBar
+#from dask.distributed import Client
+
+from hp.basic import now
 from agg2.haz.da import UpsampleDASession
 from agg2.haz.scripts import UpsampleSessionXR
-import dask.delayed
-from dask.distributed import Client
+
  
 
 class Session_haz_da_rast(UpsampleSessionXR, UpsampleDASession):
@@ -41,34 +45,32 @@ class Session_haz_da_rast(UpsampleSessionXR, UpsampleDASession):
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('kde_df',  ext='.pkl', **kwargs)
         idxn = self.idxn
         scale_l = xar_raw[dim].values.tolist()
+        start=now()
         
         log.info(f'building {len(scale_l)} on {xar_raw.shape}')
         
         xar1 = xar_raw.squeeze(drop=True).reset_coords( #drop band
             names=['spatial_ref'], drop=True
             ).transpose(idxn, ...)  #put scale first for iterating
- 
-
         
         #=======================================================================
         # loop and build values
         #=======================================================================
- 
         
         @dask.delayed
         def get_vals(xari):
             
             dar = xari.stack(rav=list(xari.coords)).dropna('rav').data
-            kde = scipy.stats.gaussian_kde(dar, 
+            kde = scipy.stats.gaussian_kde(dar,
                                                bw_method='scott',
-                                               weights=None, #equally weighted
+                                               weights=None,  # equally weighted
                                                )
             
-            xvals = np.linspace(dar.min()+.01, dar.max(), 200)
+            xvals = np.linspace(dar.min() + .01, dar.max(), 200)
+            
+            del dar
             
             return pd.concat({'x':pd.Series(xvals), 'y':pd.Series(kde(xvals))})
-        
-        
             
         def get_all_vals(xar):
             d = dict()
@@ -76,12 +78,7 @@ class Session_haz_da_rast(UpsampleSessionXR, UpsampleDASession):
                 d[scale] = get_vals(xari)
  
             return d
-        
-        #=======================================================================
-        # with Client(threads_per_worker=1, n_workers=6) as client:
-        # 
-        #     print(f' opening dask client {client.dashboard_link}')
-        #=======================================================================
+ 
         log.info(f'executing get_all_vals on  {xar1.shape}')
                  
         def concat(d):
@@ -93,14 +90,18 @@ class Session_haz_da_rast(UpsampleSessionXR, UpsampleDASession):
         #df.visualize(filename=os.path.join(out_dir, 'dask_visualize.svg'))
         #d = dask.compute(get_all_vals(xar1))
         
-        df = o.compute()
+        with ProgressBar():
+ 
+            df = o.compute()
         
         #=======================================================================
         # wrap
         #=======================================================================
-        df.to_pickle(ofp)
-        log.info(f'wrote {str(df.shape)} to file\n    {ofp}')
-        
+        if write:
+            df.to_pickle(ofp)
+            log.info(f'wrote {str(df.shape)} to file\n    {ofp}') 
+            
+        log.info(f'finished on {df.shape} in %.2f secs'%((now()-start).total_seconds()))       
         
         return df
         

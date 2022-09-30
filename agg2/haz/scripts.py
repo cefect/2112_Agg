@@ -2469,7 +2469,7 @@ class UpsampleSessionXR(UpsampleSession):
         # defaults
         #=======================================================================
         idxn=self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('s12_TP',  subdir=True,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('s12_TP',  subdir=False,ext='.pkl', **kwargs)
         assert os.path.exists(  xr_dir), xr_dir
 
         #=======================================================================

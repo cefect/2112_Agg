@@ -262,7 +262,7 @@ if __name__ == "__main__":
     """seems to slow things down..."""
 
         
-    xr_dir = SJ_dev(method='direct')
+    xr_dir = SJ_dev(method='filter')
  
     #===========================================================================
     # xr_dir = SJ_run(method='filter',

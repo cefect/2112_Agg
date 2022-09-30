@@ -18,8 +18,8 @@ xr_lib = {'r10':{
               'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\_xr'
               },
         'dev':{
-            'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220928\_xr',
-            
+            'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220930\_xr',
+            'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220930\_xr',            
             }
         }
 
