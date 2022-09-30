@@ -492,13 +492,9 @@ def run_kde_plots(pick_fp,
     # execute
     #===========================================================================
     with Session(out_dir=out_dir,logger=logging.getLogger('r'), **kwargs) as ses:
-        """for haz, working with aggregated zonal stats.
-            these are computed on:
-                aggregated (s2) data with UpsampleSession.run_stats()
-                raw/fine (s1) data with UpsampleSession.run_stats_fine()
-                local diff (s2-s1) with UpsampleSession.run_diff_stats()
-            
- 
+        """
+        too much difference between 1 and 8
+            try histograms?
         """
         idxn = ses.idxn
         log = ses.logger
@@ -509,7 +505,7 @@ def run_kde_plots(pick_fp,
         dxcol = pd.read_pickle(pick_fp)
  
         
-        dx1 = pd.concat({'haz':dx1}, axis=1, names=['base']) #add dummy level
+        dx1 = pd.concat({'haz':dxcol}, axis=1, names=['base']) #add dummy level
         
         serx_raw = dx1.stack(dx1.columns.names).droplevel('coord')
         
@@ -547,7 +543,8 @@ if __name__ == "__main__":
     #===========================================================================
     
     run_kde_plots(
-        r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\da\rast\20220930\SJ_r10_direct_0930_kde_dxcol.pkl')
+        r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\da\rast\20220930\SJ_r10_direct_0930_kde_dxcol.pkl'
+        )
     
     print('finished')
         

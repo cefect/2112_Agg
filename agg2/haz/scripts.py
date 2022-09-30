@@ -307,28 +307,9 @@ class RasterArrayStats(AggBase):
         return {            
             'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
             'real_count':np.invert(np.isnan(xda)).sum(**agg_kwargs),
+            'var':xda.var(**agg_kwargs)
                 }
-    
-    """
-    np.invert(np.isnan(xda)).sum(**agg_kwargs).compute()
-    
-    xda.plot(col='scale')
-    
-    for e in xda.values:
-        #np.isnan(e).sum()
-        np.invert(np.isnan(e)).sum()
-        
-        #np.isnan(e).sum() + np.invert(np.isnan(e)).sum()
-    
-    np.invert(np.isnan(xda.values)).sum()
-    xda.mean(dim=self.idxn).values.shape
-    xda.mean().values
-    np.isnan(xda.values).all()
-    xda.notna()
-    xda.mean(dim=('band', 'y', 'x'), skipna=False).values
-    """
  
-    
 
     #===========================================================================
     # WD-------
@@ -362,7 +343,8 @@ class RasterArrayStats(AggBase):
             
             'mean':xda.mean(**agg_kwargs), #compute mean for each scale 
             'posi_count':(xda>0).sum(**agg_kwargs),
-            'sum':xda.sum(**agg_kwargs)
+            'sum':xda.sum(**agg_kwargs),
+            'var':xda.var(**agg_kwargs)
                 }
 
  
@@ -2497,6 +2479,29 @@ class UpsampleSessionXR(UpsampleSession):
         assert ds.rio.crs == self.crs, ds.rio.crs
         return ds
     
+    
+    def plot_hist_xar(self, xar_raw,   **kwargs):
+        """histograms of each raster per scale"""
+        #=======================================================================
+        # defautlts
+        #=======================================================================
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('kde_df',  ext='.pkl', **kwargs)
+ 
+        idxn = self.idxn
+        xar = xar_raw
+        
+        import matplotlib
+        import matplotlib.pyplot as plt
+        
+        for i, (scale, xari) in enumerate(xar.groupby(idxn, squeeze=False)):
+            if not scale==1:
+                xari_s2 = xari.coarsen(dim={'x':scale, 'y':scale}, boundary='exact').max()
+            else:
+                xari_s2 = xari
+                
+            #
+            dar = xari.stack(rav=list(xari.coords)).dropna('rav').data
+    
     def get_kde_df(self, xar_raw,dim='scale',
 
                           **kwargs):
@@ -2532,9 +2537,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         
         @dask.delayed
-        def get_vals(xari):
-            
-            
+        def get_vals(xari):            
             
             dar = xari.stack(rav=list(xari.coords)).dropna('rav').data
             kde = scipy.stats.gaussian_kde(dar,

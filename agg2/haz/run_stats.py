@@ -3,7 +3,7 @@ Created on Sep. 25, 2022
 
 @author: cefect
 '''
-import os, pathlib, pprint, webbrowser, logging
+import os, pathlib, pprint, webbrowser, logging, sys
 from hp.basic import get_dict_str, now, today_str
 from rasterio.crs import CRS
 import pandas as pd
@@ -44,21 +44,25 @@ xr_lib = {'r10':{
 fp_lib = {'r10':{
     'filter':{  
        's12_TP': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\tpXR\SJ_r10_hs_0926_tpXR.pkl',
-       #'s12': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',
-       's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s2\\SJ_r10_hs_0925_statsXR_s2.pkl',
-       's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s1\\SJ_r10_hs_0925_statsXR_s1.pkl'
+       's12': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',
+       #'s2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s2\\SJ_r10_hs_0925_statsXR_s2.pkl',
+       #'s1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r10\\SJ\\filter\\20220925\\hstats\\20220925\\statsXR_s1\\SJ_r10_hs_0925_statsXR_s1.pkl'
             },
     'direct':{
-        's1':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s1\SJ_r10_hs_0925_statsXR_s1.pkl',
-        's2':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s2\SJ_r10_hs_0925_statsXR_s2.pkl',
+        #'s1':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s1\SJ_r10_hs_0925_statsXR_s1.pkl',
+        #'s2':       r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220925\statsXR_s2\SJ_r10_hs_0925_statsXR_s2.pkl',
         's12_TP':   r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\s12_TP\SJ_r10_hs_0926_s12_TP.pkl',
-        #'s12':      r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',                
+        's12':      r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\statsXR_s12\SJ_r10_hs_0926_statsXR_s12.pkl',                
         }
-    }}
+    },
+    'dev':{'filter':{}, 'direct':{}}
+    }
 
 
 
-
+#===============================================================================
+# traditional stats-------
+#===============================================================================
 def run_haz_stats(xr_dir,
                   proj_d=None,
                   case_name='SJ',
@@ -127,6 +131,7 @@ def run_haz_stats(xr_dir,
         """
         rdx.loc[:, idx[:, :, :, ('posi_count', 'real_count')]]
         view(rdx.loc[:, idx[:, :, :, ('posi_count', 'real_count')]])
+        view(rdx.T)
         """
          
         ofp = os.path.join(out_dir, f'{ses.fancy_name}_stats.pkl')
@@ -140,7 +145,9 @@ def run_haz_stats(xr_dir,
 def SJ_run_h_stats(run_name='r10', method='direct'):
     return run_haz_stats(xr_lib[run_name][method], run_name=run_name,fp_d=fp_lib[run_name][method] )
 
-
+#===============================================================================
+# gaussian_kde--------
+#===============================================================================
 def SJ_compute_kde_run(
         run_name='r10',
         crs=None,
@@ -164,9 +171,7 @@ def compute_kde(xr_dir_lib,
     """combines filter and direct"""
     out_dir = os.path.join(
         pathlib.Path(os.path.dirname(xr_dir_lib['direct'])).parents[1],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
-        'da', 'rast', today_str)
-    
-
+        'da', 'haz', today_str)
     
     #===========================================================================
     # execute
@@ -223,6 +228,11 @@ def compute_kde(xr_dir_lib,
         log.info(f'wrote {dx1.shape} to\n    {ofp}')
         
     return ofp
+
+
+
+            
+ 
     
 if __name__ == "__main__": 
     
@@ -235,9 +245,10 @@ if __name__ == "__main__":
         #print(pprint.pformat(dask.config.config, width=30, indent=3, compact=True, sort_dicts =False))
     
         #run_haz_stats(r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\_xr')
-        #SJ_run_h_stats(method='filter')
+        SJ_run_h_stats(method='filter', run_name='r10')
         
-        SJ_compute_kde_run(run_name='r10')
+        #SJ_compute_kde_run(run_name='r10')
+ 
     
     print('finished in %.2f'%((now()-start).total_seconds())) 
         
