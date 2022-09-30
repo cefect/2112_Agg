@@ -116,7 +116,7 @@ class Agg2DAComs(Plotr):
                                       output_fig_kwargs=dict(),
                                       legend_kwargs=dict(),
                                       yfmt_func = lambda x,p:'%.2f'%x,
- 
+                                      xlab='resolution (m)',
                                       **kwargs):
         
         """build matrix plot of variance
@@ -263,7 +263,7 @@ class Agg2DAComs(Plotr):
                 
                 #last row
                 if row_key==keys_all_d['row'][-1]:
-                    ax.set_xlabel('resolution (m)')
+                    ax.set_xlabel(xlab)
                 
                 #last col
                 if col_key == keys_all_d['col'][-1]:

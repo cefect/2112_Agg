@@ -471,7 +471,15 @@ def run_haz_plots(fp_lib,
 
 def run_kde_plots(pick_fp, 
                   **kwargs):
-    """plot lines from kDE calcs"""
+    """plot lines from kDE calcs
+    
+    Parameters
+    -----------
+    pick_fp: str
+        dxcol output from run_stats.compute_kde()
+        
+        
+    """
 
     
     #===========================================================================
@@ -499,18 +507,53 @@ def run_kde_plots(pick_fp,
         # load data
         #=======================================================================
         dxcol = pd.read_pickle(pick_fp)
+        
+        #cleanup
+        xser = dxcol.loc[:, idx[:, :, 'x']].iloc[:,0].rename('x')
+        
+        dx1 = dxcol.loc[:, idx[:, :, 'y']].droplevel('dim', axis=1)
+        
+        dx1.index = pd.MultiIndex.from_frame(dx1.index.to_frame().join(xser))
+        
+        dx1 = pd.concat({'haz':dx1}, axis=1, names=['base']) #add dummy level
+        
+        serx_raw = dx1.stack(dx1.columns.names).droplevel('coord')
+        
+        #drop zeros
+        serx = serx_raw[serx_raw!=0]
+        
+        """
+        df1 = dx1['haz']['direct'][1].droplevel('coord').reset_index()
+        view(df1)
+        df1.plot(x='x', y=1)
+        """
               
         #=======================================================================
         # plot      
         #=======================================================================
-        ses.plot_gaussian_set(dxcol)
+        ses.plot_matrix_metric_method_var(serx,
+                                          map_d={'row':'base', 'col':'method', 'color':'scale', 'x':'x'},
+ 
+                                          plot_kwargs_lib={},
+                                          plot_kwargs={'linestyle':'solid', 'marker':None, 'markersize':7, 'alpha':0.6},
+                                          colorMap='copper',
+                                           matrix_kwargs=dict(figsize=(10,4), set_ax_title=False, add_subfigLabel=True, fig_id=0, constrained_layout=True),
+                                           xlab='WSH (m)',
+                                           ylab_d={'haz':'frequency'}
+                                          )
+        #ses.plot_kde_set(dxcol)
    
 if __name__ == "__main__":
 
   
-    SJ_da_run(run_name='r10',
-              pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
-              )
+    #===========================================================================
+    # SJ_da_run(run_name='r10',
+    #           pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
+    #           )
+    #===========================================================================
+    
+    run_kde_plots(
+        r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\da\rast\20220930\SJ_r10_direct_0930_kde_dxcol.pkl')
     
     print('finished')
         

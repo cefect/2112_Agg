@@ -150,6 +150,8 @@ def compute_kde(xr_dir_lib,
         pathlib.Path(os.path.dirname(xr_dir_lib['direct'])).parents[1],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
         'da', 'rast', today_str)
     
+    raise IOError('x values should all be common')
+    
     #===========================================================================
     # execute
     #===========================================================================
@@ -189,6 +191,7 @@ def compute_kde(xr_dir_lib,
         #=======================================================================
         # write
         #=======================================================================
+        
         ofp = os.path.join(ses.out_dir, f'{ses.fancy_name}_kde_dxcol.pkl')
         dxcol.to_pickle(ofp)
         log.info(f'wrote {dxcol.shape} to\n    {ofp}')
