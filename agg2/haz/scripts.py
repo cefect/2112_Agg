@@ -1837,7 +1837,7 @@ class UpsampleSessionXR(UpsampleSession):
  
                  f'\n    {len(ofp_l)} files written to {xr_dir}')
         
-        return ofp_l
+        return xr_dir
     
     def run_catMasksXR(self, dem_fp, wse_fp,dsc_l=None,
                      write_tif=False,xr_dir=None,

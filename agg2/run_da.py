@@ -61,7 +61,13 @@ logging.basicConfig(
 #===============================================================================
 # globals
 #===============================================================================
-res_fp_lib = {'r10':
+res_fp_lib = {
+    'r11':{
+        'haz':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\da\haz\20220930\SJ_r11_direct_0930_dprep.pkl',
+        
+        },
+    
+    'r10':
               {
             'haz': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
             #'exp':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\da\20220926\bstats\SJ_r8_expo_da_0926_bstats.pkl'

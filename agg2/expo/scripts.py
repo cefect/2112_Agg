@@ -212,7 +212,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         
         #compute stats
         
-    def build_assetRsc(self, pick_fp, finv_fp,
+    def build_assetRsc(self, cm_fp_d, finv_fp,
                        bbox=None,
                        centroids=True,
                         **kwargs):
@@ -225,8 +225,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         #=======================================================================
         # load classification masks
         #=======================================================================
-        df_raw = pd.read_pickle(pick_fp).loc[:, ['downscale', 'catMosaic']]
-        cm_fp_d = df_raw.set_index('downscale').dropna().iloc[:,0].to_dict()  
+
         
         """
         view(pd.read_pickle(pick_fp))
@@ -311,7 +310,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
  
                 
  
-    def build_layerSamps(self, pick_fp, finv_fp,
+    def build_layerSamps(self, rlay_fp_d, finv_fp,
                          layName='wd',
                          centroids=True,
                        bbox=None,
@@ -327,10 +326,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         #=======================================================================
         # load classification masks
         #=======================================================================
-        df_raw = pd.read_pickle(pick_fp)
-        assert layName in df_raw.columns, 'requested layer \'%s\' is missing from the pick:\n    %s'%(layName, pick_fp)
-        df1 = df_raw.loc[:, ['downscale', layName]].set_index('downscale')
-        rlay_fp_d = df1.dropna().iloc[:,0].to_dict()  
+
  
         
         log.info('on %i \'%s\' layers'%(len(rlay_fp_d), layName))        

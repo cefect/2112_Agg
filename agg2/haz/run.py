@@ -45,10 +45,12 @@ res_fp_lib = {'r9':
                 }},
               'r11':{
                   'direct':{
-                      'agg':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\direct\20220930\agg\SJ_r11_direct_0930_agg.pkl'
+                      'agg':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\direct\20220930\agg\SJ_r11_direct_0930_agg.pkl',
+                      'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\cMasks\SJ_r11_filter_0930_cMasks.pkl'
                       },
                   'filter':{
                       'agg':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\agg\SJ_r11_filter_0930_agg.pkl',
+                      'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\cMasks\SJ_r11_filter_0930_cMasks.pkl'
                       }
                 
                 
@@ -96,15 +98,17 @@ def run_haz_agg2XR(method='direct',
         base_fp_d = pd.read_pickle(fp_d['agg']).iloc[0, :].to_dict()
         
  
-        if not 'aggXR' in fp_d:
-            fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
+        #=======================================================================
+        # if not 'aggXR' in fp_d:
+        #     fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
+        #=======================================================================
             
         
         #=======================================================================
         # category masks
         #=======================================================================
         if not ('catMasks' in fp_d) or not ('cmXR' in fp_d):            
-            fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasksXR(base_fp_d['dem'], base_fp_d['wse'], write_tif=False)            
+            fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasksXR(base_fp_d['dem'], base_fp_d['wse'], write_tif=True)            
             ses._clear()
             
  
@@ -167,18 +171,16 @@ if __name__ == "__main__":
     start = now()
  
     #scheduler='single-threaded'
-    #===========================================================================
-    # scheduler='threads'
-    # with dask.config.set(scheduler=scheduler):
-    #     print(scheduler)
-    #     
-    #     #xr_dir = SJ_dev(method='filter')
-    #  
-    #     xr_dir = SJ_run(method='filter',run_name='r11')
-    #===========================================================================
+    scheduler='threads'
+    with dask.config.set(scheduler=scheduler):
+        print(scheduler)
+         
+        #xr_dir = SJ_dev(method='filter')
+      
+        xr_dir = SJ_run(method='filter',run_name='r11')
     
     
-    build_vrt(res_fp_lib['r11']['filter']['agg'])
+    #build_vrt(res_fp_lib['r11']['filter']['agg'])
  
  
  
