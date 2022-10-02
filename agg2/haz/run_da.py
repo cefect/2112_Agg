@@ -450,7 +450,7 @@ def run_haz_plots(fp_lib,
                                           matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
                                           ax_lims_d={
                                               'y':{
-                                                    's12N_wd_mean':(-1.5, 0.2), 
+                                                    #'s12N_wd_mean':(-1.5, 0.2), 
                                                    #'wse_real_area':(-0.2, 1.0), 
                                                    's12N_wd_vol':(-0.3, 0.1),
                                                    's12_wse_mean':(-1.0, 15.0),
