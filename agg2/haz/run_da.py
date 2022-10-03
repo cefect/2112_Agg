@@ -71,31 +71,31 @@ logging.basicConfig(
 res_fp_lib = {
     'r9':{
             'filter':{  
-                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
-                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
-                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220922\\diffStats\\SJ_r9_filter_0922_diffStats.pkl',
+                's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
+                's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
+                'diffs': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220922\\diffStats\\SJ_r9_filter_0922_diffStats.pkl',
                 },
             'direct':{  
-                's2': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\stats\\SJ_r9_direct_0921_stats.pkl',
-                's1': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
-                'diffs': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220922\\diffStats\\SJ_r9_direct_0922_diffStats.pkl'
+                's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\stats\\SJ_r9_direct_0921_stats.pkl',
+                's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
+                'diffs': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220922\\diffStats\\SJ_r9_direct_0922_diffStats.pkl'
                 }
             },
     'r10t':{
-        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
-        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
+        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\direct\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
+        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\filter\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
         },
     'r10':{
-        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl',
-        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl'
+        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl',
+        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl'
         },
     'r11':{
-        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\direct\20220930\hstats\20220930\SJ_r11_hs_0930_stats.pkl',
-        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\hstats\20220930\SJ_r11_hs_0930_stats.pkl'
+        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\hstats\20221003\SJ_r11_hs_1003_stats.pkl',
+        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\hstats\20221003\SJ_r11_hs_1003_stats.pkl'
         },
     'dev':{
-        'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\20220930\hstats\20220930\SJ_dev_hs_0930_stats.pkl',
-        'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\20220930\hstats\20220930\SJ_dev_hs_0930_stats.pkl'
+        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\direct\20220930\hstats\20220930\SJ_dev_hs_0930_stats.pkl',
+        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\filter\20220930\hstats\20220930\SJ_dev_hs_0930_stats.pkl'
         }
     }
 
@@ -109,8 +109,8 @@ def SJ_da_run(
 
 def SJ_dev_run(
         fp_d = {
-            'filter':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\filter\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
-            'direct':r'C:\LS\10_OUT\2112_Agg\outs\agg2\t\SJ\direct\hstats\20220925\SJ_r1_hs_0925_stats.pkl'
+            'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\filter\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
+            'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\direct\hstats\20220925\SJ_r1_hs_0925_stats.pkl'
             
             }
         
@@ -132,7 +132,7 @@ def run_haz_plots(fp_lib,
     #=========================================================================== 
     """combines filter and direct"""
     out_dir = os.path.join(
-        pathlib.Path(os.path.dirname(fp_lib['filter'])).parents[3],  # C:/LS/10_OUT/2112_Agg/outs/agg2/r5
+        pathlib.Path(os.path.dirname(fp_lib['filter'])).parents[3],  # C:/LS/10_IO/2112_Agg/outs/agg2/r5
         'da', 'haz', today_str)
     
     #===========================================================================
@@ -149,6 +149,7 @@ def run_haz_plots(fp_lib,
         """
         idxn = ses.idxn
         log = ses.logger
+        #log.info(ses.out_dir)
         #=======================================================================
         # DATA PREP---------
         #=======================================================================
@@ -547,7 +548,7 @@ if __name__ == "__main__":
 
   
     SJ_da_run(run_name='r11',
-              #pick_fp = r'C:\LS\10_OUT\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
+              #pick_fp = r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
               )
     
     #===========================================================================

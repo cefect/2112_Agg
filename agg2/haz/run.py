@@ -23,34 +23,34 @@ from hp.pd import view
 res_fp_lib = {'r9':
               {
                 'direct':{  
-                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
-                    'aggXR':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r9\SJ\direct\20220923\aggXR\SJ_r9_direct_0923_aggXR.nc',
+                    'agg': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
+                    'aggXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r9\SJ\direct\20220923\aggXR\SJ_r9_direct_0923_aggXR.nc',
                     'diffs': r'C:\LS\10_IO\2112_Agg\outs\agg2\r9\SJ\direct\20220922\diffs\SJ_r9_direct_0922_diffs.pkl',
-                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\cMasks\\SJ_r9_direct_0921_cMasks.pkl'
+                    'catMasks': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\cMasks\\SJ_r9_direct_0921_cMasks.pkl'
                     },
                 'filter':{  
-                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
+                    'agg': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
                     'diffs': r'C:\LS\10_IO\2112_Agg\outs\agg2\r9\SJ\filter\20220922\diffs\SJ_r9_filter_0922_diffs.pkl',
-                    'catMasks': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\cMasks\\SJ_r9_filter_0921_cMasks.pkl'
+                    'catMasks': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\cMasks\\SJ_r9_filter_0921_cMasks.pkl'
                 }},
             'r10':
               {
                 'direct':{  
-                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
+                    'agg': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\agg\\SJ_r9_direct_0921_agg.pkl',
  
                     },
                 'filter':{  
-                    'agg': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
+                    'agg': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\agg\\SJ_r9_filter_0921_agg.pkl',
  
                 }},
               'r11':{
                   'direct':{
-                      'agg':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\direct\20220930\agg\SJ_r11_direct_0930_agg.pkl',
-                      'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\cMasks\SJ_r11_filter_0930_cMasks.pkl'
+                      'agg':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\agg\SJ_r11_direct_0930_agg.pkl',
+                      'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\cMasks\SJ_r11_filter_0930_cMasks.pkl'
                       },
                   'filter':{
-                      'agg':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\agg\SJ_r11_filter_0930_agg.pkl',
-                      'catMasks':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r11\SJ\filter\20220930\cMasks\SJ_r11_filter_0930_cMasks.pkl'
+                      'agg':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\agg\SJ_r11_filter_0930_agg.pkl',
+                      'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\cMasks\SJ_r11_filter_0930_cMasks.pkl'
                       }
                 
                 
@@ -98,10 +98,8 @@ def run_haz_agg2XR(method='direct',
         base_fp_d = pd.read_pickle(fp_d['agg']).iloc[0, :].to_dict()
         
  
-        #=======================================================================
-        # if not 'aggXR' in fp_d:
-        #     fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
-        #=======================================================================
+        if not 'aggXR' in fp_d:
+            fp_d['aggXR'] = ses.build_downscaled_aggXR(pd.read_pickle(fp_d['agg']))
             
         
         #=======================================================================
@@ -175,9 +173,9 @@ if __name__ == "__main__":
     with dask.config.set(scheduler=scheduler):
         print(scheduler)
          
-        #xr_dir = SJ_dev(method='filter')
+        xr_dir = SJ_dev(method='filter')
       
-        xr_dir = SJ_run(method='filter',run_name='r11')
+        #xr_dir = SJ_run(method='filter',run_name='r11')
     
     
     #build_vrt(res_fp_lib['r11']['filter']['agg'])

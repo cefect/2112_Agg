@@ -2501,6 +2501,8 @@ class UpsampleSessionXR(UpsampleSession):
         # load each subdir----
         #=======================================================================
         ds_d = dict()
+        assert os.path.exists(xr_dir),xr_dir
+        assert len(os.listdir(xr_dir))>0, 'no files in passed xr_dir:\n    %s'%xr_dir
         for dirpath, _, fns in os.walk(xr_dir):
             varName = os.path.basename(dirpath)
             fp_l = [os.path.join(dirpath, e) for e in fns if e.endswith('.nc')]
