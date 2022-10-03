@@ -2281,11 +2281,19 @@ class UpsampleSessionXR(UpsampleSession):
                 
                 #get the base mask
                 if layName=='wd':
-                    base_mask = base_xar==0
+                    base_mask = np.logical_or(
+                        base_xar==0,
+                        gxar==0)
+                    """
+                    plt.close('all')
+                    base_mask.values
+                    gxar.plot()
+                    gxar.where(np.invert(base_mask)).plot()
+                    """
                 elif layName=='wse':
                     base_mask = np.isnan(base_xar)
                 
-                #compute the difference (with the base mask
+                #compute the difference (with the base mask) #Locations at which to preserve this object’s values.
                 gxar_diff = gxar.where(np.invert(base_mask)) - base_xar                
                 
                 if idxn in gxar_diff.coords:
