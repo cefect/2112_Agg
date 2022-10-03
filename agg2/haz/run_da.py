@@ -176,7 +176,7 @@ def run_haz_plots(fp_lib,
 
         
         #=======================================================================
-        # AGG ZONAL PLOTS---------
+        # GLOBAL  ZONAL---------
         #=======================================================================
         #=======================================================================
         # lines on residuals (s12)
@@ -194,7 +194,7 @@ def run_haz_plots(fp_lib,
         #                                       'vol':'$\sum V_{s2}-\sum V_{s1}$ (m3)', 
         #                                       'wd_mean':'$\overline{WD_{s2}}-\overline{WD_{s1}}$ (m)', 
         #                                       'wse_area':'$\sum A_{s2}-\sum A_{s1}$ (m2)'},
-        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid.svg'))
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_rsc_resid.svg'))
         #=======================================================================
         
         #=======================================================================
@@ -217,7 +217,7 @@ def run_haz_plots(fp_lib,
         #                                       'vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$', 
         #                                       'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
         #                                       'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$'},
-        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd.svg'))
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_rsc_resid_normd.svg'))
         #=======================================================================
         
  
@@ -292,7 +292,7 @@ def run_haz_plots(fp_lib,
         #     ses.plot_matrix_metric_method_var(serx,
         #                                       map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'pixelLength'},
         #                                       ylab_d={},
-        #                                       ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % baseName),
+        #                                       ofp=os.path.join(ses.out_dir, 'metric_method_rsc_%s.svg' % baseName),
         #                                       matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
         #                                       ax_lims_d={
         #                                           # 'y':{'wd_mean':(-1.5, 0.2), 'wse_mean':(-0.1, 1.5), 'wse_real_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
@@ -347,7 +347,7 @@ def run_haz_plots(fp_lib,
                                               'wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
                                               'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
                                               },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('agg')),
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_rsc_%s.svg' % ('global')),
                                           matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
                                           ax_lims_d={
                                               'y':{'wd_mean':(-1.5, 0.2), 'wse_real_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1),
@@ -379,7 +379,7 @@ def run_haz_plots(fp_lib,
         #                                     'mean':r'$\frac{\overline{WD_{s2}}-\overline{WD_{s1}}}{\overline{WD_{s1}}}$', 
         #                                     'posi_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
         #                                       },
-        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_var_resid_normd_present.svg'),
+        #                                   ofp=os.path.join(ses.out_dir, 'metric_method_rsc_resid_normd_present.svg'),
         #                                   matrix_kwargs = dict(figsize=(3,4), set_ax_title=False, add_subfigLabel=False),
         #                                   ax_lims_d = {
         #                                       'y':{'mean':(-1.5, 0.2),  'posi_area':(-0.2, 1.0), 'wd_vol':(-0.3, 0.1)},
@@ -390,7 +390,7 @@ def run_haz_plots(fp_lib,
         #                                   )
         #=======================================================================
         #=======================================================================
-        # GRANULAR ZONAL---------
+        # LOCAL ZONAL---------
         #=======================================================================
         #=======================================================================
         # single-base raster stats
@@ -447,7 +447,7 @@ def run_haz_plots(fp_lib,
                                               # 'wse_mean':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$',
                                               #=================================
                                               },
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_%s.svg' % ('granular')),
+                                          ofp=os.path.join(ses.out_dir, 'metric_method_rsc_%s.svg' % ('local')),
                                           matrix_kwargs=dict(figsize=(6.5, 7.25), set_ax_title=False, add_subfigLabel=True),
                                           ax_lims_d={
                                               'y':{

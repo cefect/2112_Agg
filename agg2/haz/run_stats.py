@@ -273,7 +273,7 @@ if __name__ == "__main__":
         #print(pprint.pformat(dask.config.config, width=30, indent=3, compact=True, sort_dicts =False))
     
         #SJ_run_h_stats(method='filter', run_name='dev')
-        SJ_run_h_stats(method='direct', run_name='r11')
+        SJ_run_h_stats(method='filter', run_name='r11')
         
         #SJ_compute_kde_run(run_name='r10')
  

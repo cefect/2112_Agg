@@ -131,7 +131,10 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         return pd.concat([div_dxcol], names=['base'], keys=[f'{to_be_normd}N'], axis=1).reorder_levels(dx_raw.columns.names, axis=1)
     
     def data_prep(self, dxcol_raw, **kwargs):
-        """
+        """prepare data for plotting: compute secondary and normalized stats
+        
+        Notes
+        -------
         had to make this a separate function to get around the memory exception
         """
         #===========================================================================
@@ -189,10 +192,11 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         dx1a['s12A']['filter']['wse'].loc[:, idx[:, 'real_count']]
         
         """
-        
-        
+        #norm globals
         l.append(self.get_normd(dx1b, to_be_normd='s12A'))
-        #normalize granulars
+        
+        
+        #normalize locals
         """only these metrics make sense to normalize on the diffs"""
         l.append(
             self.get_normd(dx1b, to_be_normd='s12').drop(['RMSE', 'real_count'], axis=1, level='metric', errors='ignore'))
