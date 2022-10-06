@@ -16,6 +16,10 @@ from agg2.coms import log_dxcol
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
+usetex=True
+if usetex:
+    os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
+
 cm = 1/2.54
 import matplotlib
 #matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
@@ -27,7 +31,7 @@ plt.style.use('default')
  
 #font
 matplotlib.rc('font', **{
-        'family' : 'serif',
+        'family' : 'serif', 
         'weight' : 'normal',
         'size'   : 8})
  
@@ -40,14 +44,15 @@ for k,v in {
     'figure.titlesize':12,
     'figure.autolayout':False,
     'figure.figsize':(10,10),
-    'legend.title_fontsize':'large'
+    'legend.title_fontsize':'large',
+    'text.usetex':usetex,
     }.items():
         matplotlib.rcParams[k] = v
   
 print('loaded matplotlib %s'%matplotlib.__version__)
 
 
-
+print('\n'.join(matplotlib.font_manager.get_font_names()))
 #===============================================================================
 # setup logger
 #===============================================================================
@@ -124,7 +129,7 @@ def run_plots_combine(fp_lib,pick_fp=None,write=True,**kwargs):
         
 
 if __name__ == "__main__":
-    SJ_da_run(run_name='r11')
+    SJ_da_run(run_name='r11', output_format='pdf')
     #SJ_combine_plots_0919()
     
     print('finished')

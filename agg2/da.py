@@ -20,7 +20,10 @@ import matplotlib
 from matplotlib import gridspec
 cm = 1/2.54
 
+
 class PlotWrkr_4x4_matrix(object):
+    
+    
     
     def plot_4x4_matrix(self, dx1):
         """single figure w/ expo and hazard"""
@@ -213,7 +216,7 @@ class PlotWrkr_4x4_matrix(object):
 
 class PlotWrkr_4x4_subfigs(object):
     ax_ylims_d = {
-            0:(-0.5, 2.5),
+            0:(-3.0, 2.5),
             1:(-1.0, 8.0),
             2:(-0.2, 1.2),
             3:(-0.3, 0.1)            
@@ -221,12 +224,18 @@ class PlotWrkr_4x4_subfigs(object):
             
     """complex 4x4 matrix plot with expo and haz"""
     def plot_4x4_subfigs(self, dx,
+                         output_format=None,
                          output_fig_kwargs=dict(),
                          **kwargs):
         #=======================================================================
         # defaults
         #=======================================================================
-        log, tmp_dir, out_dir, ofp, _, write = self._func_setup('4x4_subfigs',  subdir=False,ext='.svg', **kwargs)
+        if output_format is None: output_format=self.output_format
+        log, tmp_dir, out_dir, _, _, write = self._func_setup('4x4_subfigs',  subdir=False,ext=f'.{output_format}', **kwargs)
+        
+        ofp = os.path.join(out_dir, f'computational_4x4.{output_format}')
+        
+        output_fig_kwargs['fmt'] = output_format
         #===========================================================================
         # build the figures
         #===========================================================================
@@ -264,16 +273,9 @@ class PlotWrkr_4x4_subfigs(object):
         #===========================================================================
         _, ax_dL = self.subfig_haz_4x2(dx, fig_l, mk_base)
         _, ax_dR = self.subfig_expo_3x2(dx, fig_r, mk_base)
-
         
         ax_d = {'left':ax_dL, 'right':ax_dR} #order matters
-        """
-        TODO:
-            y labels
-            yaxis precision
  
-        """
-        
         #=======================================================================
         # build positional container
         #=======================================================================
@@ -353,11 +355,11 @@ class PlotWrkr_4x4_subfigs(object):
             
         ax_f1(axi_d[0][0])    
         ax_f1(axi_d[1][0])
-        ax_f1(axi_d[2][0])                    
+        ax_f1(axi_d[2][0])       
+                     
         #=======================================================================
         # remove dummy expo axis
         #=======================================================================
-
         def ax_hide(ax):
             ax.cla()
             #ax.axis('off')
@@ -428,7 +430,8 @@ class PlotWrkr_4x4_subfigs(object):
                 ylab_d={ 
                     's12N_wd_mean':r'$\frac{\overline{WSH_{s2} - WSH_{s1}}}{\overline{WSH_{s1}}}$',
                     's12_wse_mean':r'$\overline{WSE_{s2}-WSE_{s1}}$ (m)',
-                    's12AN_wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$ or $\frac{\sum wet_{s2}-\sum wet_{s1}}{\sum wet_{s1}}$',
+                    #'s12AN_wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$ or $\frac{\sum wet_{s2}-\sum wet_{s1}}{\sum wet_{s1}}$',
+                    's12AN_wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
                     's12AN_wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
                     
                     },
@@ -510,8 +513,9 @@ class PlotWrkr_4x4_subfigs(object):
         
 class CombinedDASession(PlotWrkr_4x4_subfigs,PlotWrkr_4x4_matrix, ExpoDASession):
     
-    def __init__(self,scen_name='daC',  **kwargs): 
+    def __init__(self,scen_name='daC',output_format = 'svg',  **kwargs): 
         super().__init__(scen_name=scen_name,**kwargs)
+        self.output_format=output_format
         
     def build_combined(self,
                        fp_lib,
