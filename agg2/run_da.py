@@ -16,6 +16,7 @@ from agg2.coms import log_dxcol
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
+output_format='pdf'
 usetex=True
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
@@ -51,8 +52,7 @@ for k,v in {
   
 print('loaded matplotlib %s'%matplotlib.__version__)
 
-
-print('\n'.join(matplotlib.font_manager.get_font_names()))
+ 
 #===============================================================================
 # setup logger
 #===============================================================================
@@ -129,7 +129,7 @@ def run_plots_combine(fp_lib,pick_fp=None,write=True,**kwargs):
         
 
 if __name__ == "__main__":
-    SJ_da_run(run_name='r11', output_format='pdf')
+    SJ_da_run(run_name='r11', output_format=output_format)
     #SJ_combine_plots_0919()
     
     print('finished')

@@ -10,6 +10,7 @@ import numpy as np
  
 import pandas as pd
 from hp.basic import lib_iter
+from hp.pd import view
 
 from agg2.coms import log_dxcol, cat_mdex
 from agg2.expo.da import ExpoDASession
@@ -216,7 +217,7 @@ class PlotWrkr_4x4_matrix(object):
 
 class PlotWrkr_4x4_subfigs(object):
     ax_ylims_d = {
-            0:(-3.0, 2.5),
+            0:(-3.0, 3.0),
             1:(-1.0, 8.0),
             2:(-0.2, 1.2),
             3:(-0.3, 0.1)            
@@ -403,8 +404,14 @@ class PlotWrkr_4x4_subfigs(object):
         #===========================================================================
         dxH = dx['haz']
         dxi = pd.concat([
-                dxH.loc[:, idx['s12N', :, 'wd', :, 'mean']], 
+                dxH.loc[:, idx['s12', :, 'wd', :, 'mean']], 
                 dxH.loc[:, idx['s12', :, 'wse', :, 'mean']], 
+                
+                #===============================================================
+                # dxH.loc[:, idx['s12AN', :, 'wd', :, 'mean']], 
+                # dxH.loc[:, idx['s12A', :, 'wse', :, 'mean']], 
+                #===============================================================
+                
                 dxH.loc[:, idx['s12AN', :, 'wse', :, 'real_area']], 
                 dxH.loc[:, idx['s12AN', :, 'wd', :, 'vol']]
             ], axis=1).sort_index(axis=1)
@@ -412,7 +419,7 @@ class PlotWrkr_4x4_subfigs(object):
         #cat layer and metric
         dxi.columns, mcoln = cat_mdex(dxi.columns, levels=['base', 'layer', 'metric']) 
         print(dxi.columns.unique(mcoln).tolist())
-        row_l = ['s12N_wd_mean', 's12_wse_mean',  's12AN_wse_real_area', 's12AN_wd_vol']
+        row_l = ['s12_wd_mean', 's12_wse_mean',  's12AN_wse_real_area', 's12AN_wd_vol']
         
         #stack into a series
         serx = dxi.stack(dxi.columns.names)
@@ -428,7 +435,7 @@ class PlotWrkr_4x4_subfigs(object):
                 map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'scale'}, 
                 row_l=row_l, 
                 ylab_d={ 
-                    's12N_wd_mean':r'$\frac{\overline{WSH_{s2} - WSH_{s1}}}{\overline{WSH_{s1}}}$',
+                    's12_wd_mean':r'$\overline{WSH_{s2} - WSH_{s1}}$ (m)',
                     's12_wse_mean':r'$\overline{WSE_{s2}-WSE_{s1}}$ (m)',
                     #'s12AN_wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$ or $\frac{\sum wet_{s2}-\sum wet_{s1}}{\sum wet_{s1}}$',
                     's12AN_wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
@@ -439,7 +446,7 @@ class PlotWrkr_4x4_subfigs(object):
                 matrix_kwargs={**mk_base, **dict(fig=fig)}, 
                 ax_lims_d={
                     'y':{
-                        's12N_wd_mean':ax_ylims_d[0],
+                        's12_wd_mean':ax_ylims_d[0],
                         's12_wse_mean':ax_ylims_d[1], 
                         's12AN_wse_real_area':ax_ylims_d[2],
                         's12N_wd_vol':ax_ylims_d[3],                        
@@ -463,14 +470,16 @@ class PlotWrkr_4x4_subfigs(object):
         
         dx['s12A']
         
+        view(dx.loc[:, idx[:, :, 'wd', :, 'mean']].T)
         view(dx.T)
         """
         #collect data slices
         dxi = pd.concat([
                 dx.loc[:, idx['s12', :, 'wd', :, 'mean']], 
                 dx.loc[:, idx['s12', :, 'wse', :, 'mean']], 
+ 
                 dx.loc[:, idx['s12AN', :,'expo', :, 'sum']],
-                dx.loc[:, idx['s12AN', :,'wd', :, 'sum']],   
+                dx.loc[:, idx['s12AN', :,'wd', :, 'sum']],    #dummy
      
             ], axis=1).sort_index(axis=1) 
         
@@ -478,7 +487,7 @@ class PlotWrkr_4x4_subfigs(object):
         print(dxi.columns.unique(mcoln).tolist())
      
         row_l = ['s12_wd_mean', 's12_wse_mean', 's12AN_expo_sum', 
-                 's12AN_wd_sum'
+                 's12AN_wd_sum' #dummy
                  ]
         
         #stack into a series

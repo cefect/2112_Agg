@@ -101,7 +101,7 @@ class Agg2DAComs(Plotr):
                                       title=None, colorMap=None, color_d=None,
                                       row_l = None,
                                       ylab_d={'vol':'$V_{s2}$ (m3)', 'wd_mean':r'$WD_{s2}$ (m)', 'wse_area':'$A_{s2}$ (m2)'},
-                                      ax_title_d={'direct':'direct', 'filter':'filter and subtract'},
+                                      ax_title_d={'direct':'$WSH$ Averaging', 'filter':'$WSE$ Averaging'},
                                       ax_lims_d=dict(),
                                       xscale='linear',
                                       matrix_kwargs=dict(figsize=(6.5, 6), set_ax_title=False, add_subfigLabel=True, fig_id=0, constrained_layout=True),

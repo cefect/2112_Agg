@@ -18,11 +18,18 @@ import numpy as np
 idx = pd.IndexSlice
 
 from agg2.expo.run import res_fp_lib
+from agg2.coms import log_dxcol, cat_mdex
 
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
 cm = 1/2.54
+
+output_format='pdf'
+usetex=True
+if usetex:
+    os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
+    
 import matplotlib
 #matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
 matplotlib.set_loglevel("info") #reduce logging level
@@ -46,7 +53,8 @@ for k,v in {
     'figure.titlesize':12,
     'figure.autolayout':False,
     'figure.figsize':(10,10),
-    'legend.title_fontsize':'large'
+    'legend.title_fontsize':'large',
+    'text.usetex':usetex,
     }.items():
         matplotlib.rcParams[k] = v
   
@@ -84,10 +92,10 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
     #===========================================================================
     # execute
     #===========================================================================
-    with Session(out_dir=out_dir, logger=logging.getLogger('run_da'), **kwargs) as ses:
+    with Session(out_dir=out_dir, logger=logging.getLogger('run_da'),**kwargs) as ses:
         log = ses.logger
         
-        matrix_kwargs = dict(figsize=(10, 10), set_ax_title=False, add_subfigLabel=False)
+        #matrix_kwargs = dict(figsize=(10, 10), set_ax_title=False, add_subfigLabel=False)
 
         #=======================================================================
         # data prep
@@ -99,59 +107,118 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
      
             # GRANULAR (raster style)-------
             
-            sdx3 = ses.build_stats(samp_dx, dsc_df)
+            dx = ses.build_stats(samp_dx, dsc_df)
         else:
-            sdx3 = pd.read_pickel(pick_fp)
+            dx = pd.read_pickle(pick_fp)
+            
+        dx = dx.reorder_levels(ses.names_l, axis=1)
+        #=======================================================================
+        # SUPPLEMENT PLOT-------
+        #=======================================================================
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        ses.log_dxcol(dx)
+        dxi = pd.concat([
+                dx.loc[:, idx['s12', :, 'wd', :, 'mean']], 
+                dx.loc[:, idx['s12', :, 'wse', :, 'mean']], 
+ 
+                dx.loc[:, idx['s12A', :, 'wd', :, 'mean']], 
+                dx.loc[:, idx['s12A', :, 'wse', :, 'mean']], 
+     
+            ], axis=1).sort_index(axis=1) 
+            
+        dxi.columns, mcoln = cat_mdex(dxi.columns, levels=['base', 'layer', 'metric']) #cat layer and metric
+        print(dxi.columns.unique(mcoln).tolist())
+        
+        #stack into a series
+        serx = dxi.stack(dxi.columns.names)
+        assert set(serx.index.unique(mcoln)).symmetric_difference(dxi.columns.unique(mcoln)) == set()
+            
+        row_l = ['s12_wd_mean','s12A_wd_mean', 's12_wse_mean',  's12A_wse_mean']
+        #=======================================================================
+        # plot
+        #=======================================================================
+        ses.plot_matrix_metric_method_var(serx, 
+                                      #title=baseName,
+                                      row_l=row_l, 
+                                      map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'scale'},
+                                      ylab_d={
+                                        's12_wd_mean':'$\overline{WSH_{s2}-WSH_{s1}}$',
+                                        's12A_wd_mean':'$\overline{WSH_{s2}} - \overline{WSH_{s1}}$',
+                                         's12_wse_mean':'$\overline{WSE_{s2}-WSE_{s1}}$',
+                                         's12A_wse_mean':'$\overline{WSE_{s2}} - \overline{WSE_{s1}}$'
+                                          },
+                                     ofp=os.path.join(ses.out_dir, f'{ses.fancy_name}_expo_4x4_sup.{output_format}'),
+                                      matrix_kwargs=dict(set_ax_title=False, add_subfigLabel=True, 
+                                                            constrained_layout=True, figsize=(17 * cm, 18 * cm),fig_id=None), 
+                                      ax_lims_d = {'y':{
+                                          #=====================================
+                                          # 's12_wd_mean':ax_ylims_d[0], 
+                                          # 's12_wse_mean':ax_ylims_d[1],
+                                          # 's12AN_expo_sum':(-5, 20), #'expo':(-10, 4000)... separate from full domain
+                                          #=====================================
+                                          }},
+                                      yfmt_func= lambda x,p:'%d'%x,
+                                      legend_kwargs=None,
+                                      write=True,
+                                      output_fig_kwargs=dict(fmt=output_format)
+                                      )
+            
+            
+            
  
         return
         #=======================================================================
         # GRANULAR.PLOT---------
         #=======================================================================
-        row = 'layer'
-        def get_stackG(baseName):
-            """consistent retrival by base"""            
-            
-            dx1 = sdx3[baseName]
-            
-            raise IOError('need to fix this as we have multiple metrics now')
-            """just 1 metric per layer now"""
-            dx2 = dx1.droplevel('metric', axis=1) 
- 
-            
-            """
-            view(dx1)
-            view(dx2.loc[:, idx[:, :, 'wse_count']].T)
-            """
-            
-            order_l = {
-                'layer_metric':['wse_count', 'wse_mean', 'wd_mean'],
-                'layer':['wd', 'wse', 'expo'],
-                }[row]
-            
-            return dx2.stack(level=dx2.columns.names).sort_index().reindex(
-                index=order_l, level=row) 
-        #=======================================================================
-        # plot all
-        #=======================================================================
-        """how does this treat the changing demonminator?
-            stats consider the full population at each resolution
-            
-        direct:wd
-            why are asset samples going up but the rasters are flat?
-                rasters are flat by definition
-                WW: as se aggregate, only the deepest exposures remain
-                
-                
-             
-         
-        can we plot just the wet assets?
-            might help figure out why the raster averages are the same
-            
-        normalizing doesn't seem so useful here
-        
-        plot TP/FP?
- 
-        """
+ #==============================================================================
+ #        row = 'layer'
+ #        def get_stackG(baseName):
+ #            """consistent retrival by base"""            
+ #            
+ #            dx1 = sdx3[baseName]
+ #            
+ #            raise IOError('need to fix this as we have multiple metrics now')
+ #            """just 1 metric per layer now"""
+ #            dx2 = dx1.droplevel('metric', axis=1) 
+ # 
+ #            
+ #            """
+ #            view(dx1)
+ #            view(dx2.loc[:, idx[:, :, 'wse_count']].T)
+ #            """
+ #            
+ #            order_l = {
+ #                'layer_metric':['wse_count', 'wse_mean', 'wd_mean'],
+ #                'layer':['wd', 'wse', 'expo'],
+ #                }[row]
+ #            
+ #            return dx2.stack(level=dx2.columns.names).sort_index().reindex(
+ #                index=order_l, level=row) 
+ #        #=======================================================================
+ #        # plot all
+ #        #=======================================================================
+ #        """how does this treat the changing demonminator?
+ #            stats consider the full population at each resolution
+ #            
+ #        direct:wd
+ #            why are asset samples going up but the rasters are flat?
+ #                rasters are flat by definition
+ #                WW: as se aggregate, only the deepest exposures remain
+ #                
+ #                
+ #             
+ #         
+ #        can we plot just the wet assets?
+ #            might help figure out why the raster averages are the same
+ #            
+ #        normalizing doesn't seem so useful here
+ #        
+ #        plot TP/FP?
+ # 
+ #        """
+ #==============================================================================
         #=======================================================================
         # for baseName in ['s1', 's2',  's12N']:
         #     serx = get_stackG(baseName)        
@@ -166,26 +233,28 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
         #=======================================================================
         # s12
         #=======================================================================
-        baseName='s12'
-        serx = get_stackG(baseName)        
-        ses.plot_matrix_metric_method_var(serx, 
-                                          #title=baseName,
-  
-                                          map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
-                                          ylab_d={
-                                              'wd':r'$\overline{WSH_{s2}}-\overline{WSH_{s1}}$', 
-                                              'wse':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$', 
-                                              'expo':r'$\sum WET_{s2} - \sum WET_{s1}$'},
-                                          ofp=os.path.join(ses.out_dir, 'metric_method_var_asset_gran_%s.svg'%baseName),
-                                          matrix_kwargs = dict(figsize=(6.5,6.75), set_ax_title=False, add_subfigLabel=True),
-                                          ax_lims_d = {'y':{
-                                              'wd':(-0.2,3.0), 'wse':(-1, 10.0), #'expo':(-10, 4000)
-                                              }},
-                                          yfmt_func= lambda x,p:'%.1f'%x,
-                                          legend_kwargs=dict(loc=7)
-                                          )
-        
-        return
+  #=============================================================================
+  #       baseName='s12'
+  #       serx = get_stackG(baseName)        
+  #       ses.plot_matrix_metric_method_var(serx, 
+  #                                         #title=baseName,
+  # 
+  #                                         map_d = {'row':row,'col':'method', 'color':'dsc', 'x':'scale'},
+  #                                         ylab_d={
+  #                                             'wd':r'$\overline{WSH_{s2}}-\overline{WSH_{s1}}$', 
+  #                                             'wse':r'$\overline{WSE_{s2}}-\overline{WSE_{s1}}$', 
+  #                                             'expo':r'$\sum WET_{s2} - \sum WET_{s1}$'},
+  #                                         ofp=os.path.join(ses.out_dir, 'metric_method_var_asset_gran_%s.svg'%baseName),
+  #                                         matrix_kwargs = dict(figsize=(6.5,6.75), set_ax_title=False, add_subfigLabel=True),
+  #                                         ax_lims_d = {'y':{
+  #                                             'wd':(-0.2,3.0), 'wse':(-1, 10.0), #'expo':(-10, 4000)
+  #                                             }},
+  #                                         yfmt_func= lambda x,p:'%.1f'%x,
+  #                                         legend_kwargs=dict(loc=7)
+  #                                         )
+  #       
+  #       return
+  #=============================================================================
 #===============================================================================
 #         #=======================================================================
 #         # residuals
@@ -555,7 +624,9 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
 
 
 if __name__ == "__main__":
-    SJ_plots_0910(run_name='r11')
+    SJ_plots_0910(run_name='r11',
+                  pick_fp=r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\da\20221006\bstats\SJ_r11_expo_da_1006_bstats.pkl',
+                  )
     #SJ_combine_plots_0919()
     
     print('finished')
