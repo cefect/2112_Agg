@@ -21,28 +21,28 @@ def get_picks(run_name, method):
 
 res_fp_lib = {'r8':{
                 'direct':{
-                    'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-                    'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
-                    'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
-                    'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
+                    'catMasks': r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
+                    'arsc':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
+                    'wd':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
+                    'wse':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
                     },
                 'filter':{
-                    'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+                    'catMasks':'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
                     'arsc':None, #only need to compute this once
-                    'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
-                    'wse':r' C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
+                    'wd':r'C:\LS\10_IO\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
+                    'wse':r' C:\LS\10_IO\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
                     }
                 },
             'r11':{
                 'direct':{  
-                    'arsc': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\arsc\\SJ_r11_direct_0930_arsc.pkl',
-                       'wd': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\lsamp_wd\\SJ_r11_direct_0930_lsamp_wd.pkl',
-                       'wse': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\lsamp_wse\\SJ_r11_direct_0930_lsamp_wse.pkl'
+                     'arsc': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20221006\\arsc\\SJ_r11_direct_1006_arsc.pkl',
+                       'wd': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20221006\\lsamp_wd\\SJ_r11_direct_1006_lsamp_wd.pkl',
+                       'wse': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20221006\\lsamp_wse\\SJ_r11_direct_1006_lsamp_wse.pkl'
                        },
                 'filter':{ 
-                       'arsc': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\arsc\\SJ_r11_filter_0930_arsc.pkl',
-                       'wd': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\lsamp_wd\\SJ_r11_filter_0930_lsamp_wd.pkl',
-                       'wse': 'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\lsamp_wse\\SJ_r11_filter_0930_lsamp_wse.pkl'
+                    'arsc': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20221006\\arsc\\SJ_r11_filter_1006_arsc.pkl',
+                    'wd': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20221006\\lsamp_wd\\SJ_r11_filter_1006_lsamp_wd.pkl',
+                    'wse': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20221006\\lsamp_wse\\SJ_r11_filter_1006_lsamp_wse.pkl'
                        }
                  
                 }}
@@ -113,16 +113,16 @@ def SJ_expo_run(method='direct', run_name='r11', case_name='SJ',
 #         method='filter',
 #         fp_lib = {
 #                 'direct':{
-#                     'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-#                     'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
-#                     'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
-#                     'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
+#                     'catMasks': r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
+#                     'arsc':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
+#                     'wd':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
+#                     'wse':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
 #                     },
 #                 'filter':{
-#                     'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
+#                     'catMasks':'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
 #                     'arsc':None, #only need to compute this once
-#                     'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
-#                     'wse':r' C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
+#                     'wd':r'C:\LS\10_IO\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
+#                     'wse':r' C:\LS\10_IO\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
 #                     }
 #                 },
 #         **kwargs):
@@ -132,7 +132,7 @@ def SJ_expo_run(method='direct', run_name='r11', case_name='SJ',
 if __name__ == "__main__":
     
     #SJ_expo_dev()
-    SJ_expo_run(method='direct')
+    SJ_expo_run(method='filter', run_name='r11')
  
     
     print('finished in %.2f'%((now()-start).total_seconds()))

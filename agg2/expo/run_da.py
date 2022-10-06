@@ -62,34 +62,12 @@ logging.basicConfig(
                 level=logging.INFO, #lowest level to display
                 )
 
-#===============================================================================
-# globals
-#===============================================================================
-#===============================================================================
-# res_fp_lib = {'r8':{
-#         'direct':{
-#             'catMasks': r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-#             'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
-#             'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
-#             'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
-#             },
-#         'filter':{
-#             'catMasks':'C:\\LS\\10_OUT\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-#             #'arsc':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r1\SJ\filter\20220910\arsc\SJ_r1_filter_0910_arsc.pkl',
-#             'wd':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
-#             'wse':r'C:\LS\10_OUT\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
-#             }
-#         }}
-#===============================================================================
+ 
 
 def SJ_plots_0910(run_name='r8', **kwargs):
     return run_plots(res_fp_lib[run_name], run_name=run_name, **kwargs)
 
-
-
-
-
-
+ 
 
 def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
     """construct figure from SJ expo results"""

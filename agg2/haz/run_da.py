@@ -548,7 +548,7 @@ if __name__ == "__main__":
 
   
     SJ_da_run(run_name='r11',
-              #pick_fp = r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\da\haz\20220926\SJ_r10_direct_0926_dprep.pkl',
+              pick_fp = r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\da\haz\20221006\SJ_r11_direct_1006_dprep.pkl',
               )
     
     #===========================================================================
