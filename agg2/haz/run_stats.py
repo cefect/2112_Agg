@@ -31,23 +31,26 @@ logging.basicConfig(
 # result files
 #===============================================================================
 
-xr_lib = {
-    'r11':{
-        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\_xr',
-        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\_xr',        
-        },
-    
-    
-    'r10':{
-              'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr',
-              'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\filter\20220925\_xr'
-              },
-
-        'dev':{
-            'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\direct\20221003\_xr',
-            'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\filter\20221003\_xr',            
-            }
-        }
+#TODO: pull this from haz.run.res_fp_lib
+#===============================================================================
+# xr_lib = {
+#     'r11':{
+#         'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\_xr',
+#         'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\_xr',        
+#         },
+#     
+#     
+#     'r10':{
+#               'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\direct\20220925\_xr',
+#               'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\filter\20220925\_xr'
+#               },
+# 
+#         'dev':{
+#             'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\direct\20221003\_xr',
+#             'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\filter\20221003\_xr',            
+#             }
+#         }
+#===============================================================================
 
 fp_lib = {
     'r11':{

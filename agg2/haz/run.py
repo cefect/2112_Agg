@@ -46,11 +46,13 @@ res_fp_lib = {'r9':
               'r11':{
                   'direct':{
                       'agg':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20221006\agg\SJ_r11_direct_1006_agg.pkl',
-                      'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20221006\cMasks\SJ_r11_direct_1006_cMasks.pkl'
+                      'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20221006\cMasks\SJ_r11_direct_1006_cMasks.pkl',
+                      'aggXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\_xr'
                       },
                   'filter':{
                       'agg':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221006\agg\SJ_r11_filter_1006_agg.pkl',
-                      'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221006\cMasks\SJ_r11_filter_1006_cMasks.pkl'
+                      'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221006\cMasks\SJ_r11_filter_1006_cMasks.pkl',
+                      'aggXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\_xr'
                       }
                 
                 
@@ -103,12 +105,25 @@ def run_haz_agg2XR(method='direct',
             
         
         #=======================================================================
+        # deltas
+        #=======================================================================
+        """only for plots"""
+        if not 'diff' in fp_d:
+            ds = ses.get_ds_merge(fp_d['aggXR'])
+            diff_ds = ses.get_s12XR(ds)
+            ses.write_rasters_XR(diff_ds, prefix='s12')
+        
+        return
+            
+        
+        #=======================================================================
         # category masks
         #=======================================================================
         if not ('catMasks' in fp_d) or not ('cmXR' in fp_d):            
             fp_d['cmXR'], fp_d['catMasks'] = ses.run_catMasksXR(base_fp_d['dem'], base_fp_d['wse'], write_tif=True)            
             ses._clear()
             
+
  
         log.info(f'finished on \n    {ses.xr_dir}'+
                  pprint.pformat(fp_d, width=30, indent=3, compact=True, sort_dicts =False))
@@ -129,8 +144,14 @@ def build_vrt(pick_fp,layName_l = ['dem', 'wd', 'wse'],out_dir=None, **kwargs):
         # loop and write each vrt
         #=======================================================================
         res_d = dict()
+ 
         for layName in layName_l:
-            fp_d = df[layName].dropna().to_dict()
+            if pick_fp.endswith('cMasks.pkl'):
+                fp_d = df['fp'].to_dict()
+                layName='catMask'
+            else:
+                fp_d = df[layName].dropna().to_dict()
+                
             
             
             ofpi = ses.build_vrts(fp_d,ofp = os.path.join(out_dir, f'{layName}_{len(fp_d):03d}.vrt'))
@@ -139,6 +160,7 @@ def build_vrt(pick_fp,layName_l = ['dem', 'wd', 'wse'],out_dir=None, **kwargs):
             
             res_d['%s'%(layName)] = ofpi
             
+            if layName=='catMask':break
         #=======================================================================
         # wrap
         #=======================================================================
@@ -172,13 +194,15 @@ if __name__ == "__main__":
     scheduler='threads'
     with dask.config.set(scheduler=scheduler):
         print(scheduler)
-         
+          
         #xr_dir = SJ_dev(method='filter')
-      
-        xr_dir = SJ_run(method='direct',run_name='r11')
+       
+        xr_dir = SJ_run(method='filter',run_name='r11')
     
-    
-    #build_vrt(res_fp_lib['r11']['filter']['agg'])
+    #===========================================================================
+    # for method in ['filter', 'direct']:
+    #     build_vrt(res_fp_lib['r11'][method]['catMasks'])
+    #===========================================================================
  
  
  

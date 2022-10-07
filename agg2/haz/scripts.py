@@ -2623,6 +2623,42 @@ class UpsampleSessionXR(UpsampleSession):
         log.info(f'finished on {df.shape} in %.2f secs'%((now()-start).total_seconds()))       
         
         return df
+    
+    def write_rasters_XR(self, ds_raw, prefix='', **kwargs):
+        """dump xarray into rasters"""
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('toRaster', subdir=True, ext='.tif', **kwargs)
+        idxn = self.idxn
+        
+        
+        #=======================================================================
+        # loop on each layer
+        #=======================================================================
+        ds = ds_raw.squeeze(drop=True)
+        new_band = 'band'
+        #ds.assign_coords({new_band:('scale',np.array([1,2,3]))}).reset_index('scale', drop=True).set_index({'band':new_band})
+        scale_l = ds_raw['scale'].values.tolist()
+        
+        
+        ds_1 = ds.assign_coords({new_band:('scale',np.arange(len(scale_l)))}).swap_dims({'scale':new_band})
+        
+        d = dict()
+        for layName, xar in ds_1.items():
+            
+            ofpi = os.path.join(out_dir, f'{resname}_{prefix}_{layName}_{len(scale_l)}.tif')
+            #xar.rio.write_crs(crs, inplace=True)
+            with ProgressBar():
+                xar.rio.to_raster(ofpi)
+            
+            log.info(f'wrote {xar.shape} to \n    {ofpi}')
+            d[layName] = ofpi
+            
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        log.info(f'finished on {len(d)}')
+        
+        return d
+        
                 
                 
  
