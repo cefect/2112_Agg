@@ -78,8 +78,8 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('bsamps',  subdir=True,ext='.pkl', **kwargs)
         # get the rsc for each asset and scale
         
-        # join the simulation results (and clean up indicides
-        samp_dx_raw = self.join_layer_samps(fp_lib)
+        # join the simulation results (and clean up indicides)
+        samp_dx_raw = self.join_layer_samps(fp_lib)  #samples for each method and grid
         """
     
         view(samp_dx_raw.head(100))
@@ -96,6 +96,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         wet_falseNegatives_bx = (wet_bxcol.subtract(
             wet_bxcol.loc[:, idx[:, 1]].droplevel('scale', axis=1)
             ) == -1)
+        
         if wet_falseNegatives_bx.any().any():
             log.info('got %i False Negative exposures\n ' % (
                     wet_falseNegatives_bx.sum().sum(), 
@@ -145,8 +146,6 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             d[layName] = pd.concat({stat:getattr(dxi, stat)() for stat in stat_l}, axis=1, names='metric')
             
  
- 
-        
         #expand to match
         s1_sdxi = pd.concat(d, axis=1, names=['layer']).unstack().rename(1).to_frame().T.rename_axis('scale')        
         s1_sdx = sort_dx(pd.concat(
@@ -159,12 +158,15 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #ZONAL stats
         #=======================================================================
         res_d = dict()
-        for scale, col in dsc_df.items():
+        for scale, col in dsc_df.items(): #loop rsc values for each scale
             """loop and compute stats with different masks"""
             d = dict()
+            
+            samp_scale_dx = samp_dx.loc[:, idx[:, :, scale]].droplevel('scale', axis=1)
             #===================================================================
             # #s1 (calc against base)
             #===================================================================
+            #join the base values to this index
             mdex = pd.MultiIndex.from_frame(samp_base_dx.index.to_frame().reset_index(drop=True).join(col.rename('dsc')))
             dxi = pd.DataFrame(samp_base_dx.values, index=mdex, columns=samp_base_dx.columns)
             d['s1'] = self.get_dsc_stats2(dxi, ufunc_d=ufunc_d)
@@ -172,16 +174,42 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
             #===================================================================
             # s2
             #===================================================================
-            dxi = pd.DataFrame(samp_dx.loc[:, idx[:, :, scale]].values, index=mdex, columns=samp_base_dx.columns)
+            #agg values to this index
+            dxi = pd.DataFrame(samp_scale_dx.values, index=mdex, columns=samp_base_dx.columns)
             d['s2'] = self.get_dsc_stats2(dxi, ufunc_d=ufunc_d)
             
             #===================================================================
             # s12
             #===================================================================
+            #agg minus base
             dxi = pd.DataFrame(
-                samp_dx.loc[:, idx[:, :, scale]].droplevel('scale', axis=1).sub(samp_base_dx).values, 
+                samp_scale_dx.sub(samp_base_dx).values, 
                 index=mdex, columns=samp_base_dx.columns)
-            d['s12'] = self.get_dsc_stats2(dxi, ufunc_d=ufunc_d)
+            
+            #loop on each method to force exposure matching (because exposure changes between methods)
+            meth_d = dict()
+            for method, gdx in dxi.groupby('method', axis=1):
+                
+                #require exposure on both grids
+                wet_bx = np.logical_and(
+                    samp_scale_dx[method]['expo'].astype(bool),
+                    samp_base_dx[method]['expo'].astype(bool)
+                    )
+                
+                assert wet_bx.any(), f'none on {scale} {method}'
+                meth_d[method] = self.get_dsc_stats2(gdx.loc[wet_bx.values, :], ufunc_d=ufunc_d)
+                
+            #join methods back together            
+            d['s12'] = pd.concat(meth_d.values(), axis=1)
+            """
+            mdx = pd.concat(
+                {'s2':samp_dx.loc[:, idx[:, :, scale]].droplevel('scale', axis=1),
+                's1':samp_base_dx,
+                's12':dxi.droplevel('dsc')}, axis=1)
+            
+ 
+            view(mdx.loc[:, idx[:, 'direct', 'wd']].head(100))
+            """
             #===================================================================
             # wrap
             #===================================================================
@@ -193,17 +221,23 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         
         """
         view(sdx2.drop('filter', level='method', axis=1).loc[:, idx[:, :, 'expo', :, 'full']])
+        
+        view(sdx2.loc[:, idx[:, 'direct', :,:, 'full']].T)
         """
         #=======================================================================
-        # compute residuals
+        # aggregate errors
         #=======================================================================
         srdx = sdx2['s2'].subtract(sdx2['s1']) #ggregated stats
         
-        #normalize
+        #=======================================================================
+        # #normalize
+        #=======================================================================
         base_serx1 = s1_sdxi.iloc[0, :].reorder_levels(['method', 'layer', 'metric']).sort_index()
         
  
-        #combine everything
+        #=======================================================================
+        # #combine everything
+        #=======================================================================
         sdx3 = pd.concat([sdx2, 
                           pd.concat({
                                 's12A':srdx, 's12AN':srdx.divide(base_serx1, axis=1), 's12N':sdx2['s12'].divide(base_serx1, axis=1)

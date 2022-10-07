@@ -103,10 +103,10 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
         if pick_fp is None:
             dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
             
+            #join data and add 'expo'
             samp_dx = ses.build_samps(fp_lib)
      
-            # GRANULAR (raster style)-------
-            
+      
             dx = ses.build_stats(samp_dx, dsc_df)
         else:
             dx = pd.read_pickle(pick_fp)
@@ -115,6 +115,9 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
         #=======================================================================
         # SUPPLEMENT PLOT-------
         #=======================================================================
+        """
+        s12 and s12A identical?
+        """
         #=======================================================================
         # data prep
         #=======================================================================
@@ -126,7 +129,11 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
                 dx.loc[:, idx['s12A', :, 'wd', :, 'mean']], 
                 dx.loc[:, idx['s12A', :, 'wse', :, 'mean']], 
      
-            ], axis=1).sort_index(axis=1) 
+            ], axis=1).sort_index(axis=1)
+            
+        """
+        view(dxi.loc[:, idx[:, :, 'wd', :]].T)
+        """ 
             
         dxi.columns, mcoln = cat_mdex(dxi.columns, levels=['base', 'layer', 'metric']) #cat layer and metric
         print(dxi.columns.unique(mcoln).tolist())
@@ -149,9 +156,9 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
                                          's12_wse_mean':'$\overline{WSE_{s2}-WSE_{s1}}$',
                                          's12A_wse_mean':'$\overline{WSE_{s2}} - \overline{WSE_{s1}}$'
                                           },
-                                     ofp=os.path.join(ses.out_dir, f'{ses.fancy_name}_expo_4x4_sup.{output_format}'),
+                                     ofp=os.path.join(ses.out_dir, f'expo_4x4_sup.{output_format}'),
                                       matrix_kwargs=dict(set_ax_title=False, add_subfigLabel=True, 
-                                                            constrained_layout=True, figsize=(17 * cm, 18 * cm),fig_id=None), 
+                                                            constrained_layout=True, figsize=(12 * cm, 18 * cm),fig_id=None), 
                                       ax_lims_d = {'y':{
                                           #=====================================
                                           # 's12_wd_mean':ax_ylims_d[0], 
@@ -159,8 +166,8 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
                                           # 's12AN_expo_sum':(-5, 20), #'expo':(-10, 4000)... separate from full domain
                                           #=====================================
                                           }},
-                                      yfmt_func= lambda x,p:'%d'%x,
-                                      legend_kwargs=None,
+                                      yfmt_func= lambda x,p:'%.1f'%x,
+                                      legend_kwargs={},
                                       write=True,
                                       output_fig_kwargs=dict(fmt=output_format)
                                       )
@@ -625,7 +632,7 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
 
 if __name__ == "__main__":
     SJ_plots_0910(run_name='r11',
-                  pick_fp=r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\da\20221006\bstats\SJ_r11_expo_da_1006_bstats.pkl',
+                  #pick_fp=r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\da\20221006\bstats\SJ_r11_expo_da_1006_bstats.pkl',
                   )
     #SJ_combine_plots_0919()
     

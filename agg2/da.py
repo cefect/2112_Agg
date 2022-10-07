@@ -217,7 +217,7 @@ class PlotWrkr_4x4_matrix(object):
 
 class PlotWrkr_4x4_subfigs(object):
     ax_ylims_d = {
-            0:(-3.0, 3.0),
+            0:(-3.0, 1.5),
             1:(-1.0, 8.0),
             2:(-0.2, 1.2),
             3:(-0.3, 0.1)            
@@ -378,8 +378,12 @@ class PlotWrkr_4x4_subfigs(object):
         #=======================================================================
         # legend
         #=======================================================================
+        """
+        view(ax_pdx)
+        """
         #bots, tops, lefts, rights = axi_d[3][3].get_gridspec().get_grid_positions(fig_r)
-        handles, labels = axi_d[0][3].get_legend_handles_labels() #get legned info 
+        handles, labels = axi_d[3][0].get_legend_handles_labels() #get legned info 
+        assert len(labels) == 5
         #fig_master.legend()
         fig_r.legend( handles, labels,   ncols=2,
                       bbox_to_anchor=(0.55, 0.25), loc='upper center',

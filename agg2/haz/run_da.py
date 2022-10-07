@@ -23,6 +23,13 @@ from hp.basic import get_dict_str, today_str
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
+cm = 1/2.54
+
+output_format='pdf'
+usetex=True
+if usetex:
+    os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
+    
   
 import matplotlib
 #matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
@@ -47,7 +54,8 @@ for k,v in {
     'figure.titlesize':12,
     'figure.autolayout':False,
     'figure.figsize':(10,10),
-    'legend.title_fontsize':'large'
+    'legend.title_fontsize':'large',
+    'text.usetex':usetex,
     }.items():
         matplotlib.rcParams[k] = v
   
@@ -173,8 +181,62 @@ def run_haz_plots(fp_lib,
         #=======================================================================
         # HELPERS------
         #=======================================================================
-
+        #=======================================================================
+        # SUPPLEMENT PLOT-------
+        #=======================================================================
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        dx = dx2.reorder_levels(ses.names_l, axis=1).droplevel(['pixelLength', 'pixelArea'], axis=0)
+        ses.log_dxcol(dx)
+        dxi = pd.concat([
+                dx.loc[:, idx['s12', :, 'wd', :, 'mean']], 
+                dx.loc[:, idx['s12', :, 'wse', :, 'mean']], 
+ 
+                dx.loc[:, idx['s12A', :, 'wd', :, 'mean']], 
+                dx.loc[:, idx['s12A', :, 'wse', :, 'mean']], 
+     
+            ], axis=1).sort_index(axis=1) 
+            
+        dxi.columns, mcoln = cat_mdex(dxi.columns, levels=['base', 'layer', 'metric']) #cat layer and metric
+        print(dxi.columns.unique(mcoln).tolist())
         
+        #stack into a series
+        serx = dxi.stack(dxi.columns.names)
+        assert set(serx.index.unique(mcoln)).symmetric_difference(dxi.columns.unique(mcoln)) == set()
+            
+        row_l = ['s12_wd_mean','s12A_wd_mean', 's12_wse_mean',  's12A_wse_mean']
+        #=======================================================================
+        # plot
+        #=======================================================================
+        ses.plot_matrix_metric_method_var(serx, 
+                                      #title=baseName,
+                                      row_l=row_l, 
+                                      map_d = {'row':mcoln,'col':'method', 'color':'dsc', 'x':'scale'},
+                                      ylab_d={
+                                        's12_wd_mean':'$\overline{WSH_{s2}-WSH_{s1}}$',
+                                        's12A_wd_mean':'$\overline{WSH_{s2}} - \overline{WSH_{s1}}$',
+                                         's12_wse_mean':'$\overline{WSE_{s2}-WSE_{s1}}$',
+                                         's12A_wse_mean':'$\overline{WSE_{s2}} - \overline{WSE_{s1}}$'
+                                          },
+                                     ofp=os.path.join(ses.out_dir, f'haz_4x4_sup.{output_format}'),
+                                      matrix_kwargs=dict(set_ax_title=False, add_subfigLabel=True, 
+                                                            constrained_layout=True, figsize=(12 * cm, 18 * cm),fig_id=None), 
+                                      ax_lims_d = {'y':{
+                                          #=====================================
+                                          # 's12_wd_mean':ax_ylims_d[0], 
+                                          # 's12_wse_mean':ax_ylims_d[1],
+                                          # 's12AN_expo_sum':(-5, 20), #'expo':(-10, 4000)... separate from full domain
+                                          #=====================================
+                                          }},
+                                      yfmt_func= lambda x,p:'%.1f'%x,
+                                      legend_kwargs={},
+                                      write=True,
+                                      output_fig_kwargs=dict(fmt=output_format)
+                                      )
+        
+
+        return
         #=======================================================================
         # GLOBAL  ZONAL---------
         #=======================================================================
@@ -548,7 +610,7 @@ if __name__ == "__main__":
 
   
     SJ_da_run(run_name='r11',
-              pick_fp = r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\da\haz\20221006\SJ_r11_direct_1006_dprep.pkl',
+              #pick_fp = r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\da\haz\20221006\SJ_r11_direct_1006_dprep.pkl',
               )
     
     #===========================================================================
