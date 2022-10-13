@@ -16,6 +16,7 @@ from hp.pd import view
 idx = pd.IndexSlice
 
 from agg2.haz.scripts import UpsampleSessionXR as Session
+from agg2.haz.run import res_fp_lib as hrfp_lib
 
 #===============================================================================
 # setup logger
@@ -172,8 +173,8 @@ def SJ_run_h_stats(run_name='r10', method='direct', case_name='SJ'):
     proj_d = proj_lib[case_name] 
  
     crs = CRS.from_epsg(proj_d['EPSG'])
-    
-    return run_haz_stats(xr_lib[run_name][method], run_name=run_name,fp_d=fp_lib[run_name][method],
+ 
+    return run_haz_stats(hrfp_lib[run_name][method]['aggXR'], run_name=run_name,fp_d=fp_lib[run_name][method],
                          crs=crs, case_name=case_name)
 
 #===============================================================================
@@ -188,7 +189,7 @@ def SJ_compute_kde_run(
     if crs is None:
         crs = CRS.from_epsg(proj_lib[case_name]['EPSG'])   
     
-    return compute_kde(xr_lib[run_name], case_name=case_name, run_name=run_name,crs=crs,**kwargs)
+    return compute_kde(hrfp_lib[run_name][method]['aggXR'], case_name=case_name, run_name=run_name,crs=crs,**kwargs)
         
         
 def compute_kde(xr_dir_lib, 
@@ -269,8 +270,8 @@ if __name__ == "__main__":
     
     start = now()
     
-    #scheduler='single-threaded'
-    scheduler='threads'
+    scheduler='single-threaded'
+    #scheduler='threads'
     with dask.config.set(scheduler=scheduler):
         print(scheduler)
         #print(pprint.pformat(dask.config.config, width=30, indent=3, compact=True, sort_dicts =False))
