@@ -384,8 +384,10 @@ class PlotWrkr_4x4_subfigs(object):
         #bots, tops, lefts, rights = axi_d[3][3].get_gridspec().get_grid_positions(fig_r)
         handles, labels = axi_d[3][0].get_legend_handles_labels() #get legned info 
         assert len(labels) == 5
+        
+        
         #fig_master.legend()
-        fig_r.legend( handles, labels,   ncols=2,
+        fig_r.legend( handles, pd.Series(labels).replace({'full':'all'}).tolist(),   ncols=2,
                       bbox_to_anchor=(0.55, 0.25), loc='upper center',
                       title='resample case') #place it
         

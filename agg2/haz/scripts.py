@@ -2646,10 +2646,11 @@ class UpsampleSessionXR(UpsampleSession):
             
             ofpi = os.path.join(out_dir, f'{resname}_{prefix}_{layName}_{len(scale_l)}.tif')
             #xar.rio.write_crs(crs, inplace=True)
+            log.info(f'writing {xar.shape} to \n    {ofpi}')
             with ProgressBar():
                 xar.rio.to_raster(ofpi)
             
-            log.info(f'wrote {xar.shape} to \n    {ofpi}')
+            
             d[layName] = ofpi
             
         #=======================================================================

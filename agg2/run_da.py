@@ -69,7 +69,7 @@ logging.basicConfig(
 res_fp_lib = {
     'r11':{
         'haz':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\da\haz\20221006\SJ_r11_direct_1006_dprep.pkl',
-        'exp':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\da\20221007\bstats\SJ_r11_expo_da_1007_bstats.pkl'
+        'exp':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\da\20221008\bstats\SJ_r11_expo_da_1008_bstats.pkl'
         
         },
     
@@ -100,8 +100,6 @@ def run_plots_combine(fp_lib,pick_fp=None,write=True,**kwargs):
     
     """
  
- 
-    
     #===========================================================================
     # get base dir
     #=========================================================================== 
