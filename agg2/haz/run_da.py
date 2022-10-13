@@ -100,8 +100,8 @@ res_fp_lib = { #see haz.run_stats.run_haz_stats()
     #     },
     #===========================================================================
     'r11':{
-        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\hstats\20221003\SJ_r11_hs_1003_stats.pkl',
-        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\hstats\20221003\SJ_r11_hs_1003_stats.pkl'
+        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\hstats\20221013\SJ_r11_hs_1013_stats.pkl',
+        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\hstats\20221013\SJ_r11_hs_1013_stats.pkl'
         },
     'dev':{
         'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\direct\20220930\hstats\20220930\SJ_dev_hs_0930_stats.pkl',

@@ -59,7 +59,8 @@ fp_lib = {
               's12_TP': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\s12_TP\\SJ_r11_hs_1003_s12_TP.pkl',
                's12': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\statsXR_s12\\SJ_r11_hs_1003_statsXR_s12.pkl',
                's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\statsXR_s1\\SJ_r11_hs_1003_statsXR_s1.pkl',
-               's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\statsXR_s2\\SJ_r11_hs_1003_statsXR_s2.pkl'
+               's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\statsXR_s2\\SJ_r11_hs_1003_statsXR_s2.pkl',
+                'cm': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221013\\cm_cnt\\SJ_r11_hs_1013_cm_cnt.pkl', #same as filter
                 },
         'filter':{  
                 's12_TP': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20221003\\s12_TP\\SJ_r11_hs_1003_s12_TP.pkl',
