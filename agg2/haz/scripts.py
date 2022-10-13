@@ -2555,48 +2555,7 @@ class UpsampleSessionXR(UpsampleSession):
         
         return ofp
     
-    def get_ds_merge(self, xr_dir, **kwargs):
-        """collect structured outputs into one datasource
-        
-        we have 4 data_vars
-    
-        all coords and dims should be the same
-        
-        files are split along the 'scale' coord
-        
-        """
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        idxn=self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('s12_TP',  subdir=False,ext='.pkl', **kwargs)
-        assert os.path.exists(  xr_dir), xr_dir
 
-        #=======================================================================
-        # load each subdir----
-        #=======================================================================
-        ds_d = dict()
-        assert os.path.exists(xr_dir),xr_dir
-        assert len(os.listdir(xr_dir))>0, 'no files in passed xr_dir:\n    %s'%xr_dir
-        for dirpath, _, fns in os.walk(xr_dir):
-            varName = os.path.basename(dirpath)
-            fp_l = [os.path.join(dirpath, e) for e in fns if e.endswith('.nc')]
-            if len(fp_l) == 0:
-                continue
-            ds_l = list()
-            #load eaech
-            for i, fp in enumerate(fp_l):
-                ds_l.append(xr.open_dataset(fp, engine='netcdf4', chunks='auto', 
-                        decode_coords="all"))
-            
-            ds_d[varName] = xr.concat(ds_l, dim=idxn)
-        
-        #merge all the layers
-        ds = xr.merge(ds_d.values())
-        log.info(
-            f'loaded {ds.dims}' + f'\n    coors: {list(ds.coords)}' + f'\n    data_vars: {list(ds.data_vars)}' + f'\n    crs:{ds.rio.crs}')
-        assert ds.rio.crs == self.crs, ds.rio.crs
-        return ds
     
     
 

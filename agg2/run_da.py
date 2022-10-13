@@ -6,18 +6,20 @@ Created on Sep. 26, 2022
 import os, pathlib, itertools, logging, sys
 import pandas as pd
 import numpy as np
+idx = pd.IndexSlice
 from hp.basic import get_dict_str, today_str, lib_iter
 from hp.pd import append_levels, view
  
-
-
+from definitions import proj_lib
+from pyproj.crs import CRS
 from agg2.da import CombinedDASession as Session
 from agg2.coms import log_dxcol
+from agg2.haz.run import res_fp_lib as hrfp_lib
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
-output_format='pdf'
-usetex=True
+output_format='svg'
+usetex=False
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
 
@@ -68,8 +70,8 @@ logging.basicConfig(
 #===============================================================================
 res_fp_lib = {
     'r11':{
-        'haz':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\da\haz\20221006\SJ_r11_direct_1006_dprep.pkl',
-        'exp':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\da\20221008\bstats\SJ_r11_expo_da_1008_bstats.pkl'
+        'haz':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\da\haz\20221013\SJ_r11_direct_1013_dprep.pkl',
+        'exp':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\da\20221013\bstats\SJ_r11_expo_da_1013_bstats.pkl'
         
         },
     
@@ -85,18 +87,23 @@ res_fp_lib = {
 
 def SJ_da_run(
         run_name='r10',
+        case_name='SJ',
         **kwargs):    
     
-    return run_plots_combine(res_fp_lib[run_name], proj_name='SJ', run_name=run_name, **kwargs)
+    proj_d = proj_lib[case_name] 
+    crs = CRS.from_epsg(proj_d['EPSG'])
+    
+    return run_plots_combine(res_fp_lib[run_name], 
+                             #xr_dir = hrfp_lib[run_name]['direct']['aggXR'],
+                             xr_dir='C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr', 
+                             case_name=case_name, run_name=run_name,crs=crs, **kwargs)
 
 
 
  
     
-def run_plots_combine(fp_lib,pick_fp=None,write=True,**kwargs):
-    """da and figures which combine hazard and exposure
-    
-    
+def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
+    """da and figures which combine hazard and exposure    
     
     """
  
@@ -111,19 +118,39 @@ def run_plots_combine(fp_lib,pick_fp=None,write=True,**kwargs):
     with Session(out_dir=out_dir, write=write,logger=logging.getLogger('r'), **kwargs) as ses:
         log = ses.logger 
         
+        #combined stats
         if pick_fp is None:
-            dx1 = ses.build_combined(fp_lib)
+            dx = ses.build_combined(fp_lib)
         else:
-            dx1 = pd.read_pickle(pick_fp)
+            dx = pd.read_pickle(pick_fp)
+            
+        #raster data
+        if not xr_dir is None:
+            xds = ses.get_ds_merge(xr_dir)
 
         #=======================================================================
         # plots-------
         #=======================================================================
+        #Figure 6. Bias from aggregation of four metrics
+        #ses.plot_4x4_subfigs(dx1)
  
-        #combined_single(ses, dx1)
         
-        ses.plot_4x4_subfigs(dx1)
+        #=======================================================================
+        # #Figure 5. Resample case classification progression
+        #=======================================================================
+        """asset exposed count"""
+        #data prep 
+        dx1 = dx.loc[:, idx[:, 's2', 'direct', 'catMosaic', :, 'count']].droplevel((1, 2, 3, 5), axis=1
+                               ).drop(1).fillna(0.0).astype(int)
+                               
         
+        xar = xds['catMosaic'].squeeze(drop=True).transpose(ses.idxn, ...)
+        #plot
+        ses.plot_3xRscProg(dx1, xar)
+        """
+        view(dx1.loc[:, idx[:, 's2',:,:,:,:]].T)
+        """
+
         
 
 if __name__ == "__main__":

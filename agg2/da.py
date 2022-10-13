@@ -21,6 +21,212 @@ import matplotlib
 from matplotlib import gridspec
 cm = 1/2.54
 
+from agg2.haz.scripts import UpsampleSessionXR
+
+class PlotWrkr_3xRscProg(object):
+    """resample case progression"""
+    def plot_3xRscProg(self, dx, xar,
+                       output_format=None,
+                       output_fig_kwargs=dict(),
+                       **kwargs):
+        """single figure with 3 rows
+            fig 1: dsc map progression
+            
+            fig2:
+                row2: full domain fraction
+                row3: exposed domain fraction
+        """
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if output_format is None: output_format=self.output_format
+        log, tmp_dir, out_dir, _, _, write = self._func_setup('3x_rsc',  subdir=False,ext=f'.{output_format}', **kwargs)
+        
+        ofp = os.path.join(out_dir, f'computational_4x4.{output_format}')
+        
+        output_fig_kwargs['fmt'] = output_format
+        
+        
+        #=======================================================================
+        # build figure
+        #=======================================================================
+        #master figure
+        fig_master = plt.figure(num=0, constrained_layout=False, figsize=(17 * cm, 18 * cm))
+        
+        #subdivide into 3 rows
+        gs = fig_master.add_gridspec(3, 1, wspace=0, hspace=0, 
+                                     #width_ratios=(0.54, 0.46),
+                                     )
+        
+ 
+        #subfigure of first row
+        fig_top = fig_master.add_subfigure(
+            gs[0, 0] #GridSpec(3, 1)[0:1, 0:1]
+            )
+        
+        #subfigure of bottom 2 rows        
+        fig_bot = fig_master.add_subfigure(
+                    gs[1:3, 0]#.subgridspec(4, 1, wspace=0, hspace=0)[0:3]
+                    )
+        
+        #=======================================================================
+        # build subfigs
+        #=======================================================================
+        mk_base=dict(set_ax_title=False, add_subfigLabel=False, 
+                           constrained_layout=None, figsize=None,fig_id=None)
+        
+        skwargs = dict(mk_base=mk_base, logger=log, ext=f'.{output_format}')
+        
+        ax_d=dict()
+        _, ax_d['bot'] = self.subplot_rsc_prog(fig_bot, dx, **skwargs)
+        
+        _, ax_d['top'] = self.subplot_rsc_maps(fig_top, xar, **skwargs)
+        
+        
+        #=======================================================================
+        # legend
+        #=======================================================================
+        """
+        view(ax_pdx)
+        """
+        #bots, tops, lefts, rights = axi_d[3][3].get_gridspec().get_grid_positions(fig_r)
+        handles, labels = axi_d[3][0].get_legend_handles_labels() #get legned info 
+        assert len(labels) == 5
+        
+        
+        #fig_master.legend()
+        fig_r.legend( handles, pd.Series(labels).replace({'full':'all'}).tolist(),   ncols=2,
+                      bbox_to_anchor=(0.55, 0.25), loc='upper center',
+                      title='resample case') #place it
+        
+ 
+        
+        
+        return self.output_fig(fig_master, ofp=ofp, logger=log, **output_fig_kwargs)
+        
+    def subplot_rsc_prog(self, fig, dx1, mk_base={},  
+                         ylab_d = {'exp':'exposed domain (fraction)', 'haz':'full domain (fraction)'},
+                            **kwargs):
+        """ratio progression plots"""
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, _, _, write = self._func_setup('prog',  subdir=False, **kwargs)
+ 
+        #=======================================================================
+        # data prep
+        #=======================================================================
+ 
+        
+        #check counts are equal on each row
+        for phase, col in  dx1.groupby(level=0, axis=1).sum().items():
+            assert (col == col.iloc[0]).all(), phase
+        
+        #normalize
+        base_ser = dx1.groupby(level=0, axis=1).sum().iloc[0]
+        
+        dxN = dx1.divide(base_ser, axis=1, level=0)
+        
+        assert (dxN.groupby(level=0, axis=1).sum()==1.0).all().all()
+        
+        
+        
+        #=======================================================================
+        # setup figure
+        #=======================================================================
+        map_d={'row':'phase', 'col':'dummy', 'color':'dsc', 'x':'scale'}
+        
+        mdex = pd.concat({'col':dxN}, names=['dummy'], axis=1).unstack().index
+        keys_all_d = {k:mdex.unique(v).tolist() for k,v in map_d.items() if not v is None} #order matters
+        
+        
+        fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'], 
+                                    sharey='row',sharex='all',  
+                                    logger=log, **{**mk_base, **dict(fig=fig)})
+        
+        
+        #color
+ 
+        color_d = self._get_color_d(map_d['color'], keys_all_d['color'])
+       
+        
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        for gk0, gdf in dxN.groupby(map_d['row'], axis=1):
+            #extract
+            df = gdf.droplevel(map_d['row'], axis=1)
+            ax = ax_d[gk0]['col']
+            color_l = [color_d[k] for k in df.columns]
+            
+            #plot
+            ax.stackplot(df.index, df.T.values, labels=df.columns, colors= color_l,alpha=0.8)
+                    
+ 
+        #=======================================================================
+        # format
+        #=======================================================================
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                
+                #first col
+                if col_key == keys_all_d['col'][0]:
+                    ax.set_ylabel(ylab_d[row_key])
+                
+                #last row
+                if row_key==keys_all_d['row'][-1]:                    
+                    ax.set_xlabel('resolution (m)')
+                    
+                    #===========================================================
+                    # ax.set_ylim(ylim)
+                    ax.set_xlim((0, 600))
+                    # ax.legend(loc=3)
+                    #===========================================================
+                    
+        log.info('finished')
+        
+        return fig, ax_d
+ 
+ 
+            
+            
+    def subplot_rsc_maps(self, fig, xar, mk_base={}, **kwargs):
+        """rresample case maps"""
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log, tmp_dir, out_dir, _, _, write = self._func_setup('rsc_map',  subdir=False, **kwargs)
+        
+        #=======================================================================
+        # setup figure
+        #=======================================================================
+        map_d={'row':'phase', 'col':'dummy', 'color':'dsc', 'x':'scale'}
+        
+ 
+        scale_l
+        
+        fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'], 
+                                    sharey='row',sharex='all',  
+                                    logger=log, **{**mk_base, **dict(fig=fig)})
+        
+        
+        #color
+ 
+        color_d = self._get_color_d(map_d['color'], keys_all_d['color'])
+        
+        ax_ar = fig.subplots(2, 1)
+ 
+        
+        xar.plot.imshow(col='scale')
+        """
+        xar.plot(col='scale')
+        plt.show()
+        """
+
+
+        
 
 class PlotWrkr_4x4_matrix(object):
     
@@ -266,12 +472,15 @@ class PlotWrkr_4x4_subfigs(object):
  
         
         
-        mk_base=dict(set_ax_title=False, add_subfigLabel=False, 
-                           constrained_layout=None, figsize=None,fig_id=None)
+
         
         #===========================================================================
         # add subfigs----
         #===========================================================================
+        mk_base=dict(set_ax_title=False, add_subfigLabel=False, 
+                           constrained_layout=None, figsize=None,fig_id=None)
+                
+                
         _, ax_dL = self.subfig_haz_4x2(dx, fig_l, mk_base)
         _, ax_dR = self.subfig_expo_3x2(dx, fig_r, mk_base)
         
@@ -526,7 +735,7 @@ class PlotWrkr_4x4_subfigs(object):
                                       write=write,
                                       )
         
-class CombinedDASession(PlotWrkr_4x4_subfigs,PlotWrkr_4x4_matrix, ExpoDASession):
+class CombinedDASession(PlotWrkr_4x4_subfigs,PlotWrkr_4x4_matrix, PlotWrkr_3xRscProg, ExpoDASession):
     
     def __init__(self,scen_name='daC',output_format = 'svg',  **kwargs): 
         super().__init__(scen_name=scen_name,**kwargs)
