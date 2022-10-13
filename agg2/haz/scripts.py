@@ -2261,8 +2261,9 @@ class UpsampleSessionXR(UpsampleSession):
         # xds = xds_raw.drop_vars('catMosaic').squeeze(drop=True).reset_coords(
         #     names='spatial_ref', drop=True).transpose(idxn, ...)
         #=======================================================================
+ 
             
-        xds = xds_raw.drop_vars('catMosaic').transpose(idxn, ...)
+        xds = xds_raw.drop_vars('catMosaic', errors='ignore').transpose(idxn, ...)
         
         #=======================================================================
         # loop on each layer

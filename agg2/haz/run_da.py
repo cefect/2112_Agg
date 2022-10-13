@@ -76,27 +76,29 @@ logging.basicConfig(
 # globals
 #===============================================================================
 
-res_fp_lib = {
-    'r9':{
-            'filter':{  
-                's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
-                's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
-                'diffs': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220922\\diffStats\\SJ_r9_filter_0922_diffStats.pkl',
-                },
-            'direct':{  
-                's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\stats\\SJ_r9_direct_0921_stats.pkl',
-                's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
-                'diffs': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220922\\diffStats\\SJ_r9_direct_0922_diffStats.pkl'
-                }
-            },
-    'r10t':{
-        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\direct\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
-        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\filter\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
-        },
-    'r10':{
-        'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl',
-        'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl'
-        },
+res_fp_lib = { #see haz.run_stats.run_haz_stats()
+    #===========================================================================
+    # 'r9':{
+    #         'filter':{  
+    #             's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\stats\\SJ_r9_filter_0921_stats.pkl',
+    #             's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220921\\statsF\\SJ_r9_filter_0921_statsF.pkl',
+    #             'diffs': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\filter\\20220922\\diffStats\\SJ_r9_filter_0922_diffStats.pkl',
+    #             },
+    #         'direct':{  
+    #             's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\stats\\SJ_r9_direct_0921_stats.pkl',
+    #             's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220921\\statsF\\SJ_r9_direct_0921_statsF.pkl',
+    #             'diffs': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r9\\SJ\\direct\\20220922\\diffStats\\SJ_r9_direct_0922_diffStats.pkl'
+    #             }
+    #         },
+    # 'r10t':{
+    #     'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\direct\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
+    #     'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\filter\20220925\hstats\20220925\SJ_r1_hs_0925_stats.pkl',
+    #     },
+    # 'r10':{
+    #     'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\direct\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl',
+    #     'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r10\SJ\filter\20220925\hstats\20220926\SJ_r10_hs_0926_stats.pkl'
+    #     },
+    #===========================================================================
     'r11':{
         'direct':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\hstats\20221003\SJ_r11_hs_1003_stats.pkl',
         'filter':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\hstats\20221003\SJ_r11_hs_1003_stats.pkl'
@@ -177,7 +179,9 @@ def run_haz_plots(fp_lib,
             dx2 = pd.read_pickle(pick_fp)
              
  
-        
+        """
+        view(dx2['s2']['direct'].T)
+        """
         #=======================================================================
         # HELPERS------
         #=======================================================================

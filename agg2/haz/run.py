@@ -53,10 +53,24 @@ res_fp_lib = {'r9':
                       'agg':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221006\agg\SJ_r11_filter_1006_agg.pkl',
                       'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221006\cMasks\SJ_r11_filter_1006_cMasks.pkl',
                       'aggXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\_xr'
-                      }
-                
-                
-                }}
+                      }},
+              'dev':{  
+                  'filter':{
+                      'agg': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\agg\\SJ_t_filter_1013_agg.pkl',
+                       'aggXR': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\_xr',
+                       'cmXR': [  'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\_xr\\catMosaic\\SJ_t_filter_1013_cMasks_s008.nc',
+                                  'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\_xr\\catMosaic\\SJ_t_filter_1013_cMasks_s016.nc'],
+                       'catMasks': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\cMasks\\SJ_t_filter_1013_cMasks.pkl'
+                       },
+                  'direct':{  
+                      'agg': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\agg\\SJ_t_direct_1013_agg.pkl',
+                       'aggXR': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr',
+                       'cmXR': [  'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr\\catMosaic\\SJ_t_direct_1013_cMasks_s008.nc',
+                                  'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr\\catMosaic\\SJ_t_direct_1013_cMasks_s016.nc'],
+                       'catMasks': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\cMasks\\SJ_t_direct_1013_cMasks.pkl'
+                       }
+                       }
+              }
         
 
 
@@ -85,7 +99,7 @@ def run_haz_agg2XR(method='direct',
     from agg2.haz.scripts import UpsampleSessionXR as Session    
     #execute
     with Session(case_name=case_name,method=method,crs=crs, nodata=-9999, dsc_l=dsc_l, **kwargs) as ses:
-        stat_d = dict()
+ 
         log = ses.logger
         #=======================================================================
         # build aggregated layers
@@ -112,9 +126,7 @@ def run_haz_agg2XR(method='direct',
             ds = ses.get_ds_merge(fp_d['aggXR'])
             diff_ds = ses.get_s12XR(ds)
             ses.write_rasters_XR(diff_ds, prefix='s12')
-        
-        return
-            
+ 
         
         #=======================================================================
         # category masks
@@ -125,7 +137,7 @@ def run_haz_agg2XR(method='direct',
             
 
  
-        log.info(f'finished on \n    {ses.xr_dir}'+
+        log.info(f'finished on \n\n'+
                  pprint.pformat(fp_d, width=30, indent=3, compact=True, sort_dicts =False))
  
                 
@@ -190,14 +202,14 @@ def SJ_dev(run_name='t',method='direct',**kwargs):
 if __name__ == "__main__": 
     start = now()
  
-    #scheduler='single-threaded'
-    scheduler='threads'
+    scheduler='single-threaded'
+    #scheduler='threads'
     with dask.config.set(scheduler=scheduler):
         print(scheduler)
           
-        #xr_dir = SJ_dev(method='filter')
+        xr_dir = SJ_dev(method='direct')
        
-        xr_dir = SJ_run(method='filter',run_name='r11')
+        #xr_dir = SJ_run(method='filter',run_name='r11')
     
     #===========================================================================
     # for method in ['filter', 'direct']:
