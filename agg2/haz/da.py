@@ -106,6 +106,9 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         
         base_serx = dx_raw.loc[1, idx['s1', 'direct',:, 'full',:]].droplevel((0, 1, 3), axis=0)  # baseline values
         
+        #add catMosaic
+        #dx_raw.loc[1, idx['s2', 'direct',:, 'full',:]].droplevel((0, 1, 3), axis=0)
+        
         d = dict()
         for layName, gdx in dx_raw[to_be_normd].groupby('layer', axis=1):
  
@@ -146,10 +149,13 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         """
         both these bases are stats computed on teh same (dynamic) zones:
             resid = stat[i=dsc@j_samp, j=j_samp] - stat[i=dsc@j_samp, j=j_base]
+            
+        
         
         """
+        dxcol_raw['s2'].columns.names
         
-        dx1a = dxcol_raw.join(pd.concat([dxcol_raw['s2'] - dxcol_raw['s1']], names=['base'], keys=['s12A'], axis=1))
+        dx1a = dxcol_raw.join(pd.concat([dxcol_raw['s2'].drop('catMosaic', axis=1, level='layer') - dxcol_raw['s1']], names=['base'], keys=['s12A'], axis=1))
      
         #print({lvlName:i for i, lvlName in enumerate(dx1.columns.names)})
         l = [dx1a]
@@ -190,6 +196,9 @@ class UpsampleDASession(Agg2DAComs, UpsampleSession):
         base_ser = dx1a['s1']['direct']['wse'].loc[:, idx[:, 'full', 'mean']].droplevel(['dsc', 'metric'], axis=1).iloc[0, :].rename('base')
         
         dx1a['s12A']['filter']['wse'].loc[:, idx[:, 'real_count']]
+        
+        
+        view(dx1b.T)
         
         """
         #norm globals
