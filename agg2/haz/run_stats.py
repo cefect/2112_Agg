@@ -57,13 +57,13 @@ fp_lib = {
     'r11':{
         'direct':{  
               's12_TP': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\s12_TP\\SJ_r11_hs_1003_s12_TP.pkl',
-               #'s12': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\statsXR_s12\\SJ_r11_hs_1003_statsXR_s12.pkl',
+               's12': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\statsXR_s12\\SJ_r11_hs_1003_statsXR_s12.pkl',
                's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\statsXR_s1\\SJ_r11_hs_1003_statsXR_s1.pkl',
                's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\direct\\20220930\\hstats\\20221003\\statsXR_s2\\SJ_r11_hs_1003_statsXR_s2.pkl'
                 },
         'filter':{  
                 's12_TP': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20221003\\s12_TP\\SJ_r11_hs_1003_s12_TP.pkl',
-               #'s12': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20221003\\statsXR_s12\\SJ_r11_hs_1003_statsXR_s12.pkl',
+               's12': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20221003\\statsXR_s12\\SJ_r11_hs_1003_statsXR_s12.pkl',
                's1': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20221003\\statsXR_s1\\SJ_r11_hs_1003_statsXR_s1.pkl',
                's2': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r11\\SJ\\filter\\20220930\\hstats\\20221003\\statsXR_s2\\SJ_r11_hs_1003_statsXR_s2.pkl'
                },        
@@ -97,7 +97,9 @@ def run_haz_stats(xr_dir,
                   
                   fp_d=None,
                  **kwargs):
-    """hazard/raster stat compute from xarray"""
+    """hazard/raster stat compute from xarray
+    
+    creates a pickle we reference in haz.run_da"""
  
     
     #===========================================================================
@@ -122,6 +124,19 @@ def run_haz_stats(xr_dir,
         #build a datasource from the netcdf files
         ds = ses.get_ds_merge(xr_dir)
         
+        
+        #=======================================================================
+        # get basic stats
+        #=======================================================================
+        if not 'cm' in fp_d:
+            """not writing this one in the pickle"""
+            fp_d['cm'] = ses.run_cmCounts(ds)
+ 
+        if not 's1' in fp_d:         
+            fp_d['s1'] = ses.run_statsXR(ds, base='s1')
+            
+        if not 's2' in fp_d:         
+            fp_d['s2'] = ses.run_statsXR(ds, base='s2')
  
         #=======================================================================
         # compute special stats-----
@@ -138,20 +153,23 @@ def run_haz_stats(xr_dir,
                                             'wd':ses._get_diff_wd_statsXR,
                                             })
          
-        #=======================================================================
-        # get basic stats
-        #=======================================================================
-        if not 's1' in fp_d:         
-            fp_d['s1'] = ses.run_statsXR(ds, base='s1')
-            
-        if not 's2' in fp_d:         
-            fp_d['s2'] = ses.run_statsXR(ds, base='s2')
+
         #=======================================================================
         # wrap
         #=======================================================================
         ds.close()
         
         d = {k:pd.read_pickle(fp) for k,fp in fp_d.items()}
+        
+        #fix cm
+        """this one is strange becuse we are adding it after the fact to s2"""
+        cm_dx = d.pop('cm')
+        s2_dx = d.pop('s2')
+        d['s2'] = s2_dx.join(cm_dx.reorder_levels(s2_dx.columns.names, axis=1))
+        
+        
+        
+        
         rdx = pd.concat(d, axis=1, names=['base'], sort=True)
         """
         rdx.loc[:, idx[:, :, :, ('posi_count', 'real_count')]]
@@ -187,7 +205,9 @@ def SJ_compute_kde_run(
         **kwargs): 
  
     if crs is None:
-        crs = CRS.from_epsg(proj_lib[case_name]['EPSG'])   
+        crs = CRS.from_epsg(proj_lib[case_name]['EPSG']) 
+        
+    """need to fix this to pass both method aggXRs"""  
     
     return compute_kde(hrfp_lib[run_name][method]['aggXR'], case_name=case_name, run_name=run_name,crs=crs,**kwargs)
         
@@ -270,8 +290,8 @@ if __name__ == "__main__":
     
     start = now()
     
-    scheduler='single-threaded'
-    #scheduler='threads'
+    #scheduler='single-threaded'
+    scheduler='threads'
     with dask.config.set(scheduler=scheduler):
         print(scheduler)
         #print(pprint.pformat(dask.config.config, width=30, indent=3, compact=True, sort_dicts =False))

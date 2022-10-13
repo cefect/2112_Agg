@@ -2175,7 +2175,75 @@ class UpsampleSessionXR(UpsampleSession):
     """
     view(res_dx1.T)
     """
+    
+    def run_cmCounts(self, ds, **kwargs):
+        """catmask counts"""
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        start = now()
+        idxn=self.idxn
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup(f'cm_cnt',  subdir=True,ext='.pkl', **kwargs)
 
+        
+        scale_l = ds[self.idxn].values.tolist()
+        
+        #get just the CatMosaic
+        xar = ds['catMosaic'].reset_coords(names='spatial_ref', drop=True).squeeze(drop=True).transpose(idxn, ...)
+        
+        #=======================================================================
+        # loop and compute counts on each scale
+        #=======================================================================
+        log.info('getting catMosaic counts on %i'%len(scale_l))
+        
+        #setup delated computation
+        def get_counts(xar):
+            d = dict()
+            for scale, xari in xar.groupby(idxn):
+                if scale==1: continue
+                vals_ar, cnts_ar = np.unique(xari, return_counts=True)
+                
+                d[scale] = pd.Series(cnts_ar, index=vals_ar.astype(int))
+                
+            return d
+        
+        
+        o=dask.delayed(get_counts)(xar)
+        
+        #execute
+        with ProgressBar(): 
+            cnt_d = o.compute()
+            
+        #collect results
+        df = pd.concat(cnt_d, axis=1).T
+        df.columns.name = 'dsc'
+        df.index.name=idxn
+        
+        #=======================================================================
+        # promote to match style
+        #=======================================================================
+        dx = df.rename(columns={v:k for k,v in self.cm_int_d.items()})
+        
+        dx.columns = append_levels(dx.columns, {'metric':'count', 'layer':'catMosaic'})
+        
+        log.debug(f'finisheed on \n{dx}')
+        
+        #=======================================================================
+        # wrap
+        #=======================================================================
+        dx.to_pickle(ofp)
+        
+        log.info(f'finished on {str(dx.shape)} in {(now()-start).total_seconds():.2f} to \n    {ofp}')
+        
+        return ofp
+ 
+        
+        """
+        xar.plot(col='scale')
+        """
+        
+ 
     def run_statsXR(self, ds, 
                     base='s2',
                     func_d =  None,
@@ -2311,9 +2379,7 @@ class UpsampleSessionXR(UpsampleSession):
         #merge the scales back
  
         return  xr.merge([xds_raw.drop_vars(res_d.keys())] + list(res_d.values()))
-        
-        
-        
+  
     def run_TP_XR(self, ds, 
  
                     **kwargs):

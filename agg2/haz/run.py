@@ -56,18 +56,10 @@ res_fp_lib = {'r9':
                       }},
               'dev':{  
                   'filter':{
-                      'agg': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\agg\\SJ_t_filter_1013_agg.pkl',
                        'aggXR': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\_xr',
-                       'cmXR': [  'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\_xr\\catMosaic\\SJ_t_filter_1013_cMasks_s008.nc',
-                                  'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\_xr\\catMosaic\\SJ_t_filter_1013_cMasks_s016.nc'],
-                       'catMasks': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\cMasks\\SJ_t_filter_1013_cMasks.pkl'
                        },
                   'direct':{  
-                      'agg': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\agg\\SJ_t_direct_1013_agg.pkl',
                        'aggXR': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr',
-                       'cmXR': [  'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr\\catMosaic\\SJ_t_direct_1013_cMasks_s008.nc',
-                                  'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr\\catMosaic\\SJ_t_direct_1013_cMasks_s016.nc'],
-                       'catMasks': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\cMasks\\SJ_t_direct_1013_cMasks.pkl'
                        }
                        }
               }
