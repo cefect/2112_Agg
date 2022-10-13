@@ -104,8 +104,7 @@ def run_plots(fp_lib,write=False,pick_fp=None, **kwargs):
             dsc_df = pd.read_pickle(fp_lib['direct']['arsc'])
             
             #join data and add 'expo'
-            samp_dx = ses.build_samps(fp_lib)
-     
+            samp_dx = ses.build_samps(fp_lib)     
       
             dx = ses.build_stats(samp_dx, dsc_df)
         else:

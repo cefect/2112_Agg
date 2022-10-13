@@ -126,6 +126,7 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #=======================================================================
         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('bstats',  subdir=True,ext='.pkl', **kwargs)
         pdc_kwargs = dict(axis=1, names=['base'])
+        idxn = self.idxn
         
         lvls = ['base', 'method', 'layer', 'metric', 'dsc']
         
@@ -234,11 +235,30 @@ class ExpoDASession(ExpoSession, Agg2DAComs):
         #=======================================================================
         base_serx1 = s1_sdxi.iloc[0, :].reorder_levels(['method', 'layer', 'metric']).sort_index()
         
+        #=======================================================================
+        # dsc counts
+        #=======================================================================
+        """
+        add the classification counts onto s2
+        """
  
+        
+        d = dict()
+        for scale, col in dsc_df.items():
+            d[scale] = col.value_counts()
+        
+        dx1 = pd.concat(d, axis=1).T
+        dx1.columns.name = 'dsc'
+        dx1.index.name=idxn
+        
+        dx1.columns = append_levels(dx1.columns, {'layer':'catMosaic', 'method':'direct', 'metric':'count', 'base':'s2'}
+                                    ).reorder_levels(sdx2.columns.names)
+                                    
+        
         #=======================================================================
         # #combine everything
         #=======================================================================
-        sdx3 = pd.concat([sdx2, 
+        sdx3 = pd.concat([sdx2.join(dx1), 
                           pd.concat({
                                 's12A':srdx, 's12AN':srdx.divide(base_serx1, axis=1), 's12N':sdx2['s12'].divide(base_serx1, axis=1)
                                 }, **pdc_kwargs)
