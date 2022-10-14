@@ -52,7 +52,8 @@ res_fp_lib = {'r9':
                   'filter':{
                       'agg':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221006\agg\SJ_r11_filter_1006_agg.pkl',
                       'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221006\cMasks\SJ_r11_filter_1006_cMasks.pkl',
-                      'aggXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\_xr'
+                      'aggXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20220930\_xr',
+                      'diffXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221014\s12XR\xr',
                       }},
               'dev':{  
                   'filter':{
@@ -116,8 +117,9 @@ def run_haz_agg2XR(method='direct',
         """only for plots"""
         if not 'diff' in fp_d:
             ds = ses.get_ds_merge(fp_d['aggXR'])
-            diff_ds = ses.get_s12XR(ds)
-            ses.write_rasters_XR(diff_ds, prefix='s12')
+            diff_ds = ses.get_s12XR(ds, write=True)
+            #ses.write_rasters_XR(diff_ds, prefix='s12')
+            return
  
         
         #=======================================================================
@@ -194,14 +196,14 @@ def SJ_dev(run_name='t',method='direct',**kwargs):
 if __name__ == "__main__": 
     start = now()
  
-    scheduler='single-threaded'
-    #scheduler='threads'
+    #scheduler='single-threaded'
+    scheduler='threads'
     with dask.config.set(scheduler=scheduler):
         print(scheduler)
           
-        xr_dir = SJ_dev(method='direct')
+        #xr_dir = SJ_dev(method='direct')
        
-        #xr_dir = SJ_run(method='filter',run_name='r11')
+        xr_dir = SJ_run(method='filter',run_name='r11')
     
     #===========================================================================
     # for method in ['filter', 'direct']:

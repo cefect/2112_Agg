@@ -2314,7 +2314,7 @@ class UpsampleSessionXR(UpsampleSession):
         #=======================================================================
         start = now()
         idxn=self.idxn
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('s12XR',  subdir=False,ext='.pkl', **kwargs)
+        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('s12XR',  subdir=True,ext='.pkl', **kwargs)
         #agg_kwargs = dict(dim=('band', 'y', 'x'), skipna=True) 
         
         #=======================================================================
@@ -2377,8 +2377,26 @@ class UpsampleSessionXR(UpsampleSession):
         # #wrap
         #=======================================================================
         #merge the scales back
+        xds = xr.merge([xds_raw.drop_vars(res_d.keys())] + list(res_d.values()))
+        
+        #=======================================================================
+        # write
+        #=======================================================================
+        if write:
+            od = os.path.join(out_dir, 'xr')
+            if not os.path.exists(od):os.makedirs(od)
+            i = 0
+            for layer, xar in xds.items():
+                for scale, xari in xar.groupby(idxn):
+                    ofpi = os.path.join(od, f'{resname}_{layer}_s{scale:03d}.nc')
+                    xari.to_netcdf(ofpi, mode='w', format='NETCDF4', engine='netcdf4', compute=True)
+                    log.info(f'wrote {xari.shape} to {ofpi}')
+                    i+=1
+            
+            log.info(f'finished writing {i} to \n    {od}')
+            
  
-        return  xr.merge([xds_raw.drop_vars(res_d.keys())] + list(res_d.values()))
+        return  xds
   
     def run_TP_XR(self, ds, 
  
