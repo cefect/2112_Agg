@@ -2383,10 +2383,12 @@ class UpsampleSessionXR(UpsampleSession):
         # write
         #=======================================================================
         if write:
-            od = os.path.join(out_dir, 'xr')
-            if not os.path.exists(od):os.makedirs(od)
+
             i = 0
             for layer, xar in xds.items():
+                od = os.path.join(out_dir, 'xr', layer)
+                if not os.path.exists(od):os.makedirs(od)
+            
                 for scale, xari in xar.groupby(idxn):
                     ofpi = os.path.join(od, f'{resname}_{layer}_s{scale:03d}.nc')
                     xari.to_netcdf(ofpi, mode='w', format='NETCDF4', engine='netcdf4', compute=True)

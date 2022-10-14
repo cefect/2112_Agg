@@ -47,7 +47,8 @@ res_fp_lib = {'r9':
                   'direct':{
                       'agg':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20221006\agg\SJ_r11_direct_1006_agg.pkl',
                       'catMasks':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20221006\cMasks\SJ_r11_direct_1006_cMasks.pkl',
-                      'aggXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\_xr'
+                      'aggXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20220930\_xr',
+                      'diffXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\direct\20221014\s12XR\xr',
                       },
                   'filter':{
                       'agg':r'C:\LS\10_IO\2112_Agg\outs\agg2\r11\SJ\filter\20221006\agg\SJ_r11_filter_1006_agg.pkl',
@@ -58,6 +59,7 @@ res_fp_lib = {'r9':
               'dev':{  
                   'filter':{
                        'aggXR': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\filter\\20221013\\_xr',
+                       'diffXR':r'C:\LS\10_IO\2112_Agg\outs\agg2\t\SJ\filter\20221014\s12XR\xr',
                        },
                   'direct':{  
                        'aggXR': 'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr',
@@ -201,9 +203,9 @@ if __name__ == "__main__":
     with dask.config.set(scheduler=scheduler):
         print(scheduler)
           
-        #xr_dir = SJ_dev(method='direct')
+        xr_dir = SJ_dev(method='filter')
        
-        xr_dir = SJ_run(method='filter',run_name='r11')
+        #xr_dir = SJ_run(method='filter',run_name='r11')
     
     #===========================================================================
     # for method in ['filter', 'direct']:

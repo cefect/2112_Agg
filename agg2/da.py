@@ -23,6 +23,27 @@ cm = 1/2.54
 
 from agg2.haz.scripts import UpsampleSessionXR
 
+
+class Plot_diff_grids(object):
+    def plot_diff_grids(self,xar,
+                       output_format=None,
+                       output_fig_kwargs=dict(),
+                         **kwargs):
+        """
+        Figure 7.Example snapshot of 500m region at five resolutions aggregated with the "Averaging WSE" routine showing
+        WSHs2 −WSHs1 on a red-blue colour scale and building centroid locations in black
+        """
+        
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        if output_format is None: output_format=self.output_format
+        log, tmp_dir, out_dir, _, _, write = self._func_setup('3x_rsc',  subdir=False,ext=f'.{output_format}', **kwargs)
+        
+        ofp = os.path.join(out_dir, f'3xRscProg_4x4.{output_format}')
+        
+        output_fig_kwargs['fmt'] = output_format
+
 class PlotWrkr_3xRscProg(object):
     """resample case progression"""
     def plot_3xRscProg(self, dx, xar,
@@ -843,7 +864,7 @@ class PlotWrkr_4x4_subfigs(object):
                                       write=write,
                                       )
         
-class CombinedDASession(PlotWrkr_4x4_subfigs,PlotWrkr_4x4_matrix, PlotWrkr_3xRscProg, ExpoDASession):
+class CombinedDASession(PlotWrkr_4x4_subfigs,PlotWrkr_4x4_matrix, PlotWrkr_3xRscProg, Plot_diff_grids, ExpoDASession):
     
     def __init__(self,scen_name='daC',output_format = 'svg',  **kwargs): 
         super().__init__(scen_name=scen_name,**kwargs)
