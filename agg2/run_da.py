@@ -18,8 +18,8 @@ from agg2.haz.run import res_fp_lib as hrfp_lib
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
-output_format='svg'
-usetex=False
+output_format='pdf'
+usetex=True
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
 
@@ -94,8 +94,8 @@ def SJ_da_run(
     crs = CRS.from_epsg(proj_d['EPSG'])
     
     return run_plots_combine(res_fp_lib[run_name], 
-                             #xr_dir = hrfp_lib[run_name]['direct']['aggXR'],
-                             xr_dir='C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr', 
+                             xr_dir = hrfp_lib[run_name]['direct']['aggXR'],
+                             #xr_dir='C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\t\\SJ\\direct\\20221013\\_xr', 
                              case_name=case_name, run_name=run_name,crs=crs, **kwargs)
 
 
@@ -144,7 +144,7 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
                                ).drop(1).fillna(0.0).astype(int)
                                
         
-        xar = xds['catMosaic'].squeeze(drop=True).transpose(ses.idxn, ...)
+        xar = xds['catMosaic'].squeeze(drop=True).transpose(ses.idxn, ...)[1:] #drop the first
         #plot
         ses.plot_3xRscProg(dx1, xar)
         """

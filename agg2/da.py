@@ -42,7 +42,7 @@ class PlotWrkr_3xRscProg(object):
         if output_format is None: output_format=self.output_format
         log, tmp_dir, out_dir, _, _, write = self._func_setup('3x_rsc',  subdir=False,ext=f'.{output_format}', **kwargs)
         
-        ofp = os.path.join(out_dir, f'computational_4x4.{output_format}')
+        ofp = os.path.join(out_dir, f'3xRscProg_4x4.{output_format}')
         
         output_fig_kwargs['fmt'] = output_format
         
@@ -51,11 +51,11 @@ class PlotWrkr_3xRscProg(object):
         # build figure
         #=======================================================================
         #master figure
-        fig_master = plt.figure(num=0, constrained_layout=False, figsize=(17 * cm, 18 * cm))
+        fig_master = plt.figure(num=0, constrained_layout=False, figsize=(17 * cm, 13 * cm))
         
         #subdivide into 3 rows
         gs = fig_master.add_gridspec(3, 1, wspace=0, hspace=0, 
-                                     #width_ratios=(0.54, 0.46),
+                                     height_ratios=(0.26, 0.37, 0.37),
                                      )
         
  
@@ -78,25 +78,58 @@ class PlotWrkr_3xRscProg(object):
         skwargs = dict(mk_base=mk_base, logger=log, ext=f'.{output_format}')
         
         ax_d=dict()
+        _, ax_d['top'] = self.subplot_rsc_maps(fig_top, xar, **skwargs)
         _, ax_d['bot'] = self.subplot_rsc_prog(fig_bot, dx, **skwargs)
         
-        _, ax_d['top'] = self.subplot_rsc_maps(fig_top, xar, **skwargs)
+
         
+        
+        #=======================================================================
+        # post format
+        #=======================================================================
+        lab_kwargs = dict(va='top', ha='left',size=matplotlib.rcParams['axes.titlesize'],
+                          fontweight='bold',
+                            bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.8 )
+                            )
+        i = 0
+        for _, (sf_key, d0) in enumerate(ax_d.items()):
+            for _, (ax_key, d1) in enumerate(d0.items()):
+                for col_key, ax in d1.items():
+                    #print(sf_key, ax_key)
+                    if sf_key=='top':
+                        if i==0:
+                            i+=1
+                        continue
+                    #===============================================================
+                    # subfig label                    
+                    #===============================================================
+                    ax.text(0.01, 0.99, 
+                            #'(%s%s)'%(list(string.ascii_lowercase)[j], i), 
+                            '(%s)'%list(string.ascii_lowercase)[i], #just simple letter
+                            transform=ax.transAxes, **lab_kwargs)
+                    i+=1
+        
+        #top
+        fig_top.text(0.01, 0.90, 
+                            #'(%s%s)'%(list(string.ascii_lowercase)[j], i), 
+                            '(%s)'%list(string.ascii_lowercase)[0], #just simple letter
+                            **lab_kwargs)
         
         #=======================================================================
         # legend
         #=======================================================================
-        """
+        """\
+        fig_master.show()
         view(ax_pdx)
         """
         #bots, tops, lefts, rights = axi_d[3][3].get_gridspec().get_grid_positions(fig_r)
-        handles, labels = axi_d[3][0].get_legend_handles_labels() #get legned info 
-        assert len(labels) == 5
+        handles, labels = ax_d['bot']['haz']['col'].get_legend_handles_labels() #get legned info 
+        assert len(labels) == 4
         
         
         #fig_master.legend()
-        fig_r.legend( handles, pd.Series(labels).replace({'full':'all'}).tolist(),   ncols=2,
-                      bbox_to_anchor=(0.55, 0.25), loc='upper center',
+        fig_bot.legend( handles, labels,   ncols=1,
+                      bbox_to_anchor=(0.92, 0.3), loc='lower center',
                       title='resample case') #place it
         
  
@@ -184,6 +217,11 @@ class PlotWrkr_3xRscProg(object):
                     # ax.legend(loc=3)
                     #===========================================================
                     
+                    
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                #ax.spines['left'].set_visible(False)
+                    
         log.info('finished')
         
         return fig, ax_d
@@ -191,39 +229,109 @@ class PlotWrkr_3xRscProg(object):
  
             
             
-    def subplot_rsc_maps(self, fig, xar, mk_base={}, **kwargs):
+    def subplot_rsc_maps(self, fig, xar, mk_base={}, 
+                         
+                         **kwargs):
         """rresample case maps"""
         
         #=======================================================================
         # defaults
         #=======================================================================
         log, tmp_dir, out_dir, _, _, write = self._func_setup('rsc_map',  subdir=False, **kwargs)
+        cm_int_d = self.cm_int_d.copy()
+        
+        #=======================================================================
+        # calc variables
+        #=======================================================================
+        map_d={'row':'dummy', 'col':self.idxn, 'color':'dsc'}
+ 
+        keys_all_d = {'col':xar[map_d['col']].values.tolist(), 'row':[map_d['row']],
+                      'color':list(cm_int_d.keys())}
         
         #=======================================================================
         # setup figure
         #=======================================================================
-        map_d={'row':'phase', 'col':'dummy', 'color':'dsc', 'x':'scale'}
-        
+        #=======================================================================
+        # fig.subplot()
+        # gs = fig.add_gridspec(1, len(keys_all_d['col']), wspace=0, hspace=0, 
+        #                              #width_ratios=(0.54, 0.46),
+        #                              )
+        #=======================================================================
  
-        scale_l
+        ax_ar = fig.subplots(ncols=len(keys_all_d['col']), sharex=True, sharey=True)
         
-        fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'], 
-                                    sharey='row',sharex='all',  
-                                    logger=log, **{**mk_base, **dict(fig=fig)})
+        ax_d = {k:ax_ar[i] for i,k in enumerate(keys_all_d['col'])}
+        
+        #=======================================================================
+        # fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'], 
+        #                             sharey='all',sharex='all',  
+        #                             logger=log, **{**mk_base, **dict(fig=fig_master)})
+        #=======================================================================
         
         
-        #color
- 
+        #=======================================================================
+        # #color 
+        #=======================================================================
+        #get the default color mapping
         color_d = self._get_color_d(map_d['color'], keys_all_d['color'])
         
-        ax_ar = fig.subplots(2, 1)
- 
+        #key this to the data
+        ckeys = list(cm_int_d.values()) #{'DD': 11, 'WW': 21, 'WP': 31, 'DP': 41}
+        cm_int_d1 = {v:k for k,v in cm_int_d.items()}
+        cvals = [color_d[cm_int_d1[k]] for k in ckeys]
         
-        xar.plot.imshow(col='scale')
+        #build a custom color map        
+        cmap = matplotlib.colors.ListedColormap(cvals)
+        
+        #discrete normalization
+        norm = matplotlib.colors.BoundaryNorm(
+                                            np.array([0]+ckeys)+1, #bounds that capture the data 
+                                              ncolors=len(ckeys),
+                                              #cmap.N, 
+                                              extend='neither',
+                                              clip=True,
+                                              )
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        for col_key, xari in xar.groupby(map_d['col']):
+            log.info(f'on {col_key} w/ {xari.shape}')
+            ax = ax_d[col_key]
+            ax.set(adjustable='box', aspect='equal')
+            
+ 
+            ax.imshow(xari.values, aspect='equal', cmap=cmap, 
+                      norm=norm,
+                      interpolation='nearest',
+                      #vmin=min(ckeys), vmax=max(ckeys)
+                      )
+            #xari.plot.imshow(ax=ax)
+            #ax.clear()
+            
+        log.debug('finished add plots')
+        
+        #=======================================================================
+        # post format
+        #=======================================================================
+        for col_key, ax in ax_d.items():
+            anno_obj = ax.text(0.95, 0.95, '$\lambda_{s2}=$%i'%col_key, 
+                               transform=ax.transAxes, va='top',ha='right',fontsize=8,
+                               bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.7 )
+                               )
+            
+            #turn off the axis and labels
+            #ax.cla()
+            ax.axis('off') #turn off the spines and tick marks
+            
+            
+        return fig, {'row':ax_d}
+ 
+ 
+            
         """
-        xar.plot(col='scale')
         plt.show()
         """
+
 
 
         
