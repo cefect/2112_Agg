@@ -138,8 +138,8 @@ def run_grid_plots(xr_dir,finv_fp, **kwargs):
         gdf_raw.plot()
         """
         assert len(gdf_raw)>0
-        gdf_c = gdf_raw.centroids()
-        raise IOError('stopped here')
+        gdf_c = gdf_raw.centroid
+ 
         #=======================================================================
         # plots
         #=======================================================================

@@ -25,7 +25,7 @@ from agg2.haz.scripts import UpsampleSessionXR
 
 
 class Plot_diff_grids(object):
-    def plot_diff_grids(self,xar,
+    def plot_diff_grids(self,xar,gdf,
                        output_format=None,
                        output_fig_kwargs=dict(),
                          **kwargs):
@@ -43,6 +43,17 @@ class Plot_diff_grids(object):
         ofp = os.path.join(out_dir, f'3xRscProg_4x4.{output_format}')
         
         output_fig_kwargs['fmt'] = output_format
+        
+        #=======================================================================
+        # setup figure
+        #=======================================================================
+        raise IOError('stopped here')
+        ax_ar = fig.subplots(ncols=len(keys_all_d['col']), sharex=True, sharey=True)
+        
+        ax_d = {k:ax_ar[i] for i,k in enumerate(keys_all_d['col'])}
+        
+        
+        
 
 class PlotWrkr_3xRscProg(object):
     """resample case progression"""
