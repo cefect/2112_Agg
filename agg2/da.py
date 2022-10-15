@@ -226,7 +226,7 @@ class PlotWrkr_3xRscProg(object):
         
         #subdivide into 3 rows
         gs = fig_master.add_gridspec(3, 1, wspace=0, hspace=0, 
-                                     height_ratios=(0.26, 0.37, 0.37),
+                                     #height_ratios=(0.26, 0.37, 0.37),
                                      )
         
  
@@ -281,7 +281,7 @@ class PlotWrkr_3xRscProg(object):
                     i+=1
         
         #top
-        fig_top.text(0.01, 0.90, 
+        fig_top.text(0.01, 0.80, 
                             #'(%s%s)'%(list(string.ascii_lowercase)[j], i), 
                             '(%s)'%list(string.ascii_lowercase)[0], #just simple letter
                             **lab_kwargs)
@@ -300,8 +300,9 @@ class PlotWrkr_3xRscProg(object):
         
         #fig_master.legend()
         fig_bot.legend( handles, labels,   ncols=1,
-                      bbox_to_anchor=(0.92, 0.3), loc='lower center',
-                      title='resample case') #place it
+                      bbox_to_anchor=(0.92, 0.2), loc='lower center',
+                      #title='resample case'
+                      ) #place it
         
  
         
@@ -309,7 +310,7 @@ class PlotWrkr_3xRscProg(object):
         return self.output_fig(fig_master, ofp=ofp, logger=log, **output_fig_kwargs)
         
     def subplot_rsc_prog(self, fig, dx1, mk_base={},  
-                         ylab_d = {'exp':'exposed domain (fraction)', 'haz':'full domain (fraction)'},
+                         ylab_d = {'exp':'exposed domain', 'haz':'full domain'},
                             **kwargs):
         """ratio progression plots"""
         
@@ -476,19 +477,14 @@ class PlotWrkr_3xRscProg(object):
                       interpolation='nearest',
                       #vmin=min(ckeys), vmax=max(ckeys)
                       )
-            #xari.plot.imshow(ax=ax)
-            #ax.clear()
-            
-        log.debug('finished add plots')
-        
-        #=======================================================================
-        # post format
-        #=======================================================================
-        for col_key, ax in ax_d.items():
-            anno_obj = ax.text(0.95, 0.95, '$\lambda_{s2}=$%i'%col_key, 
-                               transform=ax.transAxes, va='top',ha='right',fontsize=8,
-                               bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.7 )
-                               )
+ 
+            #===================================================================
+            # anno_obj = ax.text(0.95, 0.95, '$\lambda_{s2}=$%i'%col_key, 
+            #                    transform=ax.transAxes, va='top',ha='right',fontsize=8,
+            #                    bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.7 )
+            #                    )
+            #===================================================================
+            ax.set_title('$\lambda_{s2}=$%i'%col_key + 'm')
             
             #turn off the axis and labels
             #ax.cla()

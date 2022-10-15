@@ -141,7 +141,7 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         """asset exposed count"""
         #data prep 
         dx1 = dx.loc[:, idx[:, 's2', 'direct', 'catMosaic', :, 'count']].droplevel((1, 2, 3, 5), axis=1
-                               ).drop(1).fillna(0.0).astype(int)
+                               ).drop(1).fillna(0.0).astype(int).loc[:, idx[('haz', 'exp'), :]] 
                                
         
         xar = xds['catMosaic'].squeeze(drop=True).transpose(ses.idxn, ...)[1:] #drop the first
@@ -155,7 +155,7 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
 
 if __name__ == "__main__":
     SJ_da_run(run_name='r11', output_format=output_format)
-    #SJ_combine_plots_0919()
+ 
     
     print('finished')
         

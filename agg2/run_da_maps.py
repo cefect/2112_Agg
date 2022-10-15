@@ -77,7 +77,7 @@ logging.basicConfig(
 
 def SJ_run(
         run_name='r11',
-        method='filter',
+        method='direct',
         dsName='diffXR',
         case_name='SJ',
         bbox=sgeo.box(2491392.0, 7437314.0, 
