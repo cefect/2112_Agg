@@ -27,8 +27,8 @@ from hp.basic import get_dict_str, today_str
 #===============================================================================
 cm = 1/2.54
 
-output_format='svg'
-usetex=False
+output_format='pdf'
+usetex=True
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
     
@@ -80,6 +80,9 @@ def SJ_run(
         method='filter',
         dsName='diffXR',
         case_name='SJ',
+        bbox=sgeo.box(2491392.0, 7437314.0, 
+                      2491392.0+2**9, 7437314.0+2**9),
+ 
         **kwargs):    
         
         
@@ -89,7 +92,9 @@ def SJ_run(
     
     return run_grid_plots(res_fp_lib[run_name][method][dsName],
                            proj_d['finv_fp'],
-                          case_name=case_name, run_name=run_name,crs=crs,
+                          case_name=case_name, run_name=f'{run_name}',
+                          scen_name=f'{method}_{dsName}',
+                          crs=crs,bbox=bbox,
                            **kwargs)
 
 
@@ -107,7 +112,7 @@ def run_grid_plots(xr_dir,finv_fp, **kwargs):
     #===========================================================================
     # execute
     #===========================================================================
-    with Session(out_dir=out_dir, logger=logging.getLogger('r'),**kwargs) as ses:
+    with Session(out_dir=out_dir, logger=logging.getLogger('r'),output_format=output_format,**kwargs) as ses:
         """for haz, working with aggregated zonal stats.
             these are computed on:
                 aggregated (s2) data with UpsampleSession.run_stats()
@@ -118,6 +123,7 @@ def run_grid_plots(xr_dir,finv_fp, **kwargs):
         """
         idxn = ses.idxn
         log = ses.logger
+        bbox = ses.bbox
  
         #log.info(ses.out_dir)
         #=======================================================================
@@ -130,9 +136,18 @@ def run_grid_plots(xr_dir,finv_fp, **kwargs):
         ds = ses.get_ds_merge(xr_dir)        
         xar = ds['wd'].squeeze(drop=True).transpose(ses.idxn, ...)[1:] #drop the first
         
+        #clip
+        if not bbox is None:
+            """this will fail on dev"""
+            xar1 = xar.rio.clip_box(*bbox.bounds)
+        else:
+            xar1 = xar
         
+ 
         
-        gdf_raw = gpd.read_file(finv_fp, bbox=sgeo.box(*xar.rio.bounds())).rename_axis('fid')
+        gdf_raw = gpd.read_file(finv_fp, bbox=sgeo.box(*xar1.rio.bounds())).rename_axis('fid')
+        
+
         
         """
         gdf_raw.plot()
@@ -143,7 +158,7 @@ def run_grid_plots(xr_dir,finv_fp, **kwargs):
         #=======================================================================
         # plots
         #=======================================================================
-        ses.plot_diff_grids(xar, gdf_c)
+        ses.plot_maps(xar1, gdf_c)
         
         #ds['wd'].squeeze(drop=True).plot.imshow(col='scale')
         
@@ -157,4 +172,5 @@ def run_grid_plots(xr_dir,finv_fp, **kwargs):
         
 if __name__ == "__main__":
     
-    SJ_run(run_name='dev')
+    SJ_run(run_name='r11')
+    print('finished')

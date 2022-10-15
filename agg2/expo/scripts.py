@@ -185,6 +185,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
     def __init__(self, 
                  method='direct',
                  scen_name=None,
+                 obj_name='expo',
                  **kwargs):
         """
         
@@ -194,7 +195,7 @@ class ExpoSession(ExpoWrkr, Agg2Session):
         """
         if scen_name is None:
             scen_name=method
-        super().__init__(obj_name='expo', scen_name=scen_name,subdir=False, **kwargs)
+        super().__init__(obj_name=obj_name, scen_name=scen_name,subdir=False, **kwargs)
         
         #=======================================================================
         # attach

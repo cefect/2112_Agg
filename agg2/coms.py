@@ -30,7 +30,7 @@ class Agg2Session(Session):
                  out_dir=None, fancy_name=None,
                  proj_name='agg2',
                  scen_name='direct', 
-                 run_name='r1',
+                 run_name='rName',
                  subdir=False,
                  wrk_dir=None,
                  
@@ -58,7 +58,7 @@ class Agg2Session(Session):
             fancy_name = '_'.join([case_name,run_name, scen_name, datetime.datetime.now().strftime('%m%d')])
         
         super().__init__( wrk_dir=wrk_dir, proj_name=proj_name,
-                         out_dir=out_dir, fancy_name=fancy_name,subdir=subdir,
+                         out_dir=out_dir, fancy_name=fancy_name,subdir=subdir,run_name=run_name,
                          **kwargs)
         
         self.scen_name=scen_name
@@ -130,11 +130,12 @@ class Agg2DAComs(Plotr):
     #order of column index names
     names_l = ['base', 'method', 'layer', 'dsc', 'metric']
     
-    def __init__(self,  **kwargs):
- 
- 
- 
-        super().__init__(  **kwargs)
+    def __init__(self,
+                 output_format = 'svg', 
+                   **kwargs): 
+        
+        self.output_format=output_format
+        super().__init__(logfile_duplicate=False,  **kwargs)
         
     def log_dxcol(self, *args):
         return log_dxcol(self.logger, *args)

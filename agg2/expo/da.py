@@ -31,10 +31,10 @@ def now():
     return datetime.datetime.now()
 
 
-class ExpoDASession(ExpoSession, Agg2DAComs):
+class ExpoDASession(Agg2DAComs, ExpoSession):
  
     def __init__(self,scen_name='expo_da',  **kwargs): 
-        super().__init__(scen_name=scen_name, logfile_duplicate=False,**kwargs)
+        super().__init__(scen_name=scen_name, **kwargs)
  
     
     def join_layer_samps(self,fp_lib,

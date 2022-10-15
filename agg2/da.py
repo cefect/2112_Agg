@@ -19,15 +19,19 @@ idx = pd.IndexSlice
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib import gridspec
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 cm = 1/2.54
 
 from agg2.haz.scripts import UpsampleSessionXR
 
 
 class Plot_diff_grids(object):
-    def plot_diff_grids(self,xar,gdf,
+    def plot_maps(self,xar,gdf,
+                        
                        output_format=None,
-                       output_fig_kwargs=dict(),
+                       output_fig_kwargs=dict(add_stamp=False, ),
+                       matrix_kwargs=dict(figsize=(17*cm, 5.5*cm), set_ax_title=False, add_subfigLabel=False, fig_id=0, constrained_layout=True),
+                       scale_SizeBar = 100,
                          **kwargs):
         """
         Figure 7.Example snapshot of 500m region at five resolutions aggregated with the "Averaging WSE" routine showing
@@ -38,21 +42,156 @@ class Plot_diff_grids(object):
         # defaults
         #=======================================================================
         if output_format is None: output_format=self.output_format
-        log, tmp_dir, out_dir, _, _, write = self._func_setup('3x_rsc',  subdir=False,ext=f'.{output_format}', **kwargs)
+        log, tmp_dir, out_dir, _, _, write = self._func_setup('maps',  subdir=False,ext=f'.{output_format}', **kwargs)
+        idxn = self.idxn
         
-        ofp = os.path.join(out_dir, f'3xRscProg_4x4.{output_format}')
+ 
+        ofp = os.path.join(out_dir, f'maps_{self.fancy_name}.{output_format}')
         
         output_fig_kwargs['fmt'] = output_format
         
+        map_d={'row':'row', 'col':idxn}
+        keys_all_d = {'row':[map_d['row']], 'col':xar[map_d['col']].values.tolist()}
+        
+        #=======================================================================
+        # precheck
+        #=======================================================================
+        #check crs
+        assert gdf.crs == self.crs
+        assert xar.rio.crs == self.crs
         #=======================================================================
         # setup figure
         #=======================================================================
-        raise IOError('stopped here')
-        ax_ar = fig.subplots(ncols=len(keys_all_d['col']), sharex=True, sharey=True)
         
-        ax_d = {k:ax_ar[i] for i,k in enumerate(keys_all_d['col'])}
+        fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'], 
+                                    sharey='all',sharex='all',  
+                                    logger=log, **matrix_kwargs)
+ 
+ 
+
         
+        #=======================================================================
+        # #raster color
+        #=======================================================================
+        cmap = plt.cm.get_cmap(name='bwr')
+        norm = matplotlib.colors.Normalize(vmin=-2, vmax=2, clip=False)
         
+ 
+        #=======================================================================
+        # loop and plot
+        #=======================================================================
+        for i, (col_key, xari) in enumerate(xar.groupby(map_d['col'])):            
+            ax = ax_d[map_d['row']][col_key]
+            
+            log.info(f'{col_key} on {xari.shape}')
+            
+            #===================================================================
+            # #plot raster
+            #===================================================================
+            #plot using map coordinates
+            axImg = xari.plot.imshow(ax=ax, 
+                             cmap=cmap,norm=norm,
+                             #aspect='equal', 
+                             zorder=1,
+                             add_colorbar=False, add_labels=False)
+            #===================================================================
+            # axImg = ax.imshow(xari.values, aspect='equal', 
+            #           cmap=cmap, 
+            #           norm=norm,
+            #           interpolation='nearest',
+            #           #vmin=-2, vmax=2
+            #           zorder=1
+            #           )
+            #===================================================================
+            
+            #===================================================================
+            # plot assets
+            #===================================================================
+            gdf.plot(ax=ax, color='black', markersize=7, zorder=2, alpha=0.8,
+                     aspect=None, label='buildings')
+            
+            #===================================================================
+            # #post
+            #===================================================================
+            ax.set(adjustable='box', aspect='equal')
+            ax.axis('off')  # turn off the spines and tick marks
+            
+            # add text
+            #===================================================================
+            # text_kwargs = dict(transform=ax.transAxes, va='bottom', size=matplotlib.rcParams['axes.titlesize'],
+            #                    bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0, alpha=0.7))
+            # 
+            # #anno_obj = ax.text(0.05, 0.95, '(%s)' % list(string.ascii_lowercase)[i], ha='left', **text_kwargs)
+            # #anno_obj = ax.text(0.5, 1.0, '$\lambda_{s2}=$%i' % col_key+'m', ha='center', **text_kwargs)
+            #===================================================================
+        
+        #=======================================================================
+        # add titles
+        #=======================================================================
+        for col_key, ax in ax_d[map_d['row']].items():
+            ax.set_title('$\lambda_{s2}=$%i' % col_key+'m', loc='center', y=1.0)
+            
+
+            
+        log.info(f'finished')
+        
+        #=======================================================================
+        # colorbar
+        #=======================================================================
+        # add a colorbar based on values in last imshow
+        cbar = fig.colorbar(axImg,
+                     ax=list(ax_d[map_d['row']].values()),  # steal space from here
+                     extend='both', #pointed ends
+                     format = matplotlib.ticker.FuncFormatter(lambda x, p:'%.1f' % x),
+                     #label='$WSE_{s2}-WSE_{s1}$',
+                     orientation='horizontal',
+                     shrink=0.25,
+                     )
+        
+        #=======================================================================
+        # size bar
+        #=======================================================================          
+        #=======================================================================
+        # # add a map distance scale bar
+        # asb = AnchoredSizeBar(ax.transData,
+        #                   scale_SizeBar,
+        #                   f'{scale_SizeBar}m',
+        #                   loc='center right',
+        #                   pad=0.1, borderpad=0.5, sep=5,
+        #                   frameon=True, #turn the background PaddedBox on 
+        #                   fontproperties = matplotlib.font_manager.FontProperties(size=matplotlib.rcParams['axes.titlesize']),
+        #                   #**dict(boxstyle="round,pad=0.3", fc="white", lw=0.0, alpha=0.7)
+        #                   )
+        # 
+        # #set some custom values to the PaddedBox 
+        # asb.patch.set(**dict(boxstyle="round,pad=0.3", fc="white", lw=0.0, alpha=0.7))
+        # #asb.patch.set_facecolor('g')
+        # 
+        # ax.add_artist(asb)
+        #=======================================================================
+        
+        #=======================================================================
+        # legend
+        #=======================================================================
+        
+        #=======================================================================
+        # #bots, tops, lefts, rights = axi_d[3][3].get_gridspec().get_grid_positions(fig_r)
+        # handles, labels = ax.get_legend_handles_labels() #get legned info 
+        # assert len(labels) == 1
+        # 
+        # 
+        # #add legend to lower center of last axis
+        # ax.legend( handles, labels,   ncols=1,
+        #            bbox_transform =ax.transAxes,
+        #               bbox_to_anchor=(0.5, 0.0), loc='lower center',
+        #               #title='resample case',
+        #               ) #place it
+        #=======================================================================
+        
+        return self.output_fig(fig, ofp=ofp, logger=log, **output_fig_kwargs)
+        """
+        fig.show()
+        """
         
 
 class PlotWrkr_3xRscProg(object):
@@ -877,9 +1016,9 @@ class PlotWrkr_4x4_subfigs(object):
         
 class CombinedDASession(PlotWrkr_4x4_subfigs,PlotWrkr_4x4_matrix, PlotWrkr_3xRscProg, Plot_diff_grids, ExpoDASession):
     
-    def __init__(self,scen_name='daC',output_format = 'svg',  **kwargs): 
+    def __init__(self,scen_name='daC', **kwargs): 
         super().__init__(scen_name=scen_name,**kwargs)
-        self.output_format=output_format
+        
         
     def build_combined(self,
                        fp_lib,
