@@ -55,14 +55,14 @@ class UpsampleChild(ResampClassifier, AggBase):
     I thought it cleaner, and more generalizeable, to keep this on a separate worker"""
     
     def __init__(self, 
-                 
+ 
                  subdir=True,
                  **kwargs):
  
         #=======================================================================
         # build defaults
         #=======================================================================
- 
+        
         super().__init__(subdir=subdir,**kwargs)
         
 
@@ -223,28 +223,30 @@ class UpsampleChild(ResampClassifier, AggBase):
         #=======================================================================
         return res_d
     
-class RasterArrayStats(AggBase):
+class RasterArrayStats(object):
 
  
-    def __init__(self,
-                 engine='np', 
-                 **kwargs):
-        """methods for ocmputing raster stats on arrays
-        
-        Parameters
-        ----------
-        engine: str, default 'np'
-            whether to use dask or numpy
-        """
- 
-        #=======================================================================
-        # build defaults
-        #=======================================================================
-        
- 
-        super().__init__(**kwargs)
-        
-        self.engine=engine
+ #==============================================================================
+ #    def __init__(self,
+ #                 engine='np', 
+ #                 **kwargs):
+ #        """methods for ocmputing raster stats on arrays
+ #        
+ #        Parameters
+ #        ----------
+ #        engine: str, default 'np'
+ #            whether to use dask or numpy
+ #        """
+ # 
+ #        #=======================================================================
+ #        # build defaults
+ #        #=======================================================================
+ #        
+ # 
+ #        super().__init__(**kwargs)
+ #        
+ #        self.engine=engine
+ #==============================================================================
         
         
     def _build_statFuncs(self, engine=None):
@@ -422,6 +424,8 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         super().__init__(obj_name=obj_name,scen_name=scen_name, **kwargs)
         self.method=method
         self.dsc_l=dsc_l
+        
+        print('finished UpsampleSession.__init__')
         
  
         
@@ -1651,6 +1655,8 @@ class UpsampleSessionXR(UpsampleSession):
             os.makedirs(xr_dir)
                 
         self.xr_dir=xr_dir
+        
+        print('finished UpsampleSessionXR.__init__')
         
 
 
