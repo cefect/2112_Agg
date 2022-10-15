@@ -142,7 +142,7 @@ class Plot_diff_grids(object):
         cbar = fig.colorbar(axImg,
                      ax=list(ax_d[map_d['row']].values()),  # steal space from here
                      extend='both', #pointed ends
-                     format = matplotlib.ticker.FuncFormatter(lambda x, p:'%.1f' % x),
+                     format = matplotlib.ticker.FuncFormatter(lambda x, p:'%+.1f' % x),
                      #label='$WSE_{s2}-WSE_{s1}$',
                      orientation='horizontal',
                      shrink=0.25,
