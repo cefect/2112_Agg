@@ -8,7 +8,7 @@ aggregation exposure/assetse
 #===============================================================================
 # IMPORTS-------
 #===============================================================================
-from definitions import wrk_dir
+
 import numpy as np
 import pandas as pd
 idx= pd.IndexSlice
