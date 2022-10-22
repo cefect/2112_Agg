@@ -43,7 +43,7 @@ for k,v in {
     'ytick.labelsize':8,
     'figure.titlesize':12,
     'figure.autolayout':False,
-    'figure.figsize':(17*cm,4*cm),
+    'figure.figsize':(17*cm,3.5*cm),
     'legend.title_fontsize':'large',
     'text.usetex':usetex,
     }.items():
@@ -212,6 +212,9 @@ class AggExample(Agg2Session, Agg2DAComs):
                                    )
                 ax.plot(ser, **pkwargs)
                 
+            #===================================================================
+            # post
+            #===================================================================
             #add an arrow
             #ax.arrow(ser.index.values.mean(), gdx.max().max(), 0, -(gdx.max().max()-gdx.min().min()), width=0.2, color='black')
             
@@ -221,7 +224,8 @@ class AggExample(Agg2Session, Agg2DAComs):
                      head_starts_at_zero=False, length_includes_head=True)
                 
             ax.axis('off') #turn off the spines and tick marks
-            ax.set_title(title_d[gcol], loc='left')
+            ax.set_title(title_d[gcol], loc='left', y=0.8)
+            ax.text(0.05, 0.1, '$y=0$', transform=ax.transAxes, va='bottom', ha='left',fontsize=8, color='black')
             
         #===========================================================================
         # legend
