@@ -222,11 +222,15 @@ class PlotWrkr_3xRscProg(object):
         # build figure
         #=======================================================================
         #master figure
-        fig_master = plt.figure(num=0, constrained_layout=False, figsize=(17 * cm, 13 * cm))
+        fig_master = plt.figure(num=0, figsize=(17 * cm, 10 * cm),
+                                constrained_layout=False, 
+                                #tight_layout=True,
+                                )
         
         #subdivide into 3 rows
+        r1s = 0.4
         gs = fig_master.add_gridspec(3, 1, wspace=0, hspace=0, 
-                                     #height_ratios=(0.26, 0.37, 0.37),
+                                     height_ratios=(r1s, (1-r1s)/2, (1-r1s)/2),
                                      )
         
  
@@ -310,7 +314,7 @@ class PlotWrkr_3xRscProg(object):
         return self.output_fig(fig_master, ofp=ofp, logger=log, **output_fig_kwargs)
         
     def subplot_rsc_prog(self, fig, dx1, mk_base={},  
-                         ylab_d = {'exp':'exposed domain', 'haz':'full domain'},
+                         ylab_d = {'exp':'exposed', 'haz':'full'},
                             **kwargs):
         """ratio progression plots"""
         
@@ -335,6 +339,10 @@ class PlotWrkr_3xRscProg(object):
         
         assert (dxN.groupby(level=0, axis=1).sum()==1.0).all().all()
         
+        """
+        view(dxN.loc[512])
+        """
+        
         
         
         #=======================================================================
@@ -347,7 +355,7 @@ class PlotWrkr_3xRscProg(object):
         
         
         fig, ax_d = self.get_matrix_fig(keys_all_d['row'], keys_all_d['col'], 
-                                    sharey='row',sharex='all',  
+                                    sharey='all',sharex='all',  
                                     logger=log, **{**mk_base, **dict(fig=fig)})
         
         
@@ -384,12 +392,12 @@ class PlotWrkr_3xRscProg(object):
                     ax.set_xlabel('resolution (m)')
                     
                     #===========================================================
-                    # ax.set_ylim(ylim)
+                    
                     ax.set_xlim((0, 600))
                     # ax.legend(loc=3)
                     #===========================================================
                     
-                    
+                ax.set_ylim((0.4, 1.0))
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
                 #ax.spines['left'].set_visible(False)
