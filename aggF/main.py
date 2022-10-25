@@ -85,7 +85,7 @@ print('loaded matplotlib %s'%matplotlib.__version__)
 #===============================================================================
 # custom imports
 #===============================================================================
-from aggF.scripts import AggSession1F
+from aggF.scripts import AggSession1F, view
         
         
 def run_plotVfunc( 
@@ -268,8 +268,39 @@ def plot_aggF_errs(
     with AggSession1F(
         logger = logging.getLogger('r'),
         **kwargs) as ses:
+        #=======================================================================
+        # defaults
+        #=======================================================================
+        log = ses.logger.getChild('r')
         
-        rl_dxcol = pd.read_pickle(fp_d['rl_dxcol'])
+        #=======================================================================
+        # data explore
+        #=======================================================================
+        #=======================================================================
+        # dxcol_xvals = pd.read_pickle(fp_d['rl_xmDisc_xvals']) #raw xamples
+        # dxcol = pd.read_pickle(fp_d['rl_xmDisc_dxcol']) #raw xamples
+        #=======================================================================
+        
+        #=======================================================================
+        # load
+        #=======================================================================        
+        #xmean RL values per AggLevel
+        rl_dxcol = pd.read_pickle(fp_d['rl_dxcol'])        
+        mdex = rl_dxcol.columns        
+        vid_l = list(mdex.unique('df_id'))
+        
+        #function meta
+        vid_df = ses.build_vid_df(vid_l=vid_l,write=False, write_model_summary=True) #vfunc data
+        
+        """
+        vid_df.to_csv(os.path.join(ses.out_dir, 'vid_df.csv'))
+        view(vid_df)
+        
+        vid_df.drop_duplicates('model_id').to_csv(os.path.join(ses.out_dir, 'vid_df_models.csv'))
+        """
+        
+        log.info('loaded %i models from %i libraries'%(len(vid_l), len(vid_df['model_id'].unique())))
+        
         #=======================================================================
         # #compute secondaries
         #=======================================================================
@@ -288,7 +319,7 @@ def plot_aggF_errs(
         # write stats
         #=======================================================================
         # calc some stats and write to xls
-        vid_df = ses.build_vid_df(vid_l=list(errArea_dxcol.columns.unique('df_id')),write=False) #vfunc data
+        
         ses.run_err_stats(dxcol = errArea_dxcol, vid_df=vid_df)
         out_dir = ses.out_dir
         
@@ -352,7 +383,7 @@ def all_r0(#results presented at supervisor meeting on Jan 4th
     return run_aggErr1(
         
             #model selection
-            tag='r0',
+            run_name='r0',
             #vid_l=[811,798, 410] ,
             selection_d = { #selection criteria for models. {tabn:{coln:values}}
                           'model_id':[
@@ -388,13 +419,24 @@ def all_r0(#results presented at supervisor meeting on Jan 4th
                  
                  
             compiled_fp_d = {
-                'rl_xmDisc_dxcol':  r'C:\LS\10_OUT\2112_Agg\outs\pdist\r0\20220205\working\aggErr1_r2_0104_rl_xmDisc_dxcol.pickle',
-                'rl_xmDisc_xvals':  r'C:\LS\10_OUT\2112_Agg\outs\pdist\r0\20220205\working\aggErr1_r2_0104_rl_xmDisc_xvals.pickle',
-                'rl_dxcol':         r'C:\LS\10_OUT\2112_Agg\outs\pdist\r0\20220205\working\aggErr1_r3_0104_rl_dxcol.pickle',
-                'model_metrics':    r'C:\LS\10_OUT\2112_Agg\outs\pdist\r0\20220205\working\aggErr1_r3_0104_model_metrics.pickle'
+                'rl_xmDisc_dxcol':  r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r2_0104_rl_xmDisc_dxcol.pickle',
+                'rl_xmDisc_xvals':  r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r2_0104_rl_xmDisc_xvals.pickle',
+                'rl_dxcol':         r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r3_0104_rl_dxcol.pickle',
+                #'model_metrics':    r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r3_0104_model_metrics.pickle'
                         },
         
         )
+    
+def all_r0_plot(**kwargs):
+    return plot_aggF_errs(
+        run_name='r0',
+        fp_d = {        
+                'rl_xmDisc_dxcol':  r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r2_0104_rl_xmDisc_dxcol.pickle',
+                'rl_xmDisc_xvals':  r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r2_0104_rl_xmDisc_xvals.pickle',
+                'rl_dxcol':         r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r3_0104_rl_dxcol.pickle',
+            },
+                
+        **kwargs)
     
 def r0_noFlemo(
         
@@ -505,13 +547,19 @@ def dev_plot(**kwargs):
 
 if __name__ == "__main__": 
     
+    #output=all_r0_plot()
+    #output=all_r0()
     
     #output=r1_3mods()
-    output=r1_3mods_plot()
+    #output=r1_3mods_plot()
     
  
     #output=dev()
-    #output=dev_plot()
+    output=dev_plot()
+    
+    
+    
+ 
  
  
     

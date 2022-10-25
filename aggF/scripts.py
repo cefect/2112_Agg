@@ -43,7 +43,7 @@ class AggSession1F(Plotr, AggSession1):
     color_lib=dict() #container of loaded color librarires
     
     def __init__(self, 
-                 name='pdist',
+                 name='agg1F',
                  **kwargs):
         
 
@@ -292,6 +292,11 @@ class AggSession1F(Plotr, AggSession1):
                         ):
         """
         combine discretized xmean results onto single domain
+        
+        Parameters
+        ---------
+        dxcol: pd.DataFrame
+            aggregation erros mean-discretized for all vfuncs
         
         Returns
         ----------
@@ -1396,6 +1401,7 @@ class AggSession1F(Plotr, AggSession1):
             logger=None,
             ):
         """
+        compute the area of the difference between the baseline
         
         not setup super well... we're also calcing this in calc_rlMeans to get the nice bar charts
         """
@@ -1490,7 +1496,7 @@ class AggSession1F(Plotr, AggSession1):
             
             
             
-    def calc_rlMeans(self, #impact vs depth analysis on multiple agg levels for a single vfunc
+    def calc_rlMeans(self, #
                      dxcol, vfunc,
                      
                      quantiles = (0.05, 0.95), #rloss qantiles to plot
@@ -1514,8 +1520,11 @@ class AggSession1F(Plotr, AggSession1):
                      
                      ):
         """
+        impact vs depth analysis on multiple agg levels for a single vfunc        
+        
         called by build_rl_dxcol (dkey='rl_dxcol')
         
+        very nasty function... lots of extra stuff just to get the plot nice
         this is a combined calc and plot function
         
         TODO: separate out plotting and calcing
@@ -1524,18 +1533,17 @@ class AggSession1F(Plotr, AggSession1):
         #=======================================================================
         # defaults
         #=======================================================================
-        log = self.logger.getChild('calc_rl_v%s'%vfunc.vid)
+        log = self.logger.getChild('calc_rl_v%s' % vfunc.vid)
         vidnm = self.vidnm
         xcn, ycn = self.xcn, self.ycn
-        if colorMap is None: colorMap=self.colorMap
+        if colorMap is None: colorMap = self.colorMap
         plt = self.plt
         
-        #output dir
+        # output dir
         if out_dir is None: 
-            out_dir=os.path.join(self.out_dir, 'models',str(vfunc.model_id))
+            out_dir = os.path.join(self.out_dir, 'models', str(vfunc.model_id))
         
         if not os.path.exists(out_dir): os.makedirs(out_dir)
-        
  
         #=======================================================================
         # check mdex
@@ -1543,8 +1551,6 @@ class AggSession1F(Plotr, AggSession1):
         mdex = dxcol.columns
         assert np.array_equal(np.array(mdex.names), np.array(['xmean', 'xvar', 'aggLevel', 'vars']))
         names_d = {lvlName:i for i, lvlName in enumerate(mdex.names)}
-
-
         
         #=======================================================================
         # #retrieve domain info
@@ -1553,24 +1559,20 @@ class AggSession1F(Plotr, AggSession1):
         for lvlName, lvl in names_d.items():
             lVals_d[lvlName] = np.array(dxcol.columns.get_level_values(lvl).unique())
  
-        log.debug('for ' + ', '.join(['%i %sz'%(len(v), k) for k,v in lVals_d.items()]))
+        log.debug('for ' + ', '.join(['%i %sz' % (len(v), k) for k, v in lVals_d.items()]))
         #===================================================================
         # setup figure
         #===================================================================
         
-        
-        #get color map for aggLevels
+        # get color map for aggLevels
         cmap = plt.cm.get_cmap(name=colorMap)
         l = lVals_d['aggLevel']        
-        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(l, np.linspace(0, 1, len(l)))).items()}
-        
-        
+        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(l, np.linspace(0, 1, len(l)))).items()}
 
         plt.close('all')
-        fig, ax_d = self.get_matrix_fig(list(ylims_d.keys()), lVals_d['xvar'].tolist(), 
-                                        figsize=(len(lVals_d['xvar'])*4,3*4),
+        fig, ax_d = self.get_matrix_fig(list(ylims_d.keys()), lVals_d['xvar'].tolist(),
+                                        figsize=(len(lVals_d['xvar']) * 4, 3 * 4),
                                         constrained_layout=True)
-        
  
         if title is None:
             title = vfunc.name
@@ -1582,7 +1584,6 @@ class AggSession1F(Plotr, AggSession1):
         res_lib = dict()
         """splitting this by axis... so needs to be top for loop"""
         for xvar, gdf0 in dxcol.groupby(level=names_d['xvar'], axis=1):
-            
             
             """
             view(gdf0.droplevel(names_d['xvar'], axis=1))
@@ -1603,13 +1604,12 @@ class AggSession1F(Plotr, AggSession1):
                 #===============================================================
                 # setup data
                 #===============================================================
-                #get a clean frame for this aggLevel
+                # get a clean frame for this aggLevel
                 rdXmean_dxcol = gdf1.droplevel(level=[names_d['aggLevel'], names_d['xvar']], axis=1
                                            ).dropna(how='all', axis=0)
                 
-                #drop waterDepth info
-                rXmean_df = rdXmean_dxcol.loc[:,idx[:,ycn]].droplevel(1, axis=1)
- 
+                # drop waterDepth info
+                rXmean_df = rdXmean_dxcol.loc[:, idx[:, ycn]].droplevel(1, axis=1)
                 
                 """
                 vfunc.ddf
@@ -1623,16 +1623,16 @@ class AggSession1F(Plotr, AggSession1):
                 # mean impacts per depth 
                 #===============================================================
                 
-                #calc
+                # calc
                 rser1 = rXmean_df.mean(axis=0)
                 res_d[aggLevel] = rser1.copy()
                 res_lib[xvar] = pd.concat(res_d, axis=1)
                 if not plot: continue
                 
-                #plot
+                # plot
                 ax = ax_d['dd'][xvar]
-                pkwargs = dict( color=color, linewidth=0.5, marker='x', markersize=3, alpha=0.8) #using below also
-                ax.plot(rser1,label='aggLevel=%i (rl_mean)'%aggLevel, **pkwargs)
+                pkwargs = dict(color=color, linewidth=0.5, marker='x', markersize=3, alpha=0.8)  # using below also
+                ax.plot(rser1, label='aggLevel=%i (rl_mean)' % aggLevel, **pkwargs)
                 
                 #===============================================================
                 # #quartiles
@@ -1640,26 +1640,25 @@ class AggSession1F(Plotr, AggSession1):
                     
                 if not quantiles is None:
                     ax.fill_between(
-                        rser1.index, #xvalues
-                         rXmean_df.quantile(q=quantiles[1], axis=0).values, #top of hatch
-                         rXmean_df.quantile(q=quantiles[0], axis=0).values, #bottom of hatch
+                        rser1.index,  # xvalues
+                         rXmean_df.quantile(q=quantiles[1], axis=0).values,  # top of hatch
+                         rXmean_df.quantile(q=quantiles[0], axis=0).values,  # bottom of hatch
                          color=color, alpha=0.1, hatch=None)
                     
-                #wrap impacts-depth
+                # wrap impacts-depth
                 ax.legend()
                 
                 #===============================================================
                 # special scatter
                 #===============================================================
-                if aggLevel==0 and not plot_xmean_scatter is None:
-                    #get this xmean
+                if aggLevel == 0 and not plot_xmean_scatter is None:
+                    # get this xmean
                     xmean = rXmean_df.columns[plot_xmean_scatter]
                     
-                    dd_df = rdXmean_dxcol.loc[:, idx[xmean, :]].droplevel(0, axis=1).sample(50)
+                    dd_df = rdXmean_dxcol.loc[:, idx[xmean,:]].droplevel(0, axis=1).sample(50)
                     
-                    ax.scatter(x=dd_df[xcn], y=dd_df[ycn], color=color, s=20, marker='$%.1f$'%xmean, alpha=0.1,
-                               label='raws xmean=%.2f'%xmean)
-                    
+                    ax.scatter(x=dd_df[xcn], y=dd_df[ycn], color=color, s=20, marker='$%.1f$' % xmean, alpha=0.1,
+                               label='raws xmean=%.2f' % xmean)
                 
                 #===============================================================
                 # deltas----------
@@ -1667,23 +1666,23 @@ class AggSession1F(Plotr, AggSession1):
                 #===============================================================
                 # get data
                 #===============================================================
-                #retrieve array
+                # retrieve array
                 yar = rser1.values
                 
-                #get base
-                if aggLevel==0:
+                # get base
+                if aggLevel == 0:
                     xar = rser1.index.values
                     yar_base = yar
                     continue
                 
-                #get deltas
+                # get deltas
                 diff_ar = yar - yar_base
                 
                 #===============================================================
                 # plot
                 #===============================================================
                 ax = ax_d['delta'][xvar]
-                ax.plot(xar, diff_ar, label='aggLevel=%i (rl_mean - true)'%aggLevel, **pkwargs)
+                ax.plot(xar, diff_ar, label='aggLevel=%i (rl_mean - true)' % aggLevel, **pkwargs)
                 #===============================================================
                 # areas----
                 #===============================================================
@@ -1691,38 +1690,38 @@ class AggSession1F(Plotr, AggSession1):
                 """negatives often balance positives
                 fig.show()
                 """
-                #integrate
+                # integrate
                 area_d['total'] = scipy.integrate.trapezoid(diff_ar, xar)
                 
                 #===============================================================
                 # positives areas
                 #===============================================================
-                #clear out negatives
+                # clear out negatives
                 diff1_ar = diff_ar.copy()
-                diff1_ar[diff_ar<=0] = 0
+                diff1_ar[diff_ar <= 0] = 0
                 
                 area_d['positives'] = scipy.integrate.trapezoid(diff1_ar, xar)
                 
                 #===============================================================
                 # negative  areas
                 #===============================================================
-                #clear out negatives
+                # clear out negatives
                 diff2_ar = diff_ar.copy()
-                diff2_ar[diff_ar>=0] = 0
+                diff2_ar[diff_ar >= 0] = 0
                 
                 area_d['negatives'] = scipy.integrate.trapezoid(diff2_ar, xar)
                 
-                #ax.legend()
+                # ax.legend()
                 
                 #===============================================================
                 # wrap agg level
                 #===============================================================
                 area_lib[aggLevel] = area_d
                 
-                log.debug('finished aggLevel=%i'%aggLevel)
+                log.debug('finished aggLevel=%i' % aggLevel)
             
             if plot:
-                ax.legend() #turn on the diff legend
+                ax.legend()  # turn on the diff legend
                 #===================================================================
                 # add area bar charts
                 #===================================================================
@@ -1730,28 +1729,25 @@ class AggSession1F(Plotr, AggSession1):
                 ax = ax_d['bars'][xvar]
                 
                 adf = pd.DataFrame.from_dict(area_lib).round(prec)
-                adf.columns = ['aL=%i'%k for k in adf.columns]
+                adf.columns = ['aL=%i' % k for k in adf.columns]
                 assert adf.notna().all().all()
                 
-                locs = np.linspace(.1,.9,len(adf.columns))
+                locs = np.linspace(.1, .9, len(adf.columns))
                 for i, (label, row) in enumerate(adf.iterrows()):
-                    ax.bar(locs+i*0.1, row.values, label=label, width=0.1, alpha=0.5,
+                    ax.bar(locs + i * 0.1, row.values, label=label, width=0.1, alpha=0.5,
                            color=self.bar_colors_d[label],
                            tick_label=row.index)
-                    
                 
-                
-                #first row
+                # first row
                 if xvar == min(lVals_d['xvar']):
                     ax.set_ylabel('area under rl difference curve')
                     ax.legend()
-            
  
             #===================================================================
             # #wrap xvar
             #===================================================================
             
-            log.debug('finished xvar=%.2f'%xvar)
+            log.debug('finished xvar=%.2f' % xvar)
             
         #=======================================================================
         # post plot --------
@@ -1760,77 +1756,64 @@ class AggSession1F(Plotr, AggSession1):
             #===================================================================
             # draw the vfunc  and setup the axis
             #===================================================================
-     
                 
             lineKwargs = {'color':'black', 'linewidth':1.0, 'linestyle':'dashed'}
      
             #=======================================================================
             # #depth-damage
             #=======================================================================
-            first=True
+            first = True
             for xvar, ax in ax_d['dd'].items():
             
-                vfunc.plot(ax=ax, label=vfunc.name, lineKwargs={**{'marker':'o', 'markersize':3, 'fillstyle':'none'},**lineKwargs})
-                ax.set_title('xvar = %.2f'%xvar)
+                vfunc.plot(ax=ax, label=vfunc.name, lineKwargs={**{'marker':'o', 'markersize':3, 'fillstyle':'none'}, **lineKwargs})
+                ax.set_title('xvar = %.2f' % xvar)
                 ax.set_xlabel(xcn)
                 ax.grid()
                 
                 if first:
                     ax.set_ylabel(ycn)
-                    first=False
-                
+                    first = False
     
             #=======================================================================
             # #delta
             #=======================================================================
             
-            first=True
+            first = True
             for xvar, ax in ax_d['delta'].items():
                 ax.set_xlabel(xcn)
                 ax.grid()
                 
                 ax.hlines(0, -5, 5, label='true', **lineKwargs)
-     
                 
                 if first:
-                    ax.set_ylabel('%s (mean - true)'%ycn)
-                    first=False
-     
+                    ax.set_ylabel('%s (mean - true)' % ycn)
+                    first = False
                             
-                #ax.legend() #need to turn on at the end
+                # ax.legend() #need to turn on at the end
                 
-            #set limits
+            # set limits
             for rowName in ax_d.keys():
                 for colName, ax in ax_d[rowName].items():
                     
-                    #xlims
+                    # xlims
                     if not rowName == 'bars' and not xlims is None:
                         ax.set_xlim(xlims)
                         
-                    #ylims
+                    # ylims
                     if not ylims_d[rowName] is None:
-                        ax.set_ylim( ylims_d[rowName])
+                        ax.set_ylim(ylims_d[rowName])
                         
-            self.output_fig(fig, fname='rlMeans_%s_%s'%(vfunc.vid, self.fancy_name), out_dir=out_dir,
+            self.output_fig(fig, fname='rlMeans_%s_%s' % (vfunc.vid, self.fancy_name), out_dir=out_dir,
                             transparent=False, overwrite=True)
-                
- 
-                
-                
          
         #=======================================================================
         # write data
         #=======================================================================
-        newNames_l = [{v:k for k,v in names_d.items()}[lvl] for lvl in [1,2]]  #retrieve labes from original dxcol
-        
+        newNames_l = [{v:k for k, v in names_d.items()}[lvl] for lvl in [1, 2]]  # retrieve labes from original dxcol
         
         res_dxcol = pd.concat(res_lib, axis=1, names=newNames_l)
- 
         
         return res_dxcol
-                
- 
-
 
     def calc_agg_imp(self, vfunc, 
                         
@@ -1851,6 +1834,8 @@ class AggSession1F(Plotr, AggSession1):
                         logger=None,
  
                         ):
+        """generate synthetic depths of different variance then compute aggregated rloss 
+        """
         
         #=======================================================================
         # defaults
@@ -1891,11 +1876,8 @@ class AggSession1F(Plotr, AggSession1):
                 #get aggregated depths
                 depMean_ar = np.array([a.mean() for a in np.array_split(depths_ar, math.ceil(len(depths_ar) / aggLevel))])
                 
-                #get these losses
+                # get these losses
                 res_d[aggLevel] = self.get_rloss(vfunc, depMean_ar, ax=None)
-            
- 
- 
             
             #===================================================================
             # wrap
@@ -1905,10 +1887,6 @@ class AggSession1F(Plotr, AggSession1):
         #=======================================================================
         # wrap
         #=======================================================================
- 
-        
-        
-        
         
         return pd.concat(res_lib, axis=1), pd.concat(xvals_lib, axis=1)
     
@@ -2082,7 +2060,7 @@ class AggSession1F(Plotr, AggSession1):
         
         return fig
 
-    def get_rl_xmDisc(self,  # calculate rloss at different levels of aggregation
+    def get_rl_xmDisc(self,  # 
                           vfunc,
  
                           # xvalues to iterate (xmean)
@@ -2093,6 +2071,9 @@ class AggSession1F(Plotr, AggSession1):
  
                         logger=None,
                           **kwargs):
+        """
+        calculate rloss at each xmean
+        """
 
         #=======================================================================
         # defaults

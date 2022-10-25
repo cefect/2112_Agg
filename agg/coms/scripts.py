@@ -67,7 +67,7 @@ class AggSession1(BaseSession):
             }}
         
         super().__init__(
-                        wrk_dir = os.path.join(wrk_dir, 'agg1'),
+                        wrk_dir = wrk_dir,
                          data_retrieve_hndls=data_retrieve_hndls,prec=prec,
                          #init_plt_d=None, #dont initilize the plot child
                          **kwargs)
@@ -246,23 +246,23 @@ class AggSession1(BaseSession):
             l = set(res_df.index).difference(df_d[tabName][vidnm])
             
             if len(l)>0:
-                raise AssertionError('requesting %i/%i %s w/o requisite tables\n    %s'%(
-                    len(l), len(res_df), l))
+                raise AssertionError('requesting %i/%i %s w/o requisite tables\n    %s'%(len(l), len(res_df), l))
             
         #=======================================================================
         # get a model summary sheet
         #=======================================================================
         if write_model_summary:
             coln = 'model_id'
-            mdf = df1.drop_duplicates(coln).set_index(coln)
+            mdf = res_df.drop_duplicates(coln).set_index(coln)
             
             
-            mdf1 = mdf.join(df1[coln].value_counts().rename('vid_cnt')).dropna(how='all', axis=0)
+            mdf1 = mdf.join(res_df[coln].value_counts().rename('vid_cnt')).dropna(how='all', axis=0) 
+   
             
-            out_fp = os.path.join(self.out_dir, '%smodel_summary.csv'%self.resname)
+            out_fp = os.path.join(self.out_dir, '%smodel_summary.csv'%self.fancy_name)
             mdf1.to_csv(out_fp, index=True)
             
-            log.info('wrote model summary to file: %s'%out_fp)
+            log.info('wrote model summary to file: \n    %s'%out_fp)
             
  
         log.info('finished on %s \n    %s'%(str(res_df.shape), res_df['abbreviation'].value_counts().to_dict()))
@@ -350,6 +350,7 @@ class AggSession1(BaseSession):
             return df1.loc[:, ~bxcol]
         
  
+        d2 = dict()
         vf_d = dict()
         log.info('spawning %i dfunvs'%len(vid_df))
         for i, (vid, row) in enumerate(vid_df.iterrows()):
@@ -380,6 +381,8 @@ class AggSession1(BaseSession):
                 meta_d = row.dropna().to_dict(), 
                 ).set_ddf(ddf)
                 
+            d2[vid] = ddf
+                
             #===================================================================
             # check
             #===================================================================
@@ -387,6 +390,17 @@ class AggSession1(BaseSession):
                 assert getattr(self, attn) == getattr(vf_d[vid], attn), attn
             
                 
+        #=======================================================================
+        # warp
+        #=======================================================================
+        ddf_all = pd.concat(d2, names=['df_id', 'index'])
+        d = dict()
+        for coln, col in ddf_all.items():
+            d[coln] = {'max':col.max(), 'min':col.min(), 'cnt':len(col)}
+            
+        
+        log.info('constructed with \n%s'%pd.DataFrame.from_dict(d))
+        
         log.info('spawned %i vfuncs'%len(vf_d))
         
         #self.vf_d = vf_d
