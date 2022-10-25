@@ -279,10 +279,10 @@ def plot_aggF_errs(
         # plot
         #=======================================================================
         # set of box plots for area errors, on different groups
-        #ses.plot_eA_box(dxcol=errArea_dxcol, grp_colns=['model_id', 'sector_attribute'])
+        ses.plot_eA_box(dxcol=errArea_dxcol, grp_colns=['model_id', 'sector_attribute'])
         
         # per-model bar plots of error area at different aggLevels and xvars
-        #ses.plot_eA_bars()
+        ses.plot_eA_bars()
         
         #=======================================================================
         # write stats
@@ -332,6 +332,15 @@ def r1_3mods(#just those used in p2
                         },
         
         )
+    
+def r1_3mods_plot():
+    return plot_aggF_errs(
+        run_name='r1_3mods',
+        fp_d = {
+                'rl_xmDisc_dxcol':r'C:\LS\10_IO\2112_Agg\agg1\outs\pdist\r1_3mods\20221025\pdist_r1_3mods_1025_rl_xmDisc_dxcol.pickle',
+                'rl_xmDisc_xvals':r'C:\LS\10_IO\2112_Agg\agg1\outs\pdist\r1_3mods\20221025\pdist_r1_3mods_1025_rl_xmDisc_xvals.pickle',
+                'rl_dxcol':r'C:\LS\10_IO\2112_Agg\agg1\outs\pdist\r1_3mods\20221025\pdist_r1_3mods_1025_rl_dxcol.pickle',
+            })
     
 def all_r0(#results presented at supervisor meeting on Jan 4th
            #focused on vid 027, 811, and 798
@@ -496,11 +505,13 @@ def dev_plot(**kwargs):
 
 if __name__ == "__main__": 
     
+    
     #output=r1_3mods()
+    output=r1_3mods_plot()
     
  
     #output=dev()
-    output=dev_plot()
+    #output=dev_plot()
  
  
     
