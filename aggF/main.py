@@ -26,10 +26,10 @@ TODO: migrate to new oop
 import os, datetime, math, pickle, copy
 import pandas as pd
 import numpy as np
-import qgis.core
+ 
 
 import scipy.stats 
-import scipy.integrate
+ 
 print('loaded scipy: %s'%scipy.__version__)
 
 start = datetime.datetime.now()
@@ -46,7 +46,7 @@ idx = pd.IndexSlice
 #===============================================================================
  
 import matplotlib
-matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
+ 
 matplotlib.set_loglevel("info") #reduce logging level
 import matplotlib.pyplot as plt
 
@@ -75,7 +75,7 @@ print('loaded matplotlib %s'%matplotlib.__version__)
 #===============================================================================
 # custom imports
 #===============================================================================
-from scripts import Session
+from aggF.scripts import AggSession1F
         
         
 def run_plotVfunc( 
@@ -213,12 +213,10 @@ def run_aggErr1(#agg error per function
         
         **kwargs):
  
-    
- 
-    with Session(overwrite=overwrite,  
-                 bk_lib = {
+    with AggSession1F(overwrite=overwrite,
+                 bk_lib={
                      'vid_df':dict(
-                            selection_d=selection_d,vid_l = vid_l,vid_sample=vid_sample,max_mod_cnt=max_mod_cnt,
+                            selection_d=selection_d, vid_l=vid_l, vid_sample=vid_sample, max_mod_cnt=max_mod_cnt,
                                     ),
                      'rl_xmDisc_dxcol':rl_xmDisc_dxcol_d,
                      'rl_dxcol':dict(plot=plot_rlMeans),
@@ -227,36 +225,27 @@ def run_aggErr1(#agg error per function
                  **kwargs) as ses:
         ses.plt = plt
  
+        # plot discretization figures (very slow)
+        # ses.plot_xmDisc()
         
-        #plot discretization figures (very slow)
-        #ses.plot_xmDisc()
-        
-        #nice plot per-func of means at different ag levels
+        # nice plot per-func of means at different ag levels
         """workaround as this is a combined calc+plotting func"""
         if plot_rlMeans:
             ses.build_rl_dxcol(plot=plot_rlMeans)
- 
         
-        #combined box plots
-        ses.plot_eA_box(grp_colns = ['model_id', 'sector_attribute'])
+        # combined box plots
+        ses.plot_eA_box(grp_colns=['model_id', 'sector_attribute'])
         
-        #per-model bar plots
+        # per-model bar plots
         ses.plot_eA_bars()
         
-        #calc some stats and write to xls
+        # calc some stats and write to xls
         ses.run_err_stats()
-        
-        
- 
-         
-        
-        
-
- 
         
         out_dir = ses.out_dir
         
     return out_dir
+
 
 def r1_3mods(#just those used in p2
              #reversed delta values
@@ -265,7 +254,7 @@ def r1_3mods(#just those used in p2
     return run_aggErr1(
         
             #model selection
-            tag='r1_3mods',
+            run_name='r1_3mods',
             vid_l=[798,811, 49] ,
             
                      
@@ -395,25 +384,23 @@ def dev(
     return run_aggErr1(
         
             #model selection
-            tag='dev',
-            #=======================================================================
-            # vid_l=[
-            #         796, #Budiyono (2015) 
-            #        #402, #MURL linear
-            #        #852, #Dutta (2003) nice and parabolic
-            #        #33, #FLEMO resi...
-            #        #332, #FLEMO commericial
-            #        ], #running on a single function
-            #=======================================================================
+            run_name='dev',
+            vid_l=[
+                    796, #Budiyono (2015) 
+                   #402, #MURL linear
+                   #852, #Dutta (2003) nice and parabolic
+                   #33, #FLEMO resi...
+                   #332, #FLEMO commericial
+                   ], #running on a single function
         
             #vid_l=[811,798, 410] ,
-            vid_sample = 3,
+            #vid_sample = 3,
             selection_d = { #selection criteria for models. {tabn:{coln:values}}
                           'model_id':[
                               #1, 2, #continous 
                               3, #flemo 
                               4, 6, 
-                              7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47
+                              #7, 12, 16, 17, 20, 21, 23, 24, 27, 31, 37, 42, 44, 46, 47
                               ],
                           'function_formate_attribute':['discrete'], #discrete
                           'damage_formate_attribute':['relative'],
@@ -438,16 +425,12 @@ def dev(
                 depths_resolution=100,  #number of depths to draw from the depths distritupion
                           ),
             
-            plot_rlMeans=True,
+            plot_rlMeans=False,
                  
                  
             compiled_fp_d = {
-                    #===========================================================
-                    # 'rl_xmDisc_dxcol':r'C:\LS\10_OUT\2112_Agg\outs\pdist\dev\20220205\pdist_dev_0205_rl_xmDisc_dxcol.pickle',
-                    # 'rl_xmDisc_xvals':r'C:\LS\10_OUT\2112_Agg\outs\pdist\dev\20220205\pdist_dev_0205_rl_xmDisc_xvals.pickle',
-                    # 'rl_dxcol':r'C:\LS\10_OUT\2112_Agg\outs\pdist\dev\20220205\pdist_dev_0205_rl_dxcol.pickle',
-                    # 'model_metrics':r'C:\LS\10_OUT\2112_Agg\outs\pdist\dev\20220205\pdist_dev_0205_model_metrics.pickle',
-                    #===========================================================
+                    'rl_xmDisc_dxcol':r'C:\Users\cefect\pdist_dev_1025_rl_xmDisc_dxcol.pickle',
+                    'rl_xmDisc_xvals':r'C:\Users\cefect\pdist_dev_1025_rl_xmDisc_xvals.pickle',
                         },
         
         )

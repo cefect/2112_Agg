@@ -11,8 +11,8 @@ import numpy as np
 
  
 
-from hp.oop import Basic, Session, Error
-from hp.Q import Qproj
+from hp.oop import Basic, Session
+ 
 from hp.pd import view, get_bx_multiVal
 from hp.plot import Plotr
 
@@ -21,7 +21,7 @@ class BaseSession(Session): #common to everything
     pass
 
 
-class QSession(BaseSession, Qproj):
+class AggSession1(BaseSession):
     
     vidnm = 'df_id' #indexer for damage functions
     ycn = 'rl'
@@ -35,8 +35,8 @@ class QSession(BaseSession, Qproj):
                  write=True,
                  
                  compiled_fp_d2 = { #permanently compiled
-                        'vid_df':r'C:\LS\10_OUT\2112_Agg\ins\vfunc\vid_df_hyd5_dev_0414.pickle', #optional compiled vid_df
-                        'df_d':r'C:\LS\10_OUT\2112_Agg\ins\vfunc\df_d_hyd5_dev_0414.pickle',
+                        'vid_df':r'C:\LS\10_IO\2112_Agg\ins\vfunc\vid_df_hyd5_dev_0414.pickle', #optional compiled vid_df
+                        'df_d':r'C:\LS\10_IO\2112_Agg\ins\vfunc\df_d_hyd5_dev_0414.pickle',
                         },
  
                  **kwargs):
@@ -65,7 +65,8 @@ class QSession(BaseSession, Qproj):
                 }
             }}
         
-        super().__init__(work_dir = r'C:\LS\10_OUT\2112_Agg',
+        super().__init__(
+                        #wrk_dir = r'C:\LS\10_OUT\2112_Agg',
                          data_retrieve_hndls=data_retrieve_hndls,prec=prec,
                          #init_plt_d=None, #dont initilize the plot child
                          **kwargs)
@@ -243,7 +244,7 @@ class QSession(BaseSession, Qproj):
             l = set(res_df.index).difference(df_d[tabName][vidnm])
             
             if len(l)>0:
-                raise Error('requesting %i/%i %s w/o requisite tables\n    %s'%(
+                raise AssertionError('requesting %i/%i %s w/o requisite tables\n    %s'%(
                     len(l), len(res_df), l))
             
         #=======================================================================
@@ -322,7 +323,7 @@ class QSession(BaseSession, Qproj):
             l = set(vid_df.index).difference(df1[vidnm])
             df1[vidnm].unique()
             if not len(l)==0:
-                raise Error('missing %i keys in \'%s\''%(len(l), tabName))
+                raise AssertionError('missing %i keys in \'%s\''%(len(l), tabName))
             
  
             
@@ -341,7 +342,7 @@ class QSession(BaseSession, Qproj):
             try:
                 df1 = lkp_d[k].groupby(vidnm).get_group(vid).drop(vidnm, axis=1).reset_index(drop=True)
             except Exception as e:
-                raise Error(e)
+                raise AssertionError(e)
             #drop indexers
             bxcol = df1.columns.str.contains('_id')
             return df1.loc[:, ~bxcol]
@@ -523,7 +524,7 @@ class QSession(BaseSession, Qproj):
 
  
             if not jdf[vidnm].is_unique:
-                raise Error('non-unique indexer \'%s\' on \'%s\''%(vidnm, tabName))
+                raise AssertionError('non-unique indexer \'%s\' on \'%s\''%(vidnm, tabName))
             
             jdf = jdf.set_index(vidnm)
             
@@ -727,7 +728,7 @@ class Vfunc(object):
                 df1 = df1.loc[~bx, :]
             else:
                 """these are not functions"""
-                raise Error(msg)
+                raise AssertionError(msg)
             
         #=======================================================================
         # duplicate pairs
@@ -756,7 +757,8 @@ class Vfunc(object):
 
             #add a dummy zerozero value for extrapolation
             if set_loss_intercept:
-                df1 = df1.append(pd.Series(0.0, index=df1.columns), ignore_index=True).sort_values(xcn)
+                df1 = pd.concat([df1, pd.Series(0.0, index=df1.columns).to_frame().T], ignore_index=True, axis=0).sort_values(xcn)
+ 
                 log.debug(msg)
             else:
                 log.warning(msg)
@@ -774,7 +776,7 @@ class Vfunc(object):
             if bx.any():
                 msg = 'got %i/%i RL values exceeding 100 (%s)'%(bx.sum(), len(bx), self.name)
                 if not allow_rl_exceed:
-                    raise Error(msg)
+                    raise AssertionError(msg)
                 else:
                     log.warning(msg)
                     
@@ -951,7 +953,7 @@ class Catalog(object): #handling the simulation index and library
         self.keys = [self.idn, 'name', 'tag', 'pick_fp', 'vlay_dir','pick_keys']
         
     def clean(self):
-        raise Error('check consitency between index and library contents')
+        raise IOError('check consitency between index and library contents')
     
     def check(self):
         #=======================================================================
@@ -980,7 +982,7 @@ class Catalog(object): #handling the simulation index and library
                     errs_d['%s_%i'%(coln, id)] = path
                     
         if len(errs_d)>0:
-            raise Error('got %i/%i bad filepaths')
+            raise AssertionError('got %i/%i bad filepaths')
  
  
         
@@ -1099,7 +1101,7 @@ class Catalog(object): #handling the simulation index and library
                     os.remove(self.catalog_fp)
                     log.warning('got empty catalog... deleteing file')
                 except Exception as e:
-                    raise Error(e)
+                    raise IOError(e)
             else:
                 #===============================================================
                 # write the new

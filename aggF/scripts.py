@@ -9,25 +9,26 @@ Created on Feb. 5, 2022
 import os, datetime, math, pickle, copy
 import pandas as pd
 import numpy as np
-import qgis.core
+ 
 
 import scipy.stats 
 import scipy.integrate
 
 
 
-from hp.oop import Basic, Error
+from hp.oop import Basic
 from hp.pd import view, get_bx_multiVal
+from hp.plot import Plotr
 
-from agg.coms.scripts import Vfunc, get_ax
-from agg.coms.scripts import Session as agSession
+from agg.coms.scripts import Vfunc
+from agg.coms.scripts import AggSession1
 
 idx = pd.IndexSlice
 
 import matplotlib.pyplot as plt
 import matplotlib
 
-class Session(agSession):
+class AggSession1F(Plotr, AggSession1):
     
     
     data_d = dict() #datafiles loaded this session
@@ -93,7 +94,7 @@ class Session(agSession):
  
             }
         
-        super().__init__(name=name,
+        super().__init__(proj_name=name,
                          data_retrieve_hndls=data_retrieve_hndls,
                          **kwargs)
  
@@ -197,12 +198,13 @@ class Session(agSession):
                  dkey=None,
                  
                  #chunk_size=1,
-                 
+                 logger=None,
                  #get_rl_xmDisc control
                  **kwargs
                  ):
-        
-        log = self.logger.getChild('r')
+
+        if logger is None: logger=self.logger        
+        log = logger.getChild('r')
         assert dkey== 'rl_xmDisc_dxcol'
  
         #=======================================================================
@@ -215,7 +217,7 @@ class Session(agSession):
         #=======================================================================
         # setup
         #=======================================================================
-        out_dir = os.path.join(self.out_dir, self.temp_dir, dkey)
+        out_dir = os.path.join(self.out_dir, self.tmp_dir, dkey)
         if not os.path.exists(out_dir): 
             os.makedirs(out_dir)
  
@@ -266,7 +268,7 @@ class Session(agSession):
             log.error(msg)
             
         if len(err_d)>0:
-            raise Error('got %i errors'%len(err_d))
+            raise AssertionError('got %i errors'%len(err_d))
         
  
  
@@ -298,7 +300,7 @@ class Session(agSession):
         # retrieve
         #=======================================================================
         if dxcol is None:
-            dxcol = self.retrieve('rl_xmDisc_dxcol')
+            dxcol = self.retrieve('rl_xmDisc_dxcol') #aggF.scripts.AggSession1F.get_rl_xmDisc()
         
 
         
@@ -549,7 +551,7 @@ class Session(agSession):
                     fig.suptitle(gval)
                     
                     
-                    self.output_fig(fig, out_dir=out_dir, fname='%s_%s_%s'%(self.longname, coln, gval),
+                    self.output_fig(fig, out_dir=out_dir, fname='%s_%s_%s'%(self.fancy_name, coln, gval),
                                     overwrite=True,
                                     transparent=False)
                 
@@ -648,7 +650,7 @@ class Session(agSession):
             
             
             self.output_fig(fig, out_dir=os.path.join(self.out_dir, 'plot_eA_bars'), 
-                            fname='%s_%s'%(self.longname,gv_str))
+                            fname='%s_%s'%(self.fancy_name,gv_str))
             
         #=======================================================================
         # wrap
@@ -723,7 +725,7 @@ class Session(agSession):
             #write the figure
             ofp_d[i] = self.output_fig(fig,
                     out_dir=os.path.join(od0,str(vfunc.model_id), str(vfunc.vid)), #matching calc_rlMeans
-                    fname='_'.join([self.longname, 'v%i'%vid, 'm%.1f'%xmean, 'xmDisc']),
+                    fname='_'.join([self.fancy_name, 'v%i'%vid, 'm%.1f'%xmean, 'xmDisc']),
                     fmt='svg', dpi=400,transparent=False
                     )
         
@@ -943,7 +945,7 @@ class Session(agSession):
         #=======================================================================
         # write
         #=======================================================================
-        out_fp=os.path.join(self.out_dir, '%s_err_stats.xls'%self.longname)
+        out_fp=os.path.join(self.out_dir, '%s_err_stats.xls'%self.fancy_name)
         with pd.ExcelWriter(out_fp) as writer:
             for tabnm, df in res_lib.items():
                 df.to_excel(writer, sheet_name=tabnm, index=True, header=True)
@@ -1248,8 +1250,8 @@ class Session(agSession):
         #=======================================================================
         # setup figure
         #=======================================================================
-        if ax is None:
-            ax = get_ax(figNumber=figNumber)
+        assert not ax is None
+ 
 
             
         #=======================================================================
@@ -1785,7 +1787,7 @@ class Session(agSession):
                     if not ylims_d[rowName] is None:
                         ax.set_ylim( ylims_d[rowName])
                         
-            self.output_fig(fig, fname='rlMeans_%s_%s'%(vfunc.vid, self.longname), out_dir=out_dir,
+            self.output_fig(fig, fname='rlMeans_%s_%s'%(vfunc.vid, self.fancy_name), out_dir=out_dir,
                             transparent=False, overwrite=True)
                 
  
@@ -2056,16 +2058,14 @@ class Session(agSession):
         
         return fig
 
-    def get_rl_xmDisc(self, #calculate rloss at different levels of aggregation
+    def get_rl_xmDisc(self,  # calculate rloss at different levels of aggregation
                           vfunc,
-                          
  
-                          #xvalues to iterate (xmean)
-                          xdomain=(0,2), #min/max of the xdomain
-                          xdomain_res = 30, #number of increments for the xdomain
- 
+                          # xvalues to iterate (xmean)
+                          xdomain=(0, 2),  # min/max of the xdomain
+                          xdomain_res=30,  # number of increments for the xdomain
                           
-                          #plotting parameters
+                          # plotting parameters
  
                         logger=None,
                           **kwargs):
@@ -2073,40 +2073,33 @@ class Session(agSession):
         #=======================================================================
         # defaults
         #=======================================================================
-        if logger is None: logger=self.logger
-        log=logger.getChild('get_rl_xmDisc')
-        log.info('on %s'%vfunc.name)
-        
- 
+        if logger is None: logger = self.logger
+        log = logger.getChild('get_rl_xmDisc')
+        log.info('on %s' % vfunc.name)
         
         fig_lib, xvals_lib, res_lib, ax_lib = dict(), dict(), dict(), dict()
-        
- 
         
         #=======================================================================
         # loop mean deths 
         #=======================================================================
  
-        xmean_ar = np.linspace(xdomain[0],xdomain[1],num=xdomain_res)
+        xmean_ar = np.linspace(xdomain[0], xdomain[1], num=xdomain_res)
         for i, xmean in enumerate(xmean_ar):
-            log.info('%i/%i xmean=%.2f'%(i, len(xmean_ar), xmean))
+            log.info('%i/%i xmean=%.2f' % (i, len(xmean_ar), xmean))
             
- 
-            
-            res_lib[xmean], xvals_lib[xmean]= self.calc_agg_imp(vfunc,xmean, 
+            res_lib[xmean], xvals_lib[xmean] = self.calc_agg_imp(vfunc, xmean,
                                                     logger=log.getChild(str(i)), **kwargs)
- 
                 
             #===============================================================
             # wrap mean
             #===============================================================
  
-            log.debug('finished xmean = %.2f'%xmean)
+            log.debug('finished xmean = %.2f' % xmean)
         
         #=======================================================================
         # wrap
         #=======================================================================
-        log.debug('finsihed on %i'%len(res_lib))
+        log.debug('finsihed on %i' % len(res_lib))
         
         #=======================================================================
         # #=======================================================================
@@ -2123,7 +2116,7 @@ class Session(agSession):
         #                        left=self.master_xlim[0], right=self.master_xlim[1])
         #         
         #         #print(xmean)
-        #         self.output_fig(fig, fname='%s_xmean%.2f'%(self.longname, xmean),
+        #         self.output_fig(fig, fname='%s_xmean%.2f'%(self.fancy_name, xmean),
         #                         fmt='png',
         #                         out_dir=out_dir)
         #=======================================================================
@@ -2131,11 +2124,8 @@ class Session(agSession):
         #=======================================================================
         # wrap
         #=======================================================================
- 
         
         dxcol = pd.concat(res_lib, axis=1, names=['xmean', 'xvar', 'aggLevel', 'vars'])
-        
-        
  
         return dxcol, pd.concat(xvals_lib, axis=1, names=['xmean', 'xvar'])
     
@@ -2248,7 +2238,7 @@ class Session(agSession):
         # #picklle
         #=======================================================================
         if out_fp is None:
-            out_fp = os.path.join(self.wrk_dir, '%s_%s.pickle' % (self.longname, dkey))
+            out_fp = os.path.join(self.wrk_dir, '%s_%s.pickle' % (self.fancy_name, dkey))
             
         else:
             write_csv=False
@@ -2265,7 +2255,7 @@ class Session(agSession):
         # #csv
         #=======================================================================
         if write_csv:
-            out_fp2 = os.path.join(self.out_dir, '%s_%s.csv' % (self.longname, dkey))
+            out_fp2 = os.path.join(self.out_dir, '%s_%s.csv' % (self.fancy_name, dkey))
             dxcol.to_csv(out_fp2, 
                 index=True) #keep the names
             
