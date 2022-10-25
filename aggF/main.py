@@ -23,7 +23,7 @@ TODO: migrate to new oop
 #===============================================================================
 # imports-----------
 #===============================================================================
-import os, datetime, math, pickle, copy
+import os, datetime, math, pickle, copy, logging, sys
 import pandas as pd
 import numpy as np
  
@@ -38,6 +38,16 @@ print('start at %s' % start)
 
  
 idx = pd.IndexSlice
+
+#===============================================================================
+# setup logger----
+#===============================================================================
+logging.basicConfig(
+                #filename='xCurve.log', #basicConfig can only do file or stream
+                force=True, #overwrite root handlers
+                stream=sys.stdout, #send to stdout (supports colors)
+                level=logging.INFO, #lowest level to display
+                )
  
     
     
@@ -209,7 +219,8 @@ def run_aggErr1(#agg error per function
          plot_rlMeans = True,
          overwrite=True,
  
- 
+         #simple retrival
+         rl_xmDisc_dxcol=None,
         
         **kwargs):
  
@@ -222,29 +233,63 @@ def run_aggErr1(#agg error per function
                      'rl_dxcol':dict(plot=plot_rlMeans),
                             },
                  # figsize=figsize,
+                 logger = logging.getLogger('r'),
                  **kwargs) as ses:
         ses.plt = plt
  
         # plot discretization figures (very slow)
-        # ses.plot_xmDisc()
+        # ses.plot_xmDisc()        
         
+        #=======================================================================
+        # retrieve for subsetting
+        #=======================================================================
+        vid_df = ses.build_vid_df(vid_l=vid_l, write=False) #vfunc data
+        vf_d = ses.build_vf_d(vid_df=vid_df) #vfunc workers
+        rl_xmDisc_dxcol = ses.build_rl_xmDisc_dxcol(vf_d=vf_d, **rl_xmDisc_dxcol_d) #aggregation erros mean-discretized for all vfuncs
+        
+        
+        #=======================================================================
+        # ploters
+        #=======================================================================
         # nice plot per-func of means at different ag levels
-        """workaround as this is a combined calc+plotting func"""
+        """workaround as this is a combined calc+plotting func"""        
         if plot_rlMeans:
-            ses.build_rl_dxcol(plot=plot_rlMeans)
-        
-        # combined box plots
-        ses.plot_eA_box(grp_colns=['model_id', 'sector_attribute'])
-        
-        # per-model bar plots
-        ses.plot_eA_bars()
-        
-        # calc some stats and write to xls
-        ses.run_err_stats()
+            rl_dxcol = ses.build_rl_dxcol(dxcol=rl_xmDisc_dxcol, plot=plot_rlMeans, vf_d=vf_d, vid_df=vid_df)
+ 
         
         out_dir = ses.out_dir
         
     return out_dir
+
+def plot_aggF_errs(
+        fp_d={},
+        **kwargs):
+    
+    with AggSession1F(
+        logger = logging.getLogger('r'),
+        **kwargs) as ses:
+        
+        rl_dxcol = pd.read_pickle(fp_d['rl_dxcol'])
+        #=======================================================================
+        # #compute secondaries
+        #=======================================================================
+        errArea_dxcol = ses.build_model_metrics(dxcol=rl_dxcol)
+        
+        #=======================================================================
+        # plot
+        #=======================================================================
+        # set of box plots for area errors, on different groups
+        #ses.plot_eA_box(dxcol=errArea_dxcol, grp_colns=['model_id', 'sector_attribute'])
+        
+        # per-model bar plots of error area at different aggLevels and xvars
+        #ses.plot_eA_bars()
+        
+        # calc some stats and write to xls
+        ses.run_err_stats()
+        out_dir = ses.out_dir
+        
+    return out_dir
+        
 
 
 def r1_3mods(#just those used in p2
@@ -389,8 +434,8 @@ def dev(
                     796, #Budiyono (2015) 
                    #402, #MURL linear
                    #852, #Dutta (2003) nice and parabolic
-                   #33, #FLEMO resi...
-                   #332, #FLEMO commericial
+                   33, #FLEMO resi...
+                   332, #FLEMO commericial
                    ], #running on a single function
         
             #vid_l=[811,798, 410] ,
@@ -425,25 +470,34 @@ def dev(
                 depths_resolution=100,  #number of depths to draw from the depths distritupion
                           ),
             
-            plot_rlMeans=False,
+            plot_rlMeans=True,
                  
                  
             compiled_fp_d = {
-                    'rl_xmDisc_dxcol':r'C:\Users\cefect\pdist_dev_1025_rl_xmDisc_dxcol.pickle',
-                    'rl_xmDisc_xvals':r'C:\Users\cefect\pdist_dev_1025_rl_xmDisc_xvals.pickle',
+ 
                         },
         
         )
+    
+def dev_plot(**kwargs):
+    return plot_aggF_errs(
+        run_name='dev',
+        fp_d = {        
+                'rl_xmDisc_dxcol':r'C:\LS\10_IO\2112_Agg\agg1\outs\pdist\dev\20221025\pdist_dev_1025_rl_xmDisc_dxcol.pickle',
+            'rl_xmDisc_xvals':r'C:\LS\10_IO\2112_Agg\agg1\outs\pdist\dev\20221025\pdist_dev_1025_rl_xmDisc_xvals.pickle',
+            'rl_dxcol':r'C:\LS\10_IO\2112_Agg\agg1\outs\pdist\dev\20221025\pdist_dev_1025_rl_dxcol.pickle',
+            },
+                
+        **kwargs)
 
 if __name__ == "__main__": 
     
-    output=r1_3mods()
-    
+    #output=r1_3mods()
     
  
-    #output=all_r0()
     #output=dev()
-    #output = run_plotVfunc()
+    output=dev_plot()
+ 
  
     
     tdelta = datetime.datetime.now() - start

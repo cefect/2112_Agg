@@ -187,7 +187,7 @@ class AggSession1F(Plotr, AggSession1):
 
 
     
-    def build_rl_xmDisc_dxcol(self,  #get aggregation erros mean-discretized for all vfuncs
+    def build_rl_xmDisc_dxcol(self,  #get 
                  vf_d=None,
                  
                  #vfunc selection
@@ -195,13 +195,15 @@ class AggSession1F(Plotr, AggSession1):
                  
                  
                  #vid_df keys
-                 dkey=None,
+                 dkey='rl_xmDisc_dxcol',
                  
                  #chunk_size=1,
                  logger=None,
                  #get_rl_xmDisc control
                  **kwargs
                  ):
+        """aggregation erros mean-discretized for all vfuncs
+        """
 
         if logger is None: logger=self.logger        
         log = logger.getChild('r')
@@ -214,6 +216,7 @@ class AggSession1F(Plotr, AggSession1):
             vf_d = self.retrieve('vf_d')
             
         assert len(vf_d)>0
+        log.info(f'on {len(vf_d)} vfuncs')
         #=======================================================================
         # setup
         #=======================================================================
@@ -275,7 +278,7 @@ class AggSession1F(Plotr, AggSession1):
         return dxcol
     
  
-    def build_rl_dxcol(self, #combine discretized xmean results onto single domain
+    def build_rl_dxcol(self, #
                         dxcol=None,
                         vf_d = None,
                         vid_df=None,
@@ -287,6 +290,16 @@ class AggSession1F(Plotr, AggSession1):
                         dkey='rl_dxcol',
                         **kwargs
                         ):
+        """
+        combine discretized xmean results onto single domain
+        
+        Returns
+        ----------
+        pd.DataFrame
+            columns: df_id, xvar, aggLevel
+            index: means
+        
+        """
         #=======================================================================
         # defaults
         #=======================================================================
@@ -300,7 +313,7 @@ class AggSession1F(Plotr, AggSession1):
         # retrieve
         #=======================================================================
         if dxcol is None:
-            dxcol = self.retrieve('rl_xmDisc_dxcol') #aggF.scripts.AggSession1F.get_rl_xmDisc()
+            dxcol = self.retrieve('rl_xmDisc_dxcol') #aggF.scripts.AggSession1F.build_rl_xmDisc_dxcol()
         
 
         
@@ -364,6 +377,7 @@ class AggSession1F(Plotr, AggSession1):
         for i, (vid, gdf0) in enumerate(dxcol.groupby(level=0, axis=1)):
             log.info('%i/%i on %s'%(i+1, len(vf_d), vf_d[vid].name))
             
+            #impact vs depth analysis on multiple agg levels for a single vfunc
             res_d[vid] = self.calc_rlMeans(gdf0.droplevel(0, axis=1), vf_d[vid], **kwargs)
             
             
@@ -378,13 +392,22 @@ class AggSession1F(Plotr, AggSession1):
         return rdxcol
 
 
-    def build_model_metrics(self, #integrate delta areas
+    def build_model_metrics(self, #
                         dxcol=None, #depth-damage at different AggLevel and xvars
                         
  
-                        dkey=None,
+                        dkey='model_metrics',
                         **kwargs
                         ):
+        """
+        integrate delta areas. compute total areas
+        
+        Returns
+        --------
+        pd.DataFrame
+            columns: df_id, xvar, aggLevel
+            index: area types (total, positive, negative)
+        """
         #=======================================================================
         # defaults
         #=======================================================================
@@ -445,7 +468,7 @@ class AggSession1F(Plotr, AggSession1):
     # TOP RUNNERS---------
     #===========================================================================
     
-    def plot_eA_box(self, #integrate delta areas
+    def plot_eA_box(self, 
                         dxcol=None, #depth-damage at different AggLevel and xvars
                         
                         #value grouping
@@ -559,10 +582,7 @@ class AggSession1F(Plotr, AggSession1):
         # wrap
         #=======================================================================
         log.info('finished')
-                
-                
-        
- 
+        plt.close('all')
         
         return  
         """
@@ -2238,7 +2258,7 @@ class AggSession1F(Plotr, AggSession1):
         # #picklle
         #=======================================================================
         if out_fp is None:
-            out_fp = os.path.join(self.wrk_dir, '%s_%s.pickle' % (self.fancy_name, dkey))
+            out_fp = os.path.join(self.out_dir, '%s_%s.pickle' % (self.fancy_name, dkey))
             
         else:
             write_csv=False

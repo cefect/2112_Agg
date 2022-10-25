@@ -9,6 +9,7 @@ import os, sys, datetime, gc, copy,  math, pickle,shutil
 import pandas as pd
 import numpy as np
 
+from definitions import wrk_dir
  
 
 from hp.oop import Basic, Session
@@ -66,7 +67,7 @@ class AggSession1(BaseSession):
             }}
         
         super().__init__(
-                        #wrk_dir = r'C:\LS\10_OUT\2112_Agg',
+                        wrk_dir = os.path.join(wrk_dir, 'agg1'),
                          data_retrieve_hndls=data_retrieve_hndls,prec=prec,
                          #init_plt_d=None, #dont initilize the plot child
                          **kwargs)
@@ -111,13 +112,13 @@ class AggSession1(BaseSession):
         #=======================================================================
         if write: 
             self.ofp_d[dkey] = self.write_pick(df_d,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   os.path.join(self.out_dir, '%s_%s.pickle' % (dkey, self.fancy_name)),
                                    logger=log)
         
         
         return df_d
     
-    def build_vid_df(self, #select and build vfunc data
+    def build_vid_df(self, #
                       df_d = None,
                       
                       #run control
@@ -145,6 +146,7 @@ class AggSession1(BaseSession):
                      vidnm = None, #indexer for damage functions
                      dkey='vid_df', logger=None, write=None,
                      ):
+        """select and build vfunc data"""
         #=======================================================================
         # defaults
         #=======================================================================
@@ -270,7 +272,7 @@ class AggSession1(BaseSession):
         #=======================================================================
         if write: 
             self.ofp_d[dkey] = self.write_pick(res_df,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   os.path.join(self.out_dir, '%s_%s.pickle' % (dkey, self.fancy_name)),
                                    logger=log)
         
         
@@ -286,7 +288,7 @@ class AggSession1(BaseSession):
  
  
                      #key names
-                     dkey=None,
+                     dkey='vf_d',
                      vidnm = None, #indexer for damage functions
                      logger=None,
                      ):
