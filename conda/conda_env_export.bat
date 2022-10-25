@@ -1,6 +1,6 @@
-call C:\LS\06_SOFT\conda\env\agg\activate.bat
-cd %REPO%
+call activate.bat
+
 echo on
-call conda env export >conda_env.yml
+call conda env export >%REPO%\conda\conda_env.yml
 
 pause
