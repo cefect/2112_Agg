@@ -56,7 +56,7 @@ print('loaded matplotlib %s'%matplotlib.__version__)
 
  
 #===============================================================================
-# setup logger
+# setup logger----
 #===============================================================================
 logging.basicConfig(
                 #filename='xCurve.log', #basicConfig can only do file or stream

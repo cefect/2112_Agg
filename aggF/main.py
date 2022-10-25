@@ -284,8 +284,12 @@ def plot_aggF_errs(
         # per-model bar plots of error area at different aggLevels and xvars
         #ses.plot_eA_bars()
         
+        #=======================================================================
+        # write stats
+        #=======================================================================
         # calc some stats and write to xls
-        ses.run_err_stats()
+        vid_df = ses.build_vid_df(vid_l=list(errArea_dxcol.columns.unique('df_id')),write=False) #vfunc data
+        ses.run_err_stats(dxcol = errArea_dxcol, vid_df=vid_df)
         out_dir = ses.out_dir
         
     return out_dir

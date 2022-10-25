@@ -859,6 +859,7 @@ class AggSession1F(Plotr, AggSession1):
     
     def run_err_stats(self, #calc some stats and write to xls
                       dxcol=None,
+                      vid_df=None,
                       grp_colns =  ['model_id', 'sector_attribute'],
                       ):
         
@@ -874,6 +875,9 @@ class AggSession1F(Plotr, AggSession1):
         #=======================================================================
         if dxcol is None:
             dxcol = self.retrieve('model_metrics')
+            
+        if vid_df is None:
+            vid_df = self.retrieve('vid_df')
             
         #retrieve attribute info
         
@@ -925,7 +929,7 @@ class AggSession1F(Plotr, AggSession1):
         #=======================================================================
         # all models
         #=======================================================================
-        vid_df = self.retrieve('vid_df')
+        
         gcoln = 'model_id'
         dx3 = dx2.copy()
         #add model id for easy lookup
