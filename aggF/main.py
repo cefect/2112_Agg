@@ -52,40 +52,49 @@ logging.basicConfig(
     
     
 #===============================================================================
-# setup matplotlib
+# setup matplotlib----------
 #===============================================================================
- 
+output_format='pdf'
+usetex=True
+if usetex:
+    os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
+
+cm = 1/2.54
 import matplotlib
- 
+#matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
 matplotlib.set_loglevel("info") #reduce logging level
 import matplotlib.pyplot as plt
-
+ 
 #set teh styles
 plt.style.use('default')
-
+ 
 #font
-matplotlib_font = {
-        'family' : 'serif',
+matplotlib.rc('font', **{
+        'family' : 'serif', 
         'weight' : 'normal',
-        'size'   : 8}
-
-matplotlib.rc('font', **matplotlib_font)
-matplotlib.rcParams['axes.titlesize'] = 10 #set the figure title size
-matplotlib.rcParams['figure.titlesize']=12
-matplotlib.rcParams['figure.titleweight']='bold'
-
-#spacing parameters
-matplotlib.rcParams['figure.autolayout'] = False #use tight layout
-
-#legends
-matplotlib.rcParams['legend.title_fontsize'] = 'large'
-
+        'size'   : 8})
+ 
+ 
+for k,v in {
+    'axes.titlesize':10,
+    'axes.labelsize':10,
+    'xtick.labelsize':8,
+    'ytick.labelsize':8,
+    'figure.titlesize':12,
+    'figure.autolayout':False,
+    'figure.figsize':(17 * cm, 10 * cm),
+    'legend.title_fontsize':'large',
+    'text.usetex':usetex,
+    }.items():
+        matplotlib.rcParams[k] = v
+  
 print('loaded matplotlib %s'%matplotlib.__version__)
 
 #===============================================================================
 # custom imports
 #===============================================================================
 from aggF.scripts import AggSession1F, view
+from aggF.da import Session_AggF
         
         
 def run_plotVfunc( 
@@ -265,9 +274,11 @@ def plot_aggF_errs(
         fp_d={},
         **kwargs):
     
-    with AggSession1F(
-        logger = logging.getLogger('r'),
+    with Session_AggF(
+        logger = logging.getLogger('r'),output_format=output_format,
         **kwargs) as ses:
+        
+        ses.output_format
         #=======================================================================
         # defaults
         #=======================================================================
@@ -304,14 +315,40 @@ def plot_aggF_errs(
         #=======================================================================
         # #compute secondaries
         #=======================================================================
-        errArea_dxcol = ses.build_model_metrics(dxcol=rl_dxcol)
+        if 'errArea_dxcol' in fp_d:
+            errArea_dxcol = pd.read_pickle(fp_d['errArea_dxcol'])
+        else:
+            errArea_dxcol = ses.build_model_metrics(dxcol=rl_dxcol)
         
+        #=======================================================================
+        # prep data
+        #=======================================================================
+        serx = errArea_dxcol.unstack() 
+        #add model_id to idnex        
+        serx.index = serx.index.join(
+            pd.MultiIndex.from_frame(vid_df['model_id'].reset_index())
+            ).reorder_levels(['model_id', 'df_id', 'xvar', 'aggLevel', 'errArea_type']
+                             )
+        serx = serx.sort_index(sort_remaining=True)
         #=======================================================================
         # plot
         #=======================================================================
-        # set of box plots for area errors, on different groups
-        ses.plot_eA_box(dxcol=errArea_dxcol, grp_colns=['model_id', 'sector_attribute'])
+        #=======================================================================
+        # # set of box plots for area errors, on different groups
+        #======================================================================= 
+        #get_eA_box_fig()
+        ses.plot_eA_box(dxcol=errArea_dxcol.loc[['total'], :], vid_df=vid_df,
+                        grp_colns=['model_id'],
+                        figsize=(17 * cm, 12 * cm),
+                        sharex='all', sharey='all', add_subfigLabel=True, set_ax_title=False,
+                        ylab = '$e_{total}$',
+                        ylims=(-21, 21),
+                        )
         
+ 
+        
+        
+        return
         # per-model bar plots of error area at different aggLevels and xvars
         ses.plot_eA_bars()
         
@@ -434,6 +471,7 @@ def all_r0_plot(**kwargs):
                 'rl_xmDisc_dxcol':  r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r2_0104_rl_xmDisc_dxcol.pickle',
                 'rl_xmDisc_xvals':  r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r2_0104_rl_xmDisc_xvals.pickle',
                 'rl_dxcol':         r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0_all\20220205\working\aggErr1_r3_0104_rl_dxcol.pickle',
+                'errArea_dxcol':    r'C:\LS\10_IO\2112_Agg\outs\agg1F\r0\20221026\agg1F_r0_1026_model_metrics.pickle'
             },
                 
         **kwargs)
@@ -547,7 +585,7 @@ def dev_plot(**kwargs):
 
 if __name__ == "__main__": 
     
-    #output=all_r0_plot()
+    output=all_r0_plot()
     #output=all_r0()
     
     #output=r1_3mods()
@@ -555,7 +593,7 @@ if __name__ == "__main__":
     
  
     #output=dev()
-    output=dev_plot()
+    #output=dev_plot()
     
     
     

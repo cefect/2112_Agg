@@ -473,19 +473,20 @@ class AggSession1F(Plotr, AggSession1):
     # TOP RUNNERS---------
     #===========================================================================
     
-    def plot_eA_box(self, 
-                        dxcol=None, #depth-damage at different AggLevel and xvars
+    def plot_eA_box(self,
+                        dxcol=None,  # depth-damage at different AggLevel and xvars
+                        vid_df=None,
                         
-                        #value grouping
-                        g0_coln=None, #coln for subfolder division
-                        g1_coln = 'errArea_type', #coln for dividing figures
-                        grp_colns = ['model_id', 'sector_attribute'], #coln for xaxis division (matrix rows)
+                        # value grouping
+                        g0_coln=None,  # coln for subfolder division
+                        g1_coln='errArea_type',  # coln for dividing figures
+                        grp_colns=['model_id', 'sector_attribute'],  # coln for xaxis division (matrix rows)
                         
-                        #style control
-                        
+                        # style control
 
-                        **kwargs
+                        ** kwargs
                         ):
+        """plot multiple boxes of errors"""
         #=======================================================================
         # defaults
         #=======================================================================
@@ -501,43 +502,42 @@ class AggSession1F(Plotr, AggSession1):
         if dxcol is None:
             dxcol = self.retrieve('model_metrics')
             
+        if vid_df is None:
+            vid_df = self.retrieve('vid_df')
             
         #=======================================================================
         # get macro stats
         #=======================================================================
-
         
-        #move the vid to the index
+        # move the vid to the index
         dx1 = dxcol.T.unstack(level=vidnm).T.swaplevel(axis=0).sort_index(level=0)
- 
         
-        #calc each
-        d = dict()
-        for stat in ['mean', 'min', 'max']:
-            d[stat] = getattr(dx1, stat)()
-            
-        #add back
-        #dx2 = dx1.append(pd.concat([pd.concat(d, axis=1).T], keys=['stats']))
-        stats_df = pd.DataFrame.from_dict(d)
-        
-        
+        # calc each
+        #=======================================================================
+        # d = dict()
+        # for stat in ['mean', 'min', 'max']:
+        #     d[stat] = getattr(dx1, stat)()
+        #     
+        # # add back
+        # # dx2 = dx1.append(pd.concat([pd.concat(d, axis=1).T], keys=['stats']))
+        # stats_df = pd.DataFrame.from_dict(d)
+        #=======================================================================
         
         #=======================================================================
         # get grouped stats-----
         #=======================================================================
         
-        #move index to columns
+        # move index to columns
         dx2 = dx1.unstack(level='errArea_type')
         names_d = {lvlName:i for i, lvlName in enumerate(dx2.columns.names)}
         
-        #retrieve attribute info
-        vid_df = self.retrieve('vid_df')
+        # retrieve attribute info
+        
         
         l = set(grp_colns).difference(vid_df.columns)
-        assert len(l)==0, l
+        assert len(l) == 0, l
         
-        
-        #add dummy indexer
+        # add dummy indexer
         if g0_coln is None:
             g0_coln = 'group0'
             vid_df[g0_coln] = True
@@ -547,22 +547,19 @@ class AggSession1F(Plotr, AggSession1):
         #=======================================================================
         for i0, (g0val, vid_gdf) in enumerate(vid_df.groupby(g0_coln)):
             
-            #setup suubfolder
-            if len(vid_gdf)==len(vid_df):
+            # setup suubfolder
+            if len(vid_gdf) == len(vid_df):
                 out_dir = os.path.join(self.out_dir, 'plot_eA_box')
             else:
                 out_dir = os.path.join(self.out_dir, 'plot_eA_box', str(g0val))
- 
- 
-                                              
-
         
-            for i, coln in enumerate(grp_colns + ['all']):
+            for i, coln in enumerate(grp_colns  
+                                     # ['all']
+                                     ):
                 plt.close('all')
-    
      
-                #get grouping info
-                if coln =='all':
+                # get grouping info
+                if coln == 'all':
                     gser = pd.Series(True, name='all', index=vid_gdf.index)
                 else:
                     gser = vid_gdf[coln]
@@ -570,16 +567,16 @@ class AggSession1F(Plotr, AggSession1):
                 for gval, gdxcol in dx2.groupby(g1_coln, axis=1):
                     """need this extra divisor"""
      
-                    #build the matrix fig
+                    # build the matrix fig
                     fig = self.get_eA_box_fig(gdxcol.droplevel(names_d[g1_coln], axis=1),
-                                         gser, fig_id=i, 
+                                         gser, fig_id=i,
                                         logger=log.getChild(coln), **kwargs)
                     
-                    #post
-                    fig.suptitle(gval)
+                    # post
+                    # fig.suptitle(gval)
                     
-                    
-                    self.output_fig(fig, out_dir=out_dir, fname='%s_%s_%s'%(self.fancy_name, coln, gval),
+                    self.output_fig(fig, out_dir=out_dir, 
+                                    fname=f'errBox_{gval}',
                                     overwrite=True,
                                     transparent=False)
                 
@@ -1115,23 +1112,25 @@ class AggSession1F(Plotr, AggSession1):
             
         log.debug('finished')
         return fig
-                
-            
-  
     
-    def get_eA_box_fig(self, #get grouped (gser) bar plots per aggLevel + xvar 
+    def get_eA_box_fig(self,  #
             dxcol, ser,
-            row_coln = 'aggLevel', #how to divide matrix plot rows
+            row_coln='aggLevel',  # how to divide matrix plot rows
             logger=None,
             
-            #plot control
-            add_text=True,
-            ylims = (-30,30),
+            # plot control
+            add_text=False,
+            ylims=(-30, 30),
             fig_id=None,
+            linewidth=0.75,
  
             colorMap=None,
-            ):
-        """
+            figsize=None,
+            
+            xlab = 'model id',
+            ylab = '$e_{total}$',
+            **kwargs):
+        """get grouped (gser) bar plots per aggLevel + xvar 
         highlight
             aggLevel
             gropuVal
@@ -1149,113 +1148,126 @@ class AggSession1F(Plotr, AggSession1):
         log = logger.getChild('get_eA_box_fig')
         vidnm = self.vidnm
         xcn, ycn = self.xcn, self.ycn
-        if colorMap is None: colorMap=self.colorMap
+        if colorMap is None: colorMap = self.colorMap
+
         #=======================================================================
         # retrieve meta
         #=======================================================================
         mdex = dxcol.columns
-        cnames_d= {lvlName:i for i, lvlName in enumerate(mdex.names)}
+        cnames_d = {lvlName:i for i, lvlName in enumerate(mdex.names)}
         
         xvar_l = mdex.get_level_values(0).unique().tolist()
         rows_l = mdex.get_level_values(cnames_d[row_coln]).unique().tolist()
         
-        
+        if figsize is None:
+            figsize=(len(xvar_l) * 4, len(rows_l) * 4)
         #=======================================================================
         # #setup figure
         #=======================================================================
         
-        fig, ax_d = self.get_matrix_fig(rows_l,xvar_l, 
-                                        figsize=( len(xvar_l)*4, len(rows_l)*4),
+        fig, ax_d = self.get_matrix_fig(rows_l, xvar_l,
+                                        figsize=figsize,
                                         constrained_layout=True,
-                                        fig_id=fig_id)
+                                        fig_id=fig_id, **kwargs)
         
-        #fig.suptitle(ser.name)
+        # fig.suptitle(ser.name)
         
-        #get color map for aggLevels
+        # get color map for aggLevels
         cmap = plt.cm.get_cmap(name=colorMap) 
-        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k,ni in dict(zip(rows_l, np.linspace(0, 1, len(rows_l)))).items()}
-        
-
+        newColor_d = {k:matplotlib.colors.rgb2hex(cmap(ni)) for k, ni in dict(zip(rows_l, np.linspace(0, 1, len(rows_l)))).items()}
             
         #=======================================================================
         # join in grouping values
         #=======================================================================
         dxcol1 = dxcol.copy()
         
-        
         dxcol1.index = pd.MultiIndex.from_frame(pd.Series(dxcol.index).to_frame().join(ser.rename('group'), on=vidnm))
-        inames_d= {lvlName:i for i, lvlName in enumerate(dxcol1.index.names)}
-        
-        """
-        view(dxcol1)
-        ax.clear()
-        fig.show()
-        """
-        
+        inames_d = {lvlName:i for i, lvlName in enumerate(dxcol1.index.names)}
  
-        for i,  (rowVal, gdx0) in enumerate(dxcol1.groupby(level=cnames_d[row_coln], axis=1)):
- 
+        for i, (rowVal, gdx0) in enumerate(dxcol1.groupby(level=cnames_d[row_coln], axis=1)):
             
-            #xvar loop
+            # xvar loop
             for xvar, gdx1  in  gdx0.groupby(level=0, axis=1):
                 
                 #===============================================================
                 # data prep
                 #===============================================================
- 
                 
-                gd = {k:v.values.reshape(-1) for k,v in gdx1.groupby(level=inames_d['group'], axis=0)}
+                gd = {k:v.values.reshape(-1) for k, v in gdx1.groupby(level=inames_d['group'], axis=0)}
                 #===============================================================
                 # plotting prep
                 #===============================================================
                 ax = ax_d[rowVal][xvar]
-                ax.set_title('%s=%s, xvar=%.2f'%(row_coln, rowVal, xvar))
-                ax.set_xlabel(ser.name)
-                ax.set_ylabel(ycn)
+
 
                 #===============================================================
                 # add the boxplot
                 #===============================================================
-                boxres_d = ax.boxplot(gd.values(), labels=gd.keys(),meanline=True,
-                           boxprops={'color':newColor_d[rowVal]}, 
-                           whiskerprops={'color':newColor_d[rowVal]},
-                           flierprops={'markeredgecolor':newColor_d[rowVal], 'markersize':3,'alpha':0.5},
+                skwargs = dict(linewidth=linewidth, color='black')
+                boxres_d = ax.boxplot(gd.values(), labels=gd.keys(), meanline=False, 
+                            boxprops=skwargs,whiskerprops=skwargs,medianprops=skwargs,capprops=skwargs,
+                            flierprops={'markersize':3, 'marker':'o', 'markeredgewidth':0.5, 'alpha':0.5}, 
                             )
+                
+                #===============================================================
+                # for boxLine in boxres_d['boxes']:
+                #     boxLine.set_color(newColor_d[rowVal])
+                #     boxLine.set_linewidth(0.5)
+                #===============================================================
+                
+                
+                if not ylims is None:
+                    ax.set_ylim(ylims)
+                
+                # add the xaxis line
+                
+                ax.hlines(0, ax.get_xlim()[0], ax.get_xlim()[1], color='red', linewidth=0.5, linestyle='solid', zorder=0)
                 
                 #===============================================================
                 # add extra text
                 #===============================================================
+                ax.text(0.98, 0.95, '$s=%i$, $\sigma=%.2f$'%(rowVal, xvar),transform=ax.transAxes, va='top', ha='right')
+                """
+                plt.show()
+                """
+                # counts on median bar
+                #===============================================================
+                # for gval, line in dict(zip(gd.keys(), boxres_d['medians'])).items():
+                #     x_ar, y_ar = line.get_data()
+                #     ax.text(x_ar.mean(), y_ar.mean(), 'n%i' % len(gd[gval]),
+                #             # transform=ax.transAxes, 
+                #             va='bottom', ha='center', fontsize=8)
+                #     
+                #     if add_text:
+                #         ax.text(x_ar.mean(), ylims[0] + 1, 'mean=%.2f' % gd[gval].mean(),
+                #             # transform=ax.transAxes, 
+                #             va='bottom', ha='center', fontsize=8, rotation=90)
+                #===============================================================
                 
-                #counts on median bar
-                for gval, line in dict(zip(gd.keys(), boxres_d['medians'])).items():
-                    x_ar, y_ar = line.get_data()
-                    ax.text(x_ar.mean(), y_ar.mean(), 'n%i'%len(gd[gval]), 
-                            #transform=ax.transAxes, 
-                            va='bottom',ha='center',fontsize=8)
+
+                
+        #=======================================================================
+        # post
+        #=======================================================================
+        row_keys = rows_l
+        col_keys = xvar_l
+        for row_key, d in ax_d.items():
+            for col_key, ax in d.items():
+                #ax.set_title('%s=%s, xvar=%.2f' % (row_coln, rowVal, xvar))
+                
+                #last row
+                if row_key == row_keys[-1]:
+                    ax.set_xlabel(xlab)
                     
-                    if add_text:
-                        ax.text(x_ar.mean(), ylims[0]+1, 'mean=%.2f'%gd[gval].mean(), 
-                            #transform=ax.transAxes, 
-                            va='bottom',ha='center',fontsize=8, rotation=90)
-                    
-                
-                
-                ax.set_ylim(ylims)
-                
-                #add the xaxis line
-                
-                ax.hlines(0, ax.get_xlim()[0], ax.get_xlim()[1], color='black', linewidth=0.5, linestyle='dashed')
-                
- 
+                #first col
+                if col_key==col_keys[0]:
+                    ax.set_ylabel(ylab)
                 
         #=======================================================================
         # wrap
         #=======================================================================
- 
                 
         return fig
-    
-
     
     def plot_rv(self, #get a plot of a scipy distribution
                 rv,
