@@ -54,8 +54,8 @@ logging.basicConfig(
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
-output_format='svg'
-usetex=False
+output_format='pdf'
+usetex=True
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
 
@@ -315,8 +315,34 @@ def plot_aggF_errs(
         
         log.info('loaded %i models from %i libraries'%(len(vid_l), len(vid_df['model_id'].unique())))
         
-        rl_dxcol[26].plot()
+        #=======================================================================
+        # compute deltas
+        #=======================================================================
+        #get s1 base values
+        rl_s1_dxcol = rl_dxcol.loc[:, idx[:, :, 0]].droplevel('aggLevel', axis=1)
         
+        #get deltas
+        serx = rl_dxcol.subtract(rl_s1_dxcol).drop(0, level='aggLevel', axis=1).unstack()
+        
+        #add model_id to idnex        
+        serx.index = serx.index.join(
+            pd.MultiIndex.from_frame(vid_df['model_id'].reset_index())
+            )
+        
+        #=======================================================================
+        # plot deltas
+        #=======================================================================
+        
+        #serx = serx.drop(3, level='model_id')
+        """color map can only support 8"""
+        serx = serx.loc[idx[:,:,:,:,[6, 16, 17, 27, 37, 44]]]
+        log.info('for models\n    %s'%serx.index.unique('model_id'))
+        
+        
+        ses.plot_matrix_rlDelta_xb(serx)
+        
+ 
+        return
         #=======================================================================
         # error area---------
         #=======================================================================
