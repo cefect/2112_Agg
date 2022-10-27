@@ -411,7 +411,7 @@ class AggSession1F(Plotr, AggSession1):
         --------
         pd.DataFrame
             columns: df_id, xvar, aggLevel
-            index: area types (total, positive, negative)
+            index: 3 types of area between s1 and s2 curves (total, positive, negative)
         """
         #=======================================================================
         # defaults

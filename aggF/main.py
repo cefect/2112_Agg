@@ -54,8 +54,8 @@ logging.basicConfig(
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
-output_format='pdf'
-usetex=True
+output_format='svg'
+usetex=False
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
 
@@ -293,8 +293,11 @@ def plot_aggF_errs(
         #=======================================================================
         
         #=======================================================================
-        # load
-        #=======================================================================        
+        # rl mean vs. xb--------
+        #=======================================================================
+        #=======================================================================
+        # load        
+        #=======================================================================
         #xmean RL values per AggLevel
         rl_dxcol = pd.read_pickle(fp_d['rl_dxcol'])        
         mdex = rl_dxcol.columns        
@@ -312,12 +315,15 @@ def plot_aggF_errs(
         
         log.info('loaded %i models from %i libraries'%(len(vid_l), len(vid_df['model_id'].unique())))
         
+        rl_dxcol[26].plot()
+        
         #=======================================================================
-        # #compute secondaries
+        # error area---------
         #=======================================================================
         if 'errArea_dxcol' in fp_d:
             errArea_dxcol = pd.read_pickle(fp_d['errArea_dxcol'])
         else:
+            #see AggSession1F.calc_areas()
             errArea_dxcol = ses.build_model_metrics(dxcol=rl_dxcol)
         
         #=======================================================================
@@ -348,9 +354,9 @@ def plot_aggF_errs(
  
         
         
-        return
+ 
         # per-model bar plots of error area at different aggLevels and xvars
-        ses.plot_eA_bars()
+        #ses.plot_eA_bars()
         
         #=======================================================================
         # write stats
