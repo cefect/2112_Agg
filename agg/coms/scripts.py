@@ -9,10 +9,11 @@ import os, sys, datetime, gc, copy,  math, pickle,shutil
 import pandas as pd
 import numpy as np
 
+from definitions import wrk_dir
  
 
-from hp.oop import Basic, Session, Error
-from hp.Q import Qproj
+from hp.oop import Basic, Session
+ 
 from hp.pd import view, get_bx_multiVal
 from hp.plot import Plotr
 
@@ -21,7 +22,7 @@ class BaseSession(Session): #common to everything
     pass
 
 
-class QSession(BaseSession, Qproj):
+class AggSession1(BaseSession):
     
     vidnm = 'df_id' #indexer for damage functions
     ycn = 'rl'
@@ -35,8 +36,8 @@ class QSession(BaseSession, Qproj):
                  write=True,
                  
                  compiled_fp_d2 = { #permanently compiled
-                        'vid_df':r'C:\LS\10_OUT\2112_Agg\ins\vfunc\vid_df_hyd5_dev_0414.pickle', #optional compiled vid_df
-                        'df_d':r'C:\LS\10_OUT\2112_Agg\ins\vfunc\df_d_hyd5_dev_0414.pickle',
+                        'vid_df':r'C:\LS\10_IO\2112_Agg\ins\vfunc\vid_df_hyd5_dev_0414.pickle', #optional compiled vid_df
+                        'df_d':r'C:\LS\10_IO\2112_Agg\ins\vfunc\df_d_hyd5_dev_0414.pickle',
                         },
  
                  **kwargs):
@@ -65,7 +66,8 @@ class QSession(BaseSession, Qproj):
                 }
             }}
         
-        super().__init__(work_dir = r'C:\LS\10_OUT\2112_Agg',
+        super().__init__(
+                        wrk_dir = wrk_dir,
                          data_retrieve_hndls=data_retrieve_hndls,prec=prec,
                          #init_plt_d=None, #dont initilize the plot child
                          **kwargs)
@@ -86,7 +88,7 @@ class QSession(BaseSession, Qproj):
     
     def build_df_d(self, #load the vfunc files
                 fp=r'C:\LS\09_REPOS\02_JOBS\2112_Agg\figueiredo2018\cef\csv_dump.xls',
-                dkey=None, logger=None, write=None,
+                dkey='df_d', logger=None, write=None,
                 ):
         
         #=======================================================================
@@ -110,13 +112,13 @@ class QSession(BaseSession, Qproj):
         #=======================================================================
         if write: 
             self.ofp_d[dkey] = self.write_pick(df_d,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   os.path.join(self.out_dir, '%s_%s.pickle' % (dkey, self.fancy_name)),
                                    logger=log)
         
         
         return df_d
     
-    def build_vid_df(self, #select and build vfunc data
+    def build_vid_df(self, #
                       df_d = None,
                       
                       #run control
@@ -144,6 +146,7 @@ class QSession(BaseSession, Qproj):
                      vidnm = None, #indexer for damage functions
                      dkey='vid_df', logger=None, write=None,
                      ):
+        """select and build vfunc data"""
         #=======================================================================
         # defaults
         #=======================================================================
@@ -243,23 +246,23 @@ class QSession(BaseSession, Qproj):
             l = set(res_df.index).difference(df_d[tabName][vidnm])
             
             if len(l)>0:
-                raise Error('requesting %i/%i %s w/o requisite tables\n    %s'%(
-                    len(l), len(res_df), l))
+                raise AssertionError('requesting %i/%i %s w/o requisite tables\n    %s'%(len(l), len(res_df), l))
             
         #=======================================================================
         # get a model summary sheet
         #=======================================================================
         if write_model_summary:
             coln = 'model_id'
-            mdf = df1.drop_duplicates(coln).set_index(coln)
+            mdf = res_df.drop_duplicates(coln).set_index(coln)
             
             
-            mdf1 = mdf.join(df1[coln].value_counts().rename('vid_cnt')).dropna(how='all', axis=0)
+            mdf1 = mdf.join(res_df[coln].value_counts().rename('vid_cnt')).dropna(how='all', axis=0) 
+   
             
-            out_fp = os.path.join(self.out_dir, '%smodel_summary.csv'%self.resname)
+            out_fp = os.path.join(self.out_dir, '%smodel_summary.csv'%self.fancy_name)
             mdf1.to_csv(out_fp, index=True)
             
-            log.info('wrote model summary to file: %s'%out_fp)
+            log.info('wrote model summary to file: \n    %s'%out_fp)
             
  
         log.info('finished on %s \n    %s'%(str(res_df.shape), res_df['abbreviation'].value_counts().to_dict()))
@@ -269,7 +272,7 @@ class QSession(BaseSession, Qproj):
         #=======================================================================
         if write: 
             self.ofp_d[dkey] = self.write_pick(res_df,
-                                   os.path.join(self.wrk_dir, '%s_%s.pickle' % (dkey, self.longname)),
+                                   os.path.join(self.out_dir, '%s_%s.pickle' % (dkey, self.fancy_name)),
                                    logger=log)
         
         
@@ -285,7 +288,7 @@ class QSession(BaseSession, Qproj):
  
  
                      #key names
-                     dkey=None,
+                     dkey='vf_d',
                      vidnm = None, #indexer for damage functions
                      logger=None,
                      ):
@@ -322,7 +325,7 @@ class QSession(BaseSession, Qproj):
             l = set(vid_df.index).difference(df1[vidnm])
             df1[vidnm].unique()
             if not len(l)==0:
-                raise Error('missing %i keys in \'%s\''%(len(l), tabName))
+                raise AssertionError('missing %i keys in \'%s\''%(len(l), tabName))
             
  
             
@@ -341,12 +344,13 @@ class QSession(BaseSession, Qproj):
             try:
                 df1 = lkp_d[k].groupby(vidnm).get_group(vid).drop(vidnm, axis=1).reset_index(drop=True)
             except Exception as e:
-                raise Error(e)
+                raise AssertionError(e)
             #drop indexers
             bxcol = df1.columns.str.contains('_id')
             return df1.loc[:, ~bxcol]
         
  
+        d2 = dict()
         vf_d = dict()
         log.info('spawning %i dfunvs'%len(vid_df))
         for i, (vid, row) in enumerate(vid_df.iterrows()):
@@ -377,6 +381,8 @@ class QSession(BaseSession, Qproj):
                 meta_d = row.dropna().to_dict(), 
                 ).set_ddf(ddf)
                 
+            d2[vid] = ddf
+                
             #===================================================================
             # check
             #===================================================================
@@ -384,6 +390,17 @@ class QSession(BaseSession, Qproj):
                 assert getattr(self, attn) == getattr(vf_d[vid], attn), attn
             
                 
+        #=======================================================================
+        # warp
+        #=======================================================================
+        ddf_all = pd.concat(d2, names=['df_id', 'index'])
+        d = dict()
+        for coln, col in ddf_all.items():
+            d[coln] = {'max':col.max(), 'min':col.min(), 'cnt':len(col)}
+            
+        
+        log.info('constructed with \n%s'%pd.DataFrame.from_dict(d))
+        
         log.info('spawned %i vfuncs'%len(vf_d))
         
         #self.vf_d = vf_d
@@ -523,7 +540,7 @@ class QSession(BaseSession, Qproj):
 
  
             if not jdf[vidnm].is_unique:
-                raise Error('non-unique indexer \'%s\' on \'%s\''%(vidnm, tabName))
+                raise AssertionError('non-unique indexer \'%s\' on \'%s\''%(vidnm, tabName))
             
             jdf = jdf.set_index(vidnm)
             
@@ -727,7 +744,7 @@ class Vfunc(object):
                 df1 = df1.loc[~bx, :]
             else:
                 """these are not functions"""
-                raise Error(msg)
+                raise AssertionError(msg)
             
         #=======================================================================
         # duplicate pairs
@@ -756,7 +773,8 @@ class Vfunc(object):
 
             #add a dummy zerozero value for extrapolation
             if set_loss_intercept:
-                df1 = df1.append(pd.Series(0.0, index=df1.columns), ignore_index=True).sort_values(xcn)
+                df1 = pd.concat([df1, pd.Series(0.0, index=df1.columns).to_frame().T], ignore_index=True, axis=0).sort_values(xcn)
+ 
                 log.debug(msg)
             else:
                 log.warning(msg)
@@ -774,7 +792,7 @@ class Vfunc(object):
             if bx.any():
                 msg = 'got %i/%i RL values exceeding 100 (%s)'%(bx.sum(), len(bx), self.name)
                 if not allow_rl_exceed:
-                    raise Error(msg)
+                    raise AssertionError(msg)
                 else:
                     log.warning(msg)
                     
@@ -951,7 +969,7 @@ class Catalog(object): #handling the simulation index and library
         self.keys = [self.idn, 'name', 'tag', 'pick_fp', 'vlay_dir','pick_keys']
         
     def clean(self):
-        raise Error('check consitency between index and library contents')
+        raise IOError('check consitency between index and library contents')
     
     def check(self):
         #=======================================================================
@@ -980,7 +998,7 @@ class Catalog(object): #handling the simulation index and library
                     errs_d['%s_%i'%(coln, id)] = path
                     
         if len(errs_d)>0:
-            raise Error('got %i/%i bad filepaths')
+            raise AssertionError('got %i/%i bad filepaths')
  
  
         
@@ -1099,7 +1117,7 @@ class Catalog(object): #handling the simulation index and library
                     os.remove(self.catalog_fp)
                     log.warning('got empty catalog... deleteing file')
                 except Exception as e:
-                    raise Error(e)
+                    raise IOError(e)
             else:
                 #===============================================================
                 # write the new
