@@ -29,8 +29,8 @@ class Plot_diff_grids(object):
     def plot_maps(self,xar,gdf,
                         
                        output_format=None,
-                       output_fig_kwargs=dict(add_stamp=False, ),
-                       matrix_kwargs=dict(figsize=(17*cm, 5.5*cm), set_ax_title=False, add_subfigLabel=False, fig_id=0, constrained_layout=True),
+                       output_fig_kwargs=dict(add_stamp=True, transparent=True),
+                       matrix_kwargs=dict(figsize=None, set_ax_title=False, add_subfigLabel=False, fig_id=0, constrained_layout=True),
                        scale_SizeBar = 100,
                          **kwargs):
         """

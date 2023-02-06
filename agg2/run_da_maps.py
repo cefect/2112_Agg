@@ -27,8 +27,8 @@ from hp.basic import get_dict_str, today_str
 #===============================================================================
 cm = 1/2.54
 
-output_format='pdf'
-usetex=True
+output_format='png'
+usetex=False
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
     
@@ -41,21 +41,19 @@ import matplotlib.pyplot as plt
 #set teh styles
 plt.style.use('default')
  
-#font
-matplotlib.rc('font', **{
-        'family' : 'serif',
-        'weight' : 'normal',
-        'size'   : 8})
+font_size=12
+#matplotlib.rc('font', **{'family' : 'serif','weight' : 'normal','size'   : 8})
+matplotlib.rc('font', **{'family' : 'sans-serif','sans-serif':'Tahoma','weight' : 'normal','size':font_size})
  
  
 for k,v in {
-    'axes.titlesize':10,
-    'axes.labelsize':10,
-    'xtick.labelsize':8,
-    'ytick.labelsize':8,
-    'figure.titlesize':12,
+    'axes.titlesize':font_size+2,
+    'axes.labelsize':font_size+2,
+    'xtick.labelsize':font_size,
+    'ytick.labelsize':font_size,
+    'figure.titlesize':font_size+4,
     'figure.autolayout':False,
-    'figure.figsize':(10,10),
+    'figure.figsize':(20*cm,7*cm),
     'legend.title_fontsize':'large',
     'text.usetex':usetex,
     }.items():
