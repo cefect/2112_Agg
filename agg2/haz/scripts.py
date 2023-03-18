@@ -26,7 +26,7 @@ import dask
 
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
     assert_ds_attribute_match, get_xy_coords
-from hp.basic import get_dict_str
+from hp.basic import get_dict_str, now
 from hp.pd import view, append_levels
 from hp.sklearn import get_confusion
 
@@ -40,11 +40,7 @@ idx= pd.IndexSlice
 from hp.plot import plot_rast
 import matplotlib.pyplot as plt
  
-
-#import dask.array as da
-
-def now():
-    return datetime.datetime.now()
+ 
 
 
 class UpsampleChild(ResampClassifier, AggBase):

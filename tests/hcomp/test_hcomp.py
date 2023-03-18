@@ -65,15 +65,27 @@ def wrkr(tmp_path,write,logger, test_name,
 #===============================================================================
 # tests-------
 #===============================================================================
-@pytest.mark.parametrize('dem_fp, wsh_fp', [
-    (dem1_fp,wsh1_fp),
-    ])
+pars_filepaths = 'dem_fp, wsh_fp, wse_fp', [
+    (dem1_fp,wsh1_fp, wse1_fp),
+    ]
+
+
+@pytest.mark.parametrize(*pars_filepaths)
 @pytest.mark.parametrize('aggscale', [3])
 @pytest.mark.parametrize('resampling', [Resampling.average])
-def test_get_avgWSH(wsh_fp, dem_fp, aggscale, resampling, wrkr): 
-    wrkr.get_avgWSH(wsh_fp, dem_fp, aggscale=aggscale, resampling=resampling)
+def test_get_avgWSH(dem_fp, wsh_fp, wse_fp, aggscale, resampling, wrkr): 
+    wrkr.get_avgWSH(dem_fp, wsh_fp,  aggscale=aggscale, resampling=resampling)
     
-    
+
+@pytest.mark.dev
+@pytest.mark.parametrize(*pars_filepaths)
+@pytest.mark.parametrize('aggscale', [3])
+@pytest.mark.parametrize('method, mkwargs', [
+    ('avgWSH', dict(resampling=Resampling.average))
+    ])
+def test_agg_byType(dem_fp, wsh_fp, wse_fp, method, mkwargs, aggscale, wrkr): 
+    wrkr.get_agg_byType(method, dem_fp=dem_fp, wse_fp=wse_fp, wsh_fp=wsh_fp, 
+                        aggscale=aggscale, method_kwargs=mkwargs)
 #===============================================================================
 # @pytest.mark.parametrize('dem_fp, wse_fp', [
 #     (dem1_fp,wse1_fp),
