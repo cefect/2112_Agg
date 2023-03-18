@@ -14,20 +14,27 @@ import shapely.geometry as sgeo
 from rasterio.enums import Resampling
 
 from hcomp.scripts import HydCompareSession
+from hcomp.run_hcomp import run_compare
+
+
 from tests.hcomp.conftest import get_aoi_fp
 from hp.tests.tools.rasters import get_rlay_fp
 #===============================================================================
 # test data------
 #===============================================================================
  
-from tests.hcomp.data.toy import dem1_ar, wse1_ar, wsh1_ar
+from tests.hcomp.data.toy import (
+    dem1_ar, wse1_ar, wsh1_ar, wse2_ar, crs_default,  bbox_default,
+    )
 
-dem1_fp = get_rlay_fp(dem1_ar, 'dem1') 
+gfp = lambda ar, name:get_rlay_fp(ar, name, crs=crs_default, bbox=bbox_default)
+
+dem1_fp = gfp(dem1_ar, 'dem1') 
+wse1_fp = gfp(wse1_ar, 'wse1')
+wsh1_fp = gfp(wsh1_ar, 'wsh1')
+wse2_fp = gfp(wse2_ar, 'wse2')
  
-wse1_fp = get_rlay_fp(wse1_ar, 'wse12')
-wsh1_fp = get_rlay_fp(wsh1_ar, 'wsh1')
- 
-aoi_fp = get_aoi_fp(sgeo.box(0, 30, 60, 60))
+aoi_fp = get_aoi_fp(sgeo.box(0, 0, 6, 9), crs=crs_default)
 
 
 
@@ -35,28 +42,10 @@ aoi_fp = get_aoi_fp(sgeo.box(0, 30, 60, 60))
 # fixtures------------
 #===============================================================================
 @pytest.fixture(scope='function')
-def wrkr(tmp_path,write,logger, test_name, 
-                    ):
+def wrkr(init_kwargs):
     
-    """Mock session for tests"""
- 
-    with HydCompareSession(  
- 
-                 #oop.Basic
-                 out_dir=tmp_path, 
-                 tmp_dir=os.path.join(tmp_path, 'tmp_dir'),
-                 #prec=prec,
-                  proj_name='test', #probably a better way to propagate through this key 
-                 run_name=test_name[:8].replace('_',''),
-                  
-                 relative=True, write=write, #avoid writing prep layers
-                 
-                 logger=logger, overwrite=True, 
-
-                 
- 
-                   ) as ses:
- 
+    """Mock session for tests""" 
+    with HydCompareSession(**init_kwargs) as ses: 
         yield ses
 
 #===============================================================================
@@ -80,7 +69,7 @@ def test_get_avgWSH(dem_fp, wsh_fp, wse_fp, aggscale, resampling, wrkr):
 def test_get_avgWSE(dem_fp, wsh_fp, wse_fp, aggscale, resampling, wrkr): 
     wrkr.get_avgWSE(dem_fp, wse_fp,  aggscale=aggscale, resampling=resampling)
 
-@pytest.mark.dev
+
 @pytest.mark.parametrize(*pars_filepaths)
 @pytest.mark.parametrize('aggscale', [3])
 @pytest.mark.parametrize('method, mkwargs', [
@@ -90,8 +79,14 @@ def test_get_avgWSE(dem_fp, wsh_fp, wse_fp, aggscale, resampling, wrkr):
 def test_agg_byType(dem_fp, wsh_fp, wse_fp, method, mkwargs, aggscale, wrkr): 
     wrkr.get_agg_byType(method, dem_fp=dem_fp, wse_fp=wse_fp, wsh_fp=wsh_fp, 
                         aggscale=aggscale, method_kwargs=mkwargs)
-#===============================================================================
-# @pytest.mark.parametrize('dem_fp, wse_fp', [
-#     (dem1_fp,wse1_fp),
-#     ])
-#===============================================================================
+
+@pytest.mark.dev
+@pytest.mark.parametrize('dem1_fp, wse1_fp, wse2_fp, aoi_fp', [
+    (dem1_fp,wse1_fp, wse2_fp, aoi_fp),
+    ])
+def test_run_compare(dem1_fp,wse1_fp, wse2_fp, aoi_fp, init_kwargs):
+    run_compare(dem1_fp=dem1_fp, wse1_fp=wse1_fp, wse2_fp=wse2_fp,
+                aoi_fp=aoi_fp,
+                init_kwargs=init_kwargs
+                )
+                

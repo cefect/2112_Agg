@@ -8,7 +8,8 @@ toy test data
 import numpy as np
 import pandas as pd
 import numpy.ma as ma
-from io import StringIO
+import shapely.geometry as sgeo
+from pyproj.crs import CRS
 #from tests.conftest import get_rlay_fp
 nan, array = np.nan, np.array
 
@@ -19,12 +20,18 @@ more seamless with using real data in tests"""
 #===============================================================================
 # helpers
 #===============================================================================
-from hp.tests.tools.rasters import get_mar, get_ar_from_str, get_wse_ar, get_rlay_fp
+from hp.tests.tools.rasters import (
+    get_mar, get_ar_from_str, get_wse_ar, get_rlay_fp,crs_default, 
+    )
 from hp.hyd import get_wsh_ar
- 
+
+
+
 #===============================================================================
 # raw data
 #===============================================================================
+
+
 dem1_ar = get_mar(
     get_ar_from_str("""
     1    1    1    9    9    9    
@@ -72,7 +79,19 @@ wse1_ar = get_mar(
 wsh1_ar = get_wsh_ar(dem1_ar, wse1_ar)
 
  
+#==============================================================================
+# agg data
+#==============================================================================
+#standin for hydrodynamic coarse results
+wse2_ar = get_mar( #get_wse_ar converts 9999 to null. get_mar converts back to -9999
+    get_wse_ar("""
+    3.5    -9999
+    4    -9999
+    5    -9999
+    5    -9999
+    """))
 
-
-
+s = dem1_ar.shape
+bbox_default = sgeo.box(0, 0, s[1], s[0]) #(0.0, 0.0, 6.0, 12.0)
+#print(f'toy bbox_default={bbox_default.bounds}')
 
