@@ -81,7 +81,7 @@ def run_pipeline(
         # get hi-res depth
         #=======================================================================
         """needed by get_avgWSH and results"""
-        fp_d['wsh1'] = get_wsh_rlay(fp_d['dem1'], fp_d['wse1'], out_dir=ses.out_dir)
+        fp_d['wsh1'] = get_wsh_rlay(fp_d['dem1'], fp_d['wse1'], out_dir=ses.tmp_dir)
         res_lib['hyd']['wsh1'] = fp_d['wsh1']
         #=======================================================================
         # infer the aggregation scale
@@ -119,5 +119,7 @@ def run_pipeline(
         
 if __name__=='__main__':
     ahr_aoi08_r32_0130_30()
+    
+    print('finished')
         
  

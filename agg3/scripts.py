@@ -24,6 +24,8 @@ from hp.hyd import (
     )
 
 from hp.fiona import get_bbox_and_crs
+
+from definitions import root_dir
  
 
  
@@ -59,14 +61,14 @@ class FloodGridAggregation(object):
                            ofp=os.path.join(out_dir, f'{resname}_{layerName}.tif'))
             
         #DEM
-        dem2_fp = agg(dem1_fp, 'DEM')
-        wsh2_fp = agg(wsh1_fp, 'WSH')
+        dem2_fp = agg(dem1_fp, 'DEM2')
+        wsh2_fp = agg(wsh1_fp, 'WSH2')
         
         #=======================================================================
         # build WSE
         #=======================================================================
         log.info(f'building the WSE2')
-        wse2_fp = get_wse_rlay(dem2_fp, wsh2_fp, ofp=os.path.join(out_dir, f'{resname}_WSE.tif'))
+        wse2_fp = get_wse_rlay(dem2_fp, wsh2_fp, ofp=os.path.join(out_dir, f'{resname}_WSE2.tif'))
         
         return dem2_fp, wse2_fp, wsh2_fp
     
@@ -106,15 +108,14 @@ class FloodGridAggregation(object):
         #=======================================================================
         # upscale/aggregate
         #=======================================================================
-        def agg(fp, layerName):
- 
+        def agg(fp, layerName, out_dir): 
             log.info(f'aggregating the {layerName} {os.path.basename(fp)} to aggscale={aggscale}')
             return write_resample(fp, resampling=resampling, scale=1/aggscale, 
                            ofp=os.path.join(out_dir, f'{resname}_{layerName}.tif'))
             
         #DEM
-        dem2_fp = agg(dem1_fp, 'DEM')
-        wse2_fp1 = agg(wse1_fp, 'WSE')
+        dem2_fp = agg(dem1_fp, 'DEM2', out_dir)
+        wse2_fp1 = agg(wse1_fp, 'raw_WSE2', tmp_dir)
         
         #=======================================================================
         # filter WSE
@@ -258,7 +259,7 @@ class FloodGridAggregation(object):
 class Agg3_Session(Session, FloodGridAggregation):
     """session for comparing a single hyd pair vs. agg pair"""
     def __init__(self,**kwargs):
-        super().__init__(obj_name='hcomp',  **kwargs)
+        super().__init__(proj_name='agg3', wrk_dir=root_dir, **kwargs)
         
     def clip_rlays(self, raster_fp_d, aoi_fp=None, 
                    bbox=None, crs=None,
