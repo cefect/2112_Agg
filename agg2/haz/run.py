@@ -182,14 +182,14 @@ def SJ_dev(run_name='t',method='direct',**kwargs):
 if __name__ == "__main__": 
     start = now()
  
-    #scheduler='single-threaded'
-    scheduler='threads'
+    scheduler='single-threaded'
+    #scheduler='threads'
     with dask.config.set(scheduler=scheduler):
         print(scheduler)
           
-        #xr_dir = SJ_dev(method='filter')
+        xr_dir = SJ_dev(method='filter')
        
-        xr_dir = SJ_run(method='direct',run_name='r11')
+        #xr_dir = SJ_run(method='direct',run_name='r11')
     
     #===========================================================================
     # for method in ['filter', 'direct']:

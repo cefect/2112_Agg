@@ -1133,16 +1133,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
     #===========================================================================
     # ERRORS-------
     #===========================================================================
-
-                
-        
-            
-            
  
-            
- 
-        
-        
     def run_diffs(self,
                   pick_fp,
                   confusion=True,
@@ -1312,150 +1303,150 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
         return res_df
     
  
-
-
-    def run_diff_stats(self,pick_fp, cm_pick_fp, **kwargs):
-        """compute stats from diff rasters filtered by each cat mask
-        
-        
-        Notes
-        -----------
-        These are all at the base resolution
-        
-        speedups?
-            4 cat masks
-            2 layers
-            ~6 resolutions
-            
-            
-            distribute to 8 workers: unique cat-mask + layer combinations?
-            
-        calculating too many stats here. really only care about
-            wd vol diff
-            wd and wse mean diff
-            
-        
-        """
-        #=======================================================================
-        # defaults
-        #=======================================================================
-        log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('diffStats',  subdir=True,ext='.pkl', **kwargs)
-        start = now()
-        layName_l = ['wse', 'wd']
-        
-        #=======================================================================
-        # load data
-        #=======================================================================
-        #layers
-        df_raw = pd.read_pickle(pick_fp)
-        
-        df = df_raw.loc[:, idx[layName_l, 'diff_fp']].droplevel('subdata', axis=1)
-        
-        #catMasks
-        cm_df = pd.read_pickle(cm_pick_fp)        
-        df = df.join(cm_df['fp'].rename('catMosaic'))
-            
-        assert df.isna().sum().sum()==1
-        
-        #===================================================================
-        # loop on each scale
-        #===================================================================
-        res_lib, meta_d=dict(), dict()
-        for i, (scale, ser) in enumerate(df.iterrows()):
-            log.info('    %i/%i scale=%i'%(i+1, len(df), scale))
-            
-            
-            #===================================================================
-            # setup masks
-            #===================================================================
-            #the complete mask
-            if i==0:
-                """just using the ds of the raw wse for shape"""
-                with rio.open(ser['wse'], mode='r') as ds:
-                    shapeF = ds.shape                    
-                    meta_d[scale] = get_pixel_info(ds)
- 
-                mask_d = {'all':np.full(shapeF, True)} #persists in for loop
-                
-            #build other masks
-            else: 
-                with rio.open(ser['catMosaic'], mode='r') as ds:
-                    cm_ar = ds.read(1, out_shape=shapeF, resampling=Resampling.nearest, masked=False) #downscale
-                    meta_d[scale] = get_pixel_info(ds)
-                    
-                assert cm_ar.shape==shapeF            
-                mask_d.update(self.mosaic_to_masks(cm_ar))
-            
-            #=======================================================================
-            # loop on each layer
-            #=======================================================================
-            res_d = dict()
-            for layName, fp in ser.drop('catMosaic').items():
- 
-                log.debug('on \'%s\''%layName)
-
-                    
-                #===============================================================
-                # compute metrics
-                #===============================================================
-                with rio.open(fp, mode='r') as ds:                    
-                    if i==0:
-                        rd1 = {'all':{'count':ds.width*ds.height, 'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}}
-
-                    else:    
-                        ar = ds.read(1, masked=True)    
-                        
-                        func = lambda x:self._get_diff_stats(x)
-                        rd1 = self.get_maskd_func(mask_d, ar, func, log.getChild('%i.%s'%(i, layName)))
-                    
- 
-                #===============================================================
-                # wrap layer
-                #===============================================================
-                res_d[layName] = pd.DataFrame.from_dict(rd1)
-            #===================================================================
-            # wrap layer loop
-            #===================================================================
-            res_lib[scale] = pd.concat(res_d, axis=1, names=['layer', 'dsc'])   
-            #pd.DataFrame.from_dict(res_d).T.astype({k:np.int32 for k in confusion_l})
-        #=======================================================================
-        # wrap on layer
-        #=======================================================================
-        """
-        view(res_dx)
-        """
- 
-        
-        res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()        
-        
-        # add confusion
-        cm_dx = df_raw.drop('diff_fp', axis=1, level=1)
-        cm_dx.columns.set_names('metric', level=1, inplace=True)
-        # cm_dx = cm_df.drop('fp', axis=1).rename_axis('metric', axis=1)
- 
-        res_dx = res_dx.join(
-            pd.concat({'all':cm_dx}, names=['dsc'], axis=1).reorder_levels(res_dx.columns.names, axis=1)
-            )
- 
-        # sort and clean
-        res_dx = res_dx.sort_index(axis=1, sort_remaining=True).dropna(axis=1, how='all')
-        
-        #append pixel info to index
-        """to conform with other stats objects"""
-        mindex = pd.MultiIndex.from_frame(
-                res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale'))
-        res_dx.index = mindex
- 
-        # checks
-        assert not res_dx.isna().all().all()
-        assert_dx_names(res_dx)
-        
-        # write
-        res_dx.to_pickle(ofp)        
-        
-        log.info('finished on %s in %.2f secs and wrote to\n    %s' % (str(res_dx.shape), (now() - start).total_seconds(), ofp))
-        
-        return ofp
+#===============================================================================
+#     def run_diff_stats(self,pick_fp, cm_pick_fp, **kwargs):
+#         """compute stats from diff rasters filtered by each cat mask
+#         
+#         
+#         Notes
+#         -----------
+#         These are all at the base resolution
+#         
+#         speedups?
+#             4 cat masks
+#             2 layers
+#             ~6 resolutions
+#             
+#             
+#             distribute to 8 workers: unique cat-mask + layer combinations?
+#             
+#         calculating too many stats here. really only care about
+#             wd vol diff
+#             wd and wse mean diff
+#             
+#         
+#         """
+#         #=======================================================================
+#         # defaults
+#         #=======================================================================
+#         log, tmp_dir, out_dir, ofp, resname, write = self._func_setup('diffStats',  subdir=True,ext='.pkl', **kwargs)
+#         start = now()
+#         layName_l = ['wse', 'wd']
+#         
+#         #=======================================================================
+#         # load data
+#         #=======================================================================
+#         #layers
+#         df_raw = pd.read_pickle(pick_fp)
+#         
+#         df = df_raw.loc[:, idx[layName_l, 'diff_fp']].droplevel('subdata', axis=1)
+#         
+#         #catMasks
+#         cm_df = pd.read_pickle(cm_pick_fp)        
+#         df = df.join(cm_df['fp'].rename('catMosaic'))
+#             
+#         assert df.isna().sum().sum()==1
+#         
+#         #===================================================================
+#         # loop on each scale
+#         #===================================================================
+#         res_lib, meta_d=dict(), dict()
+#         for i, (scale, ser) in enumerate(df.iterrows()):
+#             log.info('    %i/%i scale=%i'%(i+1, len(df), scale))
+#             
+#             
+#             #===================================================================
+#             # setup masks
+#             #===================================================================
+#             #the complete mask
+#             if i==0:
+#                 """just using the ds of the raw wse for shape"""
+#                 with rio.open(ser['wse'], mode='r') as ds:
+#                     shapeF = ds.shape                    
+#                     meta_d[scale] = get_pixel_info(ds)
+#  
+#                 mask_d = {'all':np.full(shapeF, True)} #persists in for loop
+#                 
+#             #build other masks
+#             else: 
+#                 with rio.open(ser['catMosaic'], mode='r') as ds:
+#                     cm_ar = ds.read(1, out_shape=shapeF, resampling=Resampling.nearest, masked=False) #downscale
+#                     meta_d[scale] = get_pixel_info(ds)
+#                     
+#                 assert cm_ar.shape==shapeF            
+#                 mask_d.update(self.mosaic_to_masks(cm_ar))
+#             
+#             #=======================================================================
+#             # loop on each layer
+#             #=======================================================================
+#             res_d = dict()
+#             for layName, fp in ser.drop('catMosaic').items():
+#  
+#                 log.debug('on \'%s\''%layName)
+# 
+#                     
+#                 #===============================================================
+#                 # compute metrics
+#                 #===============================================================
+#                 with rio.open(fp, mode='r') as ds:                    
+#                     if i==0:
+#                         rd1 = {'all':{'count':ds.width*ds.height, 'meanErr':0.0, 'meanAbsErr':0.0, 'RMSE':0.0}}
+# 
+#                     else:    
+#                         ar = ds.read(1, masked=True)    
+#                         
+#                         func = lambda x:self._get_diff_stats(x)
+#                         rd1 = self.get_maskd_func(mask_d, ar, func, log.getChild('%i.%s'%(i, layName)))
+#                     
+#  
+#                 #===============================================================
+#                 # wrap layer
+#                 #===============================================================
+#                 res_d[layName] = pd.DataFrame.from_dict(rd1)
+#             #===================================================================
+#             # wrap layer loop
+#             #===================================================================
+#             res_lib[scale] = pd.concat(res_d, axis=1, names=['layer', 'dsc'])   
+#             #pd.DataFrame.from_dict(res_d).T.astype({k:np.int32 for k in confusion_l})
+#         #=======================================================================
+#         # wrap on layer
+#         #=======================================================================
+#         """
+#         view(res_dx)
+#         """
+#  
+#         
+#         res_dx = pd.concat(res_lib, axis=0, names=['scale', 'metric']).unstack()        
+#         
+#         # add confusion
+#         cm_dx = df_raw.drop('diff_fp', axis=1, level=1)
+#         cm_dx.columns.set_names('metric', level=1, inplace=True)
+#         # cm_dx = cm_df.drop('fp', axis=1).rename_axis('metric', axis=1)
+#  
+#         res_dx = res_dx.join(
+#             pd.concat({'all':cm_dx}, names=['dsc'], axis=1).reorder_levels(res_dx.columns.names, axis=1)
+#             )
+#  
+#         # sort and clean
+#         res_dx = res_dx.sort_index(axis=1, sort_remaining=True).dropna(axis=1, how='all')
+#         
+#         #append pixel info to index
+#         """to conform with other stats objects"""
+#         mindex = pd.MultiIndex.from_frame(
+#                 res_dx.index.to_frame().reset_index(drop=True).join(pd.DataFrame.from_dict(meta_d).T.astype(int), on='scale'))
+#         res_dx.index = mindex
+#  
+#         # checks
+#         assert not res_dx.isna().all().all()
+#         assert_dx_names(res_dx)
+#         
+#         # write
+#         res_dx.to_pickle(ofp)        
+#         
+#         log.info('finished on %s in %.2f secs and wrote to\n    %s' % (str(res_dx.shape), (now() - start).total_seconds(), ofp))
+#         
+#         return ofp
+#===============================================================================
     
     def concat_stats(self, fp_d, **kwargs):
         """quick combining and writing of stat pickls"""

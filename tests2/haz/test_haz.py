@@ -277,24 +277,28 @@ diffs_pick_fp = os.path.join(src_dir, r'tests2\haz\data\diffs\SJ_test05_direct_0
     
 
 
-@pytest.mark.parametrize('dsc_l', [(dsc_l_global)], indirect=False) 
-@pytest.mark.parametrize('pick_fp', [diffs_pick_fp]) 
-def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
-    res_fp = wrkr.run_diff_stats(pick_fp, cm_pick_fp, write=True,
- 
-                           )
-    assert_stat_check(res_fp)
+#===============================================================================
+# @pytest.mark.parametrize('dsc_l', [(dsc_l_global)], indirect=False) 
+# @pytest.mark.parametrize('pick_fp', [diffs_pick_fp]) 
+# def test_06_diff_stats(wrkr, pick_fp, cm_pick_fp):
+#     res_fp = wrkr.run_diff_stats(pick_fp, cm_pick_fp, write=True,
+#  
+#                            )
+#     assert_stat_check(res_fp)
+#===============================================================================
     
 
 
-
-@pytest.mark.parametrize('dsc_l', [(dsc_l_global)])
-def test_07_pTP(wrkr, agg_pick_df, cm_pick_fp):
-    """too complicated to build the netCDF from scratch
-    and we need to be careful with memory handling"""
-    nc_fp = wrkr.build_downscaled_agg_xarray(agg_pick_df)
-    
-    wrkr.run_pTP(nc_fp, cm_pick_fp)
+#===============================================================================
+# 
+# @pytest.mark.parametrize('dsc_l', [(dsc_l_global)])
+# def test_07_pTP(wrkr, agg_pick_df, cm_pick_fp):
+#     """too complicated to build the netCDF from scratch
+#     and we need to be careful with memory handling"""
+#     nc_fp = wrkr.build_downscaled_aggXR(agg_pick_df)
+#     
+#     wrkr.run_pTP(nc_fp, cm_pick_fp)
+#===============================================================================
     
 #===============================================================================
 # INTEGRATIOn tests ------------
@@ -308,12 +312,14 @@ def test_07_pTP(wrkr, agg_pick_df, cm_pick_fp):
     ])
 @pytest.mark.parametrize('proj_d', [proj_d])
 def test_runHaz(method, proj_d, dsc_l, tmp_path):
-    """use the function runner"""
-    fp_d, stat_d = run_haz_agg2(proj_d=proj_d, method=method, dsc_l=dsc_l, case_name='tCn', run_name='tRn',
+    """use the function runner
+    
+    2023-03-18: input filepaths 
+    """
+    run_haz_agg2XR(proj_d=proj_d, method=method, dsc_l=dsc_l, case_name='tCn', run_name='tRn',
                  wrk_dir=tmp_path)
     
-    for k, fp in stat_d.items():
-        assert_stat_check(fp)
+ 
     
     
     

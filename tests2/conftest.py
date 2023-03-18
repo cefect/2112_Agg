@@ -27,7 +27,7 @@ shape_base = tuple(map(int, (bbox_base.bounds[2], bbox_base.bounds[3])))
 crs=CRS.from_user_input(2953)
 
 #saint Jon sub-set test data
-SJ_test_dir= r'C:\LS\10_OUT\2112_Agg\ins\hyd\SaintJohn\test'
+SJ_test_dir= r'C:\LS\10_IO\2112_Agg\ins\hyd\SaintJohn\test'
 
 proj_d = {
     'EPSG':2953,
