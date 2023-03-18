@@ -21,7 +21,7 @@ temp_dir = os.path.join(tempfile.gettempdir(), __name__, datetime.datetime.now()
 if not os.path.exists(temp_dir):
     os.makedirs(temp_dir)
     
-from tests.hcomp.data.toy import crs_default, bbox_default
+from tests.agg3.data.toy import crs_default, bbox_default
  
 
 #===============================================================================

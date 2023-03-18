@@ -26,7 +26,7 @@ from hp.hyd import (
 from hp.fiona import get_bbox_and_crs
  
 
-from hcomp.agg import FloodGridAggregation
+ 
 
 
 class FloodGridAggregation(object):
@@ -255,7 +255,7 @@ class FloodGridAggregation(object):
         
 
 
-class HydCompareSession(Session, FloodGridAggregation):
+class Agg3_Session(Session, FloodGridAggregation):
     """session for comparing a single hyd pair vs. agg pair"""
     def __init__(self,**kwargs):
         super().__init__(obj_name='hcomp',  **kwargs)

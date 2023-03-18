@@ -13,17 +13,17 @@ import pandas as pd
 import shapely.geometry as sgeo
 from rasterio.enums import Resampling
 
-from hcomp.scripts import HydCompareSession
-from hcomp.run_hcomp import run_compare
+from agg3.scripts import Agg3_Session
+from agg3.run_agg import run_agg
 
 
-from tests.hcomp.conftest import get_aoi_fp
+from tests.agg3.conftest import get_aoi_fp
 from hp.tests.tools.rasters import get_rlay_fp
 #===============================================================================
 # test data------
 #===============================================================================
  
-from tests.hcomp.data.toy import (
+from tests.agg3.data.toy import (
     dem1_ar, wse1_ar, wsh1_ar, wse2_ar, crs_default,  bbox_default,
     )
 
@@ -45,7 +45,7 @@ aoi_fp = get_aoi_fp(sgeo.box(0, 0, 6, 9), crs=crs_default)
 def wrkr(init_kwargs):
     
     """Mock session for tests""" 
-    with HydCompareSession(**init_kwargs) as ses: 
+    with Agg3_Session(**init_kwargs) as ses: 
         yield ses
 
 #===============================================================================
@@ -84,8 +84,8 @@ def test_agg_byType(dem_fp, wsh_fp, wse_fp, method, mkwargs, aggscale, wrkr):
 @pytest.mark.parametrize('dem1_fp, wse1_fp, wse2_fp, aoi_fp', [
     (dem1_fp,wse1_fp, wse2_fp, aoi_fp),
     ])
-def test_run_compare(dem1_fp,wse1_fp, wse2_fp, aoi_fp, init_kwargs):
-    run_compare(dem1_fp=dem1_fp, wse1_fp=wse1_fp, wse2_fp=wse2_fp,
+def test_run_agg(dem1_fp,wse1_fp, wse2_fp, aoi_fp, init_kwargs):
+    run_agg(dem1_fp=dem1_fp, wse1_fp=wse1_fp, wse2_fp=wse2_fp,
                 aoi_fp=aoi_fp,
                 init_kwargs=init_kwargs
                 )

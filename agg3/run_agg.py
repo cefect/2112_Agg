@@ -24,20 +24,20 @@ from hp.rio import (
     get_stats,rlay_apply, get_rlay_shape
     )
 
-from hcomp.scripts import HydCompareSession
+from agg3.scripts import Agg3_Session
 
 #===============================================================================
 # FUNCS------
 #===============================================================================
 def ahr_aoi08_r32_0130_30():
-    return run_compare(
+    return run_agg(
         wse1_fp=r'c:\LS\10_IO\2112_Agg\ins\hyd\ahr\ahr_aoi08_r32_0130_30\ahr_aoi08_r04_1215-0030_wse.tif',
         wse2_fp=r'c:\LS\10_IO\2112_Agg\ins\hyd\ahr\ahr_aoi08_r32_0130_30\ahr_aoi08_r32_1221-0030_wse.tif',
         dem1_fp=r'c:\LS\10_IO\2112_Agg\ins\hyd\ahr\ahr_aoi08_r32_0130_30\dem005_r04_aoi08_1210.asc',
         )
 
 
-def run_compare(
+def run_agg(
         dem1_fp=None,
         wse1_fp=None,
         wse2_fp=None,        
@@ -57,7 +57,7 @@ def run_compare(
         
     """
     
-    with HydCompareSession(**init_kwargs) as ses:
+    with Agg3_Session(**init_kwargs) as ses:
         log = ses.logger
         #=======================================================================
         # assemble grids
