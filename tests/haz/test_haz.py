@@ -29,7 +29,7 @@ prec=5
 """better to use a bounding box for integration w/ vectors"""
 output_kwargs = dict(crs=crs,transform=rio.transform.from_origin(1,100,1,1)) 
 
-test_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data'
+test_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\haz\data'
 
 def assert_stat_check(fp, msg=''):
     dx = pd.read_pickle(fp)
@@ -149,7 +149,7 @@ def test_00_runDsmp(wrkr, dsc_l,method,
     
     wrkr.run_agg(dem_fp, wse_fp,  dsc_l=dsc_l,
                   #write=True,
-                  #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data', method).
+                  #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\haz\data', method).
                   )
 
 #===============================================================================
@@ -191,7 +191,7 @@ def test_01_dset(dem_fp,dem_ar,wse_fp, wse_ar,   wrkr, dsc_l, method):
 def test_01_runAgg(dem_fp,wse_fp, wrkr, dsc_l, method, agg_pick_fp):
     """wrapper for build_dset"""
     pick_fp = wrkr.run_agg(dem_fp, wse_fp, method=method, dsc_l=dsc_l, write=True,
-                 #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                 #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\haz\data')
                  )
     
     #validate
@@ -236,7 +236,7 @@ def test_01b_dsc_agg_x(wrkr, agg_pick_df):
 @pytest.mark.parametrize('write', [True, False]) 
 def test_02_catMasks(wrkr,dem_fp,wse_fp, dsc_l, cm_pick_fp, write):
     cf_fp, meta_fp = wrkr.run_catMasksXR(dem_fp, wse_fp, dsc_l=dsc_l, write=write,
-                               #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                               #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\haz\data')
                                )
     
     #===========================================================================
@@ -269,11 +269,11 @@ def test_04_statsFine(wrkr,agg_pick_fp, cm_pick_fp):
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
 def test_05_diffs(wrkr, agg_pick_fp):
     res_fp = wrkr.run_diffs(agg_pick_fp,write=True,
-                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
+                           #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests\haz\data')
                            )
 
 
-diffs_pick_fp = os.path.join(src_dir, r'tests2\haz\data\diffs\SJ_test05_direct_0922_diffs.pkl') 
+diffs_pick_fp = os.path.join(src_dir, r'tests\haz\data\diffs\SJ_test05_direct_0922_diffs.pkl') 
     
 
 
