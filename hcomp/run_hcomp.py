@@ -6,6 +6,7 @@ Created on Mar. 18, 2023
 compare aggregated grids to coarse hyd model grids
 '''
 
+from hcomp.scripts import HydCompareSession
 
 
 def ahr_aoi08_r32_0130_30():
@@ -22,3 +23,6 @@ def run_compare(
         dem1_fp=None,
         ):
     """run the comparison"""
+    
+    with HydCompareSession() as ses:
+        pass

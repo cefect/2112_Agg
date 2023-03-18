@@ -706,7 +706,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
                 elif method=='filter':
                     res_lib[aggscale] = wrkr.agg_filter(base_ds_d,resampleAlg=resampleAlg, **skwargs)
                 else:
-                    raise IOError('not implemented')
+                    raise KeyError(method)
  
         #=======================================================================
         # wrap
@@ -1309,7 +1309,7 @@ class UpsampleSession(Agg2Session, RasterArrayStats, UpsampleChild):
 #         
 #         
 #         Notes
-#         -----------
+#          
 #         These are all at the base resolution
 #         
 #         speedups?
