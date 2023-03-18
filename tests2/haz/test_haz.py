@@ -13,8 +13,8 @@ import pandas as pd
 import pytest, copy, os, random
 import rasterio as rio
 from agg2.haz.coms import get_rand_ar, get_wse_filtered, assert_dx_names, coldx_d
-from agg2.haz.scripts import UpsampleSession as Session
-from agg2.haz.run import run_haz_agg2
+from agg2.haz.scripts import UpsampleSessionXR as Session
+from agg2.haz.run import run_haz_agg2XR
  
 xfail = pytest.mark.xfail
  
@@ -235,7 +235,7 @@ def test_01b_dsc_agg_x(wrkr, agg_pick_df):
 @pytest.mark.parametrize('dsc_l', [(dsc_l_global)]) 
 @pytest.mark.parametrize('write', [True, False]) 
 def test_02_catMasks(wrkr,dem_fp,wse_fp, dsc_l, cm_pick_fp, write):
-    cf_fp, meta_fp = wrkr.run_catMasks(dem_fp, wse_fp, dsc_l=dsc_l, write=write,
+    cf_fp, meta_fp = wrkr.run_catMasksXR(dem_fp, wse_fp, dsc_l=dsc_l, write=write,
                                #out_dir=os.path.join(r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef\tests2\haz\data')
                                )
     

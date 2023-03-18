@@ -224,32 +224,10 @@ class UpsampleChild(ResampClassifier, AggBase):
         return res_d
     
 class RasterArrayStats(object):
-
- 
- #==============================================================================
- #    def __init__(self,
- #                 engine='np', 
- #                 **kwargs):
- #        """methods for ocmputing raster stats on arrays
- #        
- #        Parameters
- #        ----------
- #        engine: str, default 'np'
- #            whether to use dask or numpy
- #        """
- # 
- #        #=======================================================================
- #        # build defaults
- #        #=======================================================================
- #        
- # 
- #        super().__init__(**kwargs)
- #        
- #        self.engine=engine
- #==============================================================================
+     """methods for computings stats on rasters"""
         
         
-    def _build_statFuncs(self, engine=None):
+    def _build_statFuncs(self, engine='np'):
         """construct the dictinoary of methods"""
         if engine is None: engine=self.engine
         
