@@ -10,7 +10,7 @@ unit tests for resample classification
  
 #scripts to test
 from agg2.haz.rsc.scripts import ResampClassifierSession as Session
-from agg2.haz.misc import get_rand_ar, get_wse_filtered
+from agg2.haz.coms import get_rand_ar, get_wse_filtered
 from hp.np import dropna, apply_block_reduce
 from hp.rio import write_array, load_array
 from numpy import array, dtype
@@ -143,7 +143,7 @@ def test_00_crop(dem_fp,   wrkr, downscale, dem_ar):
 def test_01_demCoarse(dem_fp, wrkr, downscale, dem_ar):
     
     #build with function
-    test_fp = wrkr.build_coarse(dem_fp, downscale=downscale)
+    test_fp = wrkr.build_coarse(dem_fp, aggscale=downscale)
     
     #===========================================================================
     # #validate
@@ -152,7 +152,7 @@ def test_01_demCoarse(dem_fp, wrkr, downscale, dem_ar):
     
  
     #compute downscale w/ numpy
-    vali_ar = apply_block_reduce(dem_ar, np.mean, downscale=downscale)
+    vali_ar = apply_block_reduce(dem_ar, np.mean, aggscale=downscale)
  
     """having some issues with precision on the rasterio load"""
     assert np.array_equal(test_ar.round(2), vali_ar.round(2))
@@ -224,7 +224,7 @@ def test_03_catMask(dem_ar, dem_fp,wse_ar, wse_fp,  wrkr, downscale, vali_d):
         downscale=2
     
     #build with function
-    test_d, _ = wrkr.build_cat_masks(dem_fp, wse_fp, downscale=downscale, write=True)
+    test_d, _ = wrkr.build_cat_masks(dem_fp, wse_fp, aggscale=downscale, write=True)
     
     #===========================================================================
     # #validate
@@ -282,7 +282,7 @@ def test_05_all(dem_ar, dem_fp,wse_ar, wse_fp,  vali_ar, downscale, wrkr):
  
     
     #run the chain to build the mosaic
-    test_fp = wrkr.run_all(dem_fp, wse_fp, downscale=downscale, write=True)
+    test_fp = wrkr.run_all(dem_fp, wse_fp, aggscale=downscale, write=True)
     
     #===========================================================================
     # validate
