@@ -108,26 +108,7 @@ def SJ_expo_run(method='direct', run_name='r11', case_name='SJ',
     return run_expo(finv_fp, cm_pick_fp, agg_pick_fp,  method=method, 
                     fp_d = res_fp_lib[run_name][method], run_name=run_name,case_name=case_name ,crs=crs, **kwargs)
 
-#===============================================================================
-# def SJ_r6_0910(
-#         method='filter',
-#         fp_lib = {
-#                 'direct':{
-#                     'catMasks': r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220917\cMasks\SJ_r8_direct_0917_cMasks.pkl',
-#                     'arsc':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\arsc\SJ_r8_direct_0918_arsc.pkl',
-#                     'wd':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wd\SJ_r8_direct_0918_lsamp_wd.pkl',
-#                     'wse':r'C:\LS\10_IO\2112_Agg\outs\agg2\r8\SJ\direct\20220918\lsamp_wse\SJ_r8_direct_0918_lsamp_wse.pkl',
-#                     },
-#                 'filter':{
-#                     'catMasks':'C:\\LS\\10_IO\\2112_Agg\\outs\\agg2\\r5\\SJ\\filter\\20220909\\cMasks\\SJ_r5_filter_0909_cMasks.pkl',
-#                     'arsc':None, #only need to compute this once
-#                     'wd':r'C:\LS\10_IO\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wd\SJ_r7_filter_0911_lsamp_wd.pkl',
-#                     'wse':r' C:\LS\10_IO\2112_Agg\outs\agg2\r7\SJ\filter\20220911\lsamp_wse\SJ_r7_filter_0911_lsamp_wse.pkl'
-#                     }
-#                 },
-#         **kwargs):
-#     return run_expo(fp_d=fp_lib[method], case_name = 'SJ', method=method,run_name='r8', **kwargs)
-#===============================================================================
+ 
 
 if __name__ == "__main__":
     
