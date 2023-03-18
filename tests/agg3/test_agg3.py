@@ -14,7 +14,7 @@ import shapely.geometry as sgeo
 from rasterio.enums import Resampling
 
 from agg3.scripts import Agg3_Session
-from agg3.run_agg import run_agg
+from agg3.run_ahr import run_pipeline
 
 
 from tests.agg3.conftest import get_aoi_fp
@@ -32,7 +32,7 @@ gfp = lambda ar, name:get_rlay_fp(ar, name, crs=crs_default, bbox=bbox_default)
 dem1_fp = gfp(dem1_ar, 'dem1') 
 wse1_fp = gfp(wse1_ar, 'wse1')
 wsh1_fp = gfp(wsh1_ar, 'wsh1')
-wse2_fp = gfp(wse2_ar, 'wse2')
+#wse2_fp = gfp(wse2_ar, 'wse2')
  
 aoi_fp = get_aoi_fp(sgeo.box(0, 0, 6, 9), crs=crs_default)
 
@@ -81,11 +81,12 @@ def test_agg_byType(dem_fp, wsh_fp, wse_fp, method, mkwargs, aggscale, wrkr):
                         aggscale=aggscale, method_kwargs=mkwargs)
 
 @pytest.mark.dev
-@pytest.mark.parametrize('dem1_fp, wse1_fp, wse2_fp, aoi_fp', [
-    (dem1_fp,wse1_fp, wse2_fp, aoi_fp),
+@pytest.mark.parametrize('dem1_fp, wse1_fp, aoi_fp', [
+    (dem1_fp,wse1_fp, aoi_fp),
     ])
-def test_run_agg(dem1_fp,wse1_fp, wse2_fp, aoi_fp, init_kwargs):
-    run_agg(dem1_fp=dem1_fp, wse1_fp=wse1_fp, wse2_fp=wse2_fp,
+@pytest.mark.parametrize('aggscale', [3])
+def test_run_agg(dem1_fp,wse1_fp, aoi_fp, aggscale, init_kwargs):
+    run_pipeline(dem1_fp=dem1_fp, wse1_fp=wse1_fp, aggscale=aggscale, 
                 aoi_fp=aoi_fp,
                 init_kwargs=init_kwargs
                 )

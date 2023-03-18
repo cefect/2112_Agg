@@ -30,18 +30,18 @@ from agg3.scripts import Agg3_Session
 # FUNCS------
 #===============================================================================
 def ahr_aoi08_r32_0130_30():
-    return run_agg(
+    return run_pipeline(
         wse1_fp=r'c:\LS\10_IO\2112_Agg\ins\hyd\ahr\ahr_aoi08_r32_0130_30\ahr_aoi08_r04_1215-0030_wse.tif',
         wse2_fp=r'c:\LS\10_IO\2112_Agg\ins\hyd\ahr\ahr_aoi08_r32_0130_30\ahr_aoi08_r32_1221-0030_wse.tif',
         dem1_fp=r'c:\LS\10_IO\2112_Agg\ins\hyd\ahr\ahr_aoi08_r32_0130_30\dem005_r04_aoi08_1210.asc',
         )
 
 
-def run_agg(
+def run_pipeline(
         dem1_fp=None,
-        wse1_fp=None,
-        wse2_fp=None,        
+        wse1_fp=None,       
         aoi_fp=None,
+        aggscale=2,
         method_lib={'avgWSH':dict(), 'avgWSE':dict()},
         init_kwargs=dict(),
         ):
@@ -62,12 +62,12 @@ def run_agg(
         #=======================================================================
         # assemble grids
         #=======================================================================
-        fp_d = dict(wse1=wse1_fp, wse2=wse2_fp, dem1=dem1_fp)
+        fp_d = dict(wse1=wse1_fp, dem1=dem1_fp)
         for k,v in fp_d.items():
             assert os.path.exists(v), k
             
         #start results container
-        res_lib = {'hyd':dict(wse1=wse1_fp, wse2=wse2_fp, dem1=dem1_fp)}
+        res_lib = {'hyd':dict(wse1=wse1_fp, dem1=dem1_fp)}
         #=======================================================================
         # clip grids
         #=======================================================================
@@ -84,13 +84,15 @@ def run_agg(
         #=======================================================================
         # infer the aggregation scale
         #=======================================================================
-        """matching the hyd wse1 and wse2 grids"""
-        support_ratio = ses.get_support_ratio(fp_d['wse1'], fp_d['wse2'])
-        assert support_ratio.is_integer()
-        assert support_ratio>=2
-        aggscale = int(support_ratio)
-        
-        log.info(f'infered aggscale={aggscale}')
+        #=======================================================================
+        # """matching the hyd wse1 and wse2 grids"""
+        # support_ratio = ses.get_support_ratio(fp_d['wse1'], fp_d['wse2'])
+        # assert support_ratio.is_integer()
+        # assert support_ratio>=2
+        # aggscale = int(support_ratio)
+        # 
+        # log.info(f'infered aggscale={aggscale}')
+        #=======================================================================
         #=======================================================================
         # build aggregate grids on each method  
         #=======================================================================
