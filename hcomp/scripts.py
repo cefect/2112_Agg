@@ -23,8 +23,11 @@ from hp.hyd import (
 #from agg2.haz.scripts import UpsampleChild
 
 
-class AggWSE(object):
-    """simplified aggregation methods"""
+class FloodGridAggregation(object):
+    """simplified aggregation methods
+    See also agg2.haz.scripts.UpsampleChild
+    
+    """
     
     def get_avgWSH(self,
                    dem1_fp, wsh1_fp, 
@@ -243,7 +246,7 @@ class AggWSE(object):
         
 
 
-class HydCompareSession(Session, AggWSE):
+class HydCompareSession(Session, FloodGridAggregation):
     """session for comparing a single hyd pair vs. agg pair"""
     def __init__(self,**kwargs):
         super().__init__(obj_name='hcomp',  **kwargs)

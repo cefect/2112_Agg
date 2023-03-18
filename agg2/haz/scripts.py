@@ -48,7 +48,13 @@ class UpsampleChild(ResampClassifier, AggBase):
     
     NOTES
     -------
-    I thought it cleaner, and more generalizeable, to keep this on a separate worker"""
+    I thought it cleaner, and more generalizeable, to keep this on a separate worker
+    
+    
+    See Also
+    ----------
+    hcomp.scripts.FloodGridAggregation
+    """
     
     def __init__(self, 
  
