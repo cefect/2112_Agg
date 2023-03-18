@@ -2,6 +2,12 @@
 Created on Aug. 28, 2022
 
 @author: cefect
+
+main runner for building aggregated hazards
+    uses a multidimensional Xarray and saves to netcdf
+    run in parallel w/ DASK
+    runs 1 algo at a time
+    
 '''
 import os, pathlib, pprint, webbrowser
 from definitions import proj_lib
