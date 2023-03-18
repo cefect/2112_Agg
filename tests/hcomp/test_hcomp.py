@@ -40,9 +40,6 @@ def wrkr(tmp_path,write,logger, test_name,
     
     """Mock session for tests"""
  
-    #np.random.seed(100)
-    #random.seed(100)
-    
     with HydCompareSession(  
  
                  #oop.Basic
@@ -75,13 +72,20 @@ pars_filepaths = 'dem_fp, wsh_fp, wse_fp', [
 @pytest.mark.parametrize('resampling', [Resampling.average])
 def test_get_avgWSH(dem_fp, wsh_fp, wse_fp, aggscale, resampling, wrkr): 
     wrkr.get_avgWSH(dem_fp, wsh_fp,  aggscale=aggscale, resampling=resampling)
-    
+
+
+@pytest.mark.parametrize(*pars_filepaths)
+@pytest.mark.parametrize('aggscale', [3])
+@pytest.mark.parametrize('resampling', [Resampling.average])
+def test_get_avgWSE(dem_fp, wsh_fp, wse_fp, aggscale, resampling, wrkr): 
+    wrkr.get_avgWSE(dem_fp, wse_fp,  aggscale=aggscale, resampling=resampling)
 
 @pytest.mark.dev
 @pytest.mark.parametrize(*pars_filepaths)
 @pytest.mark.parametrize('aggscale', [3])
 @pytest.mark.parametrize('method, mkwargs', [
-    ('avgWSH', dict(resampling=Resampling.average))
+    ('avgWSH', dict(resampling=Resampling.average)),
+    ('avgWSE', dict(resampling=Resampling.average)),
     ])
 def test_agg_byType(dem_fp, wsh_fp, wse_fp, method, mkwargs, aggscale, wrkr): 
     wrkr.get_agg_byType(method, dem_fp=dem_fp, wse_fp=wse_fp, wsh_fp=wsh_fp, 
