@@ -224,9 +224,8 @@ class UpsampleChild(ResampClassifier, AggBase):
         return res_d
     
 class RasterArrayStats(object):
-     """methods for computings stats on rasters"""
-        
-        
+    #"""methods for computings stats on rasters"""
+    
     def _build_statFuncs(self, engine='np'):
         """construct the dictinoary of methods"""
         if engine is None: engine=self.engine
