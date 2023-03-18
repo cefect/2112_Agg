@@ -3,7 +3,8 @@ Created on Mar. 18, 2023
 
 @author: cefect
 
-compare aggregated grids to coarse hyd model grids
+started this to compare aggregated grids to coarse hyd model grids
+    but decided to just compute agg grids here... and have a new project for inundation performance
 '''
 #===============================================================================
 # IMPORTS-------
