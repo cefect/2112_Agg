@@ -2,6 +2,8 @@
 Created on Oct. 14, 2022
 
 @author: cefect
+
+create difference maps (fig:map_diff)
 '''
 
 
@@ -14,7 +16,7 @@ from pyproj.crs import CRS
 import geopandas as gpd
 import shapely.geometry as sgeo
  
-from agg2.da import CombinedDASession as Session
+from agg2.scripts.da import CombinedDASession as Session
 from agg2.haz.da import cat_mdex
 from agg2.coms import log_dxcol
 from agg2.haz.run import res_fp_lib
@@ -29,8 +31,7 @@ cm = 1/2.54
 
 output_format='pdf'
 usetex=True
-if usetex:
-    os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
+ 
     
   
 import matplotlib

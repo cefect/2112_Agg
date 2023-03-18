@@ -2,6 +2,8 @@
 Created on Sep. 26, 2022
 
 @author: cefect
+
+data analysis of aggregation results
 '''
 import os, pathlib, itertools, logging, sys
 import pandas as pd
@@ -12,7 +14,7 @@ from hp.pd import append_levels, view
  
 from definitions import proj_lib
 from pyproj.crs import CRS
-from agg2.da import CombinedDASession as Session
+from agg2.da.scripts import CombinedDASession as Session
 from agg2.coms import log_dxcol
 from agg2.haz.run import res_fp_lib as hrfp_lib
 #===============================================================================
@@ -88,7 +90,8 @@ res_fp_lib = {
 def SJ_da_run(
         run_name='r10',
         case_name='SJ',
-        **kwargs):    
+        **kwargs):
+    """Data Analysis on SaintJon"""    
     
     proj_d = proj_lib[case_name] 
     crs = CRS.from_epsg(proj_d['EPSG'])
@@ -131,12 +134,12 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         #=======================================================================
         # plots-------
         #=======================================================================
-        #Figure 6. Bias from aggregation of four metrics
-        #ses.plot_4x4_subfigs(dx1)
+        #fig:cres. Bias from aggregation of four metrics
+        ses.plot_4x4_subfigs(dx)
  
         
         #=======================================================================
-        # #Figure 5. Resample case classification progression
+        # #fig:dsc_prog. Resample case classification progression
         #=======================================================================
         """asset exposed count"""
         #data prep 
@@ -150,6 +153,8 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         """
         view(dx1.loc[:, idx[:, 's2',:,:,:,:]].T)
         """
+    print(f'finished at {out_dir}')
+    return out_dir
 
         
 
