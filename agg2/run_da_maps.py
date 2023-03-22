@@ -6,6 +6,7 @@ Created on Oct. 14, 2022
 
 
 import os, pathlib, math, pprint, logging, sys
+os.environ['USE_PYGEOS']='0'
 from definitions import proj_lib
 
 import pandas as pd
@@ -29,8 +30,7 @@ cm = 1/2.54
 
 output_format='pdf'
 usetex=True
-if usetex:
-    os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
+ 
     
   
 import matplotlib
@@ -158,7 +158,7 @@ def run_grid_plots(xr_dir,finv_fp, **kwargs):
         #=======================================================================
         # plots
         #=======================================================================
-        ses.plot_maps(xar1, gdf_c)
+        ses.plot_maps(xar1, gdf_c, output_format=output_format)
         
         #ds['wd'].squeeze(drop=True).plot.imshow(col='scale')
         

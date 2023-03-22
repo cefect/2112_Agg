@@ -118,4 +118,6 @@ wrk_dir=root_dir
 
 base_resolution=10
 
+os.environ['PATH'] += R";C:\Program Files\MiKTeX\miktex\bin\x64"
+
 #max_cores = max(multiprocessing.cpu_count(), 8)

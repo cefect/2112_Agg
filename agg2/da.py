@@ -129,7 +129,7 @@ class Plot_diff_grids(object):
         # add titles
         #=======================================================================
         for col_key, ax in ax_d[map_d['row']].items():
-            ax.set_title('$\lambda_{s2}=$%i' % col_key+'m', loc='center', y=1.0)
+            ax.set_title('$s2=$%i' % col_key+'m', loc='center', y=1.0)
             
 
             
@@ -492,7 +492,7 @@ class PlotWrkr_3xRscProg(object):
             #                    bbox=dict(boxstyle="round,pad=0.3", fc="white", lw=0.0,alpha=0.7 )
             #                    )
             #===================================================================
-            ax.set_title('$\lambda_{s2}=$%i'%col_key + 'm')
+            ax.set_title('$s2=$%i'%col_key + 'm')
             
             #turn off the axis and labels
             #ax.cla()

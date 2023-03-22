@@ -4,6 +4,7 @@ Created on Sep. 26, 2022
 @author: cefect
 '''
 import os, pathlib, itertools, logging, sys
+os.environ['USE_PYGEOS']='0'
 import pandas as pd
 import numpy as np
 idx = pd.IndexSlice
@@ -20,8 +21,7 @@ from agg2.haz.run import res_fp_lib as hrfp_lib
 #===============================================================================
 output_format='pdf'
 usetex=True
-if usetex:
-    os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
+ 
 
 cm = 1/2.54
 import matplotlib
@@ -146,7 +146,7 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         
         xar = xds['catMosaic'].squeeze(drop=True).transpose(ses.idxn, ...)[1:] #drop the first
         #plot
-        ses.plot_3xRscProg(dx1, xar)
+        ses.plot_3xRscProg(dx1, xar, output_format=output_format)
         """
         view(dx1.loc[:, idx[:, 's2',:,:,:,:]].T)
         """
