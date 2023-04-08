@@ -291,6 +291,7 @@ class ResampClassifier(RioWrkr):
         #===================================================================
         # compute delta
         #===================================================================
+        """WSE mean is computed below"""
         log.info('    computing deltas')
         delta_ar = np.nan_to_num(wse_ar-dem_ar, nan=0.0)
         assert np.all(delta_ar>=0)
