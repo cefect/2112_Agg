@@ -4,6 +4,17 @@ Created on Oct. 22, 2022
 @author: cefect
 
 2d profile example of wd averaging
+progression of local 
+
+
+    \includegraphics[width=1.0\textwidth]{agg_exmp_1022_prof}
+    \caption{
+        Conceptual diagram showing a cross-section of local bias generated through two types of averaging: (a) zero-inclusion (as in Equation \ref{eq:wd_avg}) and (b) zero-exclusion (as in Equation \ref{eq:wse_avg_1}).
+        All series within a panel have the same global mean.
+        Black arrow shows the progression of local bias.
+    } 
+\label{fig:wd_avg}
+
 '''
 import os, pathlib, itertools, logging, sys, datetime
 import pandas as pd
@@ -17,8 +28,7 @@ from definitions import wrk_dir
 #===============================================================================
 output_format='pdf'
 usetex=True
-if usetex:
-    os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
+ 
  
 cm = 1/2.54
 import matplotlib
