@@ -4,6 +4,10 @@ Work for main WRR manuscript aggregating grids, computing resample case, computi
 
 ## Related Projects
 
+[2210_AggFSyn](https://github.com/cefect/2210_AggFSyn.git):  Scripts for computing potential flood damage function error from aggregation against synthetically produced depths. ICFM9 work
+
+[2112_AggAnal](https://github.com/cefect/2112_AggAnal): work for 2023 WRR aggregation supplement. copied from FloodGridPerformance (2023-06-30)
+
 [FloodGridPerformance](https://github.com/cefect/FloodGridPerformance): simple tool for computing the performance of some flood grids (against observations). wrapper on fperf.
 
 [2207_dscale2](https://github.com/cefect/2207_dscale2): project for generating analog inundation grids with LISFLOOD. 
