@@ -1,4 +1,0 @@
-[submodule "coms"]
-	path = coms
-	url = https://github.com/cefect/coms.git
-	branch = 2112_Agg
