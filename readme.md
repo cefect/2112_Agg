@@ -1,4 +1,6 @@
-# Hazard Aggregation work
+# Flood Hazard Gridd Aggregation
+
+[![DOI](https://zenodo.org/badge/440854458.svg)](https://zenodo.org/badge/latestdoi/440854458)
 
 Work for main WRR manuscript aggregating grids, computing resample case, computing metrics, plotting.
 
