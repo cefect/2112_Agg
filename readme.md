@@ -1,4 +1,4 @@
-# Flood Hazard Gridd Aggregation
+# Flood Hazard Grid Aggregation
 
 [![DOI](https://zenodo.org/badge/440854458.svg)](https://zenodo.org/badge/latestdoi/440854458)
 
