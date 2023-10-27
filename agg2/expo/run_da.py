@@ -8,7 +8,7 @@ exposure data analysis
  
 
 import os, pathlib, itertools, logging, sys
-from definitions import proj_lib
+from input_params import proj_lib
 from hp.basic import get_dict_str, today_str, lib_iter
 from hp.pd import append_levels, view
 import pandas as pd
@@ -25,8 +25,8 @@ from agg2.coms import log_dxcol, cat_mdex
 #===============================================================================
 cm = 1/2.54
 
-output_format='pdf'
-usetex=True
+output_format='svg'
+usetex=False
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
     
@@ -73,6 +73,7 @@ logging.basicConfig(
  
 
 def SJ_plots_0910(run_name='r8', **kwargs):
+    """Figure S2. Exposed domain computation results. See main text for details"""
     return run_plots(res_fp_lib[run_name], run_name=run_name, **kwargs)
 
  

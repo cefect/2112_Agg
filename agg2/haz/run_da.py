@@ -7,7 +7,7 @@ import faulthandler
 faulthandler.enable()
 
 import os, pathlib, math, pprint, logging, sys
-from definitions import proj_lib
+from input_params import proj_lib
 
 import pandas as pd
 idx = pd.IndexSlice
@@ -25,8 +25,8 @@ from hp.basic import get_dict_str, today_str
 #===============================================================================
 cm = 1/2.54
 
-output_format='pdf'
-usetex=True
+output_format='svg'
+usetex=False
 if usetex:
     os.environ['PATH'] += R";C:\Users\cefect\AppData\Local\Programs\MiKTeX\miktex\bin\x64"
     
@@ -113,7 +113,10 @@ res_fp_lib = { #see haz.run_stats.run_haz_stats()
 
 def SJ_da_run(
         run_name='r9',
-        **kwargs):    
+        **kwargs):
+    """
+    Figure S1. Full domain computation results. See main text for details
+    """    
     
     return run_haz_plots(res_fp_lib[run_name], proj_name='SJ', run_name=run_name, **kwargs)
 

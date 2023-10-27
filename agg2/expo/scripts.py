@@ -19,7 +19,7 @@ import shapely.geometry as sgeo
 import rasterio as rio
 #import rasterio.windows
 
-from rasterstats import zonal_stats
+#from rasterstats import zonal_stats
 #import rasterstats.utils
 #import matplotlib.pyplot as plt
 

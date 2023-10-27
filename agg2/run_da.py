@@ -11,7 +11,8 @@ idx = pd.IndexSlice
 from hp.basic import get_dict_str, today_str, lib_iter
 from hp.pd import append_levels, view
  
-from definitions import proj_lib
+#from definitions import proj_lib
+from input_params import proj_lib
 from pyproj.crs import CRS
 from agg2.da import CombinedDASession as Session
 from agg2.coms import log_dxcol

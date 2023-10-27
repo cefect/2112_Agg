@@ -10,7 +10,7 @@ import numpy as np
 import numpy.ma as ma
 import pandas as pd
 from agg2.coms import cm_int_d
-import xarray as xr
+#import xarray as xr
 
 #===============================================================================
 # globals

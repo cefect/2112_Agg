@@ -132,10 +132,11 @@ class Agg2DAComs(Plotr):
     
     def __init__(self,
                  output_format = 'svg', 
+                 logfile_duplicate=False,
                    **kwargs): 
         
         self.output_format=output_format
-        super().__init__(logfile_duplicate=False,  **kwargs)
+        super().__init__(logfile_duplicate=logfile_duplicate,  **kwargs)
         
     def log_dxcol(self, *args):
         return log_dxcol(self.logger, *args)

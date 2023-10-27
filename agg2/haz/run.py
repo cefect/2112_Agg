@@ -4,7 +4,7 @@ Created on Aug. 28, 2022
 @author: cefect
 '''
 import os, pathlib, pprint, webbrowser
-from definitions import proj_lib
+from input_params import proj_lib
 from hp.basic import get_dict_str, now, today_str
 import shapely.geometry as sgeo
 import numpy as np
@@ -13,9 +13,9 @@ idx = pd.IndexSlice
 
 from rasterio.crs import CRS
 
-import rioxarray
-from dask.diagnostics import ProgressBar 
-import dask
+#import rioxarray
+#from dask.diagnostics import ProgressBar 
+#import dask
 
 from hp.pd import view
 

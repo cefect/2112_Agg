@@ -14,6 +14,20 @@ add submodule
 
 add the new submodule to your python path
 
+## USE
+
+### figures
+
+
+Figure S1. Full domain computation results. See main text for details
+`agg2.haz.run_da.SJ_da_run()`
+
+Figure S2. Exposed domain computation results. See main text for details
+`agg2.expo.run_da.SJ_plots_0910()`
+
+
+
+
 ## Related Projects
 
 [2210_AggFSyn](https://github.com/cefect/2210_AggFSyn.git):  Scripts for computing potential flood damage function error from aggregation against synthetically produced depths. ICFM9 work
@@ -31,6 +45,8 @@ add the new submodule to your python path
 [2112_agg_pub](https://github.com/cefect/2112_agg_pub): public repo of analysis for aggregation paper. 
 
 [FloodDownscaler](https://github.com/cefect/FloodDownscaler): Work for manuscript to downscale inundation grids, compute performance against observations, and plot
+
+
 
 
 ### definitions.py

@@ -17,11 +17,11 @@ from osgeo import gdal
 from sklearn.metrics import confusion_matrix
 import scipy.stats
 
-import rioxarray
-import xarray as xr
-from dask.diagnostics import ProgressBar
+#import rioxarray
+#import xarray as xr
+#from dask.diagnostics import ProgressBar
  
-import dask
+#import dask
  
 
 from hp.rio import RioWrkr, assert_extent_equal, is_divisible, assert_rlay_simple, load_array, \
