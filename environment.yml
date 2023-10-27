@@ -1,0 +1,18 @@
+name: 2112_agg
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10.*
+  - pandas
+  - scipy
+  - pytest
+  - matplotlib=3.6.*
+  - tqdm
+  - xlrd
+  - geopandas=0.11.*
+  - pandas=1.5.*
+  - rasterio=1.3.*
+  - pip
+  - pip:
+    - psutil
+    - palettable

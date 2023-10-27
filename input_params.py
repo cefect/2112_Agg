@@ -1,12 +1,5 @@
-'''
-Created on Mar. 25, 2022
-
-@author: cefect
-'''
-import os
-proj_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef'
-src_dir = proj_dir
-src_name='agg'
+"""filepaths to inputs"""
+base_resolution=10
 
 model_pars_fp = r'C:\LS\10_IO\2112_Agg\ins\hyd\model_pars\hyd_modelPars_0419.xls'
 
@@ -110,14 +103,3 @@ proj_lib =     { #studyArea data for hyd.runr
             #     },
             #===================================================================
             }
-
-logcfg_file=r'C:\LS\09_REPOS\01_COMMON\coms\logger.conf'
-
-root_dir=r'C:\LS\10_IO\2112_Agg'
-wrk_dir=root_dir
-
-base_resolution=10
-
-os.environ['PATH'] += R";C:\Program Files\MiKTeX\miktex\bin\x64"
-
-#max_cores = max(multiprocessing.cpu_count(), 8)

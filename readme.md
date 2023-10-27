@@ -4,6 +4,16 @@
 
 Work for main WRR manuscript aggregating grids, computing resample case, computing metrics, plotting.
 
+## installation
+build conda environment from ./environment.yml
+
+create a ./definitions.py file similar to that shown below
+
+add submodule
+`git submodule add -b 2112_Agg https://github.com/cefect/coms.git`
+
+add the new submodule to your python path
+
 ## Related Projects
 
 [2210_AggFSyn](https://github.com/cefect/2210_AggFSyn.git):  Scripts for computing potential flood damage function error from aggregation against synthetically produced depths. ICFM9 work
@@ -22,5 +32,21 @@ Work for main WRR manuscript aggregating grids, computing resample case, computi
 
 [FloodDownscaler](https://github.com/cefect/FloodDownscaler): Work for manuscript to downscale inundation grids, compute performance against observations, and plot
 
-## Submodules
-git submodule add -b 2112_Agg https://github.com/cefect/coms.git
+
+### definitions.py
+```
+import os
+proj_dir = r'C:\LS\09_REPOS\02_JOBS\2112_Agg\cef'
+src_dir = proj_dir
+src_name='agg'
+
+logcfg_file=r'C:\LS\09_REPOS\01_COMMON\coms\logger.conf'
+
+root_dir=r'C:\LS\10_IO\2112_Agg'
+wrk_dir=root_dir
+
+#path to latex engine
+os.environ['PATH'] += R";C:\Program Files\MiKTeX\miktex\bin\x64"
+```
+
+ 
