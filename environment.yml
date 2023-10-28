@@ -16,6 +16,7 @@ dependencies:
   - rasterstats
   - rioxarray
   - dask
+  - netcdf4=1.6.*
   - pip
   - pip:
     - psutil

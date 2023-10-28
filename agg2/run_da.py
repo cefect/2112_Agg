@@ -20,8 +20,8 @@ from agg2.haz.run import res_fp_lib as hrfp_lib
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
-output_format='pdf'
-usetex=True
+output_format='svg'
+usetex=False
  
 
 cm = 1/2.54
@@ -133,7 +133,7 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         # plots-------
         #=======================================================================
         #Figure 6. Bias from aggregation of four metrics
-        #ses.plot_4x4_subfigs(dx1)
+        ses.plot_4x4_subfigs(dx)
  
         
         #=======================================================================

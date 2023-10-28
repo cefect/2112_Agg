@@ -7,7 +7,7 @@ Created on Oct. 14, 2022
 
 import os, pathlib, math, pprint, logging, sys
 os.environ['USE_PYGEOS']='0'
-from definitions import proj_lib
+from input_params import proj_lib
 
 import pandas as pd
 idx = pd.IndexSlice
@@ -28,8 +28,8 @@ from hp.basic import get_dict_str, today_str
 #===============================================================================
 cm = 1/2.54
 
-output_format='pdf'
-usetex=True
+output_format='svg'
+usetex=False
  
     
   

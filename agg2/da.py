@@ -717,6 +717,8 @@ class PlotWrkr_4x4_subfigs(object):
                          output_format=None,
                          output_fig_kwargs=dict(),
                          **kwargs):
+        """Figure 6. Bias from aggregation of four metrics"""
+        
         #=======================================================================
         # defaults
         #=======================================================================
