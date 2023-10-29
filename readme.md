@@ -18,10 +18,10 @@ add the new submodule to your python path
 
 ### figures
 
-Figure 6. Bias from aggregation of four metrics
+Figure 5. Resample case classification progression for May 2018 Saint John River flood hazard data
 `agg2.run_da.SJ_da_run()`
 
-Figure 5. Resample case classification progression for May 2018 Saint John River flood hazard data
+Figure 6. Bias from aggregation of four metrics
 `agg2.run_da.SJ_da_run()`
 
 Figure 7. WSH difference maps for an example 512 m square region at five resolutions aggregated with the WSH Averaging routine
