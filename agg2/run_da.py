@@ -3,6 +3,99 @@ Created on Sep. 26, 2022
 
 @author: cefect
 '''
+
+#===============================================================================
+# setup matplotlib----------
+#===============================================================================
+env_type = 'draft'
+cm = 1 / 2.54
+
+if env_type == 'journal': 
+    usetex = True
+elif env_type == 'draft':
+    usetex = False
+elif env_type == 'present':
+    usetex = False
+else:
+    raise KeyError(env_type)
+ 
+
+import matplotlib
+#matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
+matplotlib.set_loglevel("info") #reduce logging level
+import matplotlib.pyplot as plt
+ 
+#set teh styles
+plt.style.use('default')
+
+def set_doc_style():
+ 
+    font_size=8
+    matplotlib.rc('font', **{'family' : 'serif','weight' : 'normal','size'   : font_size})
+     
+    for k,v in {
+        'axes.titlesize':font_size,
+        'axes.labelsize':font_size,
+        'xtick.labelsize':font_size,
+        'ytick.labelsize':font_size,
+        'figure.titlesize':font_size+2,
+        'figure.autolayout':False,
+        'figure.figsize':(17.7*cm,18*cm),#typical full-page textsize for Copernicus (with 4cm for caption)
+        'legend.title_fontsize':'large',
+        'text.usetex':usetex,
+        }.items():
+            matplotlib.rcParams[k] = v
+
+#===============================================================================
+# journal style
+#===============================================================================
+if env_type=='journal':
+    set_doc_style() 
+ 
+    env_kwargs=dict(
+        output_format='pdf',add_stamp=False,transparent=True
+        )            
+#===============================================================================
+# draft
+#===============================================================================
+elif env_type=='draft':
+    set_doc_style() 
+ 
+    env_kwargs=dict(
+        output_format='svg',add_stamp=True,transparent=True
+        )          
+#===============================================================================
+# presentation style    
+#===============================================================================
+elif env_type=='present': 
+ 
+    env_kwargs=dict(
+        output_format='svg',add_stamp=True,transparent=False
+        )   
+ 
+    font_size=12
+ 
+    matplotlib.rc('font', **{'family' : 'sans-serif','sans-serif':'Tahoma','weight' : 'normal','size':font_size})
+     
+     
+    for k,v in {
+        'axes.titlesize':font_size+2,
+        'axes.labelsize':font_size+2,
+        'xtick.labelsize':font_size,
+        'ytick.labelsize':font_size,
+        'figure.titlesize':font_size+4,
+        'figure.autolayout':False,
+        'figure.figsize':(34*cm,19*cm), #GFZ template slide size
+        'legend.title_fontsize':'large',
+        'text.usetex':usetex,
+        }.items():
+            matplotlib.rcParams[k] = v
+  
+print('loaded matplotlib %s'%matplotlib.__version__)
+
+#===============================================================================
+# imporst---------
+#===============================================================================
 import os, pathlib, itertools, logging, sys
 os.environ['USE_PYGEOS']='0'
 import pandas as pd
@@ -17,43 +110,8 @@ from pyproj.crs import CRS
 from agg2.da import CombinedDASession as Session
 from agg2.coms import log_dxcol
 from agg2.haz.run import res_fp_lib as hrfp_lib
-#===============================================================================
-# setup matplotlib----------
-#===============================================================================
-output_format='svg'
-usetex=False
- 
 
-cm = 1/2.54
-import matplotlib
-#matplotlib.use('Qt5Agg') #sets the backend (case sensitive)
-matplotlib.set_loglevel("info") #reduce logging level
-import matplotlib.pyplot as plt
- 
-#set teh styles
-plt.style.use('default')
- 
-#font
-matplotlib.rc('font', **{
-        'family' : 'serif', 
-        'weight' : 'normal',
-        'size'   : 8})
- 
- 
-for k,v in {
-    'axes.titlesize':10,
-    'axes.labelsize':10,
-    'xtick.labelsize':8,
-    'ytick.labelsize':8,
-    'figure.titlesize':12,
-    'figure.autolayout':False,
-    'figure.figsize':(10,10),
-    'legend.title_fontsize':'large',
-    'text.usetex':usetex,
-    }.items():
-        matplotlib.rcParams[k] = v
-  
-print('loaded matplotlib %s'%matplotlib.__version__)
+
 
  
 #===============================================================================
@@ -135,7 +193,7 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         #Figure 6. Bias from aggregation of four metrics
         ses.plot_4x4_subfigs(dx)
  
-        
+        return
         #=======================================================================
         # #Figure 5. Resample case classification progression
         #=======================================================================
@@ -147,7 +205,7 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         
         xar = xds['catMosaic'].squeeze(drop=True).transpose(ses.idxn, ...)[1:] #drop the first
         #plot
-        ses.plot_3xRscProg(dx1, xar, output_format=output_format)
+        ses.plot_3xRscProg(dx1, xar)
         """
         view(dx1.loc[:, idx[:, 's2',:,:,:,:]].T)
         """
@@ -155,7 +213,7 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         
 
 if __name__ == "__main__":
-    SJ_da_run(run_name='r11', output_format=output_format)
+    SJ_da_run(run_name='r11', **env_kwargs)
  
     
     print('finished')
