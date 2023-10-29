@@ -1020,7 +1020,69 @@ class PlotWrkr_4x4_subfigs(object):
                                       write=write,
                                       )
         
-class CombinedDASession(PlotWrkr_4x4_subfigs,PlotWrkr_4x4_matrix, PlotWrkr_3xRscProg, Plot_diff_grids, ExpoDASession):
+class PlotWrkr_2x_present(object):
+ 
+            
+    """complex 4x4 matrix plot with expo and haz"""
+    def plot_2x_present(self, dx,
+                         figsize=None,
+                         **kwargs):
+        """simple plot of two metric v. resolution plots for presentations"""
+        
+        #=======================================================================
+        # data prep
+        #=======================================================================
+        #mertric selection
+        ylab_d={ 
+                    's12_wd_mean':r'$\overline{WSH_{s2} - WSH_{s1}}$ (m)',
+                    #'s12_wse_mean':r'$\overline{WSE_{s2}-WSE_{s1}}$ (m)',
+                    #'s12AN_wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$ or $\frac{\sum wet_{s2}-\sum wet_{s1}}{\sum wet_{s1}}$',
+                    's12AN_wse_real_area':r'$\frac{\sum A_{s2}-\sum A_{s1}}{\sum A_{s1}}$',
+                    #'s12AN_wd_vol':r'$\frac{\sum V_{s2}-\sum V_{s1}}{\sum V_{s1}}$',
+                    
+                    }
+                        
+        dxH = dx['haz']
+        dxi = pd.concat([
+                dxH.loc[:, idx['s12', :, 'wd', :, 'mean']], 
+                dxH.loc[:, idx['s12', :, 'wse', :, 'mean']], 
+                
+                #===============================================================
+                # dxH.loc[:, idx['s12AN', :, 'wd', :, 'mean']], 
+                # dxH.loc[:, idx['s12A', :, 'wse', :, 'mean']], 
+                #===============================================================
+                
+                dxH.loc[:, idx['s12AN', :, 'wse', :, 'real_area']], 
+                dxH.loc[:, idx['s12AN', :, 'wd', :, 'vol']]
+            ], axis=1).sort_index(axis=1)
+            
+        #cat layer and metric
+        dxi.columns, mcoln = cat_mdex(dxi.columns, levels=['base', 'layer', 'metric']) 
+        print(dxi.columns.unique(mcoln).tolist())
+        #row_l = ['s12_wd_mean',   's12AN_wse_real_area']
+        
+        #stack into a series (method selection
+        serx = dxi.stack(dxi.columns.names).loc[idx[:, 'direct', :, list(ylab_d.keys())]]
+ 
+        #=======================================================================
+        # plot prep
+        #=======================================================================
+        mk_base=dict(set_ax_title=False, add_subfigLabel=False, 
+                           constrained_layout=True, figsize=figsize,fig_id=None)
+        
+        return self.plot_matrix_metric_method_var(serx, 
+                map_d={'row':mcoln, 'col':'method', 'color':'dsc', 'x':'scale'}, 
+                row_l=list(ylab_d.keys()), 
+                ylab_d=ylab_d,
+                ofp=os.path.join(self.out_dir, f'{self.fancy_name}_fig_haz_2x1_{mcoln}.svg'), 
+                matrix_kwargs=mk_base, 
+                ax_lims_d={}, 
+                legend_kwargs={},
+                plot_kwargs={'linestyle':'solid', 'marker':'x', 'markersize':14, 'alpha':0.8, 'linewidth':4},
+                    write=True)
+        
+        
+class CombinedDASession(PlotWrkr_4x4_subfigs,PlotWrkr_4x4_matrix, PlotWrkr_3xRscProg, Plot_diff_grids, PlotWrkr_2x_present, ExpoDASession):
     
     def __init__(self,scen_name='daC', **kwargs): 
         super().__init__(scen_name=scen_name,**kwargs)

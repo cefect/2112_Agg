@@ -7,7 +7,7 @@ Created on Sep. 26, 2022
 #===============================================================================
 # setup matplotlib----------
 #===============================================================================
-env_type = 'draft'
+env_type = 'present'
 cm = 1 / 2.54
 
 if env_type == 'journal': 
@@ -73,7 +73,7 @@ elif env_type=='present':
         output_format='svg',add_stamp=True,transparent=False
         )   
  
-    font_size=12
+    font_size=14
  
     matplotlib.rc('font', **{'family' : 'sans-serif','sans-serif':'Tahoma','weight' : 'normal','size':font_size})
      
@@ -108,7 +108,7 @@ from hp.pd import append_levels, view
 from input_params import proj_lib
 from pyproj.crs import CRS
 from agg2.da import CombinedDASession as Session
-from agg2.coms import log_dxcol
+from agg2.coms import log_dxcol,cat_mdex
 from agg2.haz.run import res_fp_lib as hrfp_lib
 
 
@@ -190,10 +190,23 @@ def run_plots_combine(fp_lib,pick_fp=None,xr_dir=None, write=True,**kwargs):
         #=======================================================================
         # plots-------
         #=======================================================================
-        #Figure 6. Bias from aggregation of four metrics
+        """
+        view(dx.columns.to_frame().reset_index(drop=True))
+        view(serx)
+        dx.xs(
+        """
+        #=======================================================================
+        # presentations
+        #=======================================================================
+        
+        ses.plot_2x_present(dx, figsize=(14*cm, 19*cm))
+        return
+        #=======================================================================
+        # #Figure 6. Bias from aggregation of four metrics
+        #=======================================================================
         ses.plot_4x4_subfigs(dx)
  
-        return
+        
         #=======================================================================
         # #Figure 5. Resample case classification progression
         #=======================================================================
